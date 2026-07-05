@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Boggle Party</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%2307030f' width='100' height='100' rx='20'/><rect x='12' y='12' width='76' height='76' rx='14' fill='%231d1140' stroke='%23ff2d78' stroke-width='4'/><text x='50' y='66' font-size='44' text-anchor='middle' fill='%23fff' font-family='sans-serif' font-weight='bold'>B!</text></svg>">
@@ -32,12 +32,15 @@
             --success: #34d399;
         }
 
+
+        
         html { height: 100%; }
         body {
             font-family: 'JetBrains Mono', monospace;
             background: var(--bg);
             color: var(--text);
             min-height: 100dvh;
+            
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -596,6 +599,33 @@
         .v-missed { display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: center; max-width: 80vw; }
         .v-missed span { font-family: 'Orbitron', sans-serif; font-size: clamp(.7rem,1.5vw,1rem); letter-spacing: 2px; color: var(--muted); }
 
+        /* Round-end word reveal theater */
+        .v-wchips { display: flex; flex-wrap: wrap; gap: clamp(6px,1vh,10px) clamp(8px,1vw,12px); justify-content: center; max-width: 82vw; }
+        .v-wchip {
+            font-family: 'Orbitron', sans-serif; font-size: clamp(.68rem,1.6vw,1.05rem); letter-spacing: 1.5px;
+            padding: clamp(4px,.8vh,8px) clamp(9px,1.2vw,14px); border-radius: 10px;
+            background: var(--s2); border: 1px solid var(--border);
+            animation: cdPopIn .35s cubic-bezier(.34,1.56,.64,1) both;
+        }
+        .v-wchip i { font-style: normal; color: var(--gold); font-size: .85em; }
+        .v-wchip.big { border-color: var(--gold); background: rgba(255,201,60,.1); box-shadow: 0 0 14px rgba(255,201,60,.15); }
+
+        /* Between-round trivia: what the best word means */
+        .v-trivia { font-size: clamp(.72rem,1.5vw,1.05rem); color: var(--muted); font-style: italic; text-align: center; max-width: 68vw; line-height: 1.5; }
+        .v-trivia b { color: var(--gold); font-style: normal; font-family: 'Orbitron', sans-serif; letter-spacing: 2px; }
+
+        /* Final-10-seconds mode: dim board, giant countdown */
+        .v-board { transition: filter .5s; }
+        .v-final .v-board { filter: brightness(.35) saturate(.5); }
+        .v-count { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 5; }
+        .v-count-num {
+            font-family: 'Orbitron', sans-serif; font-weight: 900;
+            font-size: clamp(6rem,26vmin,17rem); color: var(--pink);
+            text-shadow: 0 0 70px rgba(255,45,120,.85), 0 0 20px rgba(255,45,120,.5);
+            animation: countPop 1s ease-out both;
+        }
+        @keyframes countPop { 0% { transform: scale(1.55); opacity: 0; } 18% { transform: scale(1); opacity: 1; } 100% { opacity: .8; } }
+
         /* ══════════════════════════════════════
            VIEWER (TV) MODE
         ══════════════════════════════════════ */
@@ -663,12 +693,15 @@
         }
         .v-chip .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--success); box-shadow: 0 0 8px var(--success); }
 
-        /* Viewer game body */
-        .v-body { display: grid; grid-template-columns: 1fr clamp(230px, 30vw, 420px); overflow: hidden; position: relative; }
+        /* Viewer game body — board left, live activity panel gets the right half */
+        .v-body { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); overflow: hidden; position: relative; }
         .v-board-panel { display: flex; align-items: center; justify-content: center; padding: clamp(10px,2vw,30px); position: relative; }
+        .v-board-wrap { display: flex; flex-direction: column; align-items: center; gap: clamp(10px,1.8vh,18px); width: min(42vw, 64vh); }
+        .v-timer-row { display: flex; align-items: center; gap: clamp(12px,2vw,24px); width: 100%; }
+        .v-timer-row .v-timebar { flex: 1; }
         .v-board {
             display: grid; grid-template-columns: repeat(var(--n,4), 1fr); gap: clamp(6px,1vw,14px);
-            width: min(58vw, 78vh); aspect-ratio: 1;
+            width: 100%; aspect-ratio: 1;
         }
         .v-tile {
             position: relative; border-radius: 16%;
@@ -713,12 +746,7 @@
         .v-lb-words { font-size: clamp(.6rem,1.1vw,.8rem); color: var(--muted); }
         .v-lb-score { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: clamp(.85rem,1.7vw,1.2rem); }
 
-        /* Viewer footer: timer bar + feed */
-        .v-footer {
-            display: flex; align-items: center; gap: clamp(14px,2.5vw,34px);
-            padding: clamp(8px,1.6vh,16px) clamp(16px,3vw,40px);
-            border-top: 1px solid rgba(139,92,246,0.22);
-        }
+        /* Timer (lives under the board) */
         .v-timer {
             font-family: 'Orbitron', sans-serif; font-weight: 900;
             font-size: clamp(1.3rem,3vw,2.2rem); color: var(--cyan); letter-spacing: 2px;
@@ -726,13 +754,29 @@
         }
         .v-timer.warn { color: var(--gold); }
         .v-timer.urgent { color: var(--pink); animation: urgentPulse .5s ease-in-out infinite alternate; }
-        .v-timebar { flex: 0 0 clamp(120px,18vw,260px); height: 10px; border-radius: 5px; background: var(--s2); overflow: hidden; }
+        .v-timebar { height: 10px; border-radius: 5px; background: var(--s2); overflow: hidden; }
         .v-timebar > div { height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--cyan), var(--violet)); transition: width 1s linear; }
-        .v-feed { flex: 1; overflow: hidden; display: flex; flex-direction: column-reverse; height: clamp(38px,6vh,58px); justify-content: flex-start; }
-        .v-feed-item { font-size: clamp(.68rem,1.3vw,.95rem); color: var(--muted); animation: feedIn .4s ease-out both; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Live feed: big card rows, newest on top; only NEW rows animate in */
+        .v-feed { flex: 1; min-height: 45%; overflow: hidden; display: flex; flex-direction: column; gap: clamp(6px,1.1vh,10px); }
+        .v-feed-item {
+            display: flex; align-items: center; gap: clamp(8px,1vw,14px); flex-shrink: 0;
+            background: var(--s2); border: 1px solid var(--border); border-radius: 12px;
+            padding: clamp(7px,1.2vh,12px) clamp(10px,1.4vw,18px);
+            font-size: clamp(.78rem,1.6vw,1.15rem); color: var(--muted); line-height: 1.4;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            animation: feedIn .45s cubic-bezier(.22,1,.36,1) both;
+        }
         .v-feed-item b { color: var(--text); }
-        .v-feed-item .fpts { color: var(--gold); font-family: 'Orbitron', sans-serif; font-size: .9em; }
-        @keyframes feedIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .v-feed-item .fpts { color: var(--gold); font-family: 'Orbitron', sans-serif; font-size: 1em; margin-left: auto; }
+        .v-feed-item .fblks { display: inline-flex; gap: 3px; align-items: center; }
+        .v-feed-item .fblk { width: .6em; height: .72em; border-radius: 2.5px; background: rgba(139,92,246,.6); box-shadow: inset 0 1px 0 rgba(255,255,255,.2); }
+        .v-feed-item.hot { border-color: rgba(255,201,60,.4); }
+        .v-feed-item.hot .fblk { background: var(--gold); }
+        .v-feed-item.epic { border-color: var(--gold); background: rgba(255,201,60,.1); box-shadow: 0 0 18px rgba(255,201,60,.18); }
+        .v-feed-item.epic .fblk { background: var(--gold); }
+        .v-feed-item.lead { border-color: rgba(255,201,60,.5); background: rgba(255,201,60,.08); }
+        @keyframes feedIn { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: translateX(0); } }
 
         /* Viewer overlays (results / gameover) */
         .v-overlay {
@@ -1028,6 +1072,12 @@ function sCount(n) {
     else [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.12, { type: 'square', vol: 0.22, when: i * 0.06 }));
 }
 function sUrgent()   { if (!sfxOn || !AC) return; tone(1100, 0.05, { type: 'square', vol: 0.16 }); }
+// Lub-dub heartbeat for the TV's final-10-seconds mode
+function sHeartbeat() {
+    if (!sfxOn || !AC) return;
+    tone(82, 0.12, { type: 'sine', vol: 0.45, slide: 55 });
+    tone(74, 0.1,  { type: 'sine', vol: 0.32, slide: 50, when: 0.18 });
+}
 function sRoundEnd() { if (!sfxOn || !AC) return; [784, 659, 523].forEach((f, i) => tone(f, 0.14, { type: 'square', vol: 0.2, when: i * 0.12 })); }
 // Victory fanfare: brisk square-wave bugle with a closing trill
 function sWin() {
@@ -1407,7 +1457,7 @@ function broadcastState() {
         const conn = guestConns[p.id];
         if (conn) send(conn, stateFor(p));
     });
-    broadcastViewers({ ...stateFor(null), type: 'viewer_state', feed: H.feed.slice(-6) });
+    broadcastViewers({ ...stateFor(null), type: 'viewer_state', feed: H.feed.slice(-12) });
     if (isHost) {
         const me = H.players.find(p => p.id === myId);
         if (me) { myTokens = me.tokens; myMeter = me.meter; }
@@ -1415,7 +1465,9 @@ function broadcastState() {
     tvHostSync();
 }
 
+let _feedSeq = 0;
 function feedPush(ev) {
+    ev.id = ++_feedSeq;  // stable id so viewers animate only new items
     H.feed.push(ev);
     if (H.feed.length > 12) H.feed.shift();
 }
@@ -1427,6 +1479,7 @@ function hostJudge(p, raw) {
     if (p.words.find(x => x.word === w)) return { ok: false, reason: 'Already found' };
     if (dictionary instanceof Set && !dictionary.has(w)) return { ok: false, reason: 'Not a word' };
     const pts = wordScore(w);
+    const prevLeader = H.players.reduce((a, b) => (b.score > a.score ? b : a), H.players[0]);
     p.words.push({ word: w, pts, unique: false });
     p.score += pts;
     p.roundBase += pts;
@@ -1434,6 +1487,17 @@ function hostJudge(p, raw) {
     let tokenEarned = false;
     if (p.meter >= 3) { p.meter = 0; p.tokens += 1; tokenEarned = true; }
     feedPush({ t: 'word', name: p.name, color: p.color, len: w.length, pts });
+    const newLeader = H.players.reduce((a, b) => (b.score > a.score ? b : a), H.players[0]);
+    if (H.players.length > 1 && newLeader.id === p.id && prevLeader.id !== p.id)
+        feedPush({ t: 'lead', name: p.name, color: p.color });
+    // Streak callout: 4+ words inside 30s (with a cooldown so it doesn't spam)
+    const now = Date.now();
+    p._hits = (p._hits || []).filter(ts => now - ts < 30000);
+    p._hits.push(now);
+    if (p._hits.length >= 4 && (!p._streakAt || now - p._streakAt > 25000)) {
+        p._streakAt = now;
+        feedPush({ t: 'streak', name: p.name, color: p.color, count: p._hits.length });
+    }
     return { ok: true, pts, tokens: p.tokens, meter: p.meter, tokenEarned };
 }
 
@@ -1459,7 +1523,7 @@ function setupGuestConn(conn) {
             conn._role = 'viewer';
             viewerConns[conn.peer] = conn;
             if (H.phase === 'lobby') send(conn, { ...lobbyMsg(), type: 'viewer_lobby' });
-            else send(conn, { ...stateFor(null), type: 'viewer_state', feed: H.feed.slice(-6) });
+            else send(conn, { ...stateFor(null), type: 'viewer_state', feed: H.feed.slice(-12) });
             return;
         }
         if (conn._role === null) {
@@ -1694,7 +1758,7 @@ function tvHostSync() {
     if (!isTvHost) return;
     vD = H.phase === 'lobby'
         ? { ...lobbyMsg(), phase: 'lobby' }
-        : { ...stateFor(null), feed: H.feed.slice(-6) };
+        : { ...stateFor(null), feed: H.feed.slice(-12) };
     ui = 'viewer';
     // Mid-round updates (timer ticks, words, pranks) patch in place like a remote viewer
     if (H.phase === 'playing' && $id('v-timer')) patchViewer(vD);
@@ -1718,7 +1782,7 @@ function hostStartRound() {
     H.round += 1;
     H.results = null;
     H.feed = [];
-    H.players.forEach(p => { p.words = []; p.roundBase = 0; p.bonus = 0; });
+    H.players.forEach(p => { p.words = []; p.roundBase = 0; p.bonus = 0; p._hits = []; p._streakAt = 0; });
     myWords = []; currentPath = []; frozen = false; prankPick = null;
 
     broadcastState();
@@ -2412,8 +2476,19 @@ function patchGame(st) {
     renderPrankBar();
 }
 
-// ── Word definitions (tap a word on the results screen) ──
+// ── Word definitions (results-screen taps + TV trivia) ──
 const _defs = {};
+function fetchDef(word) {
+    if (_defs[word]) return Promise.resolve(_defs[word]);
+    return fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word))
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(d => {
+            const meaning = (d[0]?.meanings || [])[0];
+            const def = meaning?.definitions?.[0]?.definition;
+            return (_defs[word] = def ? `(${meaning.partOfSpeech}) ${def}` : 'No definition found.');
+        })
+        .catch(() => (_defs[word] = 'Definition unavailable.'));
+}
 function toggleDef(word, row) {
     const next = row.nextElementSibling;
     if (next && next.classList.contains('def-box')) { next.remove(); return; }
@@ -2421,16 +2496,14 @@ function toggleDef(word, row) {
     box.className = 'def-box';
     box.textContent = _defs[word] || 'Looking up…';
     row.after(box);
-    if (_defs[word]) return;
-    fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word))
-        .then(r => r.ok ? r.json() : Promise.reject())
-        .then(d => {
-            const meaning = (d[0]?.meanings || [])[0];
-            const def = meaning?.definitions?.[0]?.definition;
-            _defs[word] = def ? `(${meaning.partOfSpeech}) ${def}` : 'No definition found.';
-        })
-        .catch(() => { _defs[word] = 'Definition unavailable.'; })
-        .finally(() => { if (box.isConnected) box.textContent = _defs[word]; });
+    if (!_defs[word]) fetchDef(word).then(def => { if (box.isConnected) box.textContent = def; });
+}
+// TV: show what the round's best word actually means
+function loadTrivia(word) {
+    fetchDef(word).then(def => {
+        const el = $id('v-trivia');
+        if (el && !def.startsWith('Definition unavailable')) el.innerHTML = `📖 <b>${esc(word.toUpperCase())}</b> — ${esc(def)}`;
+    });
 }
 
 // ── Results (phone) ──
@@ -2601,7 +2674,7 @@ function viewerLeaderboardHTML() {
     const players = [...(vD.players || [])].sort((a, b) => b.score - a.score);
     const maxScore = Math.max(1, ...players.map(p => p.score));
     return players.map((p, i) =>
-        `<div class="v-lb-row">
+        `<div class="v-lb-row" data-name="${esc(p.name)}">
             <div class="v-lb-bar" style="width:${(p.score / maxScore * 100).toFixed(0)}%"></div>
             <span class="v-lb-rank${i === 0 ? ' g' : ''}">${i + 1}</span>
             <span class="v-lb-name" style="color:${esc(p.color)}">${esc(p.name)}</span>
@@ -2610,12 +2683,70 @@ function viewerLeaderboardHTML() {
         </div>`).join('');
 }
 
+// In-place leaderboard update: rows keep their identity, overtakes slide
+// (FLIP) instead of the whole list being rebuilt every second
+function updateViewerLb() {
+    const lb = $id('v-lb');
+    if (!lb) return;
+    const players = [...(vD.players || [])].sort((a, b) => b.score - a.score);
+    const maxScore = Math.max(1, ...players.map(p => p.score));
+    const prevTop = {};
+    [...lb.children].forEach(el => { prevTop[el.dataset.name] = el.offsetTop; });
+    players.forEach((p, i) => {
+        let row = [...lb.children].find(el => el.dataset.name === p.name);
+        if (!row) {
+            lb.insertAdjacentHTML('beforeend',
+                `<div class="v-lb-row" data-name="${esc(p.name)}">
+                    <div class="v-lb-bar"></div>
+                    <span class="v-lb-rank"></span>
+                    <span class="v-lb-name" style="color:${esc(p.color)}">${esc(p.name)}</span>
+                    <span class="v-lb-words"></span>
+                    <span class="v-lb-score"></span>
+                </div>`);
+            row = lb.lastElementChild;
+        }
+        row.querySelector('.v-lb-bar').style.width = (p.score / maxScore * 100).toFixed(0) + '%';
+        const rank = row.querySelector('.v-lb-rank');
+        rank.textContent = i + 1;
+        rank.className = 'v-lb-rank' + (i === 0 ? ' g' : '');
+        row.querySelector('.v-lb-words').textContent = p.wordCount + 'w';
+        row.querySelector('.v-lb-score').textContent = p.score;
+        lb.appendChild(row); // reorder into sorted position
+    });
+    [...lb.children].forEach(el => { if (!players.some(p => p.name === el.dataset.name)) el.remove(); });
+    // FLIP: jump each moved row back to its old spot, then let the transition slide it home
+    [...lb.children].forEach(el => {
+        const from = prevTop[el.dataset.name];
+        if (from == null) return;
+        const dy = from - el.offsetTop;
+        if (dy) {
+            el.style.transition = 'none';
+            el.style.transform = `translateY(${dy}px)`;
+            requestAnimationFrame(() => { el.style.transition = ''; el.style.transform = ''; });
+        }
+    });
+}
+
+function feedItemHTML(ev) {
+    const id = ev.id ?? 0;
+    if (ev.t === 'word') {
+        const cls = ev.len >= 6 ? ' epic' : ev.len >= 5 ? ' hot' : '';
+        const icon = ev.len >= 6 ? '💥' : ev.len >= 5 ? '🔥' : '✏️';
+        const blocks = '<span class="fblk"></span>'.repeat(ev.len);
+        return `<div class="v-feed-item${cls}" data-fid="${id}">${icon}
+            <b style="color:${esc(ev.color || '#fff')}">${esc(ev.name)}</b>
+            <span class="fblks">${blocks}</span>
+            <span style="font-size:.8em">${ev.len} letters</span>
+            <span class="fpts">+${ev.pts}</span></div>`;
+    }
+    if (ev.t === 'lead') return `<div class="v-feed-item lead" data-fid="${id}">👑 <b style="color:${esc(ev.color || '#fff')}">${esc(ev.name)}</b> takes the lead!</div>`;
+    if (ev.t === 'streak') return `<div class="v-feed-item hot" data-fid="${id}">🔥 <b style="color:${esc(ev.color || '#fff')}">${esc(ev.name)}</b> is on fire — ${ev.count} words in 30 seconds!</div>`;
+    if (ev.t === 'prank') return `<div class="v-feed-item" data-fid="${id}">${PRANKS[ev.kind]?.emoji || '😈'} <b>${esc(ev.from)}</b> hit <b>${esc(ev.target)}</b> with ${esc(PRANKS[ev.kind]?.name || 'a prank')}!</div>`;
+    return '';
+}
+
 function feedHTML() {
-    return [...(vD.feed || [])].slice(-5).reverse().map(ev => {
-        if (ev.t === 'word') return `<div class="v-feed-item"><b style="color:${esc(ev.color || '#fff')}">${esc(ev.name)}</b> found a ${ev.len}-letter word <span class="fpts">+${ev.pts}</span></div>`;
-        if (ev.t === 'prank') return `<div class="v-feed-item">${PRANKS[ev.kind]?.emoji || '😈'} <b>${esc(ev.from)}</b> hit <b>${esc(ev.target)}</b> with ${esc(PRANKS[ev.kind]?.name || 'a prank')}!</div>`;
-        return '';
-    }).join('');
+    return [...(vD.feed || [])].reverse().map(feedItemHTML).join('');
 }
 
 function viewerOverlayHTML() {
@@ -2637,21 +2768,33 @@ function viewerOverlayHTML() {
             if (!byWord[w.word]) byWord[w.word] = { word: w.word, total, unique: w.unique, finders: [] };
             byWord[w.word].finders.push({ name: p.name, color: p.color });
         }));
+        // Reveal theater: the round's words pop in one at a time, best saved for last
+        const reveal = Object.values(byWord)
+            .sort((a, b) => a.total - b.total || a.word.length - b.word.length)
+            .slice(-12);
+        const chipStep = 0.22;
+        const chips = reveal.map((w, i) =>
+            `<span class="v-wchip${w.total >= 400 ? ' big' : ''}" style="animation-delay:${(i * chipStep).toFixed(2)}s">${esc(w.word.toUpperCase())} <i>+${w.total}</i></span>`).join('');
+        const afterChips = reveal.length * chipStep + 0.3;
         const best = Object.values(byWord).sort((a, b) => b.total - a.total).slice(0, 3);
         const hl = best.map((w, i) => {
             const names = w.finders.map(f => `<span style="color:${esc(f.color)}">${esc(f.name)}</span>`).join(', ');
-            return `<div class="v-hl-card" style="animation-delay:${0.5 + i * 0.15}s">
+            return `<div class="v-hl-card" style="animation-delay:${(afterChips + 0.3 + i * 0.15).toFixed(2)}s">
                 <div class="v-hl-word">${esc(w.word)}</div>
                 <div class="v-hl-sub">${names} · +${w.total}${w.unique ? ' · UNIQUE ×2' : ''}</div>
             </div>`;
         }).join('');
         const missed = res.missed || [];
+        if (best.length) setTimeout(() => loadTrivia(best[0].word), 400);  // trivia while everyone catches their breath
+        const late = s => `animation:cardIn .5s ${(afterChips + s).toFixed(2)}s both`;
         return `<div class="v-overlay">
             <div class="v-reveal-headline">ROUND ${vD.round} RESULTS</div>
-            <div class="v-results-grid">${rows}</div>
-            ${best.length ? `<div class="v-side-lbl" style="margin-top:8px">Best words</div><div class="v-highlights">${hl}</div>` : ''}
-            ${missed.length ? `<div class="v-side-lbl" style="margin-top:8px">Longest words nobody found</div>
-            <div class="v-missed">${missed.map(w => `<span>${esc(w.toUpperCase())}</span>`).join('')}</div>` : ''}
+            ${chips ? `<div class="v-wchips">${chips}</div>` : ''}
+            <div class="v-results-grid" style="${late(0.1)}">${rows}</div>
+            ${best.length ? `<div class="v-side-lbl" style="${late(0.3)}">Best words</div><div class="v-highlights">${hl}</div>` : ''}
+            ${best.length ? `<div class="v-trivia" id="v-trivia" style="${late(0.9)}"></div>` : ''}
+            ${missed.length ? `<div class="v-side-lbl" style="${late(1.1)}">Longest words nobody found</div>
+            <div class="v-missed" style="${late(1.2)}">${missed.map(w => `<span>${esc(w.toUpperCase())}</span>`).join('')}</div>` : ''}
         </div>`;
     }
     if (vD.phase === 'gameover') {
@@ -2691,32 +2834,59 @@ function renderViewerGame() {
             </div>
         </div>
         <div class="v-body">
-            <div class="v-board-panel"><div class="v-board" style="--n:${n}">${tiles}</div></div>
+            <div class="v-board-panel">
+                <div class="v-board-wrap">
+                    <div class="v-board" style="--n:${n}">${tiles}</div>
+                    <div class="v-timer-row">
+                        <div class="v-timer ${tCls}" id="v-timer">${mins}:${secs}</div>
+                        <div class="v-timebar"><div id="v-timebar" style="width:${(Math.max(0, vD.timeLeft / vD.duration) * 100).toFixed(1)}%"></div></div>
+                    </div>
+                </div>
+                <div class="v-count" id="v-count"></div>
+            </div>
             <div class="v-side">
                 <div class="v-side-lbl">Leaderboard</div>
-                <div id="v-lb" style="display:flex;flex-direction:column;gap:inherit">${viewerLeaderboardHTML()}</div>
+                <div id="v-lb" style="display:flex;flex-direction:column;gap:inherit;min-height:0;overflow:hidden">${viewerLeaderboardHTML()}</div>
+                <div class="v-side-lbl" style="margin-top:clamp(6px,1.2vh,12px)">Live finds</div>
+                <div class="v-feed" id="v-feed">${feedHTML()}</div>
             </div>
             ${viewerOverlayHTML()}
-        </div>
-        <div class="v-footer">
-            <div class="v-timer ${tCls}" id="v-timer">${mins}:${secs}</div>
-            <div class="v-timebar"><div id="v-timebar" style="width:${(Math.max(0, vD.timeLeft / vD.duration) * 100).toFixed(1)}%"></div></div>
-            <div class="v-feed" id="v-feed">${feedHTML()}</div>
         </div>
     </div>`;
 }
 
+let _lastCount = -1;
 function patchViewer(st) {
-    const t = $id('v-timer'), bar = $id('v-timebar'), lb = $id('v-lb'), feed = $id('v-feed');
+    const t = $id('v-timer'), bar = $id('v-timebar'), feed = $id('v-feed');
     if (!t) { render(); return; }
     const mins = String(Math.floor((st.timeLeft || 0) / 60)).padStart(1, '0');
     const secs = String((st.timeLeft || 0) % 60).padStart(2, '0');
     t.textContent = `${mins}:${secs}`;
     t.className = 'v-timer ' + (st.timeLeft <= 10 ? 'urgent' : st.timeLeft <= 25 ? 'warn' : '');
-    if (st.timeLeft <= 10 && st.timeLeft > 0) sUrgent();
     if (bar) bar.style.width = (Math.max(0, st.timeLeft / st.duration) * 100).toFixed(1) + '%';
-    if (lb) lb.innerHTML = viewerLeaderboardHTML();
-    if (feed) feed.innerHTML = feedHTML();
+    // Final-10-seconds mode: dim the board, giant countdown, heartbeat
+    const layout = document.querySelector('.v-layout');
+    const count = $id('v-count');
+    const final = st.timeLeft <= 10 && st.timeLeft > 0;
+    if (layout) layout.classList.toggle('v-final', final);
+    if (count) {
+        if (final && _lastCount !== st.timeLeft) {
+            count.innerHTML = `<span class="v-count-num">${st.timeLeft}</span>`;
+            sHeartbeat();
+        } else if (!final) count.innerHTML = '';
+        _lastCount = final ? st.timeLeft : -1;
+    }
+    updateViewerLb();
+    if (feed) {
+        // Prepend only NEW events so existing rows never re-animate (no flashing)
+        const lastId = Number(feed.firstElementChild?.dataset.fid ?? 0);
+        const fresh = (vD.feed || []).filter(ev => (ev.id ?? 0) > lastId);
+        fresh.forEach(ev => {
+            feed.insertAdjacentHTML('afterbegin', feedItemHTML(ev));
+            if (ev.t === 'word' && ev.len >= 6) sGood(ev.pts);   // big-word stinger on the TV
+        });
+        while (feed.children.length > 12) feed.lastElementChild.remove();
+    }
 }
 
 // ═══════════════════════════════════════════
