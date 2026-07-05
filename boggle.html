@@ -1,0 +1,1947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Boggle</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230a0a0f' width='100' height='100' rx='20'/><rect x='12' y='12' width='76' height='76' rx='14' fill='%231e1e2e' stroke='%23f59e0b' stroke-width='4'/><text x='50' y='68' font-size='50' text-anchor='middle'>🔤</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0a0a0f;
+            --surface: #14141f;
+            --s2: #1a1a2a;
+            --border: #2a2a3a;
+            --text: #ffffff;
+            --muted: #6b6b8a;
+            --accent: #f59e0b;
+            --ag: rgba(245,158,11,0.2);
+            --danger: #ef4444;
+            --dg: rgba(239,68,68,0.2);
+            --success: #4ade80;
+        }
+
+        body.day {
+            --bg: #f5f4ef;
+            --surface: #ffffff;
+            --s2: #edede7;
+            --border: #d4d4cc;
+            --text: #1a1a2a;
+            --muted: #6b6b7a;
+            --accent: #d97706;
+            --ag: rgba(217,119,6,0.15);
+            --danger: #dc2626;
+            --dg: rgba(220,38,38,0.15);
+            --success: #16a34a;
+        }
+        body.day::before {
+            background:
+                radial-gradient(ellipse at 15% 10%, rgba(217,119,6,0.05) 0%, transparent 55%),
+                radial-gradient(ellipse at 85% 90%, rgba(220,38,38,0.05) 0%, transparent 55%);
+        }
+        body.day .hdr h1 {
+            filter: drop-shadow(0 0 12px rgba(217,119,6,0.2));
+        }
+        /* Viewer always stays dark */
+        body.day.viewer-mode {
+            --bg: #05050a;
+            --surface: #14141f;
+            --s2: #1a1a2a;
+            --border: #2a2a3a;
+            --text: #ffffff;
+            --muted: #6b6b8a;
+            --accent: #f59e0b;
+            --ag: rgba(245,158,11,0.2);
+            --danger: #ef4444;
+            --dg: rgba(239,68,68,0.2);
+            --success: #4ade80;
+        }
+
+        /* ── Theme toggle button ── */
+        .theme-toggle {
+            position: fixed; top: 14px; right: 14px; z-index: 1000;
+            background: var(--s2); border: 1px solid var(--border);
+            color: var(--text); border-radius: 8px;
+            width: 38px; height: 38px; font-size: 1.1rem;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: border-color .15s, background .15s;
+        }
+        .theme-toggle:hover { border-color: var(--accent); }
+        body.viewer-mode .theme-toggle { display: none; }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px 14px 48px;
+        }
+        body::before {
+            content: '';
+            position: fixed; inset: 0;
+            background:
+                radial-gradient(ellipse at 15% 10%, rgba(245,158,11,0.07) 0%, transparent 55%),
+                radial-gradient(ellipse at 85% 90%, rgba(239,68,68,0.07) 0%, transparent 55%);
+            pointer-events: none; z-index: -1;
+        }
+
+        #app { width: 100%; max-width: 480px; }
+
+        /* ── Header ── */
+        .hdr { text-align: center; margin-bottom: 20px; padding-top: 4px; }
+        .hdr h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.4rem, 6vw, 2rem);
+            font-weight: 900;
+            letter-spacing: 4px;
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 16px rgba(245,158,11,0.3));
+        }
+        .hdr .sub { color: var(--muted); font-size: 0.7rem; letter-spacing: 2px; margin-top: 4px; text-transform: uppercase; }
+
+        /* ── Card ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 12px;
+            animation: fadeIn .2s ease-out;
+        }
+        .card.highlight { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 24px var(--ag); }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+        /* ── Buttons ── */
+        .btn {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600; font-size: .875rem; letter-spacing: 1px;
+            padding: 13px 20px; border-radius: 8px; border: none;
+            cursor: pointer; transition: all .15s ease;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:active { transform: scale(.97); }
+        .btn:disabled { opacity: .35; cursor: not-allowed; transform: none !important; }
+        .btn-full { width: 100%; }
+        .btn-p { background: var(--accent); color: #0a0a0f; box-shadow: 0 4px 14px var(--ag); }
+        .btn-p:not(:disabled):hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-d { background: var(--danger); color: #fff; box-shadow: 0 4px 14px var(--dg); }
+        .btn-d:not(:disabled):hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-g { background: transparent; color: var(--text); border: 1px solid var(--border); }
+        .btn-g:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+        .btn-sm { padding: 8px 14px; font-size: .78rem; }
+        .btn-icon { background: var(--s2); color: var(--text); border: 1px solid var(--border); width: 42px; height: 42px; padding: 0; font-size: 1.1rem; border-radius: 8px; }
+        .btn-icon:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ── Inputs ── */
+        .fg { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+        .fg label { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+        .fg input {
+            background: var(--s2); border: 1px solid var(--border); border-radius: 8px;
+            padding: 11px 14px; color: var(--text);
+            font-family: 'JetBrains Mono', monospace; font-size: .9rem;
+            outline: none; transition: border-color .15s;
+            -webkit-appearance: none; appearance: none;
+        }
+        .fg input:focus { border-color: var(--accent); }
+        .fg input::placeholder { color: var(--muted); }
+
+        /* ── Toggle ── */
+        .tog-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; }
+        .tog-label { font-size: .83rem; }
+        .tog-desc { font-size: .68rem; color: var(--muted); margin-top: 2px; }
+        .tog { position: relative; width: 42px; height: 22px; flex-shrink: 0; }
+        .tog input { opacity: 0; width: 0; height: 0; }
+        .tog-track { position: absolute; inset: 0; background: var(--border); border-radius: 11px; cursor: pointer; transition: background .2s; }
+        .tog-track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: var(--muted); border-radius: 50%; transition: all .2s; }
+        .tog input:checked + .tog-track { background: var(--accent); }
+        .tog input:checked + .tog-track::after { transform: translateX(20px); background: #0a0a0f; }
+
+        /* ── Room code ── */
+        .room-code {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.2rem; font-weight: 900; letter-spacing: 8px;
+            color: var(--accent); text-align: center;
+            background: var(--s2); border: 1px solid var(--border);
+            border-radius: 10px; padding: 16px; margin: 12px 0;
+        }
+        .share-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+
+        /* ── Player chips ── */
+        .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+        .chip {
+            display: flex; align-items: center; gap: 5px;
+            padding: 5px 10px; border-radius: 20px;
+            border: 1px solid var(--border); background: var(--s2);
+            font-size: .75rem; color: var(--muted); transition: all .2s;
+        }
+        .chip.you { border-color: rgba(245,158,11,.5); color: var(--text); }
+
+        /* ── Section label ── */
+        .slbl { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+        .slbl-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+
+        /* ── Status banner ── */
+        .status { text-align: center; padding: 10px; border-radius: 8px; font-size: .82rem; color: var(--muted); background: var(--s2); border: 1px solid var(--border); margin-bottom: 14px; }
+
+        /* ── Info row ── */
+        .info-row { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); margin-bottom: 4px; }
+        .info-row strong { color: var(--text); }
+
+        /* ── Divider ── */
+        hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+        /* ── Game over ── */
+        .trophy { text-align: center; padding: 12px 0; }
+        .trophy .icon { font-size: 3.5rem; margin-bottom: 10px; }
+        .trophy .w-name { font-family: 'Orbitron', sans-serif; font-size: 1.5rem; font-weight: 900; color: var(--accent); letter-spacing: 3px; }
+        .trophy .w-sub { color: var(--muted); font-size: .75rem; margin-top: 5px; text-transform: uppercase; letter-spacing: 2px; }
+        .rankings { display: flex; flex-direction: column; gap: 7px; margin: 14px 0; }
+        .rank-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--s2); border-radius: 8px; border: 1px solid var(--border); font-size: .88rem; }
+        .rank-num { font-family: 'Orbitron', sans-serif; font-size: .95rem; font-weight: 700; width: 26px; color: var(--muted); }
+        .rank-num.g { color: #f59e0b; } .rank-num.s { color: #94a3b8; } .rank-num.b { color: #b45309; }
+
+        /* ── Spinner ── */
+        .spin { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Connecting ── */
+        .connecting { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 30px 20px; }
+
+        /* ── Error ── */
+        .err { color: var(--danger); font-size: .78rem; padding: 8px 12px; background: var(--dg); border: 1px solid var(--danger); border-radius: 8px; margin-top: 8px; }
+
+        /* ── Player list in lobby ── */
+        .player-list { display: flex; flex-direction: column; gap: 7px; margin: 10px 0; }
+        .player-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--s2); border-radius: 8px; border: 1px solid var(--border); font-size: .85rem; }
+        .player-row .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+        .player-row.host-row { border-color: rgba(245,158,11,.3); }
+
+        /* ── Confetti ── */
+        .confetti { position: fixed; top: -20px; width: 10px; height: 10px; border-radius: 2px; z-index: 9999; pointer-events: none; }
+        @keyframes confettiFall {
+            0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(720deg); opacity: 0.3; }
+        }
+
+        /* ══════════════════════════════════════════
+           VIEWER MODE CSS
+        ══════════════════════════════════════════ */
+        body.viewer-mode {
+            padding: 0; overflow: hidden;
+            display: block;
+            height: 100dvh; width: 100vw;
+        }
+        body.viewer-mode #app { max-width: none; width: 100vw; height: 100dvh; }
+
+        .v-screen {
+            position: fixed; inset: 0;
+            background: #05050a;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Viewer header ── */
+        .v-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: clamp(10px,2vh,20px) clamp(16px,3vw,40px);
+            border-bottom: 1px solid rgba(245,158,11,0.15);
+            flex-shrink: 0; position: relative; z-index: 10;
+        }
+        .v-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.2rem,3vw,2rem);
+            font-weight: 900; letter-spacing: 4px;
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .v-header-code {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(0.9rem,2vw,1.3rem);
+            color: var(--accent); letter-spacing: 4px;
+        }
+        .v-header-sub {
+            font-size: clamp(0.7rem,1.5vw,0.9rem);
+            color: var(--muted); letter-spacing: 2px; text-transform: uppercase;
+        }
+        .v-fs-btn {
+            background: transparent; border: 1px solid var(--border);
+            color: var(--muted); font-size: clamp(1rem,2vw,1.4rem);
+            width: 2.2em; height: 2.2em; border-radius: 6px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all .15s; flex-shrink: 0; padding: 0; line-height: 1;
+        }
+        .v-fs-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ── Viewer lobby ── */
+        .v-lobby-screen {
+            position: fixed; inset: 0; background: #05050a;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: clamp(16px,3vh,32px); padding: 40px; z-index: 1;
+        }
+        .v-lobby-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2rem,7vw,5rem); font-weight: 900; letter-spacing: 6px;
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text; text-align: center;
+        }
+        .v-lobby-code {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2rem,8vw,6rem); font-weight: 900; color: var(--accent);
+            letter-spacing: 10px; text-align: center;
+        }
+        .v-lobby-waiting { font-size: clamp(0.75rem,1.5vw,1rem); color: var(--muted); text-transform: uppercase; letter-spacing: 3px; }
+
+        /* ── Gameover animations ── */
+        @keyframes trophyBounce {
+            0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
+            60%  { transform: scale(1.2) rotate(5deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+        @keyframes winnerSlide {
+            0%   { transform: translateY(40px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes slideIn {
+            0%   { transform: translateY(20px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        .v-gameover-trophy { font-size: clamp(3rem,8vw,6rem); animation: trophyBounce .8s cubic-bezier(.34,1.56,.64,1) both; }
+        .v-gameover-winner {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2rem,6vw,5rem); font-weight: 900; color: var(--accent);
+            letter-spacing: 4px; text-align: center;
+            animation: winnerSlide .6s .3s ease-out both;
+        }
+        .v-gameover-sub { font-size: clamp(0.8rem,2vw,1.3rem); color: var(--muted); text-transform: uppercase; letter-spacing: 4px; animation: winnerSlide .6s .5s ease-out both; }
+        .v-gameover-rankings { display: flex; flex-direction: row; gap: clamp(8px,2vw,20px); flex-wrap: wrap; justify-content: center; animation: slideIn .6s .7s ease-out both; }
+        .v-rank-chip { display: flex; align-items: center; gap: 8px; background: rgba(26,26,42,0.9); border: 1px solid #2a2a3a; border-radius: 8px; padding: 8px 16px; font-size: clamp(0.7rem,1.3vw,0.9rem); }
+        .v-rank-medal { font-size: 1.2rem; }
+
+        /* ── Phase overlays ── */
+        .v-overlay {
+            position: absolute; inset: 0; z-index: 50;
+            background: rgba(5,5,10,0.88);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: clamp(12px,2.5vh,28px); padding: clamp(20px,4vw,60px);
+        }
+        @keyframes resultPop {
+            0%   { transform: scale(0.5); opacity: 0; }
+            70%  { transform: scale(1.08); opacity: 1; }
+            100% { transform: scale(1); }
+        }
+        .v-reveal-headline {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.8rem,5vw,4rem);
+            font-weight: 900; letter-spacing: 3px; text-align: center;
+            animation: resultPop .6s cubic-bezier(.34,1.56,.64,1) both;
+            color: var(--success);
+        }
+
+        /* ══════════════════════════════════════════
+           VIEWER TV LAYOUT (Step 13)
+        ══════════════════════════════════════════ */
+
+        /* ── Main layout ── */
+        .v-layout {
+            position: fixed; inset: 0; background: #05050a;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            grid-template-columns: 1fr;
+            overflow: hidden;
+        }
+
+        /* ── Header ── */
+        .v-hdr {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: clamp(8px,1.5vh,16px) clamp(16px,3vw,40px);
+            border-bottom: 1px solid rgba(245,158,11,0.15);
+            grid-column: 1; grid-row: 1;
+        }
+        .v-hdr-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.2rem,3vw,2.2rem); font-weight: 900; letter-spacing: 4px;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .v-hdr-code {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(0.9rem,2vw,1.4rem); color: var(--accent); letter-spacing: 6px;
+        }
+        .v-hdr-right { display: flex; align-items: center; gap: clamp(8px,1.5vw,20px); }
+        .v-hdr-round { font-size: clamp(0.6rem,1.2vw,0.85rem); color: var(--muted);
+                       text-transform: uppercase; letter-spacing: 2px; }
+
+        /* ── Body: board + sidebar ── */
+        .v-body {
+            display: grid;
+            grid-template-columns: 1fr clamp(200px, 28vw, 360px);
+            grid-row: 2;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* ── Board panel ── */
+        .v-board-panel {
+            display: flex; align-items: center; justify-content: center;
+            padding: clamp(12px,2vw,32px);
+        }
+        .v-board-grid {
+            display: grid; grid-template-columns: repeat(4,1fr);
+            gap: clamp(4px,0.8vw,12px);
+            width: min(45vh, 44vw);
+        }
+        .v-tile {
+            aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+            border-radius: clamp(6px,1vw,14px);
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: clamp(1.8rem,6vw,4.8rem); font-weight: 900;
+            background: var(--s2); border: 2px solid var(--border);
+            color: var(--text);
+        }
+        .v-tile.qu { font-size: clamp(1.2rem,4vw,3.2rem); }
+
+        /* ── Sidebar ── */
+        .v-sidebar {
+            border-left: 1px solid rgba(245,158,11,0.12);
+            display: flex; flex-direction: column;
+            padding: clamp(10px,1.5vh,20px) clamp(10px,1.5vw,20px);
+            gap: clamp(6px,1vh,12px); overflow-y: auto;
+        }
+        .v-player-row {
+            display: flex; flex-direction: column; gap: 5px;
+            padding: clamp(8px,1.2vh,14px) clamp(10px,1.2vw,14px);
+            background: var(--s2); border: 1px solid var(--border); border-radius: 10px;
+            transition: border-color .3s;
+        }
+        .v-player-row.leader { border-color: rgba(245,158,11,0.5); }
+        .v-player-top { display: flex; justify-content: space-between; align-items: baseline; }
+        .v-player-name { font-size: clamp(0.75rem,1.5vw,1rem); font-weight: 700;
+                         white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+        .v-player-score { font-family: 'Orbitron', sans-serif;
+                          font-size: clamp(0.85rem,1.8vw,1.2rem); color: var(--accent); font-weight: 700; }
+        .v-word-bar { height: clamp(4px,0.6vh,7px); background: var(--border); border-radius: 3px; overflow: hidden; }
+        .v-word-fill { height: 100%; background: var(--accent); border-radius: 3px;
+                       transition: width .5s ease; opacity: .7; }
+        .v-player-meta { font-size: clamp(0.55rem,1vw,0.72rem); color: var(--muted); }
+
+        /* ── Footer timer ── */
+        .v-footer {
+            grid-row: 3; grid-column: 1;
+            display: flex; align-items: center; gap: clamp(10px,2vw,28px);
+            padding: clamp(6px,1.2vh,14px) clamp(16px,3vw,40px);
+            border-top: 1px solid rgba(255,255,255,0.05);
+            background: rgba(5,5,10,0.6);
+        }
+        .v-timer {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.2rem,3.5vw,2.5rem); font-weight: 900;
+            color: var(--accent); letter-spacing: 2px; flex-shrink: 0;
+            transition: color .3s;
+        }
+        .v-timer.urgent { color: var(--danger); animation: timerPulse .6s ease-in-out infinite; }
+        .v-phase-label { font-size: clamp(0.6rem,1.2vw,0.85rem); color: var(--muted);
+                         text-transform: uppercase; letter-spacing: 3px; flex-shrink: 0; }
+
+        /* ── Overlay (scoring / results / gameover) ── */
+        .v-overlay {
+            position: absolute; inset: 0; z-index: 50;
+            background: rgba(5,5,10,0.9);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: clamp(12px,2.5vh,28px); padding: clamp(20px,4vw,60px);
+        }
+        .v-overlay-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.5rem,4vw,3.5rem); font-weight: 900; letter-spacing: 3px;
+            text-align: center; color: var(--success);
+            animation: resultPop .6s cubic-bezier(.34,1.56,.64,1) both;
+        }
+        .v-overlay-title.gameover { color: var(--accent); }
+        .v-results-grid {
+            display: flex; flex-direction: column; gap: 8px;
+            width: min(500px, 90vw);
+        }
+        .v-result-row {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 16px; background: rgba(26,26,42,0.9);
+            border: 1px solid var(--border); border-radius: 8px;
+            animation: slideIn .4s ease-out both;
+        }
+        .v-result-row.winner { border-color: var(--accent); box-shadow: 0 0 24px var(--ag); }
+        .v-result-rank { font-family: 'Orbitron', sans-serif; font-size: 1.1rem;
+                         font-weight: 700; width: 32px; flex-shrink: 0; }
+        .v-result-name { flex: 1; font-size: clamp(0.8rem,1.8vw,1.1rem); font-weight: 700; }
+        .v-result-score { font-family: 'Orbitron', sans-serif;
+                          font-size: clamp(0.9rem,2vw,1.3rem); color: var(--accent); }
+        .v-result-delta { font-size: clamp(0.6rem,1vw,0.8rem); color: var(--muted); margin-left: 4px; }
+        @keyframes slideIn {
+            from { transform: translateY(16px); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+
+        /* ── Viewer lobby extras ── */
+        .v-lobby-chip { background: rgba(26,26,42,0.9); border: 1px solid rgba(245,158,11,0.3); border-radius: 24px; padding: 8px 20px; font-size: clamp(0.8rem,1.5vw,1rem); color: var(--text); font-weight: 700; }
+        .v-waiting { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: clamp(0.7rem,1.3vw,0.85rem); }
+
+        /* ══════════════════════════════════════════
+           BOGGLE-SPECIFIC CSS
+        ══════════════════════════════════════════ */
+
+        /* ── Timer bar ── */
+        .timer-row {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .timer-val {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.6rem; font-weight: 900; color: var(--accent);
+            transition: color .3s;
+        }
+        .timer-val.urgent { color: var(--danger); animation: timerPulse .6s ease-in-out infinite; }
+        @keyframes timerPulse {
+            0%,100% { opacity: 1; } 50% { opacity: .4; }
+        }
+        .round-badge {
+            font-size: .7rem; color: var(--muted); letter-spacing: 2px; text-transform: uppercase;
+        }
+
+        /* ── Score strip ── */
+        .score-strip {
+            display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 10px;
+        }
+        .score-chip {
+            display: flex; flex-direction: column; align-items: center;
+            padding: 6px 10px; border-radius: 8px; flex-shrink: 0;
+            background: var(--s2); border: 1px solid var(--border); min-width: 62px; text-align: center;
+        }
+        .score-chip.you { border-color: rgba(245,158,11,.5); }
+        .sc-name  { font-size: .58rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px;
+                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 72px; }
+        .sc-score { font-family: 'Orbitron', sans-serif; font-size: .88rem; font-weight: 700; color: var(--accent); }
+        .sc-words { font-size: .56rem; color: var(--muted); margin-top: 1px; }
+
+        /* ── 4×4 board grid ── */
+        .board-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin-bottom: 12px;
+            user-select: none; -webkit-user-select: none;
+        }
+        .tile {
+            aspect-ratio: 1;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 10px;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: clamp(2.8rem, 16vw, 4.2rem);
+            font-weight: 900;
+            background: var(--s2);
+            border: 2px solid var(--border);
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            transition: border-color .1s, box-shadow .1s, opacity .1s, background .1s;
+            position: relative;
+        }
+        .tile.qu { font-size: clamp(1.7rem, 9vw, 2.6rem); }
+
+        /* default — tappable */
+        .tile:active { transform: scale(.93); }
+
+        /* selected — currently the last tapped tile */
+        .tile.selected {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent), 0 0 16px var(--ag);
+            background: rgba(245,158,11,.15);
+        }
+
+        /* in-path — earlier in the current word path */
+        .tile.in-path {
+            border-color: rgba(245,158,11,.4);
+            opacity: .6;
+        }
+
+        /* path number badge */
+        .tile .path-num {
+            position: absolute; top: 3px; right: 5px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .55rem; font-weight: 700;
+            color: var(--accent); opacity: .9;
+        }
+
+        /* disabled — not adjacent to current selection */
+        .tile.disabled {
+            opacity: .3; cursor: not-allowed;
+        }
+        .tile.disabled:active { transform: none; }
+
+        /* ── Current word display ── */
+        .current-word {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.2rem, 6vw, 1.8rem);
+            font-weight: 900; letter-spacing: 4px;
+            text-align: center; min-height: 2.4rem;
+            color: var(--text); margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        .current-word.empty { color: var(--muted); font-size: 1rem; letter-spacing: 2px; font-family: 'JetBrains Mono', monospace; font-weight: 400; }
+
+        /* ── Word action row ── */
+        .word-actions {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;
+        }
+
+        /* ── Results word list ── */
+        .result-word {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 5px 10px; border-radius: 6px; font-size: .8rem;
+            background: var(--s2); border: 1px solid var(--border); margin-bottom: 4px;
+        }
+        .result-word.scored  { border-color: rgba(74,222,128,.35); }
+        .result-word.dupe    { opacity: .5; text-decoration: line-through; }
+        .result-word.invalid { opacity: .5; text-decoration: line-through; border-color: rgba(239,68,68,.35); }
+        .result-word .rw-pts { font-family: 'Orbitron', sans-serif; font-size: .75rem;
+                               font-weight: 700; color: var(--success); }
+        .result-word.dupe    .rw-pts { color: var(--muted); }
+        .result-word.invalid .rw-pts { color: var(--danger); }
+
+        /* ── Round start flash ── */
+        .round-flash {
+            position: fixed; inset: 0; z-index: 200;
+            background: var(--bg);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 12px; pointer-events: none;
+            animation: flashFade 1.6s ease-out forwards;
+        }
+        @keyframes flashFade {
+            0%   { opacity: 0; }
+            20%  { opacity: 1; }
+            75%  { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        .rf-round {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2rem, 10vw, 5rem); font-weight: 900; letter-spacing: 6px;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .rf-sub { font-size: clamp(0.7rem, 2vw, 1rem); color: var(--muted);
+                  text-transform: uppercase; letter-spacing: 4px; }
+
+        /* ── Round score summary ── */
+        .round-summary {
+            display: flex; justify-content: space-around; align-items: center;
+            padding: 18px 12px; text-align: center;
+        }
+        .rs-block { display: flex; flex-direction: column; gap: 4px; }
+        .rs-val { font-family: 'Orbitron', sans-serif; font-size: 1.6rem; font-weight: 900; color: var(--accent); }
+        .rs-lbl { font-size: .62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+        .rs-divider { width: 1px; background: var(--border); align-self: stretch; }
+
+        /* ── Other-player word accordion ── */
+        .player-accordion { margin-bottom: 6px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .pa-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 14px; background: var(--s2); cursor: pointer;
+            font-size: .85rem; -webkit-tap-highlight-color: transparent;
+        }
+        .pa-header:active { opacity: .8; }
+        .pa-score { font-family: 'Orbitron', sans-serif; font-size: .82rem; color: var(--accent); }
+        .pa-body { padding: 10px 12px; display: none; }
+        .pa-body.open { display: block; }
+
+        /* ── Leaderboard ── */
+        .lb-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+                  background: var(--s2); border: 1px solid var(--border);
+                  border-radius: 8px; font-size: .88rem; margin-bottom: 6px; }
+        .lb-row.you { border-color: rgba(245,158,11,.4); }
+        .lb-rank { font-family: 'Orbitron', sans-serif; font-size: .9rem; font-weight: 700;
+                   width: 26px; color: var(--muted); }
+        .lb-rank.g { color: #f59e0b; } .lb-rank.s { color: #94a3b8; } .lb-rank.b { color: #b45309; }
+        .lb-name  { flex: 1; }
+        .lb-pts   { font-family: 'Orbitron', sans-serif; font-size: .85rem; color: var(--accent); }
+        .lb-round { font-size: .72rem; color: var(--muted); margin-left: 4px; }
+
+        /* ── Submitted word list ── */
+        .word-list {
+            display: flex; flex-wrap: wrap; gap: 6px;
+            max-height: 120px; overflow-y: auto; padding: 2px;
+        }
+        .word-pill {
+            padding: 4px 10px; border-radius: 16px;
+            background: var(--s2); border: 1px solid var(--border);
+            font-size: .78rem; letter-spacing: 1px;
+        }
+
+    </style>
+</head>
+<body>
+<div id="app"></div>
+<button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Toggle day/night mode">&#x2600;&#xFE0F;</button>
+
+<script>
+// ══════════════════════════════════════════
+// BOGGLE — Steps 1 & 2: Shell + Home Screen
+// ══════════════════════════════════════════
+
+// ══════════════════════════════════════════
+// STEP 5: Board Generation
+// ══════════════════════════════════════════
+
+const DICE = [
+    'AAEEGN','ELRTTY','AOOTTW','ABBJOO',
+    'EHRTVW','CIMOTU','DISTTY','EIOSST',
+    'DELRVY','ACHOPS','HIMNQU','EEINSU',
+    'EEGHNW','AFFKPS','HLNNRZ','DEILRX',
+];
+
+function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+function rollBoard() {
+    return shuffle(DICE).map(faces => {
+        const letter = faces[Math.floor(Math.random() * faces.length)];
+        return letter === 'Q' ? 'Qu' : letter;
+    });
+}
+
+// ── Peer / network ──
+let peer       = null;
+let myId       = '';
+let myName     = '';
+let isHost     = false;
+let roomCode   = '';
+let hostConn   = null;      // guest/viewer → host
+let guestConns = {};        // host: { peerId: DataConnection }
+let viewerConns= {};        // host: { peerId: DataConnection }
+
+// ── UI State ──
+let ui      = 'home'; // home | creating | connecting | lobby_h | lobby_g | game | scoring | results | gameover | viewer
+let uiErr   = '';
+let fName   = localStorage.getItem('boggle-name') || '';
+let fCode   = '';
+let fVCode  = '';
+let fRounds = 5;      // 3 | 5 | 10
+let isViewer = false;
+let vD       = null;  // viewer display state (driven by host)
+
+// ── Client display state (driven by host) ──
+let D = null;
+
+// ── Host-only authoritative state ──
+let H = {
+    players:      [],      // [{id, name, words:[], roundScore:0, totalScore:0}]
+    phase:        'lobby', // lobby | playing | scoring | results | gameover
+    board:        [],      // 16-element flat array
+    timeLeft:     180,
+    roundsTarget: 5,
+    currentRound: 0,
+    roundResults: null,
+    winner:       null,
+};
+
+// ── Helpers ──
+function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function hdrHTML(sub) {
+    return `<div class="hdr"><h1>BOGGLE</h1><p class="sub">${esc(sub || 'Word Search Game')}</p></div>`;
+}
+
+// ── Render dispatcher ──
+function render() {
+    const app = document.getElementById('app');
+    let html = '';
+    switch (ui) {
+        case 'home':       html = renderHome();       break;
+        case 'creating':   html = renderSpinner('Setting up room\u2026');    break;
+        case 'connecting': html = renderSpinner('Connecting to room\u2026'); break;
+        case 'lobby_h':    html = renderLobbyH();  break;
+        case 'lobby_g':    html = renderLobbyG();  break;
+        case 'viewer':     html = renderViewer();  break;
+        case 'game':       html = renderGame();   break;
+        case 'scoring':    html = renderScoring(); break;
+        case 'results':    html = renderResults(); break;
+        case 'gameover':   html = renderGameOver(); break;
+        default:           html = renderHome();
+    }
+    app.innerHTML = html;
+}
+
+function renderSpinner(msg) {
+    return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`;
+}
+
+// ── Home Screen ──
+function renderHome() {
+    const roundOpts = [3, 5, 10].map(n =>
+        `<button class="btn btn-sm ${fRounds === n ? 'btn-p' : 'btn-g'}" onclick="fRounds=${n};render()">${n}</button>`
+    ).join('');
+
+    return `
+    ${hdrHTML()}
+    <div class="card">
+        <div class="slbl">Host a New Game</div>
+        <div class="fg">
+            <label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name"
+                value="${esc(fName)}" oninput="fName=this.value"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-host').click()">
+        </div>
+        <div style="margin-bottom:14px">
+            <div class="slbl" style="margin-bottom:8px">Rounds</div>
+            <div style="display:flex;gap:8px">${roundOpts}</div>
+        </div>
+        <button id="btn-host" class="btn btn-p btn-full"
+            onclick="if(fName.trim()){hostGame(fName,fRounds)}else{uiErr='Enter your name.';render()}">
+            + Host Game
+        </button>
+    </div>
+    <div class="card">
+        <div class="slbl">Join a Game</div>
+        <div class="fg">
+            <label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code"
+                value="${esc(fCode)}" oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
+        </div>
+        <div class="fg">
+            <label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name"
+                value="${esc(fName)}" oninput="fName=this.value"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
+        </div>
+        <button id="btn-join" class="btn btn-g btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter name and room code.';render()}">
+            \u2192 Join Game
+        </button>
+    </div>
+    <div class="card">
+        <div class="slbl">Watch (Viewer / TV)</div>
+        <div class="fg">
+            <label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code"
+                value="${esc(fVCode)}" oninput="fVCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')joinAsViewer(fVCode)">
+        </div>
+        <button class="btn btn-g btn-full"
+            onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code.';render()}">
+            &#128250; Watch
+        </button>
+    </div>
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}`;
+}
+
+// ══════════════════════════════════════════
+// STEP 3: PeerJS Connection Layer
+// ══════════════════════════════════════════
+
+// ── Helpers ──
+function send(conn, msg) {
+    try { conn.send(msg); } catch(e) { console.warn('send err', e); }
+}
+
+function broadcast(msg) {
+    Object.values(guestConns).forEach(c => send(c, msg));
+}
+
+function broadcastViewers(msg) {
+    Object.values(viewerConns).forEach(c => send(c, msg));
+}
+
+// ── Host: add player to H ──
+function hostAddPlayer(id, name) {
+    if (H.players.find(p => p.id === id)) return;
+    H.players.push({ id, name, words: [], roundScore: 0, totalScore: 0 });
+}
+
+// ── Host: broadcast lobby state to all guests + viewers ──
+function broadcastLobby() {
+    const players = H.players.map(p => p.name);
+    broadcast({ type: 'lobby', players, roomCode, roundsTarget: H.roundsTarget });
+    broadcastViewers({ type: 'viewer_lobby', players, roomCode });
+    render();
+}
+
+// ── Host: incoming connection handler ──
+function setupGuestConn(conn) {
+    conn.on('open', () => {
+        conn._role = null;
+    });
+
+    conn.on('data', msg => {
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer';
+            viewerConns[conn.peer] = conn;
+            if (H.phase === 'lobby') {
+                send(conn, { type: 'viewer_lobby', players: H.players.map(p => p.name), roomCode });
+            }
+            return;
+        }
+
+        if (conn._role === null) {
+            conn._role = 'player';
+            guestConns[conn.peer] = conn;
+        }
+
+        switch (msg.type) {
+            case 'join': {
+                // Reconnect: reuse slot if same name, disconnected peer
+                const zombie = H.players.find(
+                    p => p.name === msg.name && p.id !== conn.peer && !guestConns[p.id]
+                );
+                if (zombie) {
+                    zombie.id = conn.peer;
+                } else {
+                    hostAddPlayer(conn.peer, msg.name);
+                }
+                broadcastLobby();
+                break;
+            }
+            case 'words': {
+                const player = H.players.find(p => p.id === conn.peer);
+                if (player) {
+                    player._submitted = msg.payload;
+                    hostCheckAllSubmitted();
+                }
+                break;
+            }
+        }
+    });
+
+    conn.on('close', () => {
+        delete guestConns[conn.peer];
+        delete viewerConns[conn.peer];
+        if (H.phase === 'lobby') {
+            const pi = H.players.findIndex(p => p.id === conn.peer);
+            if (pi >= 0) { H.players.splice(pi, 1); broadcastLobby(); }
+        }
+    });
+
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+// ── Host game ──
+function hostGame(name, rounds) {
+    myName = name.trim() || 'Host';
+    localStorage.setItem('boggle-name', myName);
+    H.roundsTarget = rounds;
+    uiErr = '';
+    ui = 'creating';
+    render();
+
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I/O
+    const code = 'BOGGLE-' + Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    roomCode = code.replace('BOGGLE-', '');
+
+    peer = new Peer(code);
+
+    peer.on('open', id => {
+        myId   = id;
+        isHost = true;
+        hostAddPlayer(myId, myName);
+        loadDictionary(); // fire and forget — will be ready long before scoring
+        ui = 'lobby_h';
+        render();
+    });
+
+    peer.on('connection', conn => setupGuestConn(conn));
+
+    peer.on('error', e => {
+        uiErr = 'Connection error: ' + e.message;
+        ui = 'home';
+        render();
+    });
+}
+
+// ── Join game ──
+function joinGame(code, name) {
+    myName = name.trim() || 'Player';
+    localStorage.setItem('boggle-name', myName);
+    const pid = 'BOGGLE-' + code.trim().toUpperCase();
+    uiErr = '';
+    ui = 'connecting';
+    render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId   = id;
+        isHost = false;
+
+        hostConn = peer.connect(pid, { reliable: true });
+
+        hostConn.on('open', () => {
+            send(hostConn, { type: 'join', name: myName });
+        });
+
+        hostConn.on('data', msg => {
+            if (msg.type === 'lobby') {
+                D = { phase: 'lobby', players: msg.players, roomCode: msg.roomCode, roundsTarget: msg.roundsTarget };
+                ui = 'lobby_g';
+                render();
+                return;
+            }
+            if (msg.type === 'game_state') {
+                // New round starting: clear local word state and flash
+                if (msg.phase === 'playing' && (!D || D.currentRound !== msg.currentRound)) {
+                    myWords         = [];
+                    currentPath     = [];
+                    _expandedPlayer = null;
+                    showRoundFlash(msg.currentRound, msg.roundsTarget);
+                }
+                // Timer expired: submit words to host immediately (Step 9 collects them)
+                if (msg.phase === 'scoring' && D?.phase === 'playing') {
+                    currentPath = [];
+                    send(hostConn, { type: 'words', payload: myWords });
+                }
+                D = msg;
+                if (msg.phase === 'playing')        ui = 'game';
+                else if (msg.phase === 'scoring')   ui = 'scoring';
+                else if (msg.phase === 'results')   ui = 'results';
+                else if (msg.phase === 'gameover')  { ui = 'gameover'; confetti(); }
+                render();
+            }
+        });
+
+        hostConn.on('close', () => {
+            uiErr = 'Disconnected from host.';
+            ui = 'home'; D = null; render();
+        });
+
+        hostConn.on('error', e => {
+            uiErr = 'Could not connect: ' + e.message;
+            ui = 'home'; render();
+        });
+    });
+
+    peer.on('error', () => {
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        ui = 'home'; render();
+    });
+}
+
+// ── Join as viewer ──
+function joinAsViewer(code, _attempt) {
+    const pid = 'BOGGLE-' + code.trim().toUpperCase();
+    const attempt = _attempt || 1;
+    isViewer = true;
+    uiErr = '';
+    ui = 'connecting';
+    render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        hostConn = peer.connect(pid, { reliable: true });
+
+        hostConn.on('open', () => {
+            send(hostConn, { type: 'join_viewer' });
+        });
+
+        hostConn.on('data', msg => {
+            if (msg.type === 'viewer_lobby') {
+                vD = { phase: 'lobby', players: msg.players, roomCode: msg.roomCode };
+                ui = 'viewer';
+                document.body.classList.add('viewer-mode');
+                render();
+            } else if (msg.type === 'viewer_state') {
+                const prevPhase  = vD?.phase;
+                const prevRound  = vD?.currentRound;
+                vD = msg;
+                if (prevPhase !== 'gameover' && msg.phase === 'gameover') confetti();
+                if (msg.phase === 'playing' && prevRound !== msg.currentRound) {
+                    showRoundFlash(msg.currentRound, msg.roundsTarget);
+                }
+                ui = 'viewer';
+                document.body.classList.add('viewer-mode');
+                render();
+            }
+        });
+
+        hostConn.on('close', () => {
+            uiErr = 'Disconnected from host.';
+            isViewer = false; vD = null; ui = 'home'; render();
+        });
+
+        hostConn.on('error', e => {
+            uiErr = 'Could not connect: ' + e.message;
+            isViewer = false; ui = 'home'; render();
+        });
+    });
+
+    peer.on('error', () => {
+        if (attempt < 2) {
+            try { peer.destroy(); } catch(_) {}
+            peer = null;
+            setTimeout(() => joinAsViewer(code, 2), 600);
+            return;
+        }
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        isViewer = false; ui = 'home'; render();
+    });
+}
+
+// ══════════════════════════════════════════
+// STEP 4: Lobby Screens
+// ══════════════════════════════════════════
+
+function renderLobbyH() {
+    const canStart = H.players.length >= 2;
+    const roundOpts = [3, 5, 10].map(n =>
+        `<button class="btn btn-sm ${H.roundsTarget === n ? 'btn-p' : 'btn-g'}"
+            onclick="H.roundsTarget=${n};render()">${n}</button>`
+    ).join('');
+
+    const pList = H.players.map((p, i) =>
+        `<div class="player-row${i === 0 ? ' host-row' : ''}">
+            <div class="dot"></div>
+            <div style="flex:1">${esc(p.name)}${i === 0 ? ' (you \u2014 host)' : ''}</div>
+        </div>`
+    ).join('');
+
+    return `
+    ${hdrHTML('Host Lobby')}
+    <div class="card highlight">
+        <div class="slbl">Room Code \u2014 share with players</div>
+        <div class="room-code">${esc(roomCode)}</div>
+        <div class="share-row">
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.clipboard?.writeText('${esc(roomCode)}').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='\uD83D\uDCCB Copy',1500)})">&#x1F4CB; Copy</button>
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.share&&navigator.share({title:'Join Boggle',text:'Room code: ${esc(roomCode)}',url:location.href})">&#x1F4E4; Share</button>
+        </div>
+    </div>
+    <div class="card">
+        <div class="slbl">Players (${H.players.length})</div>
+        <div class="player-list">${pList}</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:6px">Need at least 2 to start</div>
+    </div>
+    <div class="card">
+        <div class="slbl" style="margin-bottom:8px">Rounds</div>
+        <div style="display:flex;gap:8px">${roundOpts}</div>
+        <hr>
+        <div style="display:flex;align-items:center;gap:8px;font-size:.75rem;margin-top:2px">
+            ${dictionary instanceof Set
+                ? `<span style="color:var(--success)">&#x2713;</span>
+                   <span style="color:var(--muted)">Dictionary ready (${dictionary.size.toLocaleString()} words)</span>`
+                : dictionary === false
+                    ? `<span style="color:var(--danger)">&#x26A0;</span>
+                       <span style="color:var(--muted)">Dictionary unavailable \u2014 all words accepted</span>`
+                    : `<span class="spin" style="width:12px;height:12px;border-width:2px;flex-shrink:0"></span>
+                       <span style="color:var(--muted)">Loading dictionary\u2026</span>`
+            }
+        </div>
+    </div>
+    <button class="btn btn-p btn-full" onclick="hostStartGame()" ${canStart ? '' : 'disabled'}>
+        &#x1F680; Start Game
+    </button>
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}`;
+}
+
+function renderLobbyG() {
+    if (!D) return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>Joining\u2026</div></div>`;
+
+    const pList = (D.players || []).map((name, i) =>
+        `<div class="player-row${i === 0 ? ' host-row' : ''}">
+            <div class="dot"></div>
+            <div style="flex:1">${esc(name)}${name === myName ? ' (you)' : ''}</div>
+        </div>`
+    ).join('');
+
+    return `
+    ${hdrHTML('Lobby')}
+    <div class="card highlight">
+        <div class="slbl">Room Code</div>
+        <div class="room-code">${esc((D.roomCode || roomCode))}</div>
+    </div>
+    <div class="card">
+        <div class="slbl">Players (${(D.players || []).length})</div>
+        <div class="player-list">${pList}</div>
+        <div class="info-row" style="margin-top:10px">
+            <span>Rounds</span><strong>${D.roundsTarget || 5}</strong>
+        </div>
+    </div>
+    <div class="status">Waiting for host to start\u2026</div>`;
+}
+
+// ══════════════════════════════════════════
+// STEP 13: Viewer Mode — TV Layout
+// ══════════════════════════════════════════
+
+function renderViewer() {
+    if (!vD) {
+        return `<div class="v-lobby-screen">
+            <div class="v-lobby-title">BOGGLE</div>
+            <div class="v-lobby-waiting"><div class="spin" style="display:inline-block;margin-right:10px"></div>Connecting\u2026</div>
+        </div>`;
+    }
+
+    if (vD.phase === 'lobby') {
+        const chips = (vD.players || []).map(n =>
+            `<div class="v-lobby-chip">${esc(n)}</div>`
+        ).join('');
+        return `<div class="v-lobby-screen">
+            <div class="v-lobby-title">BOGGLE</div>
+            <div class="v-lobby-code">${esc(vD.roomCode || '')}</div>
+            <div class="v-lobby-waiting">Waiting for players\u2026</div>
+            ${chips ? `<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:800px">${chips}</div>` : ''}
+        </div>`;
+    }
+
+    const board    = vD.board || [];
+    const players  = vD.players || [];
+    const timeLeft = vD.timeLeft ?? 0;
+    const round    = vD.currentRound ?? 1;
+    const total    = vD.roundsTarget ?? 5;
+    const phase    = vD.phase;
+
+    // Timer
+    const mins   = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+    const secs   = String(timeLeft % 60).padStart(2, '0');
+    const urgent = timeLeft <= 10 && phase === 'playing';
+
+    // Board tiles (display-only, no interaction)
+    const boardHTML = board.map(letter =>
+        `<div class="v-tile${letter === 'Qu' ? ' qu' : ''}">${esc(letter)}</div>`
+    ).join('');
+
+    // Sidebar: players sorted by totalScore desc, bar = word count relative to leader
+    const sorted    = [...players].sort((a, b) => b.totalScore - a.totalScore);
+    const maxWords  = Math.max(1, ...players.map(p => p.wordCount));
+    const sidebarHTML = sorted.map((p, i) =>
+        `<div class="v-player-row${i === 0 ? ' leader' : ''}">
+            <div class="v-player-top">
+                <span class="v-player-name">${esc(p.name)}</span>
+                <span class="v-player-score">${p.totalScore}</span>
+            </div>
+            <div class="v-word-bar">
+                <div class="v-word-fill" style="width:${Math.round(p.wordCount / maxWords * 100)}%"></div>
+            </div>
+            <div class="v-player-meta">${p.wordCount} word${p.wordCount !== 1 ? 's' : ''}</div>
+        </div>`
+    ).join('');
+
+    // Overlay for scoring / results / gameover
+    let overlay = '';
+    if (phase === 'scoring') {
+        overlay = `<div class="v-overlay">
+            <div class="v-overlay-title">&#x23F1; TIME'S UP</div>
+            <div style="color:var(--muted);font-size:clamp(.8rem,1.5vw,1.1rem);letter-spacing:2px">Collecting words\u2026</div>
+            <div class="spin" style="width:32px;height:32px;border-width:3px"></div>
+        </div>`;
+    } else if (phase === 'results' && vD.roundResults) {
+        const rows = sorted.map((p, i) => {
+            const r = vD.roundResults[p.name];
+            const medals = ['🥇','🥈','🥉'];
+            return `<div class="v-result-row${i === 0 ? ' winner' : ''}" style="animation-delay:${i * 0.08}s">
+                <div class="v-result-rank">${medals[i] || (i + 1)}</div>
+                <div class="v-result-name">${esc(p.name)}</div>
+                <div>
+                    <span class="v-result-score">${p.totalScore}</span>
+                    <span class="v-result-delta">+${r?.roundScore ?? 0}</span>
+                </div>
+            </div>`;
+        }).join('');
+        overlay = `<div class="v-overlay">
+            <div class="v-overlay-title">Round ${round} Results</div>
+            <div class="v-results-grid">${rows}</div>
+        </div>`;
+    } else if (phase === 'gameover') {
+        const winner = vD.winner || (sorted[0]?.name ?? '');
+        const rows = sorted.map((p, i) => {
+            const medals = ['🥇','🥈','🥉'];
+            return `<div class="v-result-row${i === 0 ? ' winner' : ''}" style="animation-delay:${i * 0.1}s">
+                <div class="v-result-rank">${medals[i] || (i + 1)}</div>
+                <div class="v-result-name">${esc(p.name)}</div>
+                <span class="v-result-score">${p.totalScore}</span>
+            </div>`;
+        }).join('');
+        overlay = `<div class="v-overlay">
+            <div style="font-size:clamp(2.5rem,8vw,6rem);animation:trophyBounce .8s cubic-bezier(.34,1.56,.64,1) both">&#x1F3C6;</div>
+            <div class="v-overlay-title gameover">${esc(winner)}</div>
+            <div style="font-size:clamp(0.7rem,1.5vw,1rem);color:var(--muted);text-transform:uppercase;letter-spacing:4px">Winner</div>
+            <div class="v-results-grid">${rows}</div>
+        </div>`;
+    }
+
+    return `<div class="v-layout">
+        <div class="v-hdr">
+            <div class="v-hdr-title">BOGGLE</div>
+            <div class="v-hdr-code">ROOM: ${esc(vD.roomCode || '')}</div>
+            <div class="v-hdr-right">
+                <div class="v-hdr-round">Round ${round} / ${total}</div>
+                <button class="v-fs-btn" onclick="toggleFullscreen()" title="Fullscreen">&#x26F6;</button>
+            </div>
+        </div>
+        <div class="v-body">
+            <div class="v-board-panel">
+                <div class="v-board-grid">${boardHTML}</div>
+            </div>
+            <div class="v-sidebar">${sidebarHTML}</div>
+            ${overlay}
+        </div>
+        <div class="v-footer">
+            <div class="v-timer${urgent ? ' urgent' : ''}">${mins}:${secs}</div>
+            <div class="v-phase-label">${
+                phase === 'playing'  ? 'Live' :
+                phase === 'scoring'  ? 'Scoring\u2026' :
+                phase === 'results'  ? 'Results' :
+                phase === 'gameover' ? 'Game Over' : ''
+            }</div>
+        </div>
+    </div>`;
+}
+
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+        document.exitFullscreen().catch(() => {});
+    }
+}
+
+// ══════════════════════════════════════════
+// STEP 14: Multi-Round Flow
+// ══════════════════════════════════════════
+
+function hostStartGame() {
+    if (H.players.length < 2) return;
+    uiErr = '';
+
+    H.board        = rollBoard();
+    H.phase        = 'playing';
+    H.timeLeft     = 180;
+    H.currentRound += 1;
+    H.roundResults = null;
+
+    // Reset per-round state
+    H.players.forEach(p => { p.words = []; p.roundScore = 0; p._submitted = undefined; });
+    myWords         = [];
+    currentPath     = [];
+    _expandedPlayer = null;
+
+    broadcastGameState();
+    startTimer();
+    ui = 'game';
+    render();
+    showRoundFlash(H.currentRound, H.roundsTarget);
+}
+
+function showRoundFlash(round, total) {
+    // Remove any existing flash first
+    document.getElementById('round-flash')?.remove();
+    const el = document.createElement('div');
+    el.id = 'round-flash';
+    el.className = 'round-flash';
+    el.innerHTML = `<div class="rf-round">Round ${round}</div>
+        <div class="rf-sub">of ${total} &nbsp;&mdash;&nbsp; Go!</div>`;
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+}
+
+// ── Broadcast current game state to all guests + viewers ──
+function broadcastGameState() {
+    // Guests get the board + phase + timeLeft (no other players' words)
+    H.players.forEach(p => {
+        const conn = guestConns[p.id];
+        if (!conn) return; // host player, no conn needed
+        send(conn, {
+            type:         'game_state',
+            board:        H.board,
+            phase:        H.phase,
+            timeLeft:     H.timeLeft,
+            currentRound: H.currentRound,
+            roundsTarget: H.roundsTarget,
+            players:      H.players.map(q => ({ name: q.name, wordCount: q.words.length, totalScore: q.totalScore })),
+            roundResults: H.roundResults,
+            winner:       H.winner,
+        });
+    });
+
+    // Viewers get the same (Steps 13+ will render it)
+    const viewerState = {
+        type:         'viewer_state',
+        board:        H.board,
+        phase:        H.phase,
+        timeLeft:     H.timeLeft,
+        currentRound: H.currentRound,
+        roundsTarget: H.roundsTarget,
+        roomCode,
+        players:      H.players.map(p => ({ name: p.name, wordCount: p.words.length, totalScore: p.totalScore })),
+        roundResults: H.roundResults,
+        winner:       H.winner,
+    };
+    Object.values(viewerConns).forEach(c => send(c, viewerState));
+}
+
+// ══════════════════════════════════════════
+// STEP 8: Host-Authoritative Timer
+// ══════════════════════════════════════════
+
+let _timerInterval = null;
+
+function startTimer() {
+    clearInterval(_timerInterval);
+    _timerInterval = setInterval(() => {
+        H.timeLeft--;
+        broadcastGameState();
+        if (isHost) render();          // update host's own timer display each second
+        if (H.timeLeft <= 0) {
+            clearInterval(_timerInterval);
+            H.phase = 'scoring';
+            broadcastGameState();      // push 'scoring' phase to all clients
+            if (isHost) { ui = 'scoring'; render(); hostCollectWords(); }
+        }
+    }, 1000);
+}
+
+// ══════════════════════════════════════════
+// STEP 6: Board CSS render — Player View
+// ══════════════════════════════════════════
+
+// currentPath: array of tile indices making up the in-progress word
+let currentPath = [];
+// myWords: the current player's submitted words for this round (local)
+let myWords = [];
+
+function tileState(idx) {
+    if (currentPath.length === 0) return 'default';
+    const pos = currentPath.indexOf(idx);
+    if (pos === currentPath.length - 1) return 'selected';
+    if (pos >= 0)                        return 'in-path';
+
+    // disabled if path is started and this tile is not adjacent to the last selected
+    if (currentPath.length > 0) {
+        const last = currentPath[currentPath.length - 1];
+        const lr = Math.floor(last / 4), lc = last % 4;
+        const tr = Math.floor(idx  / 4), tc = idx  % 4;
+        if (Math.abs(lr - tr) <= 1 && Math.abs(lc - tc) <= 1) return 'default';
+        return 'disabled';
+    }
+    return 'default';
+}
+
+function renderBoard(board) {
+    return board.map((letter, idx) => {
+        const state = tileState(idx);
+        const pathPos = currentPath.indexOf(idx);
+        const isQu = letter === 'Qu';
+        const badge = pathPos >= 0
+            ? `<span class="path-num">${pathPos + 1}</span>`
+            : '';
+        return `<div class="tile ${state}${isQu ? ' qu' : ''}" onclick="tapTile(${idx})">${badge}${esc(letter)}</div>`;
+    }).join('');
+}
+
+function currentWord() {
+    const board = isHost ? H.board : (D?.board || []);
+    return currentPath.map(i => board[i]).join('').toUpperCase();
+}
+
+function renderGame() {
+    const board      = isHost ? H.board        : (D?.board        || []);
+    const timeLeft   = isHost ? H.timeLeft     : (D?.timeLeft     ?? 180);
+    const round      = isHost ? H.currentRound : (D?.currentRound ?? 1);
+    const total      = isHost ? H.roundsTarget : (D?.roundsTarget ?? 5);
+    // For score strip: merge broadcast data, but show own live word count
+    const players = (isHost
+        ? H.players.map(p => ({ name: p.name, wordCount: p.words.length, totalScore: p.totalScore }))
+        : (D?.players || [])
+    ).map(p => p.name === myName ? { ...p, wordCount: myWords.length } : p);
+
+    const mins = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+    const secs = String(timeLeft % 60).padStart(2, '0');
+    const urgent = timeLeft <= 10;
+
+    const scoreStrip = players.map(p =>
+        `<div class="score-chip${p.name === myName ? ' you' : ''}">
+            <div class="sc-name">${esc(p.name)}</div>
+            <div class="sc-score">${p.totalScore}</div>
+            <div class="sc-words">${p.wordCount} word${p.wordCount !== 1 ? 's' : ''}</div>
+        </div>`
+    ).join('');
+
+    const word   = currentWord();
+    const wordDisplay = word
+        ? `<div class="current-word">${esc(word)}</div>`
+        : `<div class="current-word empty">tap a tile to start</div>`;
+
+    const pills = myWords.map(w =>
+        `<div class="word-pill">${esc(w.toUpperCase())}</div>`
+    ).join('');
+
+    return `
+    ${hdrHTML('Round ' + round + ' of ' + total)}
+    <div class="timer-row">
+        <div class="timer-val${urgent ? ' urgent' : ''}">${mins}:${secs}</div>
+        <div class="round-badge">Round ${round} / ${total}</div>
+    </div>
+    <div class="score-strip">${scoreStrip}</div>
+    <div class="board-grid">${renderBoard(board)}</div>
+    ${wordDisplay}
+    <div class="word-actions">
+        <button class="btn btn-g" onclick="tapBackspace()" ${currentPath.length ? '' : 'disabled'}>&#x232B; Back</button>
+        <button class="btn btn-p" onclick="tapSubmit()"
+            ${word.length >= 3 ? '' : 'disabled'}>&#x2713; Submit</button>
+    </div>
+    <div class="slbl">${myWords.length} word${myWords.length !== 1 ? 's' : ''} found</div>
+    <div class="word-list">${pills || '<span style="color:var(--muted);font-size:.76rem">No words yet</span>'}</div>`;
+}
+
+// ══════════════════════════════════════════
+// STEP 7: Tap-to-Chain Interaction
+// ══════════════════════════════════════════
+
+function isAdjacent(a, b) {
+    const ar = Math.floor(a / 4), ac = a % 4;
+    const br = Math.floor(b / 4), bc = b % 4;
+    return Math.abs(ar - br) <= 1 && Math.abs(ac - bc) <= 1 && a !== b;
+}
+
+function tapTile(idx) {
+    // Already in path — ignore (can't revisit a tile)
+    if (currentPath.includes(idx)) return;
+
+    // Start a new path
+    if (currentPath.length === 0) {
+        currentPath = [idx];
+        render();
+        return;
+    }
+
+    // Must be adjacent to the last tile in the path
+    const last = currentPath[currentPath.length - 1];
+    if (!isAdjacent(last, idx)) return;
+
+    currentPath = [...currentPath, idx];
+    render();
+}
+
+function tapBackspace() {
+    if (currentPath.length === 0) return;
+    currentPath = currentPath.slice(0, -1);
+    render();
+}
+
+function tapSubmit() {
+    const word = currentWord();
+    if (word.length < 3) return;
+
+    // Silent duplicate rejection (case-insensitive)
+    const lower = word.toLowerCase();
+    if (!myWords.includes(lower)) {
+        myWords = [...myWords, lower];
+        // Host: keep H.players in sync so broadcastGameState has correct wordCount
+        if (isHost) {
+            const p = H.players.find(p => p.id === myId);
+            if (p) p.words = myWords;
+        }
+    }
+
+    currentPath = [];
+    render();
+}
+
+// ══════════════════════════════════════════
+// STEP 9: Word Collection
+// ══════════════════════════════════════════
+
+let _collectTimeout = null;
+
+function hostCollectWords() {
+    // Host's own words are already in myWords; copy into H.players slot
+    const hostPlayer = H.players.find(p => p.id === myId);
+    if (hostPlayer) hostPlayer._submitted = myWords;
+
+    // 3-second timeout: any guest that hasn't replied yet gets an empty list
+    _collectTimeout = setTimeout(() => {
+        H.players.forEach(p => {
+            if (p._submitted === undefined) p._submitted = [];
+        });
+        hostRunScoring();
+    }, 3000);
+
+    // If all guests already replied (e.g. fast connections), go immediately
+    hostCheckAllSubmitted();
+}
+
+function hostCheckAllSubmitted() {
+    // Only guests need to submit; host slot is set in hostCollectWords
+    const guests = H.players.filter(p => p.id !== myId);
+    const allIn  = guests.every(p => p._submitted !== undefined);
+    if (allIn && H.phase === 'scoring') {
+        clearTimeout(_collectTimeout);
+        hostRunScoring();
+    }
+}
+
+// ══════════════════════════════════════════
+// STEP 10: Scoring Logic (Host)
+// ══════════════════════════════════════════
+
+// ══════════════════════════════════════════
+// STEP 11: Dictionary Validation (Option A)
+// ══════════════════════════════════════════
+
+// null  = not yet loaded
+// false = load failed (skip validation)
+// Set   = ready
+let dictionary = null;
+let _dictLoading = false;
+
+async function loadDictionary() {
+    if (dictionary !== null || _dictLoading) return;
+    _dictLoading = true;
+    if (ui === 'lobby_h') render(); // show "Loading…" immediately
+    try {
+        const resp = await fetch('https://raw.githubusercontent.com/dolph/dictionary/master/enable1.txt');
+        const text = await resp.text();
+        dictionary = new Set(
+            text.split('\n').map(w => w.trim().toLowerCase()).filter(w => w.length >= 3)
+        );
+        console.log(`Dictionary loaded: ${dictionary.size} words`);
+    } catch (e) {
+        console.warn('Dictionary load failed — skipping validation', e);
+        dictionary = false;
+    }
+    _dictLoading = false;
+    if (ui === 'lobby_h') render(); // update to "Ready" or "Unavailable"
+}
+
+const WORD_POINTS = { 3: 1, 4: 1, 5: 2, 6: 3, 7: 5 }; // 8+ → 11
+
+function wordScore(word) {
+    const len = word.replace('qu', 'qu').length; // 'qu' counts as 2 letters already
+    if (len >= 8) return 11;
+    return WORD_POINTS[len] ?? 0;
+}
+
+function hostRunScoring() {
+    if (H.phase !== 'scoring') return;
+    H.phase = 'results';
+
+    // 1. Normalise all submissions to lowercase
+    H.players.forEach(p => { p.words = (p._submitted || []).map(w => w.toLowerCase()); });
+
+    // 2. Count how many players found each word
+    const wordCount = {};
+    H.players.forEach(p => {
+        // Deduplicate within a single player's list first
+        p.words = [...new Set(p.words)];
+        p.words.forEach(w => { wordCount[w] = (wordCount[w] || 0) + 1; });
+    });
+
+    // 3 & 4. Score: dupes → 0, invalid → 0, unique valid words → length-based pts
+    let roundResults = {};
+    H.players.forEach(p => {
+        let roundScore = 0;
+        const scored = p.words.map(w => {
+            const dupe    = wordCount[w] > 1;
+            // dictionary === false means load failed: skip validation (treat as valid)
+            const invalid = !dupe && dictionary instanceof Set && !dictionary.has(w);
+            const pts     = (dupe || invalid) ? 0 : wordScore(w);
+            roundScore += pts;
+            return { word: w, pts, dupe, invalid };
+        });
+        // Sort: scoring words first (desc pts), then invalid, then dupes
+        scored.sort((a, b) => {
+            if (a.pts !== b.pts)     return b.pts - a.pts;
+            if (a.dupe !== b.dupe)   return a.dupe ? 1 : -1;
+            if (a.invalid !== b.invalid) return a.invalid ? 1 : -1;
+            return a.word.localeCompare(b.word);
+        });
+        p.roundScore  = roundScore;
+        p.totalScore += roundScore;
+        roundResults[p.name] = { words: scored, roundScore, totalScore: p.totalScore };
+    });
+
+    // 5. Attach to H so broadcastGameState picks it up
+    H.roundResults = roundResults;
+
+    // 6. Determine winner if final round
+    if (H.currentRound >= H.roundsTarget) {
+        const sorted = [...H.players].sort((a, b) => b.totalScore - a.totalScore);
+        H.winner  = sorted[0].name;
+        H.phase   = 'gameover';
+    }
+
+    broadcastGameState();
+    ui = H.phase === 'gameover' ? 'gameover' : 'results';
+    render();
+    if (H.phase === 'gameover') confetti();
+}
+
+function renderScoring() {
+    const round      = isHost ? H.currentRound : (D?.currentRound ?? 1);
+    const total      = isHost ? H.roundsTarget : (D?.roundsTarget ?? 5);
+    const wordCount  = myWords.length;
+
+    const pills = myWords.map(w =>
+        `<div class="word-pill">${esc(w.toUpperCase())}</div>`
+    ).join('');
+
+    return `
+    ${hdrHTML('Round ' + round + ' of ' + total)}
+    <div class="card highlight" style="text-align:center;padding:28px 20px">
+        <div style="font-size:2.5rem;margin-bottom:10px">&#x23F1;</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1.3rem;font-weight:900;color:var(--accent);letter-spacing:3px">TIME'S UP</div>
+        <div style="color:var(--muted);font-size:.78rem;margin-top:8px;letter-spacing:1px">
+            ${isHost ? 'Collecting words from all players\u2026' : 'Words submitted \u2014 waiting for results\u2026'}
+        </div>
+    </div>
+    <div class="card">
+        <div class="slbl">Your words this round (${wordCount})</div>
+        <div class="word-list" style="max-height:none">${pills || '<span style="color:var(--muted);font-size:.76rem">No words submitted</span>'}</div>
+    </div>
+    <div class="connecting" style="padding:16px 0">
+        <div class="spin"></div>
+        <div style="color:var(--muted);font-size:.8rem">Waiting for scoring\u2026</div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════
+// STEP 10 (cont): Results + Game Over screens
+// ══════════════════════════════════════════
+
+// ══════════════════════════════════════════
+// STEP 12: Results Screen
+// ══════════════════════════════════════════
+
+let _expandedPlayer = null; // tracks which accordion is open
+
+function toggleAccordion(name) {
+    _expandedPlayer = _expandedPlayer === name ? null : name;
+    render();
+}
+
+function wordRowsHTML(words) {
+    if (!words || words.length === 0)
+        return '<div style="color:var(--muted);font-size:.74rem;padding:2px 0">No words</div>';
+    return words.map(({ word, pts, dupe, invalid }) => {
+        const cls   = dupe ? ' dupe' : invalid ? ' invalid' : pts > 0 ? ' scored' : '';
+        const label = dupe ? 'dupe'  : invalid ? 'invalid'  : '+' + pts;
+        return `<div class="result-word${cls}">
+            <span>${esc(word.toUpperCase())}</span>
+            <span class="rw-pts">${label}</span>
+        </div>`;
+    }).join('');
+}
+
+function renderResults() {
+    const roundResults = isHost ? H.roundResults : D?.roundResults;
+    const round        = isHost ? H.currentRound  : (D?.currentRound ?? 1);
+    const total        = isHost ? H.roundsTarget  : (D?.roundsTarget ?? 5);
+
+    if (!roundResults) return renderScoring(); // still collecting
+
+    // All players sorted by totalScore desc
+    const allPlayers = isHost
+        ? [...H.players].sort((a, b) => b.totalScore - a.totalScore)
+        : Object.entries(roundResults)
+            .map(([name, r]) => ({ name, totalScore: r.totalScore, roundScore: r.roundScore }))
+            .sort((a, b) => b.totalScore - a.totalScore);
+
+    // ── Round score summary banner ──
+    const myResult   = roundResults[myName];
+    const myRound    = myResult?.roundScore ?? 0;
+    const myTotal    = myResult?.totalScore ?? 0;
+    const myUnique   = (myResult?.words || []).filter(w => !w.dupe && !w.invalid && w.pts > 0).length;
+    const myDupes    = (myResult?.words || []).filter(w => w.dupe).length;
+    const myInvalid  = (myResult?.words || []).filter(w => w.invalid).length;
+
+    const summary = `
+    <div class="card highlight">
+        <div class="round-summary">
+            <div class="rs-block">
+                <div class="rs-val">+${myRound}</div>
+                <div class="rs-lbl">This round</div>
+            </div>
+            <div class="rs-divider"></div>
+            <div class="rs-block">
+                <div class="rs-val">${myTotal}</div>
+                <div class="rs-lbl">Total</div>
+            </div>
+            <div class="rs-divider"></div>
+            <div class="rs-block">
+                <div class="rs-val">${myUnique}</div>
+                <div class="rs-lbl">Unique</div>
+            </div>
+            ${myDupes || myInvalid ? `
+            <div class="rs-divider"></div>
+            <div class="rs-block">
+                <div class="rs-val" style="color:var(--muted);font-size:1.1rem">${myDupes + myInvalid}</div>
+                <div class="rs-lbl">Dropped</div>
+            </div>` : ''}
+        </div>
+    </div>`;
+
+    // ── Leaderboard ──
+    const medals = ['g', 's', 'b'];
+    const leaderboard = allPlayers.map((p, i) => {
+        const r = roundResults[p.name];
+        return `<div class="lb-row${p.name === myName ? ' you' : ''}">
+            <div class="lb-rank ${medals[i] || ''}">${i + 1}</div>
+            <div class="lb-name">${esc(p.name)}${p.name === myName ? ' (you)' : ''}</div>
+            <div>
+                <span class="lb-pts">${p.totalScore}</span>
+                <span class="lb-round">+${r?.roundScore ?? 0}</span>
+            </div>
+        </div>`;
+    }).join('');
+
+    // ── My word breakdown ──
+    const myWordRows = wordRowsHTML(myResult?.words);
+
+    const dictNote = isHost && dictionary === false
+        ? `<div style="font-size:.68rem;color:var(--muted);margin-top:6px">&#x26A0; Dictionary unavailable \u2014 all words accepted</div>`
+        : isHost && dictionary instanceof Set
+            ? `<div style="font-size:.68rem;color:var(--muted);margin-top:6px">&#x2713; Validated against ${dictionary.size.toLocaleString()}-word dictionary</div>`
+            : '';
+
+    // ── Other players' word lists (accordion) ──
+    const others = allPlayers.filter(p => p.name !== myName);
+    const accordions = others.map(p => {
+        const r      = roundResults[p.name];
+        const open   = _expandedPlayer === p.name;
+        const scored = (r?.words || []).filter(w => !w.dupe && !w.invalid && w.pts > 0).length;
+        return `<div class="player-accordion">
+            <div class="pa-header" onclick="toggleAccordion('${esc(p.name)}')">
+                <span>${esc(p.name)} &mdash; ${scored} word${scored !== 1 ? 's' : ''}</span>
+                <span class="pa-score">+${r?.roundScore ?? 0} &nbsp; ${open ? '▲' : '▼'}</span>
+            </div>
+            <div class="pa-body${open ? ' open' : ''}">${wordRowsHTML(r?.words)}</div>
+        </div>`;
+    }).join('');
+
+    return `
+    ${hdrHTML('Round ' + round + ' of ' + total)}
+    ${summary}
+    <div class="card">
+        <div class="slbl" style="margin-bottom:10px">Leaderboard</div>
+        ${leaderboard}
+    </div>
+    <div class="card">
+        <div class="slbl" style="margin-bottom:8px">Your words</div>
+        ${myWordRows}
+        ${dictNote}
+    </div>
+    ${others.length ? `<div class="card">
+        <div class="slbl" style="margin-bottom:10px">Other players</div>
+        ${accordions}
+    </div>` : ''}
+    ${isHost
+        ? `<button class="btn btn-p btn-full" onclick="hostStartGame()">&#x25B6; Next Round</button>`
+        : `<div class="status">Waiting for host to start next round\u2026</div>`
+    }`;
+}
+
+function renderGameOver() {
+    const roundResults = isHost ? H.roundResults : D?.roundResults;
+    const winner       = isHost ? H.winner        : D?.winner;
+
+    const allPlayers = isHost
+        ? [...H.players].sort((a, b) => b.totalScore - a.totalScore)
+        : roundResults
+            ? Object.entries(roundResults)
+                .map(([name, r]) => ({ name, totalScore: r.totalScore }))
+                .sort((a, b) => b.totalScore - a.totalScore)
+            : [];
+
+    const medals = ['g', 's', 'b'];
+    const rankings = allPlayers.map((p, i) =>
+        `<div class="lb-row${p.name === myName ? ' you' : ''}">
+            <div class="lb-rank ${medals[i] || ''}">${['🥇','🥈','🥉'][i] || (i + 1)}</div>
+            <div class="lb-name">${esc(p.name)}</div>
+            <div class="lb-pts">${p.totalScore}</div>
+        </div>`
+    ).join('');
+
+    return `
+    ${hdrHTML('Game Over')}
+    <div class="card highlight" style="text-align:center;padding:28px 20px">
+        <div class="trophy">
+            <div class="icon">&#x1F3C6;</div>
+            <div class="w-name">${esc(winner || '')}</div>
+            <div class="w-sub">Winner!</div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="slbl" style="margin-bottom:10px">Final Standings</div>
+        ${rankings}
+    </div>
+    ${isHost ? `
+        <button class="btn btn-p btn-full" onclick="hostNewGame()" style="margin-bottom:8px">&#x1F503; Play Again</button>
+        <button class="btn btn-g btn-full" onclick="location.reload()">&#x1F3E0; Back to Home</button>`
+        : `<div class="status">Thanks for playing!</div>`
+    }`;
+}
+
+// ── New game: reset scores, keep same players ──
+function hostNewGame() {
+    H.players.forEach(p => { p.totalScore = 0; p.roundScore = 0; p.words = []; p._submitted = undefined; });
+    H.currentRound = 0;
+    H.roundResults = null;
+    H.winner       = null;
+    H.phase        = 'lobby';
+    myWords        = [];
+    currentPath    = [];
+    _expandedPlayer = null;
+    broadcastLobby();
+    ui = 'lobby_h';
+    render();
+}
+
+// ── Confetti ──
+function confetti() {
+    const colors = ['#f59e0b','#ef4444','#4ade80','#60a5fa','#a78bfa'];
+    for (let i = 0; i < 80; i++) {
+        const el = document.createElement('div');
+        el.className = 'confetti';
+        el.style.cssText = `
+            left:${Math.random()*100}vw;
+            background:${colors[Math.floor(Math.random()*colors.length)]};
+            animation: confettiFall ${1.5+Math.random()*2}s ${Math.random()*1.5}s ease-in forwards;
+            transform: rotate(${Math.random()*360}deg);
+        `;
+        document.body.appendChild(el);
+        el.addEventListener('animationend', () => el.remove());
+    }
+}
+
+// ── Theme ──
+function toggleTheme() {
+    document.body.classList.toggle('day');
+    const day = document.body.classList.contains('day');
+    document.getElementById('theme-btn').textContent = day ? '🌙' : '☀️';
+    localStorage.setItem('boggle-theme', day ? 'day' : 'dark');
+}
+
+// Restore saved theme before first render
+if (localStorage.getItem('boggle-theme') !== 'dark') {
+    document.body.classList.add('day');
+    document.getElementById('theme-btn').textContent = '🌙';
+}
+
+// ── Init ──
+render();
+</script>
+</body>
+</html>

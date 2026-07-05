@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Tic Tac Toe - Multiplayer</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230a0a0f' width='100' height='100' rx='20'/><line x1='25' y1='25' x2='45' y2='45' stroke='%23ff6b9d' stroke-width='6' stroke-linecap='round'/><line x1='45' y1='25' x2='25' y2='45' stroke='%23ff6b9d' stroke-width='6' stroke-linecap='round'/><circle cx='65' cy='65' r='12' fill='none' stroke='%234ecdc4' stroke-width='6'/></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0a0a0f;
+            --surface: #14141f;
+            --s2: #1a1a2a;
+            --border: #2a2a3a;
+            --text: #ffffff;
+            --muted: #6b6b8a;
+            --accent: #f59e0b;
+            --ag: rgba(245,158,11,0.2);
+            --danger: #ef4444;
+            --dg: rgba(239,68,68,0.2);
+            --success: #4ade80;
+            --x-color: #ff6b9d;
+            --o-color: #4ecdc4;
+        }
+
+        body.day {
+            --bg: #f5f4ef;
+            --surface: #ffffff;
+            --s2: #edede7;
+            --border: #d4d4cc;
+            --text: #1a1a2a;
+            --muted: #6b6b7a;
+            --accent: #d97706;
+            --ag: rgba(217,119,6,0.15);
+            --danger: #dc2626;
+            --dg: rgba(220,38,38,0.15);
+            --success: #16a34a;
+        }
+        body.day::before {
+            background:
+                radial-gradient(ellipse at 15% 10%, rgba(217,119,6,0.05) 0%, transparent 55%),
+                radial-gradient(ellipse at 85% 90%, rgba(220,38,38,0.05) 0%, transparent 55%);
+        }
+        body.day .hdr h1 {
+            filter: drop-shadow(0 0 12px rgba(217,119,6,0.2));
+        }
+
+        /* ── Theme toggle button ── */
+        .theme-toggle {
+            position: fixed; top: 14px; right: 14px; z-index: 1000;
+            background: var(--s2); border: 1px solid var(--border);
+            color: var(--text); border-radius: 8px;
+            width: 38px; height: 38px; font-size: 1.1rem;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: border-color .15s, background .15s;
+        }
+        .theme-toggle:hover { border-color: var(--accent); }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px 14px 48px;
+            overflow-x: hidden;
+        }
+        body::before {
+            content: '';
+            position: fixed; inset: 0;
+            background:
+                radial-gradient(ellipse at 15% 10%, rgba(245,158,11,0.07) 0%, transparent 55%),
+                radial-gradient(ellipse at 85% 90%, rgba(239,68,68,0.07) 0%, transparent 55%);
+            pointer-events: none; z-index: -1;
+        }
+
+        #app { width: 100%; max-width: 480px; }
+
+        /* ── Header ── */
+        .hdr { text-align: center; margin-bottom: 20px; padding-top: 4px; }
+        .hdr h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.4rem, 6vw, 2rem);
+            font-weight: 900;
+            letter-spacing: 4px;
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 16px rgba(245,158,11,0.3));
+        }
+
+        /* ── Card ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 12px;
+            animation: fadeIn .2s ease-out;
+        }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+        .screen { display: none; }
+        .screen.active { display: block; }
+
+        /* ── Buttons ── */
+        .btn {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600; font-size: .875rem; letter-spacing: 1px;
+            padding: 13px 20px; border-radius: 8px; border: none;
+            cursor: pointer; transition: all .15s ease;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:active { transform: scale(.97); }
+        .btn:disabled { opacity: .35; cursor: not-allowed; transform: none !important; }
+        .btn-full { width: 100%; }
+        .btn-p { background: var(--accent); color: #0a0a0f; box-shadow: 0 4px 14px var(--ag); }
+        .btn-p:not(:disabled):hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-g { background: transparent; color: var(--text); border: 1px solid var(--border); }
+        .btn-g:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+        .btn-sm { padding: 8px 14px; font-size: .78rem; }
+
+        .lobby-options { display: flex; flex-direction: column; gap: 16px; }
+
+        /* ── Divider ── */
+        .divider {
+            display: flex; align-items: center; gap: 16px;
+            color: var(--muted); font-size: .75rem;
+            text-transform: uppercase; letter-spacing: 2px;
+        }
+        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+        /* ── Inputs ── */
+        .fg { display: flex; flex-direction: column; gap: 5px; }
+        .fg label { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+        .fg input {
+            background: var(--s2); border: 1px solid var(--border); border-radius: 8px;
+            padding: 11px 14px; color: var(--text);
+            font-family: 'JetBrains Mono', monospace; font-size: .9rem;
+            outline: none; transition: border-color .15s;
+            -webkit-appearance: none; appearance: none;
+        }
+        .fg input:focus { border-color: var(--accent); }
+        .fg input::placeholder { color: var(--muted); }
+        #room-code-input { text-transform: uppercase; letter-spacing: 4px; text-align: center; flex: 1; }
+        .input-wrapper { display: flex; gap: 8px; }
+
+        /* ── Room code display ── */
+        .room-code-display { margin-bottom: 16px; }
+        .room-code-label {
+            font-size: .75rem; color: var(--muted);
+            text-transform: uppercase; letter-spacing: 2px;
+            margin-bottom: 4px; text-align: center;
+        }
+        .room-code {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.2rem; font-weight: 900; letter-spacing: 8px;
+            color: var(--accent); text-align: center;
+            background: var(--s2); border: 1px solid var(--border);
+            border-radius: 10px; padding: 16px; margin: 8px 0;
+        }
+        .share-row { display: flex; justify-content: center; margin-bottom: 8px; }
+        .btn-icon {
+            background: var(--s2); color: var(--text); border: 1px solid var(--border);
+            padding: 8px 14px; border-radius: 8px; cursor: pointer;
+            transition: all .15s; display: inline-flex; align-items: center; gap: 6px;
+            font-family: 'JetBrains Mono', monospace; font-size: .75rem;
+        }
+        .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-icon svg { width: 14px; height: 14px; }
+
+        /* ── Waiting ── */
+        .waiting-indicator {
+            display: flex; align-items: center; justify-content: center;
+            gap: 12px; color: var(--muted); margin: 16px 0;
+        }
+        .waiting-dots { display: flex; gap: 4px; }
+        .waiting-dots span {
+            width: 8px; height: 8px; background: var(--accent);
+            border-radius: 50%; animation: bounce 1.4s ease-in-out infinite;
+        }
+        .waiting-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .waiting-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        /* ── Game header ── */
+        .game-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .players { display: flex; gap: 12px; }
+        .player {
+            display: flex; align-items: center; gap: 7px;
+            padding: 7px 12px; border-radius: 8px;
+            background: var(--s2); border: 1px solid var(--border);
+            font-size: .82rem; transition: all 0.3s;
+        }
+        .player.active { border-color: currentColor; box-shadow: 0 0 16px currentColor; }
+        .player.x { color: var(--x-color); }
+        .player.o { color: var(--o-color); }
+        .player-icon { width: 18px; height: 18px; }
+
+        .connection-status { display: flex; align-items: center; gap: 6px; font-size: .72rem; color: var(--muted); }
+        .connection-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: pulse-dot 2s infinite; }
+        .connection-dot.disconnected { background: var(--danger); animation: none; }
+        @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        /* ── Game board ── */
+        .game-board {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 8px; background: var(--bg); padding: 8px;
+            border-radius: 12px; margin-bottom: 20px;
+        }
+        .cell {
+            aspect-ratio: 1; background: var(--surface); border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s ease-out;
+            position: relative;
+        }
+
+        .cell:hover:not(.taken):not(.game-over) {
+            background: var(--border);
+            transform: scale(1.02);
+        }
+
+        .cell.x-hover:hover:not(.taken):not(.game-over) {
+            box-shadow: inset 0 0 30px rgba(255, 107, 157, 0.2);
+        }
+
+        .cell.o-hover:hover:not(.taken):not(.game-over) {
+            box-shadow: inset 0 0 30px rgba(78, 205, 196, 0.2);
+        }
+
+        .cell.taken {
+            cursor: default;
+        }
+
+        .cell.game-over {
+            cursor: default;
+        }
+
+        .cell.winning {
+            animation: win-glow 0.6s ease-in-out infinite alternate;
+        }
+
+        .cell.winning.x {
+            --glow-color: var(--x-color);
+        }
+
+        .cell.winning.o {
+            --glow-color: var(--o-color);
+        }
+
+        @keyframes win-glow {
+            from { box-shadow: inset 0 0 20px var(--glow-color); }
+            to { box-shadow: inset 0 0 40px var(--glow-color); }
+        }
+
+        .cell svg {
+            width: 60%;
+            height: 60%;
+        }
+
+        .cell svg.x-piece {
+            stroke: var(--x-color);
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: 100;
+            stroke-dashoffset: 100;
+            animation: draw-x 0.3s ease-out forwards;
+        }
+
+        .cell svg.o-piece {
+            stroke: var(--o-color);
+            stroke-width: 8;
+            stroke-linecap: round;
+            fill: none;
+            stroke-dasharray: 220;
+            stroke-dashoffset: 220;
+            animation: draw-o 0.3s ease-out forwards;
+        }
+
+        @keyframes draw-x {
+            to { stroke-dashoffset: 0; }
+        }
+
+        @keyframes draw-o {
+            to { stroke-dashoffset: 0; }
+        }
+
+        .cell.shake {
+            animation: shake 0.3s ease-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
+        }
+
+        /* ── Game status ── */
+        .game-status { text-align: center; font-size: .9rem; margin-bottom: 16px; min-height: 22px; color: var(--muted); }
+        .game-status.your-turn { color: var(--success); }
+
+        /* ── Game actions ── */
+        .game-actions { display: flex; gap: 12px; }
+        .game-actions .btn { flex: 1; }
+
+        /* ── Modal ── */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100; opacity: 0; visibility: hidden; transition: all 0.2s;
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 12px; padding: 24px; text-align: center;
+            max-width: 320px; width: 90%;
+            transform: scale(0.9); transition: transform 0.2s;
+        }
+        .modal-overlay.active .modal { transform: scale(1); }
+        .modal h2 { font-family: 'Orbitron', sans-serif; font-size: 1.4rem; margin-bottom: 12px; }
+        .modal p { color: var(--muted); margin-bottom: 20px; font-size: .85rem; }
+        .modal .btn { width: 100%; }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--surface); border: 1px solid var(--border);
+            padding: 10px 20px; border-radius: 8px; font-size: .85rem;
+            opacity: 0; transition: all 0.3s ease-out; z-index: 200;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .toast.success { border-color: var(--success); color: var(--success); }
+        .toast.error { border-color: var(--danger); color: var(--danger); }
+
+        /* ── Error ── */
+        .error-message {
+            color: var(--danger); font-size: .78rem; padding: 8px 12px;
+            background: var(--dg); border: 1px solid var(--danger);
+            border-radius: 8px; margin-top: 8px; display: none;
+        }
+        .error-message.show { display: block; }
+
+        @media (max-width: 400px) {
+            .hdr h1 { font-size: 1.5rem; }
+            .room-code { font-size: 1.8rem; }
+            .players { flex-direction: column; gap: 8px; }
+            .player { padding: 6px 10px; font-size: .78rem; }
+        }
+    </style>
+</head>
+<body>
+<button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Toggle day/night mode">&#x2600;&#xFE0F;</button>
+    <div id="app">
+        <div class="hdr">
+            <h1>TIC TAC TOE</h1>
+        </div>
+
+        <div class="card">
+            <div id="lobby-screen" class="screen active">
+                <div class="lobby-options">
+                    <div class="fg">
+                        <label>Your Name</label>
+                        <input type="text" id="player-name-input" placeholder="Enter your name" maxlength="16">
+                    </div>
+                    <button class="btn btn-p btn-full" id="create-game-btn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Create Game
+                    </button>
+
+                    <div class="divider">or</div>
+
+                    <div class="fg">
+                        <label>Join with room code</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="room-code-input" placeholder="XXXX" maxlength="4" oninput="this.value=this.value.toUpperCase()">
+                            <button class="btn btn-g btn-sm" id="join-game-btn">Join</button>
+                        </div>
+                        <div id="join-error" class="error-message">Room not found or connection failed</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="waiting-screen" class="screen">
+                <div class="room-code-display">
+                    <div class="room-code-label">Your Room Code</div>
+                    <div class="room-code" id="room-code-text">----</div>
+                </div>
+                <div class="share-row">
+                    <button class="btn-icon" id="copy-code-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Copy Code
+                    </button>
+                </div>
+
+                <div class="waiting-indicator">
+                    <span>Waiting for opponent</span>
+                    <div class="waiting-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+
+                <button class="btn btn-g btn-full" id="cancel-waiting-btn">Cancel</button>
+            </div>
+
+            <div id="game-screen" class="screen">
+                <div class="game-header">
+                    <div class="players">
+                        <div class="player x" id="player-x">
+                            <svg class="player-icon" viewBox="0 0 24 24" fill="none">
+                                <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                                <line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                            </svg>
+                            <span>Player X</span>
+                        </div>
+                        <div class="player o" id="player-o">
+                            <svg class="player-icon" viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="3"/>
+                            </svg>
+                            <span>Player O</span>
+                        </div>
+                    </div>
+                    <div class="connection-status">
+                        <div class="connection-dot" id="connection-dot"></div>
+                        <span id="connection-text">Connected</span>
+                    </div>
+                </div>
+
+                <div class="game-status" id="game-status">Your turn</div>
+
+                <div class="game-board" id="game-board">
+                    <div class="cell" data-index="0"></div>
+                    <div class="cell" data-index="1"></div>
+                    <div class="cell" data-index="2"></div>
+                    <div class="cell" data-index="3"></div>
+                    <div class="cell" data-index="4"></div>
+                    <div class="cell" data-index="5"></div>
+                    <div class="cell" data-index="6"></div>
+                    <div class="cell" data-index="7"></div>
+                    <div class="cell" data-index="8"></div>
+                </div>
+
+                <div class="game-actions" id="game-actions">
+                    <button class="btn btn-p" id="play-again-btn" style="display: none;">Play Again</button>
+                    <button class="btn btn-g" id="leave-game-btn">Leave Game</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal">
+            <h2 id="modal-title">Game Over</h2>
+            <p id="modal-message">You won!</p>
+            <button class="btn btn-p" id="modal-btn">Play Again</button>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">Copied to clipboard!</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script>
+        const App = {
+            peer: null,
+            connection: null,
+            myRole: null,
+            isHost: false,
+            roomCode: null,
+            playerName: '',
+            opponentName: '',
+            gameState: {
+                board: ['', '', '', '', '', '', '', '', ''],
+                currentPlayer: 'X',
+                winner: null,
+                isGameOver: false,
+                winningCells: []
+            },
+
+            elements: {
+                lobbyScreen: document.getElementById('lobby-screen'),
+                waitingScreen: document.getElementById('waiting-screen'),
+                gameScreen: document.getElementById('game-screen'),
+                createGameBtn: document.getElementById('create-game-btn'),
+                joinGameBtn: document.getElementById('join-game-btn'),
+                playerNameInput: document.getElementById('player-name-input'),
+                roomCodeInput: document.getElementById('room-code-input'),
+                roomCodeText: document.getElementById('room-code-text'),
+                copyCodeBtn: document.getElementById('copy-code-btn'),
+                cancelWaitingBtn: document.getElementById('cancel-waiting-btn'),
+                joinError: document.getElementById('join-error'),
+                gameBoard: document.getElementById('game-board'),
+                gameStatus: document.getElementById('game-status'),
+                playerX: document.getElementById('player-x'),
+                playerO: document.getElementById('player-o'),
+                connectionDot: document.getElementById('connection-dot'),
+                connectionText: document.getElementById('connection-text'),
+                playAgainBtn: document.getElementById('play-again-btn'),
+                leaveGameBtn: document.getElementById('leave-game-btn'),
+                modalOverlay: document.getElementById('modal-overlay'),
+                modalTitle: document.getElementById('modal-title'),
+                modalMessage: document.getElementById('modal-message'),
+                modalBtn: document.getElementById('modal-btn'),
+                toast: document.getElementById('toast')
+            },
+
+            init() {
+                const saved = localStorage.getItem('ttt-name');
+                if (saved) this.elements.playerNameInput.value = saved;
+                this.bindEvents();
+            },
+
+            bindEvents() {
+                this.elements.createGameBtn.addEventListener('click', () => this.createGame());
+                this.elements.joinGameBtn.addEventListener('click', () => this.joinGame());
+                this.elements.roomCodeInput.addEventListener('keyup', (e) => {
+                    if (e.key === 'Enter') this.joinGame();
+                });
+                this.elements.copyCodeBtn.addEventListener('click', () => this.copyRoomCode());
+                this.elements.cancelWaitingBtn.addEventListener('click', () => this.cancelWaiting());
+                this.elements.leaveGameBtn.addEventListener('click', () => this.leaveGame());
+                this.elements.playAgainBtn.addEventListener('click', () => this.requestPlayAgain());
+                this.elements.modalBtn.addEventListener('click', () => this.handleModalAction());
+
+                this.elements.gameBoard.querySelectorAll('.cell').forEach(cell => {
+                    cell.addEventListener('click', () => this.handleCellClick(cell));
+                });
+            },
+
+            showScreen(screenName) {
+                this.elements.lobbyScreen.classList.remove('active');
+                this.elements.waitingScreen.classList.remove('active');
+                this.elements.gameScreen.classList.remove('active');
+
+                if (screenName === 'lobby') {
+                    this.elements.lobbyScreen.classList.add('active');
+                } else if (screenName === 'waiting') {
+                    this.elements.waitingScreen.classList.add('active');
+                } else if (screenName === 'game') {
+                    this.elements.gameScreen.classList.add('active');
+                }
+            },
+
+            generateRoomCode() {
+                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+                let code = '';
+                for (let i = 0; i < 4; i++) {
+                    code += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                return code;
+            },
+
+            createGame() {
+                this.playerName = this.elements.playerNameInput.value.trim() || 'Player X';
+                localStorage.setItem('ttt-name', this.playerName);
+                this.roomCode = this.generateRoomCode();
+                this.isHost = true;
+                this.myRole = 'X';
+
+                this.elements.roomCodeText.textContent = this.roomCode;
+                this.showScreen('waiting');
+
+                this.peer = new Peer(this.roomCode, {
+                    debug: 0,
+                    host: '0.peerjs.com',
+                    port: 443,
+                    path: '/',
+                    secure: true,
+                    config: {
+                        iceServers: [
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:stun1.l.google.com:19302' }
+                        ]
+                    }
+                });
+
+                this.peer.on('open', () => {
+                    console.log('Host peer created with ID:', this.roomCode);
+                });
+
+                this.peer.on('connection', (conn) => {
+                    this.connection = conn;
+                    conn.on('open', () => {
+                        this.setupConnection();
+                    });
+                });
+
+                this.peer.on('error', (err) => {
+                    console.error('Peer error:', err);
+                    this.showToast('Connection error: ' + err.type, 'error');
+                    if (err.type === 'unavailable-id') {
+                        this.showScreen('lobby');
+                    }
+                });
+            },
+
+            joinGame() {
+                this.playerName = this.elements.playerNameInput.value.trim() || 'Player O';
+                localStorage.setItem('ttt-name', this.playerName);
+                const code = this.elements.roomCodeInput.value.toUpperCase().trim();
+
+                if (code.length !== 4) {
+                    this.elements.joinError.textContent = 'Please enter a 4-character room code';
+                    this.elements.joinError.classList.add('show');
+                    return;
+                }
+
+                this.elements.joinError.classList.remove('show');
+                this.roomCode = code;
+                this.isHost = false;
+                this.myRole = 'O';
+
+                this.elements.joinGameBtn.disabled = true;
+                this.elements.joinGameBtn.textContent = 'Connecting...';
+
+                this.peer = new Peer({
+                    debug: 0,
+                    host: '0.peerjs.com',
+                    port: 443,
+                    path: '/',
+                    secure: true,
+                    config: {
+                        iceServers: [
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:stun1.l.google.com:19302' }
+                        ]
+                    }
+                });
+
+                this.peer.on('open', () => {
+                    this.connection = this.peer.connect(this.roomCode, {
+                        reliable: true
+                    });
+
+                    this.connection.on('open', () => {
+                        this.setupConnection();
+                    });
+
+                    this.connection.on('error', (err) => {
+                        console.error('Connection error:', err);
+                        this.elements.joinError.textContent = 'Room not found or connection failed';
+                        this.elements.joinError.classList.add('show');
+                        this.elements.joinGameBtn.disabled = false;
+                        this.elements.joinGameBtn.textContent = 'Join';
+                    });
+
+                    setTimeout(() => {
+                        if (this.connection && !this.connection.open) {
+                            this.elements.joinError.textContent = 'Room not found or connection failed';
+                            this.elements.joinError.classList.add('show');
+                            this.elements.joinGameBtn.disabled = false;
+                            this.elements.joinGameBtn.textContent = 'Join';
+                            if (this.peer) this.peer.destroy();
+                        }
+                    }, 5000);
+                });
+
+                this.peer.on('error', (err) => {
+                    console.error('Peer error:', err);
+                    this.elements.joinError.textContent = 'Connection error: ' + err.type;
+                    this.elements.joinError.classList.add('show');
+                    this.elements.joinGameBtn.disabled = false;
+                    this.elements.joinGameBtn.textContent = 'Join';
+                });
+            },
+
+            setupConnection() {
+                this.connection.on('data', (data) => {
+                    this.handleMessage(data);
+                });
+
+                this.connection.on('close', () => {
+                    this.handleDisconnect();
+                });
+
+                if (this.isHost) {
+                    this.startGame();
+                    this.connection.send({ type: 'start', hostName: this.playerName });
+                }
+            },
+
+            handleMessage(data) {
+                switch (data.type) {
+                    case 'start':
+                        this.opponentName = data.hostName || 'Player X';
+                        this.connection.send({ type: 'hello', guestName: this.playerName });
+                        this.startGame();
+                        break;
+                    case 'hello':
+                        this.opponentName = data.guestName || 'Player O';
+                        this.updatePlayerLabels();
+                        break;
+                    case 'move':
+                        this.handleOpponentMove(data.cell);
+                        break;
+                    case 'playAgain':
+                        this.handlePlayAgainRequest();
+                        break;
+                    case 'playAgainResponse':
+                        this.handlePlayAgainResponse(data.accept);
+                        break;
+                    case 'leave':
+                        this.handleOpponentLeft();
+                        break;
+                }
+            },
+
+            startGame() {
+                this.resetGame();
+                this.showScreen('game');
+                this.updatePlayerLabels();
+                this.updateUI();
+            },
+
+            updatePlayerLabels() {
+                const xName = this.isHost ? this.playerName : this.opponentName;
+                const oName = this.isHost ? this.opponentName : this.playerName;
+                this.elements.playerX.querySelector('span').textContent = xName || 'Player X';
+                this.elements.playerO.querySelector('span').textContent = oName || 'Player O';
+            },
+
+            resetGame() {
+                this.gameState = {
+                    board: ['', '', '', '', '', '', '', '', ''],
+                    currentPlayer: 'X',
+                    winner: null,
+                    isGameOver: false,
+                    winningCells: []
+                };
+
+                this.elements.gameBoard.querySelectorAll('.cell').forEach(cell => {
+                    cell.innerHTML = '';
+                    cell.className = 'cell';
+                });
+
+                this.elements.playAgainBtn.style.display = 'none';
+                this.elements.gameStatus.textContent = '';
+                this.elements.gameStatus.className = 'game-status';
+
+                this.updateUI();
+            },
+
+            handleCellClick(cell) {
+                if (this.gameState.isGameOver) return;
+                if (this.gameState.currentPlayer !== this.myRole) {
+                    cell.classList.add('shake');
+                    setTimeout(() => cell.classList.remove('shake'), 300);
+                    return;
+                }
+
+                const index = parseInt(cell.dataset.index);
+                if (this.gameState.board[index] !== '') {
+                    cell.classList.add('shake');
+                    setTimeout(() => cell.classList.remove('shake'), 300);
+                    return;
+                }
+
+                this.makeMove(index);
+                this.sendMove(index);
+            },
+
+            makeMove(index) {
+                this.gameState.board[index] = this.gameState.currentPlayer;
+                this.renderCell(index, this.gameState.currentPlayer);
+
+                const result = this.checkWin();
+                if (result) {
+                    this.gameState.isGameOver = true;
+                    this.gameState.winner = result.winner;
+                    this.gameState.winningCells = result.cells;
+                    this.highlightWinningCells();
+                    this.showGameEnd();
+                } else if (this.gameState.board.every(cell => cell !== '')) {
+                    this.gameState.isGameOver = true;
+                    this.gameState.winner = 'draw';
+                    this.showGameEnd();
+                } else {
+                    this.gameState.currentPlayer = this.gameState.currentPlayer === 'X' ? 'O' : 'X';
+                    this.updateUI();
+                }
+            },
+
+            sendMove(index) {
+                if (this.connection && this.connection.open) {
+                    this.connection.send({ type: 'move', cell: index });
+                }
+            },
+
+            handleOpponentMove(index) {
+                this.makeMove(index);
+            },
+
+            renderCell(index, player) {
+                const cell = this.elements.gameBoard.querySelector(`[data-index="${index}"]`);
+                cell.classList.add('taken', player.toLowerCase());
+
+                if (player === 'X') {
+                    cell.innerHTML = `
+                        <svg viewBox="0 0 24 24" class="x-piece">
+                            <line x1="4" y1="4" x2="20" y2="20"></line>
+                            <line x1="20" y1="4" x2="4" y2="20"></line>
+                        </svg>
+                    `;
+                } else {
+                    cell.innerHTML = `
+                        <svg viewBox="0 0 24 24" class="o-piece">
+                            <circle cx="12" cy="12" r="8"></circle>
+                        </svg>
+                    `;
+                }
+            },
+
+            checkWin() {
+                const winPatterns = [
+                    [0, 1, 2], [3, 4, 5], [6, 7, 8],
+                    [0, 3, 6], [1, 4, 7], [2, 5, 8],
+                    [0, 4, 8], [2, 4, 6]
+                ];
+
+                for (const pattern of winPatterns) {
+                    const [a, b, c] = pattern;
+                    if (this.gameState.board[a] &&
+                        this.gameState.board[a] === this.gameState.board[b] &&
+                        this.gameState.board[a] === this.gameState.board[c]) {
+                        return { winner: this.gameState.board[a], cells: pattern };
+                    }
+                }
+                return null;
+            },
+
+            highlightWinningCells() {
+                this.gameState.winningCells.forEach(index => {
+                    const cell = this.elements.gameBoard.querySelector(`[data-index="${index}"]`);
+                    cell.classList.add('winning');
+                });
+
+                this.elements.gameBoard.querySelectorAll('.cell').forEach(cell => {
+                    cell.classList.add('game-over');
+                });
+            },
+
+            showGameEnd() {
+                this.elements.playAgainBtn.style.display = 'block';
+
+                if (this.gameState.winner === 'draw') {
+                    this.showModal('Game Over', "It's a draw!", 'Leave Game');
+                } else if (this.gameState.winner === this.myRole) {
+                    this.showModal('Victory!', 'Congratulations, you won!', 'Play Again');
+                } else {
+                    this.showModal('Defeat', 'You lost this round!', 'Play Again');
+                }
+
+                this.updateUI();
+            },
+
+            showModal(title, message, buttonText) {
+                this.elements.modalTitle.textContent = title;
+                this.elements.modalMessage.textContent = message;
+                this.elements.modalBtn.textContent = buttonText;
+                this.elements.modalOverlay.classList.add('active');
+            },
+
+            hideModal() {
+                this.elements.modalOverlay.classList.remove('active');
+            },
+
+            handleModalAction() {
+                this.hideModal();
+                if (this.elements.modalBtn.textContent === 'Play Again') {
+                    this.requestPlayAgain();
+                } else {
+                    this.leaveGame();
+                }
+            },
+
+            requestPlayAgain() {
+                if (this.connection && this.connection.open) {
+                    this.connection.send({ type: 'playAgain' });
+                    this.elements.playAgainBtn.style.display = 'none';
+                    this.elements.gameStatus.textContent = 'Waiting for opponent...';
+                }
+            },
+
+            handlePlayAgainRequest() {
+                this.showModal('Rematch Requested', 'Your opponent wants to play again!', 'Accept');
+                this.waitingForRematchResponse = true;
+            },
+
+            handlePlayAgainResponse(accept) {
+                this.hideModal();
+                if (accept) {
+                    this.resetGame();
+                } else {
+                    this.leaveGame();
+                }
+            },
+
+            updateUI() {
+                this.elements.playerX.classList.toggle('active', this.gameState.currentPlayer === 'X');
+                this.elements.playerO.classList.toggle('active', this.gameState.currentPlayer === 'O');
+
+                if (!this.gameState.isGameOver) {
+                    if (this.gameState.currentPlayer === this.myRole) {
+                        this.elements.gameStatus.textContent = 'Your turn';
+                        this.elements.gameStatus.className = 'game-status your-turn';
+                    } else {
+                        this.elements.gameStatus.textContent = "Opponent's turn";
+                        this.elements.gameStatus.className = 'game-status';
+                    }
+                } else if (this.gameState.winner === 'draw') {
+                    this.elements.gameStatus.textContent = "It's a draw!";
+                    this.elements.gameStatus.className = 'game-status';
+                } else if (this.gameState.winner === this.myRole) {
+                    this.elements.gameStatus.textContent = 'You won!';
+                    this.elements.gameStatus.className = 'game-status your-turn';
+                } else {
+                    this.elements.gameStatus.textContent = 'You lost!';
+                    this.elements.gameStatus.className = 'game-status';
+                }
+
+                const cells = this.elements.gameBoard.querySelectorAll('.cell');
+                cells.forEach(cell => {
+                    cell.classList.remove('x-hover', 'o-hover');
+                    if (!cell.classList.contains('taken') && !this.gameState.isGameOver) {
+                        cell.classList.add(this.myRole === 'X' ? 'x-hover' : 'o-hover');
+                    }
+                });
+            },
+
+            cancelWaiting() {
+                if (this.peer) {
+                    this.peer.destroy();
+                    this.peer = null;
+                }
+                this.roomCode = null;
+                this.showScreen('lobby');
+            },
+
+            leaveGame() {
+                if (this.connection && this.connection.open) {
+                    this.connection.send({ type: 'leave' });
+                    this.connection.close();
+                }
+                this.cleanup();
+            },
+
+            handleDisconnect() {
+                this.elements.connectionDot.classList.add('disconnected');
+                this.elements.connectionText.textContent = 'Disconnected';
+            },
+
+            handleOpponentLeft() {
+                this.showModal('Opponent Left', 'Your opponent has left the game.', 'Back to Lobby');
+                this.elements.modalBtn.textContent = 'Back to Lobby';
+            },
+
+            cleanup() {
+                if (this.connection) {
+                    this.connection.close();
+                    this.connection = null;
+                }
+                if (this.peer) {
+                    this.peer.destroy();
+                    this.peer = null;
+                }
+                this.roomCode = null;
+                this.myRole = null;
+                this.isHost = false;
+                this.opponentName = '';
+                this.elements.joinGameBtn.disabled = false;
+                this.elements.joinGameBtn.textContent = 'Join';
+                this.elements.roomCodeInput.value = '';
+                this.elements.connectionDot.classList.remove('disconnected');
+                this.elements.connectionText.textContent = 'Connected';
+                this.showScreen('lobby');
+            },
+
+            copyRoomCode() {
+                navigator.clipboard.writeText(this.roomCode).then(() => {
+                    this.showToast('Copied to clipboard!', 'success');
+                }).catch(() => {
+                    this.showToast('Failed to copy', 'error');
+                });
+            },
+
+            showToast(message, type = 'success') {
+                this.elements.toast.textContent = message;
+                this.elements.toast.className = `toast ${type} show`;
+                setTimeout(() => {
+                    this.elements.toast.classList.remove('show');
+                }, 2000);
+            }
+        };
+
+        App.init();
+
+        // ── Theme ──
+        function toggleTheme() {
+            document.body.classList.toggle('day');
+            const day = document.body.classList.contains('day');
+            document.getElementById('theme-btn').textContent = day ? '🌙' : '☀️';
+            localStorage.setItem('ttt-theme', day ? 'day' : 'dark');
+        }
+        if (localStorage.getItem('ttt-theme') !== 'dark') {
+            document.body.classList.add('day');
+            document.getElementById('theme-btn').textContent = '🌙';
+        }
+    </script>
+</body>
+</html>

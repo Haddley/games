@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Liar's Dice</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230a0a0f' width='100' height='100' rx='20'/><rect x='12' y='12' width='76' height='76' rx='14' fill='%231e1e2e' stroke='%23f59e0b' stroke-width='4'/><circle cx='32' cy='32' r='8' fill='%23f59e0b'/><circle cx='50' cy='50' r='8' fill='%23f59e0b'/><circle cx='68' cy='68' r='8' fill='%23f59e0b'/></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0a0a0f;
+            --surface: #14141f;
+            --s2: #1a1a2a;
+            --border: #2a2a3a;
+            --text: #ffffff;
+            --muted: #6b6b8a;
+            --accent: #f59e0b;
+            --ag: rgba(245,158,11,0.2);
+            --danger: #ef4444;
+            --dg: rgba(239,68,68,0.2);
+            --success: #4ade80;
+        }
+
+        body.day {
+            --bg: #f5f4ef;
+            --surface: #ffffff;
+            --s2: #edede7;
+            --border: #d4d4cc;
+            --text: #1a1a2a;
+            --muted: #6b6b7a;
+            --accent: #d97706;
+            --ag: rgba(217,119,6,0.15);
+            --danger: #dc2626;
+            --dg: rgba(220,38,38,0.15);
+            --success: #16a34a;
+        }
+        body.day::before {
+            background:
+                radial-gradient(ellipse at 15% 10%, rgba(217,119,6,0.05) 0%, transparent 55%),
+                radial-gradient(ellipse at 85% 90%, rgba(220,38,38,0.05) 0%, transparent 55%);
+        }
+        body.day .hdr h1 {
+            filter: drop-shadow(0 0 12px rgba(217,119,6,0.2));
+        }
+        /* Viewer always stays dark */
+        body.day.viewer-mode {
+            --bg: #05050a;
+            --surface: #14141f;
+            --s2: #1a1a2a;
+            --border: #2a2a3a;
+            --text: #ffffff;
+            --muted: #6b6b8a;
+            --accent: #f59e0b;
+            --ag: rgba(245,158,11,0.2);
+            --danger: #ef4444;
+            --dg: rgba(239,68,68,0.2);
+            --success: #4ade80;
+        }
+
+        /* ── Theme toggle button ── */
+        .theme-toggle {
+            position: fixed; top: 14px; right: 14px; z-index: 1000;
+            background: var(--s2); border: 1px solid var(--border);
+            color: var(--text); border-radius: 8px;
+            width: 38px; height: 38px; font-size: 1.1rem;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: border-color .15s, background .15s;
+        }
+        .theme-toggle:hover { border-color: var(--accent); }
+        body.viewer-mode .theme-toggle { display: none; }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px 14px 48px;
+        }
+        body::before {
+            content: '';
+            position: fixed; inset: 0;
+            background:
+                radial-gradient(ellipse at 15% 10%, rgba(245,158,11,0.07) 0%, transparent 55%),
+                radial-gradient(ellipse at 85% 90%, rgba(239,68,68,0.07) 0%, transparent 55%);
+            pointer-events: none; z-index: -1;
+        }
+
+        #app { width: 100%; max-width: 480px; }
+
+        /* ── Header ── */
+        .hdr { text-align: center; margin-bottom: 20px; padding-top: 4px; }
+        .hdr h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.4rem, 6vw, 2rem);
+            font-weight: 900;
+            letter-spacing: 4px;
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 16px rgba(245,158,11,0.3));
+        }
+        .hdr .sub { color: var(--muted); font-size: 0.7rem; letter-spacing: 2px; margin-top: 4px; text-transform: uppercase; }
+
+        /* ── Card ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 12px;
+            animation: fadeIn .2s ease-out;
+        }
+        .card.highlight { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 24px var(--ag); }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+        /* ── Buttons ── */
+        .btn {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600; font-size: .875rem; letter-spacing: 1px;
+            padding: 13px 20px; border-radius: 8px; border: none;
+            cursor: pointer; transition: all .15s ease;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:active { transform: scale(.97); }
+        .btn:disabled { opacity: .35; cursor: not-allowed; transform: none !important; }
+        .btn-full { width: 100%; }
+        .btn-p { background: var(--accent); color: #0a0a0f; box-shadow: 0 4px 14px var(--ag); }
+        .btn-p:not(:disabled):hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-d { background: var(--danger); color: #fff; box-shadow: 0 4px 14px var(--dg); }
+        .btn-d:not(:disabled):hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-g { background: transparent; color: var(--text); border: 1px solid var(--border); }
+        .btn-g:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+        .btn-sm { padding: 8px 14px; font-size: .78rem; }
+        .btn-icon { background: var(--s2); color: var(--text); border: 1px solid var(--border); width: 42px; height: 42px; padding: 0; font-size: 1.1rem; border-radius: 8px; }
+        .btn-icon:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ── Inputs ── */
+        .fg { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+        .fg label { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+        .fg input {
+            background: var(--s2); border: 1px solid var(--border); border-radius: 8px;
+            padding: 11px 14px; color: var(--text);
+            font-family: 'JetBrains Mono', monospace; font-size: .9rem;
+            outline: none; transition: border-color .15s;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        .fg input:focus { border-color: var(--accent); }
+        .fg input::placeholder { color: var(--muted); }
+
+        /* ── Toggle ── */
+        .tog-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; }
+        .tog-label { font-size: .83rem; }
+        .tog-desc { font-size: .68rem; color: var(--muted); margin-top: 2px; }
+        .tog { position: relative; width: 42px; height: 22px; flex-shrink: 0; }
+        .tog input { opacity: 0; width: 0; height: 0; }
+        .tog-track { position: absolute; inset: 0; background: var(--border); border-radius: 11px; cursor: pointer; transition: background .2s; }
+        .tog-track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: var(--muted); border-radius: 50%; transition: all .2s; }
+        .tog input:checked + .tog-track { background: var(--accent); }
+        .tog input:checked + .tog-track::after { transform: translateX(20px); background: #0a0a0f; }
+
+        /* ── Room code ── */
+        .room-code {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.2rem; font-weight: 900; letter-spacing: 8px;
+            color: var(--accent); text-align: center;
+            background: var(--s2); border: 1px solid var(--border);
+            border-radius: 10px; padding: 16px; margin: 12px 0;
+        }
+        .share-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+
+        /* ── Player chips ── */
+        .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+        .chip {
+            display: flex; align-items: center; gap: 5px;
+            padding: 5px 10px; border-radius: 20px;
+            border: 1px solid var(--border); background: var(--s2);
+            font-size: .75rem; color: var(--muted);
+            transition: all .2s;
+        }
+        .chip.you { border-color: rgba(245,158,11,.5); color: var(--text); }
+        .chip.bidding { border-color: var(--accent); color: var(--accent); background: var(--ag); font-weight: 700; }
+        .chip.elim { opacity: .3; text-decoration: line-through; }
+        .chip-pips { display: flex; gap: 2px; }
+        .pip { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .7; }
+
+        /* ── Dice ── */
+        .dice-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        .die-svg { display: block; }
+        .die-svg.roll { animation: dieRoll .45s ease-out; }
+        @keyframes dieRoll {
+            0%   { transform: rotate(0deg)   scale(.65); opacity: .3; }
+            40%  { transform: rotate(150deg) scale(1.1); opacity: 1; }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+
+        /* ── Bid display ── */
+        .bid-box {
+            background: var(--s2); border: 1px solid var(--border);
+            border-radius: 10px; padding: 12px 16px;
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            margin-bottom: 14px;
+        }
+        .bid-box .lbl { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+        .bid-val { font-size: 1.1rem; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+        .bid-by { font-size: .7rem; color: var(--muted); text-align: right; }
+        .no-bid { text-align: center; color: var(--muted); font-size: .8rem; width: 100%; padding: 4px 0; }
+
+        /* ── Bid builder ── */
+        .bid-builder { display: flex; flex-direction: column; gap: 12px; }
+        .build-row { display: flex; align-items: center; gap: 10px; }
+        .build-lbl { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; width: 66px; flex-shrink: 0; }
+        .qty-ctrl { display: flex; align-items: center; gap: 10px; }
+        .qty-val { font-family: 'Orbitron', sans-serif; font-size: 1.5rem; font-weight: 700; color: var(--accent); min-width: 30px; text-align: center; }
+        .face-btns { display: flex; gap: 5px; flex-wrap: wrap; }
+        .face-btn { background: var(--s2); border: 1px solid var(--border); border-radius: 7px; cursor: pointer; padding: 3px; opacity: .65; transition: all .15s; -webkit-tap-highlight-color: transparent; }
+        .face-btn:hover { border-color: var(--accent); opacity: 1; }
+        .face-btn.sel { border-color: var(--accent); background: var(--ag); opacity: 1; }
+
+        /* ── Action row ── */
+        .act-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+
+        /* ── Section label ── */
+        .slbl { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+
+        /* ── Bid history ── */
+        .hist-toggle { background: none; border: none; color: var(--muted); font-family: inherit; font-size: .7rem; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; padding: 0; margin-top: 14px; display: flex; align-items: center; gap: 5px; }
+        .hist-toggle:hover { color: var(--text); }
+        .hist-list { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; max-height: 130px; overflow-y: auto; }
+        .hist-item { font-size: .75rem; color: var(--muted); padding: 5px 10px; background: var(--s2); border-radius: 6px; display: flex; justify-content: space-between; }
+        .hist-item strong { color: var(--text); }
+
+        /* ── Status banner ── */
+        .status { text-align: center; padding: 10px; border-radius: 8px; font-size: .82rem; color: var(--muted); background: var(--s2); border: 1px solid var(--border); margin-bottom: 14px; }
+        .status.your-turn { color: var(--accent); border-color: var(--accent); background: var(--ag); font-weight: 700; animation: pulse 1.8s ease-in-out infinite; }
+        @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 var(--ag); } 50% { box-shadow: 0 0 0 4px var(--ag); } }
+
+        /* ── Reveal ── */
+        .result-banner { border-radius: 10px; padding: 14px 16px; text-align: center; margin-bottom: 14px; }
+        .result-banner.ok { background: rgba(74,222,128,.1); border: 1px solid rgba(74,222,128,.3); }
+        .result-banner.fail { background: var(--dg); border: 1px solid var(--danger); }
+        .r-head { font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+        .result-banner.ok .r-head { color: var(--success); }
+        .result-banner.fail .r-head { color: var(--danger); }
+        .r-detail { font-size: .78rem; color: var(--muted); }
+        .reveal-player { margin-bottom: 14px; }
+        .rev-name { font-size: .82rem; font-weight: 600; margin-bottom: 6px; }
+        .rev-name.loser { color: var(--danger); }
+
+        /* ── Wild badge ── */
+        .wild { display: inline-block; background: var(--ag); border: 1px solid rgba(245,158,11,.35); color: var(--accent); font-size: .65rem; padding: 2px 8px; border-radius: 20px; letter-spacing: 1px; text-transform: uppercase; }
+
+        /* ── Divider ── */
+        hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+        /* ── Game over ── */
+        .trophy { text-align: center; padding: 12px 0; }
+        .trophy .icon { font-size: 3.5rem; margin-bottom: 10px; }
+        .trophy .w-name { font-family: 'Orbitron', sans-serif; font-size: 1.5rem; font-weight: 900; color: var(--accent); letter-spacing: 3px; }
+        .trophy .w-sub { color: var(--muted); font-size: .75rem; margin-top: 5px; text-transform: uppercase; letter-spacing: 2px; }
+        .rankings { display: flex; flex-direction: column; gap: 7px; margin: 14px 0; }
+        .rank-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--s2); border-radius: 8px; border: 1px solid var(--border); font-size: .88rem; }
+        .rank-num { font-family: 'Orbitron', sans-serif; font-size: .95rem; font-weight: 700; width: 26px; color: var(--muted); }
+        .rank-num.g { color: #f59e0b; } .rank-num.s { color: #94a3b8; } .rank-num.b { color: #b45309; }
+
+        /* ── Spinner ── */
+        .spin { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Connecting ── */
+        .connecting { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 30px 20px; }
+
+        /* ── Error ── */
+        .err { color: var(--danger); font-size: .78rem; padding: 8px 12px; background: var(--dg); border: 1px solid var(--danger); border-radius: 8px; margin-top: 8px; }
+
+        /* ── Player list in lobby ── */
+        .player-list { display: flex; flex-direction: column; gap: 7px; margin: 10px 0; }
+        .player-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--s2); border-radius: 8px; border: 1px solid var(--border); font-size: .85rem; }
+        .player-row .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+        .player-row.host-row { border-color: rgba(245,158,11,.3); }
+
+        .info-row { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); margin-bottom: 4px; }
+        .info-row strong { color: var(--text); }
+
+        /* ══════════════════════════════════════════
+           VIEWER MODE CSS
+        ══════════════════════════════════════════ */
+        body.viewer-mode {
+            padding: 0; overflow: hidden;
+            display: block; /* override flex so fixed children fill viewport freely */
+            height: 100dvh; width: 100vw;
+        }
+        body.viewer-mode #app { max-width: none; width: 100vw; height: 100dvh; }
+
+        .v-screen {
+            position: fixed; inset: 0;
+            background: #05050a;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+        }
+
+        #v-bg {
+            position: absolute; inset: 0;
+            overflow: hidden; pointer-events: none;
+        }
+
+        .v-bg-die { position: absolute; }
+
+        @keyframes flt1 {
+            0%   { transform: translate(0px, 0px) rotate(0deg); }
+            33%  { transform: translate(30px, -40px) rotate(40deg); }
+            66%  { transform: translate(-20px, 20px) rotate(80deg); }
+            100% { transform: translate(0px, 0px) rotate(120deg); }
+        }
+        @keyframes flt2 {
+            0%   { transform: translate(0px, 0px) rotate(0deg); }
+            25%  { transform: translate(-50px, 30px) rotate(22deg); }
+            50%  { transform: translate(20px, -30px) rotate(45deg); }
+            75%  { transform: translate(40px, 20px) rotate(67deg); }
+            100% { transform: translate(0px, 0px) rotate(90deg); }
+        }
+        @keyframes flt3 {
+            0%   { transform: translate(0px, 0px) rotate(0deg); }
+            20%  { transform: translate(40px, 40px) rotate(14deg); }
+            40%  { transform: translate(-30px, 20px) rotate(29deg); }
+            60%  { transform: translate(20px, -50px) rotate(43deg); }
+            80%  { transform: translate(-40px, -20px) rotate(57deg); }
+            100% { transform: translate(0px, 0px) rotate(72deg); }
+        }
+
+        /* ── Viewer header ── */
+        .v-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: clamp(10px, 2vh, 20px) clamp(16px, 3vw, 40px);
+            border-bottom: 1px solid rgba(245,158,11,0.15);
+            flex-shrink: 0; position: relative; z-index: 10;
+        }
+        .v-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.2rem, 3vw, 2rem);
+            font-weight: 900; letter-spacing: 4px;
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .v-header-code {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(0.9rem, 2vw, 1.3rem);
+            color: var(--accent); letter-spacing: 4px;
+        }
+        .v-header-dice {
+            font-size: clamp(0.7rem, 1.5vw, 0.9rem);
+            color: var(--muted); letter-spacing: 2px; text-transform: uppercase;
+        }
+        .v-fs-btn {
+            background: transparent; border: 1px solid var(--border);
+            color: var(--muted); font-size: clamp(1rem, 2vw, 1.4rem);
+            width: 2.2em; height: 2.2em; border-radius: 6px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all .15s; flex-shrink: 0; padding: 0; line-height: 1;
+        }
+        .v-fs-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ── Viewer player cards ── */
+        .v-players {
+            display: flex; flex-direction: row; gap: clamp(8px, 1.5vw, 18px);
+            padding: clamp(10px, 2vh, 20px) clamp(16px, 3vw, 40px);
+            overflow-x: auto; flex-shrink: 0; position: relative; z-index: 10;
+        }
+        .v-player-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
+        .v-bidding-tag {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(0.5rem, 1vw, 0.65rem);
+            color: var(--accent); letter-spacing: 2px;
+            background: var(--ag); border: 1px solid var(--accent);
+            border-radius: 4px; padding: 2px 8px; text-transform: uppercase;
+        }
+        .v-bidding-tag.hidden { visibility: hidden; }
+        .v-player-card {
+            background: #14141f; border: 1px solid #2a2a3a;
+            border-radius: 10px; padding: clamp(8px, 1.5vw, 14px) clamp(10px, 2vw, 18px);
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            min-width: clamp(80px, 12vw, 130px);
+            transition: all .3s ease;
+        }
+        .v-player-card.bidding {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent), 0 0 28px rgba(245,158,11,0.35);
+        }
+        .v-player-card.elim { opacity: 0.3; }
+        .v-player-name {
+            font-size: clamp(0.65rem, 1.3vw, 0.9rem);
+            font-weight: 700; text-align: center;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            max-width: 100%;
+        }
+        .v-player-dice { display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; }
+
+        /* ── Viewer bid area ── */
+        .v-bid-area {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: clamp(8px, 1.5vh, 16px); padding: 0 clamp(16px, 3vw, 40px);
+            position: relative; z-index: 10;
+        }
+        .v-bid-card {
+            background: rgba(20,20,31,0.9); border: 1px solid rgba(245,158,11,0.25);
+            border-radius: 16px; padding: clamp(16px, 3vh, 32px) clamp(24px, 4vw, 48px);
+            display: flex; flex-direction: column; align-items: center; gap: clamp(6px, 1.5vh, 14px);
+            min-width: clamp(220px, 40vw, 480px); text-align: center;
+        }
+        .v-bid-label {
+            font-size: clamp(0.55rem, 1vw, 0.75rem);
+            color: var(--muted); text-transform: uppercase; letter-spacing: 3px;
+        }
+        .v-bid-face-wrap { position: relative; }
+        .v-bid-qty {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2rem, 6vw, 4.5rem);
+            font-weight: 900; color: var(--accent); line-height: 1;
+        }
+        .v-bid-by {
+            font-size: clamp(0.65rem, 1.2vw, 0.85rem);
+            color: var(--muted);
+        }
+        .v-bid-total {
+            font-size: clamp(0.55rem, 1vw, 0.7rem);
+            color: #3a3a5a;
+        }
+        .v-no-bid {
+            font-size: clamp(0.7rem, 1.5vw, 1rem);
+            color: var(--muted); font-style: italic;
+        }
+
+        @keyframes bidIn {
+            0%   { transform: scale(0.3) rotate(-15deg); opacity: 0; }
+            60%  { transform: scale(1.15) rotate(3deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        .bid-bounce { animation: bidIn .5s cubic-bezier(.34,1.56,.64,1) both; }
+
+        /* ── Bid history feed ── */
+        .v-history {
+            display: flex; flex-direction: row; align-items: center; gap: 6px;
+            padding: clamp(8px, 1.5vh, 14px) clamp(16px, 3vw, 40px);
+            overflow-x: auto; flex-shrink: 0; position: relative; z-index: 10;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        .v-hist-label {
+            font-size: clamp(0.55rem, 0.9vw, 0.65rem);
+            color: var(--muted); text-transform: uppercase; letter-spacing: 2px;
+            flex-shrink: 0; margin-right: 4px;
+        }
+        .v-hist-pill {
+            background: rgba(26,26,42,0.8); border: 1px solid #2a2a3a;
+            border-radius: 20px; padding: 4px 12px;
+            font-size: clamp(0.6rem, 1vw, 0.75rem); color: var(--muted);
+            white-space: nowrap; flex-shrink: 0;
+        }
+        .v-hist-pill.latest { border-color: rgba(245,158,11,0.4); color: var(--text); }
+        .v-hist-arrow { color: #3a3a5a; font-size: 0.7rem; flex-shrink: 0; }
+
+        /* ── Phase overlays ── */
+        .v-overlay {
+            position: absolute; inset: 0; z-index: 50;
+            background: rgba(5,5,10,0.88);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: clamp(12px, 2.5vh, 28px); padding: clamp(20px, 4vw, 60px);
+        }
+
+        /* Reveal overlay */
+        @keyframes resultPop {
+            0%   { transform: scale(0.5); opacity: 0; }
+            70%  { transform: scale(1.08); opacity: 1; }
+            100% { transform: scale(1); }
+        }
+        .v-reveal-headline {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.8rem, 5vw, 4rem);
+            font-weight: 900; letter-spacing: 3px; text-align: center;
+            animation: resultPop .6s cubic-bezier(.34,1.56,.64,1) both;
+        }
+        .v-reveal-headline.liar { color: var(--danger); }
+        .v-reveal-headline.correct { color: var(--success); }
+
+        .v-reveal-dice-row {
+            display: flex; flex-wrap: wrap; gap: clamp(16px, 3vw, 32px);
+            align-items: flex-start; justify-content: center;
+        }
+        .v-reveal-player { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .v-reveal-player-name {
+            font-size: clamp(0.65rem, 1.2vw, 0.85rem);
+            font-weight: 700; color: var(--muted); text-align: center;
+        }
+        .v-reveal-player-name.loser { color: var(--danger); }
+        .v-reveal-dice { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+
+        .v-reveal-detail {
+            font-size: clamp(0.7rem, 1.5vw, 1rem);
+            color: var(--muted); text-align: center; max-width: 600px;
+        }
+        .v-reveal-loser {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(0.9rem, 2vw, 1.4rem);
+            color: var(--danger); text-align: center;
+            animation: resultPop .5s .3s cubic-bezier(.34,1.56,.64,1) both;
+        }
+
+        /* Game over overlay */
+        @keyframes trophyBounce {
+            0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
+            60%  { transform: scale(1.2) rotate(5deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+        @keyframes winnerSlide {
+            0%   { transform: translateY(40px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes slideIn {
+            0%   { transform: translateY(20px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        .v-gameover-trophy {
+            font-size: clamp(3rem, 8vw, 6rem);
+            animation: trophyBounce .8s cubic-bezier(.34,1.56,.64,1) both;
+        }
+        .v-gameover-winner {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2rem, 6vw, 5rem);
+            font-weight: 900; color: var(--accent); letter-spacing: 4px;
+            text-align: center;
+            animation: winnerSlide .6s .3s ease-out both;
+        }
+        .v-gameover-sub {
+            font-size: clamp(0.8rem, 2vw, 1.3rem);
+            color: var(--muted); text-transform: uppercase; letter-spacing: 4px;
+            animation: winnerSlide .6s .5s ease-out both;
+        }
+        .v-gameover-rankings {
+            display: flex; flex-direction: row; gap: clamp(8px, 2vw, 20px);
+            flex-wrap: wrap; justify-content: center;
+            animation: slideIn .6s .7s ease-out both;
+        }
+        .v-rank-chip {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(26,26,42,0.9); border: 1px solid #2a2a3a;
+            border-radius: 8px; padding: 8px 16px;
+            font-size: clamp(0.7rem, 1.3vw, 0.9rem);
+        }
+        .v-rank-medal { font-size: 1.2rem; }
+
+        /* Lobby viewer */
+        .v-lobby-screen {
+            position: fixed; inset: 0; background: #05050a;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: clamp(16px, 3vh, 32px); padding: 40px;
+            z-index: 1;
+        }
+        .v-lobby-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2rem, 7vw, 5rem);
+            font-weight: 900; letter-spacing: 6px;
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text; text-align: center;
+        }
+        .v-lobby-code {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2rem, 8vw, 6rem);
+            font-weight: 900; color: var(--accent);
+            letter-spacing: 10px; text-align: center;
+            background: rgba(245,158,11,0.08); border: 2px solid rgba(245,158,11,0.3);
+            border-radius: 16px; padding: 16px 32px;
+        }
+        .v-lobby-sub {
+            font-size: clamp(0.7rem, 1.5vw, 1rem);
+            color: var(--muted); text-transform: uppercase; letter-spacing: 3px;
+        }
+        .v-lobby-players {
+            display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+            max-width: 800px;
+        }
+        .v-lobby-chip {
+            background: rgba(26,26,42,0.9); border: 1px solid rgba(245,158,11,0.3);
+            border-radius: 24px; padding: 8px 20px;
+            font-size: clamp(0.8rem, 1.5vw, 1rem); color: var(--text);
+            font-weight: 700;
+        }
+        .v-waiting {
+            display: flex; align-items: center; gap: 10px;
+            color: var(--muted); font-size: clamp(0.7rem, 1.3vw, 0.85rem);
+        }
+
+        /* Confetti */
+        .confetti {
+            position: fixed; top: -20px; width: 10px; height: 10px;
+            border-radius: 2px; z-index: 9999; pointer-events: none;
+        }
+        @keyframes confettiFall {
+            0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(720deg); opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+<button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Toggle day/night mode">&#x2600;&#xFE0F;</button>
+<div id="app"></div>
+<script>
+// ═══════════════════════════════════════════════
+//  CONSTANTS & STATE
+// ═══════════════════════════════════════════════
+const DICE_START = 5;
+
+// ── Peer/network ──
+let peer = null;
+let myId = '';
+let myName = '';
+let isHost = false;
+let roomCode = '';
+let hostConn = null;      // guest → host connection
+let guestConns = {};      // host: {peerId: DataConnection}
+let viewerConns = {};     // host: {peerId: DataConnection} for viewers
+
+// ── UI phase (pre-game setup screens) ──
+let ui = 'home'; // home | creating | joining | connecting | lobby_h | lobby_g | game | gameover | viewer
+let uiErr = '';
+let fName  = localStorage.getItem('liarsdice-name') || '';
+let fCode  = '';
+let fVCode = '';   // viewer room-code input
+let fWild  = true;
+
+// ── Viewer client state ──
+let isViewer = false;
+let vD = null;
+let confettiLaunched = false;
+
+// ── Client display state (driven by host) ──
+let D = null;
+/*  D = {
+      myDice: [],
+      myDiceCount: 0,
+      phase: 'bidding' | 'reveal' | 'gameover',
+      isMyTurn: bool,
+      players: [{name, diceCount, active, isBidding}],
+      currentBid: null | {qty, face, bidderName},
+      currentBidderName: string,
+      totalDice: number,
+      bidHistory: [{name, qty, face}],
+      wildOnes: bool,
+      challengeResult: null | {...},
+      winner: null,
+      rankings: [{name}],
+      roomCode: string,
+    }
+*/
+
+// ── Bid builder (local to this client) ──
+let bQty = 1;
+let bFace = 1;
+let histOpen = false;
+
+// ── Rolling animation trigger ──
+let newRound = false;
+
+// ── Host-only authoritative state ──
+let H = {
+    players: [],       // [{id,name,diceCount,dice,active}]
+    activePlayers: [], // indices into players[]
+    phase: 'lobby',
+    bidderIdx: 0,
+    currentBid: null,  // {qty,face,bidderName,bidderId}
+    bidHistory: [],
+    wildOnes: true,
+    challengeResult: null,
+    winner: null,
+    eliminated: [],    // names, in order of elimination
+    rankings: [],
+};
+
+// ═══════════════════════════════════════════════
+//  DICE SVG
+// ═══════════════════════════════════════════════
+const PIP_POS = {
+    tl:[20,20],tc:[44,20],tr:[68,20],
+    ml:[20,44],            mr:[68,44],
+    bl:[20,68],bc:[44,68],br:[68,68],
+    cc:[44,44],
+};
+const PIP_MAP = {
+    1:['cc'],
+    2:['tr','bl'],
+    3:['tr','cc','bl'],
+    4:['tl','tr','bl','br'],
+    5:['tl','tr','cc','bl','br'],
+    6:['tl','tr','ml','mr','bl','br'],
+};
+
+function dieSVG(face, {size=64, hi=false, dim=false, anim=false}={}) {
+    const r = size <= 48 ? 4 : 6;
+    const stroke = hi ? '#f59e0b' : (dim ? '#252535' : '#3a3a5a');
+    const fill   = hi ? '#f59e0b' : (dim ? '#252535' : '#e2e8f0');
+    const sw     = hi ? 3 : 2;
+    const cls    = anim ? ' class="die-svg roll"' : ' class="die-svg"';
+    const pips   = PIP_MAP[face].map(k => `<circle cx="${PIP_POS[k][0]}" cy="${PIP_POS[k][1]}" r="${r}" fill="${fill}"/>`).join('');
+    return `<svg${cls} width="${size}" height="${size}" viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="3" width="82" height="82" rx="16" fill="#1c1c2e" stroke="${stroke}" stroke-width="${sw}"/>
+      ${pips}
+    </svg>`;
+}
+
+// ═══════════════════════════════════════════════
+//  GAME LOGIC (dice / bid rules)
+// ═══════════════════════════════════════════════
+function rollDie() { return Math.floor(Math.random()*6)+1; }
+function rollN(n)  { return Array.from({length:n}, rollDie); }
+
+function countFace(allDice, face, wild) {
+    let n = 0;
+    for (const d of allDice) {
+        if (d === face) n++;
+        else if (wild && face !== 1 && d === 1) n++;
+    }
+    return n;
+}
+
+function bidHigher(newB, cur) {
+    if (!cur) return newB.qty >= 1;
+    if (newB.qty > cur.qty) return true;
+    if (newB.qty === cur.qty && newB.face > cur.face) return true;
+    return false;
+}
+
+function totalDice() {
+    return H.activePlayers.reduce((s,i) => s + H.players[i].diceCount, 0);
+}
+
+// ═══════════════════════════════════════════════
+//  HOST LOGIC
+// ═══════════════════════════════════════════════
+function hostAddPlayer(id, name) {
+    if (H.players.find(p => p.id === id)) return;
+    H.players.push({id, name, diceCount: DICE_START, dice: [], active: true});
+}
+
+function hostStartGame() {
+    H.wildOnes = fWild;
+    H.activePlayers = H.players.map((_,i) => i);
+    H.rankings = [];
+    H.eliminated = [];
+    hostStartRound(0);
+}
+
+function hostStartRound(firstActiveIdx) {
+    H.phase = 'bidding';
+    H.currentBid = null;
+    H.bidHistory = [];
+    H.challengeResult = null;
+    H.bidderIdx = firstActiveIdx % H.activePlayers.length;
+
+    for (const i of H.activePlayers) {
+        H.players[i].dice = rollN(H.players[i].diceCount);
+    }
+    hostBroadcast(true);
+}
+
+function hostBid(fromId, qty, face) {
+    if (H.phase !== 'bidding') return;
+    const bidderIdx = H.activePlayers[H.bidderIdx];
+    if (H.players[bidderIdx].id !== fromId) return;
+    if (!bidHigher({qty,face}, H.currentBid)) return;
+
+    const name = H.players[bidderIdx].name;
+    H.currentBid = {qty, face, bidderName: name, bidderId: fromId};
+    H.bidHistory.push({name, qty, face});
+    H.bidderIdx = (H.bidderIdx + 1) % H.activePlayers.length;
+    hostBroadcast(false);
+}
+
+function hostChallenge(fromId) {
+    if (H.phase !== 'bidding' || !H.currentBid) return;
+    const chalActiveIdx = H.bidderIdx;
+    const chalPlayerIdx = H.activePlayers[chalActiveIdx];
+    if (H.players[chalPlayerIdx].id !== fromId) return;
+
+    const bidderPlayerIdx = H.players.findIndex(p => p.id === H.currentBid.bidderId);
+    const allDice = H.activePlayers.flatMap(i => H.players[i].dice);
+    const actual  = countFace(allDice, H.currentBid.face, H.wildOnes);
+    const valid   = actual >= H.currentBid.qty;
+
+    const loserPlayerIdx = valid ? chalPlayerIdx : bidderPlayerIdx;
+    const loser = H.players[loserPlayerIdx];
+
+    H.challengeResult = {
+        loserName:      loser.name,
+        bidderName:     H.currentBid.bidderName,
+        challengerName: H.players[chalPlayerIdx].name,
+        actual, qty: H.currentBid.qty, face: H.currentBid.face, valid,
+        loserPlayerIdx,
+        allDice: H.players.map(p => ({name: p.name, dice: [...p.dice], active: p.active})),
+    };
+
+    loser.diceCount--;
+    if (loser.diceCount === 0) {
+        loser.active = false;
+        H.eliminated.push(loser.name);
+        H.activePlayers = H.activePlayers.filter(i => i !== loserPlayerIdx);
+    }
+
+    if (H.activePlayers.length === 1) {
+        H.winner = H.players[H.activePlayers[0]].name;
+        H.rankings = [H.winner, ...[...H.eliminated].reverse()];
+    }
+
+    H.phase = 'reveal';
+    hostBroadcast(false);
+}
+
+function hostContinue(fromId) {
+    if (H.players[0].id !== fromId) return; // only host-player can continue
+    if (H.winner) { H.phase = 'gameover'; hostBroadcast(false); return; }
+
+    const loserIdx  = H.challengeResult.loserPlayerIdx;
+    const loserAIdx = H.activePlayers.indexOf(loserIdx);
+    hostStartRound(loserAIdx >= 0 ? loserAIdx : 0);
+}
+
+function hostRestart(fromId) {
+    if (H.players[0].id !== fromId) return;
+
+    // Remember connected guests' names before wiping game state
+    const returning = Object.keys(guestConns).map(pid => {
+        const p = H.players.find(pl => pl.id === pid);
+        return { id: pid, name: p?.name ?? 'Player' };
+    });
+
+    H = { players:[], activePlayers:[], phase:'lobby', bidderIdx:0,
+          currentBid:null, bidHistory:[], wildOnes:fWild,
+          challengeResult:null, winner:null, eliminated:[], rankings:[] };
+    // Do NOT clear guestConns / viewerConns — PeerJS connections remain alive
+
+    ui = 'lobby_h';
+    D = null;
+
+    hostAddPlayer(myId, myName);
+    returning.forEach(({ id, name }) => hostAddPlayer(id, name));
+
+    broadcastLobby();
+}
+
+// ── Build per-player display object ──
+function buildDisplay(playerId, isNewRound) {
+    const pi  = H.players.findIndex(p => p.id === playerId);
+    const p   = H.players[pi];
+    const cbpi = H.activePlayers[H.bidderIdx]; // current bidder player index
+
+    return {
+        myDice:      p?.dice ?? [],
+        myDiceCount: p?.diceCount ?? 0,
+        phase:       H.phase,
+        isMyTurn:    H.phase === 'bidding' && cbpi !== undefined && H.players[cbpi]?.id === playerId,
+        isHostPlayer: H.players[0]?.id === playerId,
+        players:     H.players.map((pl, i) => ({
+            name:      pl.name,
+            diceCount: pl.diceCount,
+            active:    pl.active,
+            isBidding: i === cbpi && H.phase === 'bidding',
+        })),
+        currentBid:         H.currentBid,
+        currentBidderName:  cbpi !== undefined ? H.players[cbpi]?.name ?? '' : '',
+        totalDice:          H.activePlayers.reduce((s,i) => s + H.players[i].diceCount, 0),
+        bidHistory:         H.bidHistory,
+        wildOnes:           H.wildOnes,
+        challengeResult:    H.phase === 'reveal' ? H.challengeResult : null,
+        winner:             H.winner,
+        rankings:           H.rankings,
+        roomCode,
+        newRound:           isNewRound,
+    };
+}
+
+// ── Build viewer display object ──
+function buildViewerDisplay(isNewRound) {
+    const cbpi = H.activePlayers[H.bidderIdx];
+    return {
+        phase:      H.phase,
+        players:    H.players.map((pl, i) => ({
+            name:      pl.name,
+            diceCount: pl.diceCount,
+            active:    pl.active,
+            isBidding: i === cbpi && H.phase === 'bidding',
+        })),
+        currentBid:        H.currentBid,
+        currentBidderName: cbpi !== undefined ? H.players[cbpi]?.name ?? '' : '',
+        totalDice:         H.activePlayers.reduce((s,i) => s + H.players[i].diceCount, 0),
+        bidHistory:        H.bidHistory,
+        wildOnes:          H.wildOnes,
+        challengeResult:   H.phase === 'reveal' ? H.challengeResult : null,
+        winner:            H.winner,
+        rankings:          H.rankings,
+        roomCode,
+        bidCount:          H.bidHistory.length,
+        newRound:          isNewRound,
+    };
+}
+
+// ── Broadcast to all players ──
+function hostBroadcast(isNewRound) {
+    // Update host player's display
+    D = buildDisplay(myId, isNewRound);
+    bQty = D.currentBid ? D.currentBid.qty : 1;
+    bFace = D.currentBid ? D.currentBid.face : 1;
+    if (!D.currentBid) { bQty = 1; bFace = 1; }
+    newRound = isNewRound;
+    render();
+
+    // Send to guests
+    Object.entries(guestConns).forEach(([pid, conn]) => {
+        send(conn, {type:'state', display: buildDisplay(pid, isNewRound)});
+    });
+
+    // Send to viewers
+    const vd = buildViewerDisplay(isNewRound);
+    Object.values(viewerConns).forEach(conn => {
+        send(conn, {type:'viewer_state', vd});
+    });
+}
+
+function broadcastLobby() {
+    const players = H.players.map(p => p.name);
+    const ls = {
+        type: 'lobby',
+        players,
+        roomCode,
+        wildOnes: H.wildOnes,
+    };
+    Object.values(guestConns).forEach(c => send(c, ls));
+
+    // Also send to viewers
+    Object.values(viewerConns).forEach(c => send(c, {type:'viewer_lobby', players, roomCode}));
+
+    render();
+}
+
+// ═══════════════════════════════════════════════
+//  NETWORK HELPERS
+// ═══════════════════════════════════════════════
+function send(conn, msg) {
+    try { conn.send(msg); } catch(e) { console.warn('send err', e); }
+}
+
+function setupGuestConn(conn) {
+    conn.on('open', () => {
+        console.log('guest connected:', conn.peer);
+        conn._role = null;
+    });
+    conn.on('data', msg => {
+        // Handle viewer join before role is set
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer';
+            viewerConns[conn.peer] = conn;
+            // Send current state immediately
+            if (H.phase === 'lobby') {
+                send(conn, {type:'viewer_lobby', players: H.players.map(p => p.name), roomCode});
+            } else {
+                send(conn, {type:'viewer_state', vd: buildViewerDisplay(false)});
+            }
+            return;
+        }
+        // Set role as player on first non-viewer message
+        if (conn._role === null) {
+            conn._role = 'player';
+            guestConns[conn.peer] = conn;
+        }
+        switch (msg.type) {
+            case 'join': {
+                // If a zombie entry exists for this name (prior connection that
+                // dropped before conn.on('close') fired on the host), evict it
+                // so the reconnecting player doesn't appear twice.
+                const zombie = H.players.find(
+                    p => p.name === msg.name && p.id !== conn.peer && guestConns[p.id] === undefined
+                );
+                if (zombie) {
+                    zombie.id = conn.peer;   // re-use the existing slot
+                } else {
+                    hostAddPlayer(conn.peer, msg.name);
+                }
+                broadcastLobby();
+                break;
+            }
+            case 'bid':       hostBid(conn.peer, msg.qty, msg.face); break;
+            case 'challenge': hostChallenge(conn.peer); break;
+            case 'continue':  hostContinue(conn.peer); break;
+            case 'restart':   hostRestart(conn.peer); break;
+        }
+    });
+    conn.on('close', () => {
+        delete guestConns[conn.peer];
+        delete viewerConns[conn.peer];
+        // Remove from game if in lobby; mid-game treat as eliminated
+        const pi = H.players.findIndex(p => p.id === conn.peer);
+        if (pi >= 0 && H.phase === 'lobby') {
+            H.players.splice(pi, 1);
+            broadcastLobby();
+        }
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+// ── Join as Viewer ──
+function joinAsViewer(code, _attempt) {
+    const pid = code.trim().toUpperCase();
+    if (!pid) { uiErr = 'Enter a room code.'; render(); return; }
+    const attempt = _attempt || 1;
+
+    isViewer = true;
+    ui = 'viewer';
+    uiErr = '';
+    render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        hostConn = peer.connect(pid, {reliable: true});
+
+        hostConn.on('open', () => {
+            send(hostConn, {type:'join_viewer'});
+        });
+
+        hostConn.on('data', msg => {
+            if (msg.type === 'viewer_state') {
+                const prevPhase = vD?.phase;
+                vD = msg.vd;
+                if (prevPhase === 'gameover' && vD.phase !== 'gameover') {
+                    confettiLaunched = false;
+                }
+                ui = 'viewer';
+                render();
+                return;
+            }
+            if (msg.type === 'viewer_lobby') {
+                vD = {phase: 'lobby', players: msg.players, roomCode: msg.roomCode};
+                ui = 'viewer';
+                render();
+            }
+        });
+
+        hostConn.on('close', () => {
+            uiErr = 'Disconnected from host.';
+            isViewer = false;
+            vD = null;
+            ui = 'home';
+            render();
+        });
+
+        hostConn.on('error', e => {
+            uiErr = 'Could not connect: ' + e.message;
+            isViewer = false;
+            ui = 'home';
+            render();
+        });
+    });
+
+    peer.on('error', e => {
+        // Retry once transparently — PeerJS signalling can fail transiently
+        if (attempt < 2) {
+            try { peer.destroy(); } catch (_) {}
+            peer = null;
+            setTimeout(() => joinAsViewer(code, 2), 600);
+            return;
+        }
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        isViewer = false;
+        ui = 'home';
+        render();
+    });
+}
+
+// ═══════════════════════════════════════════════
+//  CLIENT ACTIONS (work for both host & guest)
+// ═══════════════════════════════════════════════
+function actBid() {
+    if (!D?.isMyTurn) return;
+    if (!bidHigher({qty:bQty, face:bFace}, D.currentBid)) return;
+    if (isHost) { hostBid(myId, bQty, bFace); }
+    else        { send(hostConn, {type:'bid', qty:bQty, face:bFace}); }
+}
+
+function actChallenge() {
+    if (!D?.isMyTurn || !D.currentBid) return;
+    if (isHost) { hostChallenge(myId); }
+    else        { send(hostConn, {type:'challenge'}); }
+}
+
+function actContinue() {
+    if (isHost) { hostContinue(myId); }
+    else        { send(hostConn, {type:'continue'}); }
+}
+
+function actRestart() {
+    if (isHost) { hostRestart(myId); }
+    else        { send(hostConn, {type:'restart'}); }
+}
+
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+        document.exitFullscreen().catch(() => {});
+    }
+}
+
+// Auto-enter fullscreen on first interaction after viewer mode is active
+document.addEventListener('click', function() {
+    if (isViewer && !document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+    }
+});
+
+// Update fullscreen button icon when browser fullscreen state changes externally (e.g. Esc key)
+document.addEventListener('fullscreenchange', function() {
+    const btn = document.getElementById('v-fs-btn');
+    if (btn) btn.textContent = document.fullscreenElement ? '⊡' : '⛶';
+});
+
+// ═══════════════════════════════════════════════
+//  PEER SETUP
+// ═══════════════════════════════════════════════
+function createGame(name, wild) {
+    myName = name.trim() || 'Host';
+    localStorage.setItem('liarsdice-name', myName);
+    fWild  = wild;
+    ui     = 'creating';
+    render();
+
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I/O
+    const code = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    roomCode = code;
+    peer = new Peer(code);
+
+    peer.on('open', id => {
+        myId   = id;
+        isHost = true;
+        H.wildOnes = fWild;
+        hostAddPlayer(myId, myName);
+        ui = 'lobby_h';
+        render();
+    });
+
+    peer.on('connection', conn => {
+        setupGuestConn(conn);
+    });
+
+    peer.on('error', e => {
+        uiErr = 'Connection error: ' + e.message;
+        ui = 'home';
+        render();
+    });
+}
+
+function joinGame(code, name) {
+    myName = name.trim() || 'Player';
+    localStorage.setItem('liarsdice-name', myName);
+    const pid = code.trim().toUpperCase();
+    if (!pid) { uiErr = 'Enter a room code.'; render(); return; }
+
+    ui = 'connecting';
+    uiErr = '';
+    render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId   = id;
+        isHost = false;
+
+        hostConn = peer.connect(pid, {reliable: true});
+
+        hostConn.on('open', () => {
+            send(hostConn, {type:'join', name: myName});
+            ui = 'lobby_g';
+            render();
+        });
+
+        hostConn.on('data', msg => {
+            if (msg.type === 'lobby') {
+                D = {phase:'lobby', players: msg.players, roomCode: msg.roomCode, wildOnes: msg.wildOnes};
+                ui = 'lobby_g';
+                render();
+                return;
+            }
+            if (msg.type === 'state') {
+                D = msg.display;
+                bQty = D.currentBid ? D.currentBid.qty : 1;
+                bFace = D.currentBid ? D.currentBid.face : 1;
+                if (!D.currentBid) { bQty = 1; bFace = 1; }
+                if (D.phase === 'gameover') ui = 'gameover';
+                else ui = 'game';
+                render();
+            }
+        });
+
+        hostConn.on('close', () => {
+            uiErr = 'Disconnected from host.';
+            ui = 'home';
+            D = null;
+            render();
+        });
+
+        hostConn.on('error', e => {
+            uiErr = 'Could not connect: ' + e.message;
+            ui = 'home';
+            render();
+        });
+    });
+
+    peer.on('error', e => {
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        ui = 'joining';
+        render();
+    });
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER HELPERS
+// ═══════════════════════════════════════════════
+function esc(s) {
+    return String(s||'')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function chipsHTML() {
+    if (!D?.players) return '';
+    return `<div class="chips">
+      ${D.players.map(p => {
+          const cls = !p.active ? 'chip elim'
+                    : p.isBidding ? 'chip bidding'
+                    : p.name === myName ? 'chip you'
+                    : 'chip';
+          const pips = Array.from({length: p.diceCount}, () => '<span class="pip"></span>').join('');
+          return `<div class="${cls}">
+            <span>${esc(p.name)}${p.name === myName ? ' (you)' : ''}</span>
+            <div class="chip-pips">${pips}</div>
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function bidBoxHTML() {
+    if (!D?.currentBid) {
+        return `<div class="bid-box"><div class="no-bid">No bid yet — you go first!</div></div>`;
+    }
+    const {qty,face,bidderName} = D.currentBid;
+    return `<div class="bid-box">
+      <div>
+        <div class="lbl">Current Bid</div>
+        <div class="bid-val">${dieSVG(face,{size:36,hi:true})} <span>${qty}× face&nbsp;${face}</span></div>
+      </div>
+      <div class="bid-by">by <strong>${esc(bidderName)}</strong><br>
+        <span style="font-size:.65rem">${D.totalDice} dice total</span>
+      </div>
+    </div>`;
+}
+
+function bidBuilderHTML() {
+    const total = D?.totalDice ?? 30;
+    const valid = bidHigher({qty:bQty,face:bFace}, D?.currentBid ?? null);
+
+    const faceBtns = [1,2,3,4,5,6].map(f =>
+        `<div class="face-btn${bFace===f?' sel':''}" onclick="bFace=${f};render()">${dieSVG(f,{size:38,hi:bFace===f})}</div>`
+    ).join('');
+
+    return `<div class="bid-builder">
+      <div class="build-row">
+        <div class="build-lbl">Quantity</div>
+        <div class="qty-ctrl">
+          <button class="btn-icon" onclick="bQty=Math.max(1,bQty-1);render()">−</button>
+          <div class="qty-val">${bQty}</div>
+          <button class="btn-icon" onclick="bQty=Math.min(${total},bQty+1);render()">+</button>
+        </div>
+      </div>
+      <div class="build-row">
+        <div class="build-lbl">Face</div>
+        <div class="face-btns">${faceBtns}</div>
+      </div>
+      <div class="act-row">
+        <button class="btn btn-p" onclick="actBid()" ${valid?'':'disabled'}>
+          ✓ Bid ${bQty}×${bFace}
+        </button>
+        <button class="btn btn-d" onclick="actChallenge()" ${D?.currentBid?'':'disabled'}>
+          🤥 Liar!
+        </button>
+      </div>
+      ${!valid && D?.currentBid ? `<div style="text-align:center;font-size:.7rem;color:var(--danger);margin-top:6px">Bid must be higher than current</div>` : ''}
+    </div>`;
+}
+
+function histHTML() {
+    if (!D?.bidHistory?.length) return '';
+    const items = [...D.bidHistory].reverse().map(h =>
+        `<div class="hist-item"><strong>${esc(h.name)}</strong><span>${h.qty}× face ${h.face}</span></div>`
+    ).join('');
+    return `<div>
+      <button class="hist-toggle" onclick="histOpen=!histOpen;render()">
+        ${histOpen?'▾':'▸'} History (${D.bidHistory.length})
+      </button>
+      ${histOpen ? `<div class="hist-list">${items}</div>` : ''}
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════
+//  SCREENS
+// ═══════════════════════════════════════════════
+
+function screenHome() {
+    // Auto-fill join code from URL param
+    const auto = new URLSearchParams(location.search).get('join') || '';
+    if (auto && !fCode) fCode = auto;
+
+    return `
+    <div class="hdr"><h1>LIAR'S DICE</h1><div class="sub">Multiplayer · PeerJS</div></div>
+    <div class="card">
+      <form onsubmit="createGame(fName,fWild);return false">
+      <div class="slbl">Create a new game</div>
+      <div class="fg"><label>Your name</label>
+        <input id="cn" type="text" placeholder="e.g. Neil" value="${esc(fName)}" maxlength="16" oninput="fName=this.value">
+      </div>
+      <div class="tog-row" style="margin-bottom:14px">
+        <div><div class="tog-label">Wild Ones</div><div class="tog-desc">1s count as any face (recommended)</div></div>
+        <label class="tog"><input type="checkbox" ${fWild?'checked':''} onchange="fWild=this.checked"><span class="tog-track"></span></label>
+      </div>
+      <button type="submit" class="btn btn-p btn-full">🎲 Create Game</button>
+      </form>
+    </div>
+    <div class="card">
+      <form onsubmit="joinGame(fCode,fName);return false">
+      <div class="slbl">Join a game</div>
+      <div class="fg"><label>Room code</label>
+        <input id="jc" type="text" placeholder="e.g. ABCD" value="${esc(fCode)}" maxlength="4"
+          oninput="fCode=this.value=this.value.toUpperCase()" autocomplete="off" autocapitalize="characters" style="letter-spacing:4px;font-size:1.1rem;text-transform:uppercase">
+      </div>
+      <div class="fg"><label>Your name</label>
+        <input type="text" placeholder="e.g. Alice" value="${esc(fName)}" maxlength="16" oninput="fName=this.value">
+      </div>
+      <button type="submit" class="btn btn-g btn-full">→ Join Game</button>
+      ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+      </form>
+    </div>
+    <div class="card" style="margin-top:8px">
+      <form onsubmit="joinAsViewer(fVCode);return false">
+      <div class="slbl">Join as Viewer</div>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:10px">Watch the game on a TV or shared screen — no account needed.</div>
+      <div class="fg"><label>Room code</label>
+        <input id="vc" type="text" placeholder="e.g. ABCD" value="${esc(fVCode)}" maxlength="4"
+          autocomplete="off" autocapitalize="characters" style="letter-spacing:4px;font-size:1.1rem;text-transform:uppercase"
+          oninput="fVCode=this.value=this.value.toUpperCase()">
+      </div>
+      <button type="submit" class="btn btn-g btn-full">📺 Watch as Viewer</button>
+      </form>
+    </div>`;
+}
+
+function screenCreating() {
+    return `<div class="hdr"><h1>LIAR'S DICE</h1></div>
+    <div class="card">
+      <div class="connecting">
+        <div class="spin"></div>
+        <div style="color:var(--muted)">Setting up room…</div>
+      </div>
+    </div>`;
+}
+
+function screenConnecting() {
+    return `<div class="hdr"><h1>LIAR'S DICE</h1></div>
+    <div class="card">
+      <div class="connecting">
+        <div class="spin"></div>
+        <div style="color:var(--muted)">Connecting to room…</div>
+      </div>
+    </div>`;
+}
+
+function screenLobbyHost() {
+    const code  = roomCode.toUpperCase();
+    const url   = `${location.origin}${location.pathname}?join=${roomCode}`;
+    const viewUrl = `${location.origin}${location.pathname}?view=${roomCode}`;
+    const count = H.players.length;
+    const names = H.players.map((p,i) =>
+        `<div class="player-row${i===0?' host-row':''}">
+          <div class="dot"></div>
+          <span>${esc(p.name)}${i===0?' (host)':''}</span>
+        </div>`
+    ).join('');
+
+    return `
+    <div class="hdr"><h1>LIAR'S DICE</h1></div>
+    <div class="card">
+      <div class="slbl">Room Code — share this!</div>
+      <div class="room-code">${code}</div>
+      <div class="share-row" style="grid-template-columns:1fr 1fr 1fr">
+        <button class="btn btn-g btn-sm" onclick="navigator.clipboard.writeText('${esc(code)}').then(()=>alert('Copied!'))">📋 Copy Code</button>
+        <button class="btn btn-g btn-sm" onclick="navigator.clipboard.writeText('${esc(url)}').then(()=>alert('Link copied!'))">🔗 Copy Link</button>
+        <button class="btn btn-g btn-sm" onclick="navigator.clipboard.writeText('${esc(viewUrl)}').then(()=>alert('Viewer link copied!'))">📺 Viewer Link</button>
+      </div>
+      <div class="slbl">Players (${count})</div>
+      <div class="player-list">${names}</div>
+      <div class="tog-row" style="margin:10px 0 14px">
+        <div><div class="tog-label">Wild Ones</div><div class="tog-desc">1s count as any face</div></div>
+        <label class="tog"><input type="checkbox" ${fWild?'checked':''} onchange="fWild=this.checked;H.wildOnes=this.checked"><span class="tog-track"></span></label>
+      </div>
+      <button class="btn btn-p btn-full" onclick="if(H.players.length>=2){ui='game';hostStartGame()}else{alert('Need at least 2 players')}"
+        ${count>=2?'':'disabled'}>
+        🎲 Start Game ${count<2?'(need 2+)':'('+count+' players)'}
+      </button>
+    </div>`;
+}
+
+function screenLobbyGuest() {
+    const players = D?.players ?? [];
+    const code    = (D?.roomCode ?? fCode).toUpperCase();
+    return `
+    <div class="hdr"><h1>LIAR'S DICE</h1></div>
+    <div class="card">
+      <div class="slbl">Room</div>
+      <div class="room-code" style="font-size:1.6rem;padding:12px">${code}</div>
+      <div class="slbl" style="margin-top:12px">Players (${players.length})</div>
+      <div class="player-list">
+        ${players.map((name,i) =>
+          `<div class="player-row${i===0?' host-row':''}">
+            <div class="dot"></div>
+            <span>${esc(name)}${i===0?' (host)':''}${name===myName?' (you)':''}</span>
+          </div>`
+        ).join('')}
+      </div>
+      <div style="text-align:center;color:var(--muted);font-size:.8rem;margin-top:14px">
+        <div class="spin" style="margin:0 auto 8px"></div>
+        Waiting for host to start…
+      </div>
+    </div>`;
+}
+
+function screenGame() {
+    if (!D) return '<div class="card"><div class="connecting"><div class="spin"></div></div></div>';
+
+    const {myDice, phase, isMyTurn, wildOnes, currentBidderName, isHostPlayer} = D;
+
+    // Rolling animation only on new round
+    const diceHTML = myDice.map((f,i) =>
+        `<div style="display:inline-block" id="d${i}">${dieSVG(f, {size:62, anim: newRound})}</div>`
+    ).join('');
+    if (newRound) { newRound = false; }
+
+    let statusHTML = '';
+    if (isMyTurn) {
+        statusHTML = `<div class="status your-turn">⚡ YOUR TURN — Bid or call someone a liar!</div>`;
+    } else {
+        statusHTML = `<div class="status">Waiting for <strong>${esc(currentBidderName)}</strong>…</div>`;
+    }
+
+    return `
+    <div class="hdr" style="margin-bottom:12px"><h1>LIAR'S DICE</h1></div>
+    ${chipsHTML()}
+    ${statusHTML}
+    <div class="card${isMyTurn?' highlight':''}">
+      <div class="slbl">Your Dice ${wildOnes?'<span class="wild">⚡ 1s wild</span>':''}</div>
+      <div class="dice-row" style="margin:10px 0 4px">${diceHTML}</div>
+    </div>
+    <div class="card">
+      ${bidBoxHTML()}
+      ${isMyTurn ? bidBuilderHTML() : `<div style="text-align:center;color:var(--muted);font-size:.82rem">You cannot bid yet</div>`}
+      ${histHTML()}
+    </div>`;
+}
+
+function screenReveal() {
+    if (!D?.challengeResult) return screenGame();
+    const r = D.challengeResult;
+    const ok = r.valid;
+
+    const playerPanels = (r.allDice ?? []).filter(pd => pd.active || pd.dice?.length).map(pd => {
+        const isLoser = pd.name === r.loserName;
+        const dice = (pd.dice ?? []).map(f =>
+            dieSVG(f, {
+                size: 52,
+                hi:  f === r.face || (D.wildOnes && f === 1 && r.face !== 1),
+                dim: f !== r.face && !(D.wildOnes && f === 1 && r.face !== 1),
+            })
+        ).join('');
+        return `<div class="reveal-player">
+          <div class="rev-name${isLoser?' loser':''}">${esc(pd.name)}${isLoser?' −1 die':''}</div>
+          <div class="dice-row">${dice}</div>
+        </div>`;
+    }).join('');
+
+    const detail = ok
+        ? `${r.actual} × face ${r.face} found — bid of ${r.qty} was correct. ${esc(r.challengerName)} loses a die.`
+        : `Only ${r.actual} × face ${r.face} found — bid of ${r.qty} was a lie. ${esc(r.bidderName)} loses a die.`;
+
+    const wildNote = D.wildOnes
+        ? `<div style="margin-bottom:10px"><span class="wild">⚡ Highlighted = face ${r.face} + wild 1s</span></div>`
+        : '';
+
+    const continueBtn = D.isHostPlayer
+        ? `<button class="btn btn-p btn-full" onclick="actContinue()">${D.winner?'🏆 See Results':'▶ Next Round'}</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.8rem;margin-top:8px"><div class="spin" style="margin:0 auto 8px"></div>Waiting for host…</div>`;
+
+    return `
+    <div class="hdr" style="margin-bottom:12px"><h1>LIAR'S DICE</h1></div>
+    ${chipsHTML()}
+    <div class="card">
+      <div class="result-banner ${ok?'ok':'fail'}">
+        <div class="r-head">${ok ? `${esc(r.bidderName)}'s bid was CORRECT` : `${esc(r.bidderName)}'s bid was a LIE`}</div>
+        <div class="r-detail">${detail}</div>
+      </div>
+      ${wildNote}
+      <div class="slbl">All Dice</div>
+      ${playerPanels}
+      <hr>
+      ${continueBtn}
+    </div>`;
+}
+
+function screenGameOver() {
+    if (!D) return '';
+    const medals = ['🥇','🥈','🥉'];
+    const cls    = ['g','s','b'];
+    const ranks  = (D.rankings ?? []).map((r,i) =>
+        `<div class="rank-item">
+          <div class="rank-num ${cls[i]??''}">${medals[i]??i+1}</div>
+          <div>${esc(r.name??r)}</div>
+          ${i===0?'<span class="wild">WINNER</span>':''}
+        </div>`
+    ).join('');
+
+    const btn = D.isHostPlayer
+        ? `<button class="btn btn-p btn-full" style="margin-top:14px" onclick="actRestart()">🎲 Play Again</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.8rem;margin-top:14px"><div class="spin" style="margin:0 auto 8px"></div>Waiting for host…</div>`;
+
+    return `
+    <div class="hdr" style="margin-bottom:12px"><h1>LIAR'S DICE</h1></div>
+    <div class="card">
+      <div class="trophy">
+        <div class="icon">🏆</div>
+        <div class="w-name">${esc(D.winner??'')}</div>
+        <div class="w-sub">Wins the game!</div>
+      </div>
+      <div class="rankings">${ranks}</div>
+      ${btn}
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════
+//  VIEWER SCREEN
+// ═══════════════════════════════════════════════
+function screenViewer() {
+    if (!vD) {
+        return `<div class="v-screen" style="align-items:center;justify-content:center">
+          <div class="spin" style="width:40px;height:40px;border-width:3px"></div>
+          <div style="color:var(--muted);margin-top:16px;font-size:.9rem;letter-spacing:2px">CONNECTING…</div>
+        </div>`;
+    }
+
+    // Lobby view
+    if (vD.phase === 'lobby') {
+        const chips = (vD.players ?? []).map(n =>
+            `<div class="v-lobby-chip">${esc(n)}</div>`
+        ).join('');
+        return `<div class="v-lobby-screen">
+          <div id="v-bg"></div>
+          <div class="v-lobby-title">LIAR'S DICE</div>
+          <div class="v-lobby-sub">Room Code</div>
+          <div class="v-lobby-code">${esc((vD.roomCode||'').toUpperCase())}</div>
+          <div class="v-lobby-sub" style="margin-top:8px">Players joined:</div>
+          <div class="v-lobby-players">${chips}</div>
+          <div class="v-waiting">
+            <div class="spin"></div>
+            <span>Waiting for host to start…</span>
+          </div>
+        </div>`;
+    }
+
+    // Player cards
+    const playerCards = (vD.players ?? []).map(p => {
+        const diceIcons = Array.from({length: p.diceCount}, () =>
+            dieSVG(1, {size: 28})
+        ).join('');
+        const isBidding = p.isBidding && vD.phase === 'bidding';
+        const isElim = !p.active;
+        return `<div class="v-player-wrap">
+          <div class="v-bidding-tag${isBidding ? '' : ' hidden'}">BIDDING</div>
+          <div class="v-player-card${isBidding ? ' bidding' : ''}${isElim ? ' elim' : ''}">
+            <div class="v-player-name">${esc(p.name)}</div>
+            <div class="v-player-dice">${diceIcons}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    // Current bid area
+    let bidContent = '';
+    if (vD.currentBid) {
+        const {qty, face, bidderName} = vD.currentBid;
+        const animId = `vbd-${vD.bidCount}`;
+        bidContent = `
+          <div class="v-bid-label">CURRENT BID</div>
+          <div class="v-bid-face-wrap">
+            <div id="${animId}" class="bid-bounce">${dieSVG(face, {size: 100, hi: true})}</div>
+          </div>
+          <div class="v-bid-qty">${qty}×</div>
+          <div class="v-bid-by">by <strong>${esc(bidderName)}</strong></div>
+          <div class="v-bid-total">${vD.totalDice} dice in play</div>`;
+    } else {
+        bidContent = `<div class="v-bid-label">CURRENT BID</div>
+          <div class="v-no-bid">No bid yet — first player to bid!</div>`;
+    }
+
+    // Bid history feed (last 5)
+    const hist = (vD.bidHistory ?? []);
+    const last5 = hist.slice(-5);
+    let histFeed = '';
+    if (last5.length > 0) {
+        const pills = last5.map((h, idx) => {
+            const isLatest = idx === last5.length - 1;
+            return `<div class="v-hist-pill${isLatest ? ' latest' : ''}">${esc(h.name)} ${h.qty}×${h.face}</div>`;
+        });
+        const withArrows = pills.reduce((acc, p, i) => {
+            if (i > 0) acc.push('<div class="v-hist-arrow">→</div>');
+            acc.push(p);
+            return acc;
+        }, []);
+        histFeed = withArrows.join('');
+    }
+
+    // Phase overlay
+    let overlay = '';
+    if (vD.phase === 'reveal' && vD.challengeResult) {
+        const r = vD.challengeResult;
+        const ok = r.valid;
+        const headline = ok ? '✓ BID CORRECT!' : '🤥 LIAR CALLED!';
+        const headCls = ok ? 'correct' : 'liar';
+        const detail = ok
+            ? `${r.actual} × face ${r.face} found — bid of ${r.qty} was correct`
+            : `Only ${r.actual} × face ${r.face} found — bid of ${r.qty} was a lie`;
+
+        const revPlayers = (r.allDice ?? []).filter(pd => pd.active || pd.dice?.length).map(pd => {
+            const isLoser = pd.name === r.loserName;
+            const diceHTML = (pd.dice ?? []).map(f =>
+                dieSVG(f, {
+                    size: 44,
+                    hi:  f === r.face || (vD.wildOnes && f === 1 && r.face !== 1),
+                    dim: f !== r.face && !(vD.wildOnes && f === 1 && r.face !== 1),
+                })
+            ).join('');
+            return `<div class="v-reveal-player">
+              <div class="v-reveal-player-name${isLoser ? ' loser' : ''}">${esc(pd.name)}${isLoser ? ' −1 die' : ''}</div>
+              <div class="v-reveal-dice">${diceHTML}</div>
+            </div>`;
+        }).join('');
+
+        overlay = `<div class="v-overlay">
+          <div class="v-reveal-headline ${headCls}">${headline}</div>
+          <div class="v-reveal-dice-row">${revPlayers}</div>
+          <div class="v-reveal-detail">${detail}</div>
+          <div class="v-reveal-loser">${esc(r.loserName)} loses a die</div>
+        </div>`;
+    } else if (vD.phase === 'gameover') {
+        const medals = ['🥇','🥈','🥉'];
+        const rankChips = (vD.rankings ?? []).map((r, i) =>
+            `<div class="v-rank-chip">
+              <span class="v-rank-medal">${medals[i] ?? (i+1)+'.'}</span>
+              <span>${esc(r.name ?? r)}</span>
+            </div>`
+        ).join('');
+        overlay = `<div class="v-overlay">
+          <div class="v-gameover-trophy">🏆</div>
+          <div class="v-gameover-winner">${esc(vD.winner ?? '')}</div>
+          <div class="v-gameover-sub">Wins the Game!</div>
+          <div class="v-gameover-rankings">${rankChips}</div>
+        </div>`;
+    }
+
+    return `<div class="v-screen" style="position:relative">
+      <div id="v-bg"></div>
+      ${overlay}
+      <div class="v-header">
+        <div class="v-title">LIAR'S DICE</div>
+        <div class="v-header-code">${esc((vD.roomCode||'').toUpperCase())}</div>
+        <div class="v-header-dice">${vD.totalDice ?? 0} dice</div>
+        <button class="v-fs-btn" id="v-fs-btn" onclick="toggleFullscreen()" title="Toggle fullscreen">${document.fullscreenElement ? '⊡' : '⛶'}</button>
+      </div>
+      <div class="v-players">${playerCards}</div>
+      <div class="v-bid-area">
+        <div class="v-bid-card">${bidContent}</div>
+      </div>
+      <div class="v-history">
+        ${hist.length > 0 ? `<div class="v-hist-label">Bids:</div>${histFeed}` : `<div class="v-hist-label" style="font-style:italic">No bids yet</div>`}
+      </div>
+    </div>`;
+}
+
+// ── Viewer background dice ──
+function initViewerBg() {
+    const bg = document.getElementById('v-bg');
+    if (!bg) return;
+    const anims = ['flt1','flt2','flt3'];
+    const positions = [
+        [5,8],[15,45],[25,75],[38,20],[50,60],[62,10],[72,85],[80,35],[90,55],[95,15]
+    ];
+    bg.innerHTML = positions.map(([left,top], i) => {
+        const anim = anims[i % 3];
+        const dur = 18 + (i * 3.7) % 14;
+        const delay = -(i * 2.1);
+        const size = 60 + (i * 17) % 60;
+        const face = (i % 6) + 1;
+        return `<div class="v-bg-die" style="left:${left}%;top:${top}%;opacity:0.04;animation:${anim} ${dur}s ${delay}s linear infinite">
+          ${dieSVG(face, {size})}
+        </div>`;
+    }).join('');
+}
+
+// ── Confetti ──
+function launchConfetti() {
+    const colors = ['#f59e0b','#ef4444','#4ade80','#3b82f6','#a855f7','#ec4899'];
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden';
+    for (let i = 0; i < 80; i++) {
+        const el = document.createElement('div');
+        el.className = 'confetti';
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        const left = Math.random() * 100;
+        const dur = 2 + Math.random() * 2;
+        const delay = Math.random() * 2;
+        const w = 6 + Math.random() * 8;
+        const h = 6 + Math.random() * 8;
+        el.style.cssText = `left:${left}%;background:${color};width:${w}px;height:${h}px;animation:confettiFall ${dur}s ${delay}s ease-in forwards`;
+        container.appendChild(el);
+    }
+    document.body.appendChild(container);
+    setTimeout(() => { container.remove(); }, 6000);
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER DISPATCHER
+// ═══════════════════════════════════════════════
+function render() {
+    document.body.classList.toggle('viewer-mode', isViewer);
+
+    const app = document.getElementById('app');
+    let html = '';
+
+    switch (ui) {
+        case 'home':      html = screenHome();       break;
+        case 'creating':  html = screenCreating();   break;
+        case 'connecting':html = screenConnecting(); break;
+        case 'lobby_h':   html = screenLobbyHost();  break;
+        case 'lobby_g':   html = screenLobbyGuest(); break;
+        case 'gameover':  html = screenGameOver();   break;
+        case 'viewer':    html = screenViewer();     break;
+        case 'game':
+            if (D?.phase === 'reveal')   html = screenReveal();
+            else if (D?.phase === 'gameover') { ui = 'gameover'; html = screenGameOver(); }
+            else                         html = screenGame();
+            break;
+        default: html = screenHome();
+    }
+
+    app.innerHTML = html;
+
+    if (ui === 'viewer') {
+        setTimeout(initViewerBg, 50);
+    }
+
+    if (vD?.phase === 'gameover' && !confettiLaunched) {
+        confettiLaunched = true;
+        setTimeout(launchConfetti, 300);
+    }
+}
+
+// ── Theme ──
+function toggleTheme() {
+    document.body.classList.toggle('day');
+    const day = document.body.classList.contains('day');
+    document.getElementById('theme-btn').textContent = day ? '🌙' : '☀️';
+    localStorage.setItem('liarsdice-theme', day ? 'day' : 'dark');
+}
+if (localStorage.getItem('liarsdice-theme') !== 'dark') {
+    document.body.classList.add('day');
+    document.getElementById('theme-btn').textContent = '🌙';
+}
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+// Check for viewer param
+const _viewParam = new URLSearchParams(location.search).get('view');
+if (_viewParam) {
+    joinAsViewer(_viewParam);
+} else {
+    // Pre-fill join code from URL
+    const _auto = new URLSearchParams(location.search).get('join');
+    if (_auto) { fCode = _auto; ui = 'home'; }
+    render();
+}
+</script>
+</body>
+</html>

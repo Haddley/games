@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>SYNTHWAVE ARENA | FULL SFX + MUSIC-LOCKED SCORE</title>
+    <style>
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: radial-gradient(circle at center, #0a0015, #020008);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Orbitron', 'Courier New', monospace;
+            overflow: hidden;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 20px 10px;
+        }
+
+        canvas {
+            display: block;
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.4), 0 0 0 3px #ff44cc, 0 0 0 6px #2a0f3a;
+            border-radius: 24px;
+            cursor: none;
+            background-color: #05010c;
+        }
+
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 40px;
+            background: rgba(18, 5, 32, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 8px 32px;
+            border-radius: 80px;
+            border: 1px solid #ff66dd;
+            box-shadow: 0 0 15px #ff44aa66;
+            font-weight: bold;
+            flex-wrap: wrap;
+        }
+
+        .score-board, .health-board {
+            color: #ffddfc;
+            text-shadow: 0 0 8px #ff44ff, 0 0 3px #ff99ff;
+            font-size: 1.7rem;
+            letter-spacing: 2px;
+        }
+
+        .score-board span, .health-board span {
+            color: #ff99ff;
+            font-size: 2.2rem;
+            margin-right: 8px;
+            filter: drop-shadow(0 0 4px magenta);
+        }
+
+        .restart-btn {
+            background: linear-gradient(135deg, #ff44cc, #aa22aa);
+            border: none;
+            font-family: 'Orbitron', monospace;
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 6px 22px;
+            border-radius: 60px;
+            color: #ffecff;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 0 10px #ff44dd;
+            letter-spacing: 1px;
+        }
+
+        .restart-btn:hover {
+            background: linear-gradient(135deg, #ff77ee, #dd44cc);
+            transform: scale(0.96);
+            box-shadow: 0 0 18px #ff77ff;
+            color: white;
+        }
+
+        .controls-hint {
+            background: #1f0a2eaa;
+            padding: 5px 20px;
+            border-radius: 60px;
+            font-size: 0.85rem;
+            color: #ffbbff;
+            font-weight: bold;
+            backdrop-filter: blur(4px);
+            border: 1px solid #ff66cc;
+        }
+
+        .music-control {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            background: #2a0a3aaa;
+            padding: 5px 15px;
+            border-radius: 40px;
+            backdrop-filter: blur(4px);
+        }
+
+        .music-btn {
+            background: #ff44aa;
+            border: none;
+            border-radius: 30px;
+            padding: 4px 16px;
+            font-family: monospace;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .beat-indicator {
+            width: 12px;
+            height: 12px;
+            background: #ff44ff;
+            border-radius: 50%;
+            box-shadow: 0 0 8px magenta;
+            transition: 0.05s linear;
+        }
+
+        .beat-active {
+            transform: scale(1.8);
+            background: #ff88ff;
+            box-shadow: 0 0 16px #ff88ff;
+        }
+
+        .volume-slider {
+            width: 80px;
+            height: 4px;
+            -webkit-appearance: none;
+            background: #ff44aa;
+            border-radius: 3px;
+        }
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ffbbff;
+            cursor: pointer;
+        }
+        .warning-message {
+            font-size: 0.7rem;
+            color: #ffaa88;
+            background: #330000aa;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <canvas id="gameCanvas" width="1100" height="750"></canvas>
+    <div class="info-panel">
+        <div class="score-board"><span>💿</span> SCORE: <span id="scoreValue">0</span></div>
+        <div class="health-board"><span>⚡</span> CORE: <span id="healthValue">5</span></div>
+        <div class="music-control">
+            <div class="beat-indicator" id="beatIndicator"></div>
+            <button class="music-btn" id="musicToggleBtn">🎵 START MUSIC</button>
+            <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="65">
+        </div>
+        <button class="restart-btn" id="restartButton">⟳ RESTART</button>
+    </div>
+    <div class="controls-hint">
+        🌊 MOUSE / FINGER → DODGE | 🎵 ORIGINAL SYNTHWAVE SOUNDTRACK | ⚡ SCORE ONLY WHEN MUSIC PLAYS
+    </div>
+</div>
+
+<script>
+    (function(){
+        // ---------- CANVAS ----------
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let width = 1100, height = 750;
+        canvas.width = width;
+        canvas.height = height;
+
+        // ---------- GAME STATE ----------
+        let gameRunning = true;
+        let score = 0;
+        let health = 5;
+        let frame = 0;
+        
+        // player
+        const PLAYER_RADIUS = 16;
+        let player = { x: width/2, y: height/2 };
+        
+        // Projectiles
+        let projectiles = [];      
+        let lasers = [];           
+        let laserWarnings = [];    
+        let particles = [];
+        
+        // spawn timing
+        let lastLaserFrame = 0;
+        
+        // ---------- SFX FLAG ----------
+        let soundEnabled = true;   // SFX always on (uses AudioContext)
+        
+        // ---------- PROFESSIONAL SYNTHWAVE MUSIC ENGINE + SFX ----------
+        let audioContext = null;
+        let musicEnabled = false;    // SCORE ONLY WHEN TRUE
+        let masterGain = null;
+        let sfxGain = null;
+        let currentBPM = 124;
+        let beatCounter = 0;
+        let lastBeatFrame = 0;
+        let framesPerBeat = 0;
+        
+        // Synth voices
+        let bassOsc = null;
+        let bassGain = null;
+        let leadOsc = null;
+        let leadGain = null;
+        let arpOsc = null;
+        let arpGain = null;
+        let drumInterval = null;
+        
+        // UI elements
+        const beatIndicator = document.getElementById('beatIndicator');
+        const volumeSlider = document.getElementById('volumeSlider');
+        
+        function calculateFramesPerBeat() {
+            framesPerBeat = Math.max(20, Math.floor(3600 / currentBPM));
+        }
+        
+        // Initialize full audio engine (music + SFX)
+        function initAudio() {
+            if (audioContext) return;
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Master gain for music
+            masterGain = audioContext.createGain();
+            masterGain.gain.value = 0.65;
+            masterGain.connect(audioContext.destination);
+            
+            // SFX gain (separate for clarity)
+            sfxGain = audioContext.createGain();
+            sfxGain.gain.value = 0.55;
+            sfxGain.connect(audioContext.destination);
+            
+            // Filter for synthwave
+            const filterNode = audioContext.createBiquadFilter();
+            filterNode.type = 'lowpass';
+            filterNode.frequency.value = 8000;
+            
+            // Delay
+            const delayNode = audioContext.createDelay();
+            delayNode.delayTime.value = 0.35;
+            const delayFeedback = audioContext.createGain();
+            delayFeedback.gain.value = 0.4;
+            delayNode.connect(delayFeedback);
+            delayFeedback.connect(delayNode);
+            
+            filterNode.connect(delayNode);
+            filterNode.connect(masterGain);
+        }
+        
+        // ---------- SOUND EFFECTS (lasers, projectiles, damage) ----------
+        function playLaserWarningSound() {
+            if (!audioContext || !soundEnabled) return;
+            const now = audioContext.currentTime;
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(sfxGain);
+            osc.type = 'sine';
+            osc.frequency.value = 880;
+            gain.gain.value = 0.12;
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+            osc.stop(now + 0.25);
+        }
+        
+        function playLaserBeamSound() {
+            if (!audioContext || !soundEnabled) return;
+            const now = audioContext.currentTime;
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(sfxGain);
+            osc.type = 'sawtooth';
+            osc.frequency.value = 220;
+            gain.gain.value = 0.2;
+            osc.start();
+            // sweep up
+            osc.frequency.exponentialRampToValueAtTime(660, now + 0.15);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+            osc.stop(now + 0.3);
+        }
+        
+        function playProjectileHitSound() {
+            if (!audioContext || !soundEnabled) return;
+            const now = audioContext.currentTime;
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(sfxGain);
+            osc.type = 'triangle';
+            osc.frequency.value = 300;
+            gain.gain.value = 0.18;
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+            osc.stop(now + 0.1);
+        }
+        
+        function playBigOrbHitSound() {
+            if (!audioContext || !soundEnabled) return;
+            const now = audioContext.currentTime;
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(sfxGain);
+            osc.type = 'square';
+            osc.frequency.value = 150;
+            gain.gain.value = 0.22;
+            osc.start();
+            osc.frequency.exponentialRampToValueAtTime(80, now + 0.12);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+            osc.stop(now + 0.2);
+        }
+        
+        function playSplitSound() {
+            if (!audioContext || !soundEnabled) return;
+            const now = audioContext.currentTime;
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(sfxGain);
+            osc.type = 'sine';
+            osc.frequency.value = 440;
+            gain.gain.value = 0.15;
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+            osc.stop(now + 0.08);
+            
+            // second harmonic
+            const osc2 = audioContext.createOscillator();
+            const gain2 = audioContext.createGain();
+            osc2.connect(gain2);
+            gain2.connect(sfxGain);
+            osc2.type = 'triangle';
+            osc2.frequency.value = 880;
+            gain2.gain.value = 0.1;
+            osc2.start();
+            gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+            osc2.stop(now + 0.12);
+        }
+        
+        function playDamageSound() {
+            if (!audioContext || !soundEnabled) return;
+            const now = audioContext.currentTime;
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(sfxGain);
+            osc.type = 'sawtooth';
+            osc.frequency.value = 180;
+            gain.gain.value = 0.35;
+            osc.start();
+            osc.frequency.exponentialRampToValueAtTime(90, now + 0.2);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+            osc.stop(now + 0.3);
+            
+            // add distortion feel
+            const noise = audioContext.createBufferSource();
+            const noiseGain = audioContext.createGain();
+            const bufferSize = 2048;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            noise.buffer = buffer;
+            noise.connect(noiseGain);
+            noiseGain.connect(sfxGain);
+            noiseGain.gain.value = 0.2;
+            noise.start();
+            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+            noise.stop(now + 0.2);
+        }
+        
+        function playHomingSpawnSound() {
+            if (!audioContext || !soundEnabled) return;
+            const now = audioContext.currentTime;
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(sfxGain);
+            osc.type = 'sine';
+            osc.frequency.value = 660;
+            gain.gain.value = 0.12;
+            osc.start();
+            osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+            osc.stop(now + 0.15);
+        }
+        
+        // ---------- MUSIC ENGINE (drums & synths) ----------
+        function startBassline() {
+            if (!musicEnabled || !audioContext) return;
+            if (bassOsc) try { bassOsc.stop(); } catch(e){}
+            bassOsc = audioContext.createOscillator();
+            bassOsc.type = 'sawtooth';
+            const bassFilter = audioContext.createBiquadFilter();
+            bassFilter.type = 'lowpass';
+            bassFilter.frequency.value = 400;
+            bassOsc.connect(bassFilter);
+            bassFilter.connect(masterGain);
+            bassOsc.start();
+            
+            const bassNotes = [45, 45, 48, 45, 45, 48, 50, 48];
+            let bassStep = 0;
+            const updateBass = () => {
+                if (!musicEnabled) return;
+                const freq = 55 * Math.pow(2, (bassNotes[bassStep % bassNotes.length] - 45) / 12);
+                bassOsc.frequency.setTargetAtTime(freq, audioContext.currentTime, 0.05);
+                bassStep++;
+            };
+            updateBass();
+            if (window.bassInterval) clearInterval(window.bassInterval);
+            window.bassInterval = setInterval(updateBass, 60000 / currentBPM * 2);
+        }
+        
+        function startLeadMelody() {
+            if (!musicEnabled || !audioContext) return;
+            if (leadOsc) try { leadOsc.stop(); } catch(e){}
+            leadOsc = audioContext.createOscillator();
+            leadOsc.type = 'square';
+            const leadFilter = audioContext.createBiquadFilter();
+            leadFilter.type = 'bandpass';
+            leadFilter.frequency.value = 1200;
+            leadOsc.connect(leadFilter);
+            leadFilter.connect(masterGain);
+            leadOsc.start();
+            
+            const melodyNotes = [57, 60, 64, 62, 60, 59, 57, 55, 57, 60, 62, 64, 65, 64, 62, 60];
+            let melodyStep = 0;
+            const updateMelody = () => {
+                if (!musicEnabled) return;
+                const note = melodyNotes[melodyStep % melodyNotes.length];
+                const freq = 440 * Math.pow(2, (note - 69) / 12);
+                leadOsc.frequency.setTargetAtTime(freq, audioContext.currentTime, 0.03);
+                melodyStep++;
+            };
+            updateMelody();
+            if (window.melodyInterval) clearInterval(window.melodyInterval);
+            window.melodyInterval = setInterval(updateMelody, 60000 / currentBPM * 2);
+        }
+        
+        function startArpeggiator() {
+            if (!musicEnabled || !audioContext) return;
+            if (arpOsc) try { arpOsc.stop(); } catch(e){}
+            arpOsc = audioContext.createOscillator();
+            arpOsc.type = 'triangle';
+            arpOsc.connect(masterGain);
+            arpOsc.start();
+            const arpNotes = [52, 55, 59, 55, 52, 55, 59, 62];
+            let arpStep = 0;
+            const updateArp = () => {
+                if (!musicEnabled) return;
+                const note = arpNotes[arpStep % arpNotes.length];
+                const freq = 440 * Math.pow(2, (note - 69) / 12);
+                arpOsc.frequency.setTargetAtTime(freq, audioContext.currentTime, 0.01);
+                arpStep++;
+            };
+            updateArp();
+            if (window.arpInterval) clearInterval(window.arpInterval);
+            window.arpInterval = setInterval(updateArp, 60000 / currentBPM / 2);
+        }
+        
+        function startPad() {
+            if (!musicEnabled || !audioContext) return;
+            const padOsc1 = audioContext.createOscillator();
+            const padOsc2 = audioContext.createOscillator();
+            const padMix = audioContext.createGain();
+            padOsc1.type = 'sine';
+            padOsc2.type = 'sine';
+            padOsc1.frequency.value = 55;
+            padOsc2.frequency.value = 110;
+            padOsc1.connect(padMix);
+            padOsc2.connect(padMix);
+            padMix.connect(masterGain);
+            padMix.gain.value = 0.07;
+            padOsc1.start();
+            padOsc2.start();
+            if (window.padRef) { try { window.padRef.stop(); } catch(e){} }
+            window.padRef = { osc1: padOsc1, osc2: padOsc2 };
+        }
+        
+        function stopPad() {
+            if (window.padRef) {
+                try { window.padRef.osc1.stop(); } catch(e){}
+                try { window.padRef.osc2.stop(); } catch(e){}
+                window.padRef = null;
+            }
+        }
+        
+        function playKick() {
+            if (!musicEnabled || !audioContext) return;
+            const now = audioContext.currentTime;
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.type = 'sine';
+            osc.frequency.value = 60;
+            gain.gain.value = 0.35;
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+            osc.stop(now + 0.12);
+        }
+        
+        function playSnare() {
+            if (!musicEnabled || !audioContext) return;
+            const now = audioContext.currentTime;
+            const noise = audioContext.createBufferSource();
+            const gain = audioContext.createGain();
+            const bufferSize = 4096;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            noise.buffer = buffer;
+            noise.connect(gain);
+            gain.connect(masterGain);
+            gain.gain.value = 0.22;
+            noise.start();
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+            noise.stop(now + 0.08);
+        }
+        
+        function playHat() {
+            if (!musicEnabled || !audioContext) return;
+            const now = audioContext.currentTime;
+            const noise = audioContext.createBufferSource();
+            const gain = audioContext.createGain();
+            const bufferSize = 2048;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / 800);
+            noise.buffer = buffer;
+            noise.connect(gain);
+            gain.connect(masterGain);
+            gain.gain.value = 0.12;
+            noise.start();
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+            noise.stop(now + 0.05);
+        }
+        
+        function startDrumSequencer() {
+            if (drumInterval) clearInterval(drumInterval);
+            drumInterval = setInterval(() => {
+                if (!musicEnabled) return;
+                const beat = Math.floor(Date.now() / (60000 / currentBPM)) % 4;
+                if (beat === 0) { playKick(); pulseBeatVisual(); }
+                if (beat === 2) playSnare();
+                if (beat === 1 || beat === 3) playHat();
+            }, 60000 / currentBPM / 4);
+        }
+        
+        function updateMusicTempo() {
+            if (!musicEnabled) return;
+            let newBPM = 118 + Math.min(50, Math.floor(score / 180));
+            if (newBPM !== currentBPM) {
+                currentBPM = newBPM;
+                calculateFramesPerBeat();
+                if (drumInterval) { clearInterval(drumInterval); startDrumSequencer(); }
+            }
+        }
+        
+        function pulseBeatVisual() {
+            beatIndicator.classList.add('beat-active');
+            setTimeout(() => beatIndicator.classList.remove('beat-active'), 100);
+        }
+        
+        function stopAllMusic() {
+            if (bassOsc) { try { bassOsc.stop(); } catch(e){} bassOsc = null; }
+            if (leadOsc) { try { leadOsc.stop(); } catch(e){} leadOsc = null; }
+            if (arpOsc) { try { arpOsc.stop(); } catch(e){} arpOsc = null; }
+            if (drumInterval) clearInterval(drumInterval);
+            if (window.bassInterval) clearInterval(window.bassInterval);
+            if (window.melodyInterval) clearInterval(window.melodyInterval);
+            if (window.arpInterval) clearInterval(window.arpInterval);
+            stopPad();
+        }
+        
+        function startFullMusic() {
+            if (!audioContext) initAudio();
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                    musicEnabled = true;
+                    startBassline();
+                    startLeadMelody();
+                    startArpeggiator();
+                    startPad();
+                    startDrumSequencer();
+                    document.getElementById('musicToggleBtn').textContent = '🔊 MUSIC ON';
+                });
+            } else {
+                musicEnabled = true;
+                startBassline();
+                startLeadMelody();
+                startArpeggiator();
+                startPad();
+                startDrumSequencer();
+                document.getElementById('musicToggleBtn').textContent = '🔊 MUSIC ON';
+            }
+        }
+        
+        function stopMusic() {
+            musicEnabled = false;
+            stopAllMusic();
+            document.getElementById('musicToggleBtn').textContent = '🎵 START MUSIC';
+        }
+        
+        function toggleMusic() {
+            if (!audioContext) initAudio();
+            if (musicEnabled) {
+                stopMusic();
+            } else {
+                startFullMusic();
+            }
+        }
+        
+        function setVolume(value) {
+            if (masterGain) masterGain.gain.value = value / 100;
+        }
+        volumeSlider.addEventListener('input', (e) => setVolume(e.target.value));
+        
+        // ---------- BEAT-SYNCED SPAWNING (only if music enabled) ----------
+        function trySpawnOnBeat(currentFrame, playerPos) {
+            if (!musicEnabled || framesPerBeat === 0) return;
+            const beatPhase = currentFrame % framesPerBeat;
+            const isOnBeat = beatPhase < 3;
+            if (isOnBeat && currentFrame - lastBeatFrame >= framesPerBeat - 2) {
+                lastBeatFrame = currentFrame;
+                beatCounter++;
+                const intensity = Math.min(4, 1 + Math.floor(score / 200));
+                for (let i = 0; i < intensity; i++) spawnNormalBullet(playerPos);
+                if (score > 80 && (beatCounter % 2 === 0 || Math.random() < 0.35)) {
+                    spawnHomingBullet(playerPos);
+                    playHomingSpawnSound();
+                }
+                if (score > 50 && beatCounter % 4 === 0) {
+                    spawnBigOrb(playerPos);
+                    playSnare();
+                }
+            }
+        }
+        
+        function trySpawnLaserOnRhythm(currentFrame) {
+            if (!musicEnabled || framesPerBeat === 0) return;
+            const laserRhythm = score > 250 ? 6 : 10;
+            const laserBeatFrame = (Math.floor(currentFrame / framesPerBeat) % laserRhythm === 0);
+            if (laserBeatFrame && currentFrame - lastLaserFrame >= framesPerBeat * 3) {
+                scheduleLaserAttack(currentFrame);
+                lastLaserFrame = currentFrame;
+                playLaserWarningSound();
+            }
+        }
+        
+        // ---------- PROJECTILE SPAWN FUNCTIONS ----------
+        function spawnBigOrb(targetPos){
+            let edge = Math.floor(Math.random() * 4);
+            let startX, startY;
+            const pad = 25;
+            if(edge === 0){ startX = -pad; startY = Math.random() * height; }
+            else if(edge === 1){ startX = width + pad; startY = Math.random() * height; }
+            else if(edge === 2){ startX = Math.random() * width; startY = -pad; }
+            else { startX = Math.random() * width; startY = height + pad; }
+            let dx = targetPos.x - startX, dy = targetPos.y - startY;
+            let len = Math.hypot(dx, dy); if(len < 0.01) len = 1;
+            let normX = dx/len, normY = dy/len;
+            let speed = 2.2 + Math.min(1.6, Math.floor(score/500));
+            let jitter = (Math.random() - 0.5) * 0.2;
+            let dirX = normX * Math.cos(jitter) - normY * Math.sin(jitter);
+            let dirY = normX * Math.sin(jitter) + normY * Math.cos(jitter);
+            projectiles.push({ type: 'big', x: startX, y: startY, vx: dirX * speed, vy: dirY * speed, radius: 22, health: 3, color: '#ff66ff' });
+        }
+        
+        function spawnNormalBullet(targetPos){
+            let edge = Math.floor(Math.random() * 4);
+            let startX, startY;
+            const pad = 20;
+            if(edge === 0){ startX = -pad; startY = Math.random() * height; }
+            else if(edge === 1){ startX = width + pad; startY = Math.random() * height; }
+            else if(edge === 2){ startX = Math.random() * width; startY = -pad; }
+            else { startX = Math.random() * width; startY = height + pad; }
+            let dx = targetPos.x - startX, dy = targetPos.y - startY;
+            let len = Math.hypot(dx, dy); if(len < 0.01) len = 1;
+            let normX = dx/len, normY = dy/len;
+            let speed = 4.2 + Math.min(2.0, Math.floor(score/380));
+            let jitter = (Math.random() - 0.5) * 0.18;
+            let dirX = normX * Math.cos(jitter) - normY * Math.sin(jitter);
+            let dirY = normX * Math.sin(jitter) + normY * Math.cos(jitter);
+            projectiles.push({ type: 'normal', x: startX, y: startY, vx: dirX * speed, vy: dirY * speed, radius: 8, color: '#ff3a6f', damage: 1 });
+        }
+        
+        function spawnHomingBullet(targetPos){
+            let edge = Math.floor(Math.random() * 4);
+            let startX, startY; const pad = 30;
+            if(edge === 0){ startX = -pad; startY = Math.random() * height; }
+            else if(edge === 1){ startX = width + pad; startY = Math.random() * height; }
+            else if(edge === 2){ startX = Math.random() * width; startY = -pad; }
+            else { startX = Math.random() * width; startY = height + pad; }
+            let dx = targetPos.x - startX, dy = targetPos.y - startY;
+            let len = Math.hypot(dx, dy); if(len < 0.01) len = 1;
+            let normX = dx/len, normY = dy/len;
+            let speed = 3.5 + Math.min(1.4, Math.floor(score/450));
+            let jitter = (Math.random() - 0.5) * 0.15;
+            let dirX = normX * Math.cos(jitter) - normY * Math.sin(jitter);
+            let dirY = normX * Math.sin(jitter) + normY * Math.cos(jitter);
+            projectiles.push({ type: 'homing', x: startX, y: startY, vx: dirX * speed, vy: dirY * speed, radius: 11, color: '#ff44ff', homingFrames: 300, originalSpeed: speed, damage: 1 });
+        }
+        
+        function splitBigOrb(orb, index){
+            playSplitSound();
+            const splitCount = 6 + Math.floor(Math.random() * 3);
+            for(let i=0; i<splitCount; i++){
+                let angle = Math.random() * Math.PI * 2;
+                let spd = 2.5 + Math.random() * 2.2;
+                let vx = Math.cos(angle) * spd, vy = Math.sin(angle) * spd;
+                projectiles.push({ type: 'normal', x: orb.x, y: orb.y, vx: vx, vy: vy, radius: 7, color: '#ff66cc', damage: 1 });
+            }
+            for(let p=0; p<24; p++) particles.push({ x: orb.x, y: orb.y, vx: (Math.random() - 0.5)*6, vy: (Math.random() - 0.5)*6, life: 0.8, size: Math.random()*5+2, color: `hsl(${280 + Math.random()*40}, 80%, 65%)` });
+            projectiles.splice(index,1);
+        }
+        
+        function scheduleLaserAttack(currentFrame){
+            const pattern = Math.floor(Math.random() * 3);
+            let warningData = { pattern, startFrame: currentFrame };
+            if(pattern === 0){ warningData.type = 'horizontal'; warningData.y = Math.random() * height; }
+            else if(pattern === 1){ warningData.type = 'vertical'; warningData.x = Math.random() * width; }
+            else { warningData.type = 'cross'; warningData.cx = width/2 + (Math.random() - 0.5)*180; warningData.cy = height/2 + (Math.random() - 0.5)*150; }
+            laserWarnings.push(warningData);
+        }
+        
+        function updateLaserWarningsAndSpawn(currentFrame){
+            for(let i=0; i<laserWarnings.length; i++){
+                const warn = laserWarnings[i];
+                if(currentFrame - warn.startFrame >= 55){
+                    let thickWidth = 28;
+                    if(warn.type === 'horizontal') lasers.push({ type: 'horizontal', y: warn.y, life: 0.42, width: thickWidth, damage: 1 });
+                    else if(warn.type === 'vertical') lasers.push({ type: 'vertical', x: warn.x, life: 0.42, width: thickWidth, damage: 1 });
+                    else lasers.push({ type: 'cross', cx: warn.cx, cy: warn.cy, life: 0.42, width: thickWidth, angle1: 0.785, angle2: -0.785, damage: 1 });
+                    playLaserBeamSound();
+                    laserWarnings.splice(i,1);
+                    i--;
+                }
+            }
+        }
+        
+        // Collision & update (simplified, with SFX triggers)
+        function updateProjectiles(){
+            for(let i=0; i<projectiles.length; i++){
+                const pj = projectiles[i];
+                if(pj.type === 'homing' && pj.homingFrames > 0 && gameRunning && health>0){
+                    pj.homingFrames--;
+                    let dx = player.x - pj.x, dy = player.y - pj.y;
+                    let len = Math.hypot(dx, dy);
+                    if(len > 0.01){
+                        let normX = dx/len, normY = dy/len;
+                        let currentSpeed = Math.hypot(pj.vx, pj.vy);
+                        let newVx = pj.vx + normX * 0.18, newVy = pj.vy + normY * 0.18;
+                        let newLen = Math.hypot(newVx, newVy);
+                        if(newLen > 0){
+                            let finalSpeed = Math.min(currentSpeed+0.12, pj.originalSpeed * 1.2);
+                            pj.vx = (newVx / newLen) * finalSpeed;
+                            pj.vy = (newVy / newLen) * finalSpeed;
+                        }
+                    }
+                }
+                pj.x += pj.vx; pj.y += pj.vy;
+                let hitByLaser = false;
+                for(let li=0; li<lasers.length; li++){
+                    const l = lasers[li];
+                    let collides = false;
+                    if(l.type === 'horizontal') collides = Math.abs(pj.y - l.y) < (pj.radius + l.width/2);
+                    else if(l.type === 'vertical') collides = Math.abs(pj.x - l.x) < (pj.radius + l.width/2);
+                    else if(l.type === 'cross'){
+                        let dx1 = Math.cos(l.angle1), dy1 = Math.sin(l.angle1);
+                        let toX = pj.x - l.cx, toY = pj.y - l.cy;
+                        let dist1 = Math.abs(toX*dy1 - toY*dx1);
+                        if(dist1 < (pj.radius + l.width/1.2)) collides = true;
+                    }
+                    if(collides){ hitByLaser = true; break; }
+                }
+                if(hitByLaser){
+                    playProjectileHitSound();
+                    if(pj.type === 'big'){
+                        pj.health--;
+                        if(pj.health <= 0){ const idx = projectiles.indexOf(pj); if(idx !== -1) splitBigOrb(pj, idx); i--; }
+                        continue;
+                    } else { projectiles.splice(i,1); i--; continue; }
+                }
+                if(gameRunning && health > 0){
+                    const distToPlayer = Math.hypot(player.x - pj.x, player.y - pj.y);
+                    if(distToPlayer < PLAYER_RADIUS + pj.radius){
+                        if(pj.type === 'big'){
+                            health = Math.max(0, health-1); updateUI(); playDamageSound();
+                            const idx = projectiles.indexOf(pj); if(idx !== -1) splitBigOrb(pj, idx);
+                            if(health <= 0) gameRunning = false;
+                            i--;
+                        } else {
+                            health = Math.max(0, health-1); updateUI(); playDamageSound();
+                            projectiles.splice(i,1);
+                            if(health <= 0) gameRunning = false;
+                            i--;
+                        }
+                        continue;
+                    }
+                }
+                const margin = 150;
+                if(pj.x + pj.radius < -margin || pj.x - pj.radius > width + margin || pj.y + pj.radius < -margin || pj.y - pj.radius > height + margin){
+                    projectiles.splice(i,1); i--;
+                }
+            }
+        }
+        
+        function updateLasersAndDamage(){
+            for(let i=0; i<lasers.length; i++){
+                const l = lasers[i];
+                l.life -= 0.018;
+                if(l.life <= 0){ lasers.splice(i,1); i--; continue; }
+                if(gameRunning && health > 0){
+                    let hit = false;
+                    if(l.type === 'horizontal') hit = Math.abs(player.y - l.y) < l.width/2 + PLAYER_RADIUS/1.4;
+                    else if(l.type === 'vertical') hit = Math.abs(player.x - l.x) < l.width/2 + PLAYER_RADIUS/1.4;
+                    else if(l.type === 'cross'){
+                        let dx1 = Math.cos(l.angle1), dy1 = Math.sin(l.angle1);
+                        let toX = player.x - l.cx, toY = player.y - l.cy;
+                        let dist1 = Math.abs(toX*dy1 - toY*dx1);
+                        if(dist1 < l.width/1.3 + 14) hit = true;
+                    }
+                    if(hit){
+                        health = Math.max(0, health-1); updateUI(); playDamageSound();
+                        if(health <= 0) gameRunning = false;
+                        lasers.splice(i,1); i--;
+                    }
+                }
+            }
+        }
+        
+        function updateParticles(){
+            for(let i=0;i<particles.length;i++){
+                particles[i].x += particles[i].vx;
+                particles[i].y += particles[i].vy;
+                particles[i].life -= 0.02;
+                particles[i].vy += 0.1;
+                if(particles[i].life <= 0){ particles.splice(i,1); i--; }
+            }
+        }
+        
+        function updateScoreAndDifficulty(){
+            // SCORE ONLY WHEN MUSIC ENABLED
+            if(gameRunning && health > 0 && musicEnabled){
+                score += 0.28;
+                updateUI();
+                updateMusicTempo();
+            } else if (gameRunning && health > 0 && !musicEnabled) {
+                // no score accumulation when music off
+                // but we still allow UI to show current score (frozen)
+            }
+        }
+        
+        function updateUI(){
+            document.getElementById('scoreValue').innerText = Math.floor(score);
+            document.getElementById('healthValue').innerText = health;
+        }
+        
+        function setPlayerPosition(clientX, clientY){
+            if(!gameRunning && health<=0) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            let canvasX = (clientX - rect.left) * scaleX;
+            let canvasY = (clientY - rect.top) * scaleY;
+            canvasX = Math.min(Math.max(canvasX, PLAYER_RADIUS), width - PLAYER_RADIUS);
+            canvasY = Math.min(Math.max(canvasY, PLAYER_RADIUS), height - PLAYER_RADIUS);
+            player.x = canvasX; player.y = canvasY;
+        }
+        
+        function handleMove(e){
+            e.preventDefault();
+            let cx, cy;
+            if(e.touches){ if(e.touches.length===0) return; cx = e.touches[0].clientX; cy = e.touches[0].clientY; }
+            else { cx = e.clientX; cy = e.clientY; }
+            setPlayerPosition(cx, cy);
+        }
+        
+        function attachEvents(){
+            canvas.addEventListener('mousemove', handleMove);
+            canvas.addEventListener('mouseenter', (e) => { if(e.clientX) setPlayerPosition(e.clientX, e.clientY); });
+            canvas.addEventListener('touchmove', handleMove, { passive: false });
+            canvas.addEventListener('touchstart', handleMove, { passive: false });
+        }
+        
+        function restartGame(){
+            gameRunning = true;
+            score = 0;
+            health = 5;
+            projectiles = [];
+            lasers = [];
+            laserWarnings = [];
+            particles = [];
+            frame = 0;
+            lastLaserFrame = 0;
+            lastBeatFrame = 0;
+            beatCounter = 0;
+            player.x = width/2; player.y = height/2;
+            updateUI();
+        }
+        
+        // DRAWING (condensed)
+        function drawSynthBackground(){
+            const grad = ctx.createLinearGradient(0,0,width,height);
+            grad.addColorStop(0, '#0a001f'); grad.addColorStop(1, '#1a0533');
+            ctx.fillStyle = grad; ctx.fillRect(0,0,width,height);
+            for(let i=0;i<width+height;i+=55){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(0,i); ctx.strokeStyle = '#ff33cc20'; ctx.stroke(); }
+            for(let i=0;i<width;i+=55){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,height); ctx.strokeStyle = '#aa44ff30'; ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(width,i); ctx.stroke(); }
+        }
+        function drawLaserWarnings(){
+            for(let warn of laserWarnings){
+                ctx.save(); ctx.globalAlpha = 0.55 + Math.sin(frame*0.15)*0.2; ctx.setLineDash([12,18]); ctx.lineWidth = 4; ctx.strokeStyle = '#ffaaff';
+                if(warn.type === 'horizontal'){ ctx.beginPath(); ctx.moveTo(0,warn.y); ctx.lineTo(width,warn.y); ctx.stroke(); }
+                else if(warn.type === 'vertical'){ ctx.beginPath(); ctx.moveTo(warn.x,0); ctx.lineTo(warn.x,height); ctx.stroke(); }
+                else if(warn.type === 'cross'){ ctx.beginPath(); ctx.moveTo(warn.cx-300*0.707, warn.cy-300*0.707); ctx.lineTo(warn.cx+300*0.707, warn.cy+300*0.707); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(warn.cx+300*0.707, warn.cy-300*0.707); ctx.lineTo(warn.cx-300*0.707, warn.cy+300*0.707); ctx.stroke(); }
+                ctx.setLineDash([]); ctx.restore();
+            }
+        }
+        function drawLasers(){
+            for(let l of lasers){
+                ctx.shadowBlur = 20; ctx.shadowColor = '#ff44ff'; ctx.globalAlpha = Math.min(0.92, l.life*1.6); ctx.fillStyle = '#ff44ee';
+                if(l.type === 'horizontal'){ ctx.fillRect(0, l.y - l.width/2, width, l.width); ctx.fillStyle = '#ffbbff'; ctx.fillRect(0, l.y - l.width/6, width, l.width/3); }
+                else if(l.type === 'vertical'){ ctx.fillRect(l.x - l.width/2, 0, l.width, height); ctx.fillStyle = '#ffbbff'; ctx.fillRect(l.x - l.width/6, 0, l.width/3, height); }
+                else if(l.type === 'cross'){ ctx.save(); ctx.translate(l.cx, l.cy); ctx.rotate(l.angle1); ctx.fillRect(-400, -l.width/2, 800, l.width); ctx.rotate(l.angle2 - l.angle1); ctx.fillRect(-400, -l.width/2, 800, l.width); ctx.restore(); }
+                ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+            }
+        }
+        function drawProjectiles(){
+            for(let p of projectiles){
+                ctx.shadowBlur = 10;
+                if(p.type === 'big'){ ctx.beginPath(); ctx.arc(p.x,p.y,p.radius,0,Math.PI*2); ctx.fillStyle = '#ff44dd'; ctx.fill(); ctx.beginPath(); ctx.arc(p.x,p.y,p.radius-4,0,Math.PI*2); ctx.fillStyle = '#ff99ff'; ctx.fill(); ctx.fillStyle = 'white'; ctx.font = "bold 16px monospace"; ctx.fillText(`${p.health||3}`, p.x-6, p.y+6); }
+                else if(p.type === 'homing'){ ctx.beginPath(); ctx.arc(p.x,p.y,p.radius-1,0,Math.PI*2); ctx.fillStyle = '#ff66ff'; ctx.fill(); ctx.beginPath(); ctx.arc(p.x,p.y,p.radius-4,0,Math.PI*2); ctx.fillStyle = '#ffccff'; ctx.fill(); ctx.beginPath(); ctx.moveTo(p.x - p.vx*3, p.y - p.vy*3); ctx.lineTo(p.x,p.y); ctx.lineWidth = 3; ctx.strokeStyle = '#ff88ff'; ctx.stroke(); }
+                else { ctx.beginPath(); ctx.arc(p.x,p.y,p.radius-1,0,Math.PI*2); ctx.fillStyle = '#ff3a8c'; ctx.fill(); ctx.beginPath(); ctx.arc(p.x,p.y,p.radius-3,0,Math.PI*2); ctx.fillStyle = '#ffc0cb'; ctx.fill(); }
+            } ctx.shadowBlur = 0;
+        }
+        function drawParticles(){ for(let p of particles){ ctx.globalAlpha = p.life; ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fillStyle = p.color || '#ff77aa'; ctx.fill(); } ctx.globalAlpha = 1; }
+        function drawPlayerSynth(){
+            ctx.shadowBlur = 20; ctx.shadowColor = '#ff66ff';
+            ctx.beginPath(); ctx.moveTo(player.x, player.y-PLAYER_RADIUS); ctx.lineTo(player.x+PLAYER_RADIUS*0.9, player.y+PLAYER_RADIUS*0.7); ctx.lineTo(player.x, player.y+PLAYER_RADIUS*0.3); ctx.lineTo(player.x-PLAYER_RADIUS*0.9, player.y+PLAYER_RADIUS*0.7); ctx.fillStyle = '#ff88ff'; ctx.fill();
+            ctx.beginPath(); ctx.arc(player.x, player.y-3, 6, 0, Math.PI*2); ctx.fillStyle = '#ffffff'; ctx.fill();
+            ctx.fillStyle = '#ff44aa'; ctx.beginPath(); ctx.arc(player.x-2, player.y-5, 2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(player.x+2, player.y-5, 2, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+        function drawGameOverlay(){
+            if(!gameRunning && health <= 0){
+                ctx.font = "800 48px 'Orbitron'"; ctx.fillStyle = '#ff77ff'; ctx.shadowBlur = 12;
+                ctx.fillText("🌀 GAME OVER", width/2-150, height/2-40);
+                ctx.font = "20px monospace"; ctx.fillStyle = "#dd99ff";
+                ctx.fillText(">>> press RESTART to ride the synthwave again <<<", width/2-280, height/2+50);
+            }
+            if(!musicEnabled && gameRunning && health>0){
+                ctx.font = "14px monospace"; ctx.fillStyle = "#ffaa88"; ctx.shadowBlur = 0;
+                ctx.fillText("🎵 MUSIC OFF → SCORE FROZEN", width-180, 30);
+            }
+        }
+        
+        function gameLoop(){
+            if(gameRunning && health > 0){
+                trySpawnOnBeat(frame, player);
+                trySpawnLaserOnRhythm(frame);
+                updateLaserWarningsAndSpawn(frame);
+                updateProjectiles();
+                updateLasersAndDamage();
+                updateParticles();
+                updateScoreAndDifficulty();
+                if(health <= 0) gameRunning = false;
+            } else { updateParticles(); }
+            drawSynthBackground();
+            drawLaserWarnings();
+            drawLasers();
+            drawProjectiles();
+            drawParticles();
+            drawPlayerSynth();
+            drawGameOverlay();
+            frame++;
+            requestAnimationFrame(gameLoop);
+        }
+        
+        const restartBtn = document.getElementById('restartButton');
+        const musicToggleBtn = document.getElementById('musicToggleBtn');
+        restartBtn.addEventListener('click',()=>{ restartGame(); projectiles = []; lasers = []; laserWarnings = []; particles = []; frame = 0; lastLaserFrame = 0; lastBeatFrame = 0; gameRunning = true; health = 5; score = 0; updateUI(); player.x = width/2; player.y = height/2; });
+        musicToggleBtn.addEventListener('click', toggleMusic);
+        calculateFramesPerBeat();
+        attachEvents();
+        restartGame();
+        gameLoop();
+    })();
+</script>
+</body>
+</html>

@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>ENDLESS SKYDIVE | Dodge Falling Hazards</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: linear-gradient(145deg, #0a1f2a 0%, #030c10 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Courier New', 'VT323', monospace;
+            touch-action: manipulation;
+        }
+
+        .game-container {
+            background: #1e3b2f;
+            border-radius: 2rem;
+            padding: 1rem;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.6), inset 0 1px 4px rgba(255,255,200,0.2);
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 1rem;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-top: 1rem;
+            padding: 0.5rem 1.2rem;
+            background: #0f281f;
+            border-radius: 3rem;
+            color: #d4ffc9;
+            text-shadow: 0 2px 2px black;
+            font-weight: bold;
+            font-size: 1.4rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .score-box, .best-box {
+            background: #00000066;
+            padding: 0.2rem 1rem;
+            border-radius: 2rem;
+            backdrop-filter: blur(2px);
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.8rem;
+            justify-content: center;
+        }
+
+        button {
+            background: #2f5a4a;
+            border: none;
+            color: white;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 1.2rem;
+            padding: 0.4rem 1.4rem;
+            border-radius: 3rem;
+            box-shadow: 0 4px 0 #0f2a1f;
+            cursor: pointer;
+            transition: 0.07s linear;
+            touch-action: manipulation;
+        }
+
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 #0f2a1f;
+        }
+
+        .status {
+            background: #000000aa;
+            padding: 0.2rem 1rem;
+            border-radius: 2rem;
+            font-size: 1.2rem;
+            letter-spacing: 1px;
+        }
+
+        @media (max-width: 600px) {
+            .info-panel { font-size: 1rem; }
+            .score-box, .best-box { padding: 0.1rem 0.8rem; }
+            button { font-size: 1rem; padding: 0.3rem 1rem; }
+        }
+    </style>
+</head>
+<body>
+<div>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+        <div class="info-panel">
+            <div class="score-box">SCORE: <span id="scoreValue">0</span></div>
+            <div class="best-box">BEST: <span id="bestValue">0</span></div>
+            <div class="status" id="statusText">SKYDIVE</div>
+        </div>
+        <div class="controls">
+            <button id="resetBtn">RESTART</button>
+            <button id="leftBtn">LEFT</button>
+            <button id="rightBtn">RIGHT</button>
+        </div>
+        <div style="text-align:center; margin-top: 10px; font-size: 0.8rem; color:#b9e6c2;">
+            ARROW KEYS OR A/D  |  DODGE DEBRIS (50% - 200% SIZE)
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        // CANVAS
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // DIMENSIONS
+        const W = 800, H = 500;
+        
+        // SKYDIVER AT THE TOP (falling upward theme -> skydiver descending but visual is at top)
+        const BASE_PLAYER_WIDTH = 34;
+        const BASE_PLAYER_HEIGHT = 38;
+        let playerWidth = BASE_PLAYER_WIDTH;
+        let playerHeight = BASE_PLAYER_HEIGHT;
+        let playerX = W/2 - playerWidth/2;
+        const playerY = 18;
+        const PLAYER_SPEED = 7.8;
+        
+        // GAME STATES
+        let gameRunning = true;
+        let endlessMode = true;
+        
+        // Obstacles array
+        let obstacles = [];
+        const OBSTACLE_TYPES = [
+            { name: 'branch', baseWidth: 28, baseHeight: 30 },
+            { name: 'rock',   baseWidth: 32, baseHeight: 28 }
+        ];
+        
+        // Spawn system
+        let spawnCounter = 0;
+        let baseSpawnDelay = 26;
+        let currentSpawnDelay = 26;
+        
+        // Score & survival
+        let score = 0;
+        let survivalFrames = 0;
+        
+        let bestScore = 0;
+        let frameCounter = 0;
+        
+        // Controls
+        let leftPressed = false;
+        let rightPressed = false;
+        
+        // Parachute animation flag
+        let parachuteAngle = 0;
+        
+        // Helper functions
+        function loadBest() {
+            const saved = localStorage.getItem('skydiveEndlessBest');
+            if(saved && !isNaN(parseInt(saved))) bestScore = parseInt(saved);
+            else bestScore = 0;
+            document.getElementById('bestValue').innerText = bestScore;
+        }
+        
+        function saveBest() {
+            if(score > bestScore) {
+                bestScore = score;
+                localStorage.setItem('skydiveEndlessBest', bestScore);
+                document.getElementById('bestValue').innerText = bestScore;
+            }
+        }
+        
+        function resetGame() {
+            gameRunning = true;
+            score = 0;
+            survivalFrames = 0;
+            obstacles = [];
+            spawnCounter = 4;
+            currentSpawnDelay = baseSpawnDelay;
+            frameCounter = 0;
+            playerWidth = BASE_PLAYER_WIDTH;
+            playerHeight = BASE_PLAYER_HEIGHT;
+            playerX = Math.min(Math.max(W/2 - playerWidth/2, 0), W - playerWidth);
+            leftPressed = false;
+            rightPressed = false;
+            parachuteAngle = 0;
+            document.getElementById('scoreValue').innerText = "0";
+            document.getElementById('statusText').innerHTML = "SKYDIVE";
+            document.getElementById('statusText').style.color = "#d4ffc9";
+            updateScoreDisplay();
+        }
+        
+        function updateScoreDisplay() {
+            document.getElementById('scoreValue').innerText = Math.floor(score);
+        }
+        
+        function gameOver() {
+            if(!gameRunning) return;
+            gameRunning = false;
+            document.getElementById('statusText').innerHTML = "GAME OVER";
+            document.getElementById('statusText').style.color = "#ffaa99";
+            saveBest();
+        }
+        
+        // Random size multiplier between 0.5 and 2.0
+        function getRandomSizeMultiplier() {
+            return 0.5 + Math.random() * 1.5;
+        }
+        
+        // Spawn obstacle at bottom with random size (NO text labels or %)
+        function spawnObstacle() {
+            const typeIdx = Math.floor(Math.random() * OBSTACLE_TYPES.length);
+            const type = OBSTACLE_TYPES[typeIdx];
+            const sizeMult = getRandomSizeMultiplier();
+            const finalWidth = Math.max(12, Math.floor(type.baseWidth * sizeMult));
+            const finalHeight = Math.max(12, Math.floor(type.baseHeight * sizeMult));
+            
+            const maxX = W - finalWidth;
+            const randX = Math.random() * maxX;
+            
+            obstacles.push({
+                x: randX,
+                y: H,
+                width: finalWidth,
+                height: finalHeight,
+                type: typeIdx,
+                name: type.name,
+                sizeMult: sizeMult
+            });
+        }
+        
+        // Update obstacles: move upward, collision detection
+        function updateObstacles() {
+            if(!gameRunning) return;
+            
+            // upward speed increases with score
+            let upwardSpeedBonus = Math.min(5.5, Math.floor(score / 400) * 0.9);
+            let globalUpwardSpeed = 2.9 + upwardSpeedBonus;
+            
+            for(let i=0; i<obstacles.length; i++) {
+                const obs = obstacles[i];
+                obs.y -= globalUpwardSpeed;
+                
+                // Collision detection with skydiver
+                if(obs.y + obs.height > playerY && obs.y < playerY + playerHeight &&
+                   obs.x + obs.width > playerX && obs.x < playerX + playerWidth) {
+                    gameOver();
+                    return;
+                }
+            }
+            // Remove offscreen
+            obstacles = obstacles.filter(obs => obs.y + obs.height > 0);
+        }
+        
+        // Spawn manager: more frequent as score rises
+        function manageSpawning() {
+            if(!gameRunning) return;
+            
+            let intensity = Math.min(19, Math.floor(score / 130));
+            let newDelay = baseSpawnDelay - intensity;
+            if(newDelay < 7) newDelay = 7;
+            currentSpawnDelay = newDelay;
+            
+            if(spawnCounter <= 0) {
+                spawnObstacle();
+                
+                // Multi-spawn chaos
+                let multiChance = Math.min(0.7, Math.floor(score / 280) * 0.12);
+                if(Math.random() < multiChance) {
+                    spawnObstacle();
+                }
+                if(score > 700 && Math.random() < 0.35) {
+                    spawnObstacle();
+                }
+                if(score > 1300 && Math.random() < 0.25) {
+                    spawnObstacle();
+                }
+                if(score > 1900 && Math.random() < 0.18) {
+                    spawnObstacle();
+                }
+                
+                spawnCounter = currentSpawnDelay;
+                spawnCounter += Math.floor(Math.random() * 6) - 2;
+                if(spawnCounter < 5) spawnCounter = 5;
+            } else {
+                spawnCounter--;
+            }
+        }
+        
+        // Update score (endless)
+        function updateScore() {
+            if(!gameRunning) return;
+            survivalFrames++;
+            score += 1.0;
+            updateScoreDisplay();
+        }
+        
+        // Skydiver movement
+        function updatePlayer() {
+            if(!gameRunning) return;
+            let newX = playerX;
+            if(leftPressed) newX -= PLAYER_SPEED;
+            if(rightPressed) newX += PLAYER_SPEED;
+            newX = Math.min(Math.max(newX, 0), W - playerWidth);
+            playerX = newX;
+            
+            // animate parachute gently
+            parachuteAngle = (parachuteAngle + 0.03) % (Math.PI * 2);
+        }
+        
+        // ---------- RENDERING (No emojis, no % labels on objects, skydiver theme) ----------
+        function drawBackground() {
+            // Sky gradient
+            const grad = ctx.createLinearGradient(0, 0, 0, H);
+            grad.addColorStop(0, '#1a3f5c');
+            grad.addColorStop(0.4, '#2d6a8f');
+            grad.addColorStop(0.8, '#4a8faa');
+            grad.addColorStop(1, '#6aaec9');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
+            
+            // Clouds
+            ctx.fillStyle = 'rgba(255,255,240,0.7)';
+            for(let i=0;i<8;i++) {
+                let cloudX = (frameCounter * 0.3 + i * 120) % (W + 100) - 50;
+                let cloudY = 60 + i * 55;
+                ctx.beginPath();
+                ctx.ellipse(cloudX, cloudY, 35, 25, 0, 0, Math.PI*2);
+                ctx.ellipse(cloudX+30, cloudY-10, 30, 28, 0, 0, Math.PI*2);
+                ctx.ellipse(cloudX-25, cloudY-5, 28, 26, 0, 0, Math.PI*2);
+                ctx.fill();
+            }
+            
+            // Wind streaks
+            ctx.beginPath();
+            for(let i=0;i<30;i++) {
+                let x = (frameCounter * 1.2 + i * 47) % W;
+                let y = (frameCounter * 0.5 + i * 23) % H;
+                ctx.moveTo(x, y);
+                ctx.lineTo(x+15, y-4);
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = `rgba(255,255,210,${0.2+Math.sin(frameCounter*0.02+i)*0.1})`;
+                ctx.stroke();
+            }
+            
+            // Ground hint at bottom
+            ctx.fillStyle = '#3e2a1f';
+            ctx.fillRect(0, H-18, W, 18);
+            ctx.fillStyle = '#6a4a2a';
+            for(let i=0;i<12;i++) {
+                ctx.fillRect(i*70, H-18, 8, 5);
+            }
+        }
+        
+        function drawSkydiver() {
+            ctx.save();
+            ctx.shadowBlur = 4;
+            ctx.shadowColor = "#00000060";
+            
+            // Parachute (above the character)
+            let chuteX = playerX + playerWidth/2;
+            let chuteY = playerY - 12;
+            let sway = Math.sin(parachuteAngle * 2) * 4;
+            
+            ctx.fillStyle = '#e84c3c';
+            ctx.beginPath();
+            ctx.moveTo(chuteX + sway, chuteY);
+            ctx.lineTo(chuteX - 28 + sway*0.5, chuteY + 18);
+            ctx.lineTo(chuteX - 12 + sway*0.3, chuteY + 12);
+            ctx.lineTo(chuteX - 12 + sway*0.3, chuteY + 18);
+            ctx.lineTo(chuteX + sway, chuteY + 24);
+            ctx.lineTo(chuteX + 12 + sway*0.3, chuteY + 18);
+            ctx.lineTo(chuteX + 12 + sway*0.3, chuteY + 12);
+            ctx.lineTo(chuteX + 28 + sway*0.5, chuteY + 18);
+            ctx.fill();
+            ctx.fillStyle = '#f4a460';
+            ctx.beginPath();
+            ctx.moveTo(chuteX + sway, chuteY);
+            ctx.lineTo(chuteX - 20 + sway*0.5, chuteY + 14);
+            ctx.lineTo(chuteX + sway, chuteY + 8);
+            ctx.lineTo(chuteX + 20 + sway*0.5, chuteY + 14);
+            ctx.fill();
+            
+            // Ropes
+            ctx.beginPath();
+            ctx.moveTo(chuteX - 12 + sway*0.3, chuteY + 12);
+            ctx.lineTo(playerX + 8, playerY + 8);
+            ctx.moveTo(chuteX + 12 + sway*0.3, chuteY + 12);
+            ctx.lineTo(playerX + playerWidth - 8, playerY + 8);
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#8b5a2b';
+            ctx.stroke();
+            
+            // Body (skydiver suit)
+            ctx.fillStyle = '#2c6e9e';
+            ctx.fillRect(playerX+6, playerY+8, playerWidth-12, 22);
+            ctx.fillStyle = '#1e4a6e';
+            ctx.fillRect(playerX+10, playerY+18, playerWidth-20, 14);
+            
+            // Legs (dangling)
+            ctx.fillStyle = '#3a6ea5';
+            ctx.fillRect(playerX+8, playerY+28, 7, 12);
+            ctx.fillRect(playerX+playerWidth-15, playerY+28, 7, 12);
+            
+            // Head with helmet
+            ctx.fillStyle = '#fdd7a8';
+            ctx.beginPath();
+            ctx.arc(playerX+playerWidth/2, playerY+8, 11, 0, Math.PI*2);
+            ctx.fill();
+            // Helmet/goggles
+            ctx.fillStyle = '#5a6e7a';
+            ctx.beginPath();
+            ctx.ellipse(playerX+playerWidth/2-4, playerY+5, 4, 5, 0, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(playerX+playerWidth/2+4, playerY+5, 4, 5, 0, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#cceeff';
+            ctx.beginPath();
+            ctx.arc(playerX+playerWidth/2-4, playerY+5, 2.2, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(playerX+playerWidth/2+4, playerY+5, 2.2, 0, Math.PI*2);
+            ctx.fill();
+            // Determined mouth
+            ctx.beginPath();
+            ctx.moveTo(playerX+playerWidth/2-3, playerY+11);
+            ctx.lineTo(playerX+playerWidth/2+3, playerY+11);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#5a2a1a';
+            ctx.stroke();
+            
+            // Altimeter / backpack
+            ctx.fillStyle = '#7a8a6e';
+            ctx.fillRect(playerX+playerWidth-12, playerY+15, 8, 12);
+            ctx.restore();
+        }
+        
+        function drawObstacles() {
+            for(let obs of obstacles) {
+                ctx.save();
+                ctx.shadowBlur = 4;
+                ctx.shadowColor = "black";
+                const sizeMult = obs.sizeMult;
+                
+                if(sizeMult > 1.4) {
+                    ctx.shadowColor = "#ff8844";
+                    ctx.shadowBlur = 8;
+                } else if(sizeMult < 0.8) {
+                    ctx.shadowColor = "#88aaff";
+                    ctx.shadowBlur = 5;
+                }
+                
+                if(obs.name === 'branch') {
+                    // Twisted branch - no text/numbers
+                    ctx.fillStyle = '#9b5e2c';
+                    ctx.beginPath();
+                    ctx.ellipse(obs.x+obs.width/2, obs.y+obs.height/2, obs.width/2.2, obs.height/2.5, 0.3, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.fillStyle = '#c27e3a';
+                    for(let i=0;i<Math.max(2, Math.floor(obs.width/9));i++) {
+                        ctx.fillRect(obs.x+5+i*7, obs.y+obs.height/2-4, 4, 8);
+                    }
+                    ctx.fillStyle = '#5a3a1a';
+                    ctx.fillRect(obs.x+obs.width-10, obs.y+6, 5, 12);
+                    ctx.fillStyle = '#8aaE4a';
+                    ctx.beginPath();
+                    ctx.moveTo(obs.x+obs.width-8, obs.y+4);
+                    ctx.lineTo(obs.x+obs.width+2, obs.y-2);
+                    ctx.lineTo(obs.x+obs.width-4, obs.y+8);
+                    ctx.fill();
+                    ctx.fillStyle = '#b3d95a';
+                    ctx.beginPath();
+                    ctx.ellipse(obs.x+obs.width-6, obs.y+6, 6, 4, 0.5, 0, Math.PI*2);
+                    ctx.fill();
+                } 
+                else {
+                    // Rock - rough shape
+                    ctx.fillStyle = '#6e7269';
+                    ctx.beginPath();
+                    ctx.ellipse(obs.x+obs.width/2, obs.y+obs.height/2, obs.width/2.2, obs.height/2.2, 0, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.fillStyle = '#4c4f48';
+                    ctx.beginPath();
+                    ctx.ellipse(obs.x+obs.width*0.35, obs.y+obs.height*0.45, obs.width*0.18, obs.height*0.16, 0, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.fillStyle = '#8c9085';
+                    ctx.beginPath();
+                    ctx.ellipse(obs.x+obs.width*0.7, obs.y+obs.height*0.6, obs.width*0.14, obs.height*0.13, 0, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.moveTo(obs.x+obs.width*0.4, obs.y+obs.height*0.7);
+                    ctx.lineTo(obs.x+obs.width*0.55, obs.y+obs.height*0.8);
+                    ctx.lineTo(obs.x+obs.width*0.45, obs.y+obs.height*0.85);
+                    ctx.fillStyle = '#2f302a';
+                    ctx.fill();
+                }
+                // No text, no percentage, no emoji - completely clean
+                ctx.restore();
+            }
+        }
+        
+        function drawUI() {
+            // Only minimal UI: intensity and game over message (no top-right clutter)
+            ctx.font = "bold 14px 'Courier New'";
+            ctx.fillStyle = "#FFFAC2";
+            ctx.shadowBlur = 0;
+            
+            if(gameRunning) {
+                let intensityPercent = Math.min(100, Math.floor((currentSpawnDelay - 7) / (baseSpawnDelay - 7) * 100));
+                if(intensityPercent < 0) intensityPercent = 0;
+                ctx.fillText(`INTENSITY: ${Math.floor(100-intensityPercent)}%`, 18, 48);
+                
+                // Altitude style meter
+                ctx.font = "10px monospace";
+                ctx.fillStyle = "#bdf2ff";
+                ctx.fillText("ALTITUDE", 18, 72);
+                let altitudePercent = (score % 500) / 500;
+                ctx.fillRect(18, 76, 80 * altitudePercent, 4);
+            } else if(!gameRunning) {
+                ctx.font = "bold 28px monospace";
+                ctx.fillStyle = "#ffbc8c";
+                ctx.fillText("GAME OVER", W/2-78, H/2-35);
+                ctx.font = "14px monospace";
+                ctx.fillStyle = "#dddd99";
+                ctx.fillText("PRESS RESTART", W/2-58, H/2+15);
+            }
+        }
+        
+        // Wind rush effect
+        function drawWindEffect() {
+            if(!gameRunning) return;
+            ctx.globalAlpha = 0.12;
+            for(let i=0;i<12;i++) {
+                let x = (frameCounter * 5 + i * 80) % W;
+                let y = (frameCounter * 2 + i * 37) % H;
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(x, y, 18, 2);
+            }
+            ctx.globalAlpha = 1;
+        }
+        
+        function drawIntensityGlow() {
+            if(!gameRunning) return;
+            if(currentSpawnDelay <= 11) {
+                ctx.globalAlpha = 0.08 + Math.sin(Date.now() * 0.025) * 0.05;
+                ctx.fillStyle = "#ff8844";
+                ctx.fillRect(0, 0, W, H);
+                ctx.globalAlpha = 1;
+            }
+        }
+        
+        function drawSpeedLines() {
+            if(!gameRunning) return;
+            // speed lines based on score
+            let speedIntensity = Math.min(0.4, Math.floor(score / 800) * 0.05);
+            if(speedIntensity > 0) {
+                ctx.globalAlpha = speedIntensity * 0.6;
+                for(let i=0;i<18;i++) {
+                    ctx.beginPath();
+                    ctx.moveTo((frameCounter*8 + i*40) % W, 0);
+                    ctx.lineTo(((frameCounter*8 + i*40)+25) % W, H);
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = "#cceeff";
+                    ctx.stroke();
+                }
+                ctx.globalAlpha = 1;
+            }
+        }
+        
+        // Main update
+        function updateGame() {
+            if(gameRunning) {
+                updatePlayer();
+                updateObstacles();
+                if(gameRunning) {
+                    manageSpawning();
+                    updateScore();
+                }
+                frameCounter++;
+            }
+        }
+        
+        function render() {
+            drawBackground();
+            drawObstacles();
+            drawSkydiver();
+            drawWindEffect();
+            drawSpeedLines();
+            drawIntensityGlow();
+            drawUI();
+        }
+        
+        function gameLoop() {
+            updateGame();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Event handlers
+        function handleKeyDown(e) {
+            const key = e.key;
+            if(key === 'ArrowLeft' || key === 'a' || key === 'A') {
+                leftPressed = true;
+                e.preventDefault();
+            } else if(key === 'ArrowRight' || key === 'd' || key === 'D') {
+                rightPressed = true;
+                e.preventDefault();
+            }
+            if(key === 'r' || key === 'R') {
+                resetGame();
+                e.preventDefault();
+            }
+        }
+        
+        function handleKeyUp(e) {
+            const key = e.key;
+            if(key === 'ArrowLeft' || key === 'a' || key === 'A') {
+                leftPressed = false;
+                e.preventDefault();
+            } else if(key === 'ArrowRight' || key === 'd' || key === 'D') {
+                rightPressed = false;
+                e.preventDefault();
+            }
+        }
+        
+        // Buttons
+        document.getElementById('resetBtn').addEventListener('click', () => resetGame());
+        const leftBtn = document.getElementById('leftBtn');
+        const rightBtn = document.getElementById('rightBtn');
+        
+        function setLeft(state) { leftPressed = state; }
+        function setRight(state) { rightPressed = state; }
+        
+        leftBtn.addEventListener('mousedown', () => setLeft(true));
+        leftBtn.addEventListener('mouseup', () => setLeft(false));
+        leftBtn.addEventListener('mouseleave', () => setLeft(false));
+        rightBtn.addEventListener('mousedown', () => setRight(true));
+        rightBtn.addEventListener('mouseup', () => setRight(false));
+        rightBtn.addEventListener('mouseleave', () => setRight(false));
+        
+        leftBtn.addEventListener('touchstart', (e) => { setLeft(true); e.preventDefault(); });
+        leftBtn.addEventListener('touchend', () => setLeft(false));
+        rightBtn.addEventListener('touchstart', (e) => { setRight(true); e.preventDefault(); });
+        rightBtn.addEventListener('touchend', () => setRight(false));
+        
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        
+        // Initialize
+        loadBest();
+        resetGame();
+        gameLoop();
+    })();
+</script>
+</body>
+</html>
