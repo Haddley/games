@@ -596,16 +596,33 @@
         .hof-by { font-size: .62rem; font-weight: 700; max-width: 110px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .hof-pts { font-family: 'Orbitron', sans-serif; font-size: .72rem; color: var(--gold); font-weight: 700; }
         .def-box { font-size: .68rem; color: var(--muted); font-style: italic; padding: 2px 10px 6px; animation: cardIn .25s both; }
-        .v-missed { display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: center; max-width: 80vw; }
-        .v-missed span { font-family: 'Orbitron', sans-serif; font-size: clamp(.7rem,1.5vw,1rem); letter-spacing: 2px; color: var(--muted); }
+        /* "Nobody found these" — words spelled out in mini board tiles, popping in one by one */
+        .v-missed { display: flex; flex-wrap: wrap; gap: clamp(8px,1.4vh,14px) clamp(12px,1.6vw,22px); justify-content: center; max-width: 54vw; }
+        .v-missed-card { display: flex; align-items: center; gap: 8px; animation: missedPop .55s cubic-bezier(.34,1.56,.64,1) both; }
+        .v-mini-tiles { display: flex; gap: 3px; }
+        .v-mini-tile {
+            width: clamp(20px,3vmin,38px); height: clamp(20px,3vmin,38px); border-radius: 22%;
+            background: linear-gradient(150deg, #3a2568 0%, #1d1140 60%, #150b30 100%);
+            border: 1px solid rgba(255,201,60,.45);
+            box-shadow: 0 3px 8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.14);
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Orbitron', sans-serif; font-weight: 900;
+            font-size: clamp(.55rem,1.7vmin,1rem); color: #ffd76a;
+        }
+        .v-missed-pts { color: var(--gold); font-family: 'Orbitron', sans-serif; font-size: clamp(.62rem,1.3vw,.9rem); }
+        @keyframes missedPop {
+            0% { opacity: 0; transform: scale(.2) rotate(-8deg); }
+            60% { transform: scale(1.12) rotate(3deg); }
+            100% { opacity: 1; transform: scale(1) rotate(0); }
+        }
 
         /* Join QR on the results overlay (newcomers hop in between rounds) */
         .v-join-corner {
             position: absolute; left: clamp(14px,2.5vw,34px); bottom: clamp(14px,2.5vh,30px);
             display: flex; flex-direction: column; align-items: center; gap: 6px;
         }
-        .v-join-corner svg { width: clamp(90px,14vmin,170px); height: clamp(90px,14vmin,170px); border-radius: 10px; box-shadow: 0 0 0 6px #fff, 0 0 30px rgba(139,92,246,.5); }
-        .v-join-code { font-family: 'Orbitron', sans-serif; color: var(--gold); letter-spacing: 4px; font-size: clamp(.8rem,1.6vw,1.1rem); }
+        .v-join-corner svg { width: clamp(150px,26vmin,340px); height: clamp(150px,26vmin,340px); border-radius: 12px; box-shadow: 0 0 0 9px #fff, 0 0 45px rgba(139,92,246,.55); }
+        .v-join-code { font-family: 'Orbitron', sans-serif; color: var(--gold); letter-spacing: 5px; font-size: clamp(1rem,2.2vw,1.5rem); }
 
         /* Round-end word reveal theater */
         .v-wchips { display: flex; flex-wrap: wrap; gap: clamp(6px,1vh,10px) clamp(8px,1vw,12px); justify-content: center; max-width: 82vw; }
@@ -1853,14 +1870,21 @@ function hostEndRound() {
     H.hall.sort((a, b) => b.pts - a.pts || b.word.length - a.word.length);
     H.hall = H.hall.slice(0, 20);
 
-    // The longest valid words on the board that nobody found
-    let missed = [];
+    // Valid words on the board that nobody found: the longest (impressive
+    // misses) and the shortest (embarrassing ones — common words first)
+    let missed = [], missedEasy = [];
     if (dictionary instanceof Set) {
         const foundAll = new Set();
         H.players.forEach(p => p.words.forEach(w => foundAll.add(w.word)));
-        missed = solveBoard(H.board, H.n)
-            .filter(w => !foundAll.has(w))
+        const unfound = solveBoard(H.board, H.n).filter(w => !foundAll.has(w));
+        missed = [...unfound]
             .sort((a, b) => b.length - a.length || a.localeCompare(b))
+            .slice(0, 10);
+        missedEasy = [...unfound]
+            .filter(w => !missed.includes(w))
+            .sort((a, b) => a.length - b.length
+                || (EASY_WORDS.has(b) ? 1 : 0) - (EASY_WORDS.has(a) ? 1 : 0)
+                || a.localeCompare(b))
             .slice(0, 10);
     }
 
@@ -1872,7 +1896,7 @@ function hostEndRound() {
             words: p.words.map(w => ({ word: w.word, pts: w.pts, unique: w.unique })),
         })),
         final: H.round >= H.roundsTarget,
-        missed,
+        missed, missedEasy,
     };
     if (H.results.final) {
         H.winner = sorted[0]?.name || null;
@@ -2521,6 +2545,14 @@ function loadTrivia(word) {
     });
 }
 
+function missedPhoneRows(list) {
+    return list.map((w, i) =>
+        `<div class="word-result-row" style="animation-delay:${i * 45}ms;cursor:pointer" onclick="toggleDef('${esc(w)}', this)">
+            <div class="wr-word">${esc(w)}</div>
+            <div class="wr-pts" style="color:var(--muted)">+${wordScore(w)}</div>
+        </div>`).join('');
+}
+
 // ── Results (phone) ──
 function renderResults() {
     const res = isHost ? H.results : D?.results;
@@ -2577,11 +2609,11 @@ function renderResults() {
     </div>` : ''}
     ${(res.missed || []).length ? `<div class="card">
         <div class="slbl">🔍 Longest words nobody found — tap for meaning</div>
-        <div style="display:flex;flex-direction:column;gap:5px">${res.missed.map((w, i) =>
-            `<div class="word-result-row" style="animation-delay:${i * 45}ms;cursor:pointer" onclick="toggleDef('${esc(w)}', this)">
-                <div class="wr-word">${esc(w)}</div>
-                <div class="wr-pts" style="color:var(--muted)">+${wordScore(w)}</div>
-            </div>`).join('')}</div>
+        <div style="display:flex;flex-direction:column;gap:5px">${missedPhoneRows(res.missed)}</div>
+    </div>` : ''}
+    ${(res.missedEasy || []).length ? `<div class="card">
+        <div class="slbl">🤭 Shortest words nobody found — tap for meaning</div>
+        <div style="display:flex;flex-direction:column;gap:5px">${missedPhoneRows(res.missedEasy)}</div>
     </div>` : ''}
     <div class="card">
         <div class="slbl">Your words (${me ? me.words.length : 0}) — tap for meaning</div>
@@ -2765,6 +2797,15 @@ function feedHTML() {
     return [...(vD.feed || [])].reverse().map(feedItemHTML).join('');
 }
 
+// Missed words spelled out in mini board tiles, popping in one by one
+function missedCards(list, baseDelay) {
+    return list.map((w, i) =>
+        `<div class="v-missed-card" style="animation-delay:${(baseDelay + i * 0.2).toFixed(2)}s">
+            <span class="v-mini-tiles">${[...w.toUpperCase()].map(ch => `<span class="v-mini-tile">${ch}</span>`).join('')}</span>
+            <span class="v-missed-pts">+${wordScore(w)}</span>
+        </div>`).join('');
+}
+
 function viewerOverlayHTML() {
     if (vD.phase === 'results' && vD.results) {
         const res = vD.results;
@@ -2809,8 +2850,10 @@ function viewerOverlayHTML() {
             <div class="v-results-grid" style="${late(0.1)}">${rows}</div>
             ${best.length ? `<div class="v-side-lbl" style="${late(0.3)}">Best words</div><div class="v-highlights">${hl}</div>` : ''}
             ${best.length ? `<div class="v-trivia" id="v-trivia" style="${late(0.9)}"></div>` : ''}
-            ${missed.length ? `<div class="v-side-lbl" style="${late(1.1)}">Longest words nobody found</div>
-            <div class="v-missed" style="${late(1.2)}">${missed.map(w => `<span>${esc(w.toUpperCase())}</span>`).join('')}</div>` : ''}
+            ${missed.length ? `<div class="v-side-lbl" style="${late(1.1)}">😱 Nobody found these</div>
+            <div class="v-missed">${missedCards(missed, afterChips + 1.2)}</div>` : ''}
+            ${(res.missedEasy || []).length ? `<div class="v-side-lbl" style="${late(1.3)}">🤭 …not even these little ones</div>
+            <div class="v-missed">${missedCards(res.missedEasy, afterChips + 1.4 + missed.length * 0.2)}</div>` : ''}
             <div class="v-join-corner" style="${late(1.4)}">
                 <div class="v-lobby-hint" style="font-size:clamp(.55rem,1vw,.75rem)">Scan to join next round</div>
                 ${qrSVG(location.origin + location.pathname + '?room=' + (vD.roomCode || ''))}
