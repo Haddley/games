@@ -2850,9 +2850,9 @@ function viewerOverlayHTML() {
             <div class="v-results-grid" style="${late(0.1)}">${rows}</div>
             ${best.length ? `<div class="v-side-lbl" style="${late(0.3)}">Best words</div><div class="v-highlights">${hl}</div>` : ''}
             ${best.length ? `<div class="v-trivia" id="v-trivia" style="${late(0.9)}"></div>` : ''}
-            ${missed.length ? `<div class="v-side-lbl" style="${late(1.1)}">😱 Nobody found these</div>
+            ${missed.length ? `<div class="v-side-lbl" style="${late(1.1)}">😱 Longest words nobody found</div>
             <div class="v-missed">${missedCards(missed, afterChips + 1.2)}</div>` : ''}
-            ${(res.missedEasy || []).length ? `<div class="v-side-lbl" style="${late(1.3)}">🤭 …not even these little ones</div>
+            ${(res.missedEasy || []).length ? `<div class="v-side-lbl" style="${late(1.3)}">🤭 Shortest words nobody found</div>
             <div class="v-missed">${missedCards(res.missedEasy, afterChips + 1.4 + missed.length * 0.2)}</div>` : ''}
             <div class="v-join-corner" style="${late(1.4)}">
                 <div class="v-lobby-hint" style="font-size:clamp(.55rem,1vw,.75rem)">Scan to join next round</div>
