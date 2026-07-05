@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Games — haddley.github.io</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%2307030f' width='100' height='100' rx='20'/><text x='50' y='68' font-size='52' text-anchor='middle'>🕹️</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #07030f; --surface: rgba(26,16,48,0.72); --s2: rgba(40,26,74,0.85);
+            --border: rgba(139,92,246,0.28); --text: #fff; --muted: #8f86b8;
+            --pink: #ff2d78; --violet: #8b5cf6; --cyan: #22d3ee; --gold: #ffc93c;
+        }
+        body {
+            font-family: 'JetBrains Mono', monospace; background: var(--bg); color: var(--text);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 40px 18px 60px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: -25%; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 60% 50% at 20% 15%, rgba(255,45,120,0.15) 0%, transparent 60%),
+                radial-gradient(ellipse 55% 45% at 82% 85%, rgba(34,211,238,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 45% 55% at 75% 18%, rgba(139,92,246,0.15) 0%, transparent 60%);
+            animation: aurora 20s ease-in-out infinite alternate;
+        }
+        @keyframes aurora {
+            0%   { transform: translate3d(-2%,-1%,0) scale(1);    filter: hue-rotate(0deg); }
+            100% { transform: translate3d(2%,2%,0)   scale(1.12); filter: hue-rotate(45deg); }
+        }
+        h1 {
+            font-family: 'Orbitron', sans-serif; font-weight: 900; letter-spacing: 5px;
+            font-size: clamp(1.6rem, 6vw, 2.6rem); text-align: center;
+            background: linear-gradient(90deg, #ff2d78, #8b5cf6, #22d3ee, #ff2d78);
+            background-size: 300% 100%;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            animation: gradShift 7s linear infinite;
+            filter: drop-shadow(0 0 18px rgba(255,45,120,0.35));
+        }
+        @keyframes gradShift { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+        .sub { color: var(--muted); font-size: .72rem; letter-spacing: 3px; text-transform: uppercase; margin: 8px 0 34px; text-align: center; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; width: 100%; max-width: 960px; }
+        a.game {
+            display: block; text-decoration: none; color: var(--text);
+            background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+            padding: 22px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+            box-shadow: 0 10px 32px rgba(0,0,0,0.4);
+            transition: transform .18s, border-color .18s, box-shadow .18s;
+        }
+        a.game:hover { transform: translateY(-4px); border-color: rgba(255,45,120,.6); box-shadow: 0 0 28px rgba(255,45,120,.2), 0 14px 36px rgba(0,0,0,.5); }
+        a.game.featured { border-color: rgba(255,201,60,.55); box-shadow: 0 0 26px rgba(255,201,60,.15), 0 10px 32px rgba(0,0,0,.4); }
+        .emoji { font-size: 2rem; margin-bottom: 10px; }
+        .name { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.05rem; letter-spacing: 2px; margin-bottom: 6px; }
+        .desc { color: var(--muted); font-size: .78rem; line-height: 1.55; }
+        .tag {
+            display: inline-block; margin-left: 8px; padding: 2px 9px; border-radius: 10px;
+            font-size: .55rem; letter-spacing: 1px; text-transform: uppercase; vertical-align: middle;
+            background: linear-gradient(90deg, var(--gold), #f59e0b); color: #201200; font-weight: 700;
+        }
+        .foot { margin-top: 40px; color: var(--muted); font-size: .7rem; }
+        .foot a { color: var(--cyan); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <h1>GAME NIGHT</h1>
+    <p class="sub">multiplayer browser games — no installs, phones as controllers</p>
+    <div class="grid">
+        <a class="game featured" href="boggleparty.html">
+            <div class="emoji">🎉</div>
+            <div class="name">BOGGLE PARTY<span class="tag">new</span></div>
+            <div class="desc">1–8 players race to swipe words on their phones while the TV keeps score. Earn prank tokens and hit rivals with ink splats, dizzy spins and freezes. Music, fireworks, QR-code joining.</div>
+        </a>
+        <a class="game" href="boggle.html">
+            <div class="emoji">🔤</div>
+            <div class="name">BOGGLE</div>
+            <div class="desc">Classic multiplayer Boggle — tap out words on a shared 4×4 board, duplicates cancel, longest unique words win the round.</div>
+        </a>
+        <a class="game" href="liarsdice.html">
+            <div class="emoji">🎲</div>
+            <div class="name">LIAR'S DICE</div>
+            <div class="desc">Bid, bluff and call liar. Each player peeks at their own dice on their phone — last one with dice standing wins.</div>
+        </a>
+        <a class="game" href="pit.html">
+            <div class="emoji">🌽</div>
+            <div class="name">PIT</div>
+            <div class="desc">The frantic commodity-trading card game. Corner the market by trading with the other players in real time.</div>
+        </a>
+        <a class="game" href="ticktacktoe.html">
+            <div class="emoji">⭕</div>
+            <div class="name">TIC TAC TOE</div>
+            <div class="desc">Head-to-head noughts and crosses over peer-to-peer — share a room code and play.</div>
+        </a>
+        <a class="game" href="skydive.html">
+            <div class="emoji">🪂</div>
+            <div class="name">SKYDIVE</div>
+            <div class="desc">Solo arcade freefall — dodge, dive and stick the landing.</div>
+        </a>
+        <a class="game" href="synthwave.html">
+            <div class="emoji">🌆</div>
+            <div class="name">SYNTHWAVE</div>
+            <div class="desc">Neon retro arcade shooter with a full synth soundtrack.</div>
+        </a>
+    </div>
+    <p class="foot">more at <a href="https://haddley.github.io/">haddley.github.io</a></p>
+</body>
+</html>
