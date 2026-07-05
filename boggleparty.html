@@ -599,6 +599,14 @@
         .v-missed { display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: center; max-width: 80vw; }
         .v-missed span { font-family: 'Orbitron', sans-serif; font-size: clamp(.7rem,1.5vw,1rem); letter-spacing: 2px; color: var(--muted); }
 
+        /* Join QR on the results overlay (newcomers hop in between rounds) */
+        .v-join-corner {
+            position: absolute; left: clamp(14px,2.5vw,34px); bottom: clamp(14px,2.5vh,30px);
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+        }
+        .v-join-corner svg { width: clamp(90px,14vmin,170px); height: clamp(90px,14vmin,170px); border-radius: 10px; box-shadow: 0 0 0 6px #fff, 0 0 30px rgba(139,92,246,.5); }
+        .v-join-code { font-family: 'Orbitron', sans-serif; color: var(--gold); letter-spacing: 4px; font-size: clamp(.8rem,1.6vw,1.1rem); }
+
         /* Round-end word reveal theater */
         .v-wchips { display: flex; flex-wrap: wrap; gap: clamp(6px,1vh,10px) clamp(8px,1vw,12px); justify-content: center; max-width: 82vw; }
         .v-wchip {
@@ -1420,7 +1428,7 @@ function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('sen
 function broadcastViewers(msg) { Object.values(viewerConns).forEach(c => send(c, msg)); }
 
 function hostAddPlayer(id, name) {
-    if (H.players.find(p => p.id === id)) return;
+    if (H.players.find(p => p.id === id) || H.players.length >= 8) return;
     H.players.push({
         id, name, color: PLAYER_COLORS[H.players.length % PLAYER_COLORS.length],
         words: [], score: 0, roundBase: 0, bonus: 0, tokens: 0, meter: 0,
@@ -1536,8 +1544,15 @@ function setupGuestConn(conn) {
                 const zombie = H.players.find(p => p.name === msg.name && p.id !== conn.peer && !guestConns[p.id]);
                 if (zombie) zombie.id = conn.peer;
                 else hostAddPlayer(conn.peer, String(msg.name || 'Player').slice(0, 16));
-                broadcastLobby();
-                if (H.phase !== 'lobby') { const p2 = H.players.find(p => p.id === conn.peer); send(conn, stateFor(p2)); }
+                if (H.phase === 'lobby') broadcastLobby();
+                else if (H.players.find(p => p.id === conn.peer)) {
+                    // Mid-game join: send state (not lobby) so existing players stay on their screens
+                    const p2 = H.players.find(p => p.id === conn.peer);
+                    feedPush({ t: 'join', name: p2.name, color: p2.color });
+                    broadcastState();
+                } else {
+                    send(conn, lobbyMsg()); // room full — let them see the full lobby
+                }
                 break;
             }
             case 'word': {
@@ -2741,6 +2756,7 @@ function feedItemHTML(ev) {
     }
     if (ev.t === 'lead') return `<div class="v-feed-item lead" data-fid="${id}">👑 <b style="color:${esc(ev.color || '#fff')}">${esc(ev.name)}</b> takes the lead!</div>`;
     if (ev.t === 'streak') return `<div class="v-feed-item hot" data-fid="${id}">🔥 <b style="color:${esc(ev.color || '#fff')}">${esc(ev.name)}</b> is on fire — ${ev.count} words in 30 seconds!</div>`;
+    if (ev.t === 'join') return `<div class="v-feed-item" data-fid="${id}">👋 <b style="color:${esc(ev.color || '#fff')}">${esc(ev.name)}</b> joined the party!</div>`;
     if (ev.t === 'prank') return `<div class="v-feed-item" data-fid="${id}">${PRANKS[ev.kind]?.emoji || '😈'} <b>${esc(ev.from)}</b> hit <b>${esc(ev.target)}</b> with ${esc(PRANKS[ev.kind]?.name || 'a prank')}!</div>`;
     return '';
 }
@@ -2795,6 +2811,11 @@ function viewerOverlayHTML() {
             ${best.length ? `<div class="v-trivia" id="v-trivia" style="${late(0.9)}"></div>` : ''}
             ${missed.length ? `<div class="v-side-lbl" style="${late(1.1)}">Longest words nobody found</div>
             <div class="v-missed" style="${late(1.2)}">${missed.map(w => `<span>${esc(w.toUpperCase())}</span>`).join('')}</div>` : ''}
+            <div class="v-join-corner" style="${late(1.4)}">
+                <div class="v-lobby-hint" style="font-size:clamp(.55rem,1vw,.75rem)">Scan to join next round</div>
+                ${qrSVG(location.origin + location.pathname + '?room=' + (vD.roomCode || ''))}
+                <div class="v-join-code">${esc(vD.roomCode || '')}</div>
+            </div>
         </div>`;
     }
     if (vD.phase === 'gameover') {
