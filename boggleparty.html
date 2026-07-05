@@ -610,6 +610,17 @@
             font-size: clamp(.55rem,1.7vmin,1rem); color: #ffd76a;
         }
         .v-missed-pts { color: var(--gold); font-family: 'Orbitron', sans-serif; font-size: clamp(.62rem,1.3vw,.9rem); }
+        .v-mini-tile.plain { border-color: rgba(139,92,246,.45); color: #ece7ff; }
+
+        /* Round board recap on results (TV corner + phone card) */
+        .v-ov-board-wrap {
+            position: absolute; right: clamp(14px,2.5vw,34px); bottom: clamp(14px,2.5vh,30px);
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+        }
+        .v-ov-board { display: grid; gap: 4px; width: clamp(150px,26vmin,340px); }
+        .v-ov-board .v-mini-tile { width: 100%; height: auto; aspect-ratio: 1; font-size: clamp(.7rem,2.6vmin,1.4rem); }
+        .r-board { display: grid; gap: 5px; width: min(64vw, 230px); margin: 6px auto 2px; }
+        .r-board .v-mini-tile { width: 100%; height: auto; aspect-ratio: 1; font-size: .95rem; }
         @keyframes missedPop {
             0% { opacity: 0; transform: scale(.2) rotate(-8deg); }
             60% { transform: scale(1.12) rotate(3deg); }
@@ -636,7 +647,7 @@
         .v-wchip.big { border-color: var(--gold); background: rgba(255,201,60,.1); box-shadow: 0 0 14px rgba(255,201,60,.15); }
 
         /* Between-round trivia: what the best word means */
-        .v-trivia { font-size: clamp(.72rem,1.5vw,1.05rem); color: var(--muted); font-style: italic; text-align: center; max-width: 68vw; line-height: 1.5; }
+        .v-trivia { font-size: clamp(.72rem,1.5vw,1.05rem); color: var(--muted); font-style: italic; text-align: center; max-width: 54vw; line-height: 1.5; }
         .v-trivia b { color: var(--gold); font-style: normal; font-family: 'Orbitron', sans-serif; letter-spacing: 2px; }
 
         /* Final-10-seconds mode: dim board, giant countdown */
@@ -1879,13 +1890,13 @@ function hostEndRound() {
         const unfound = solveBoard(H.board, H.n).filter(w => !foundAll.has(w));
         missed = [...unfound]
             .sort((a, b) => b.length - a.length || a.localeCompare(b))
-            .slice(0, 10);
+            .slice(0, 5);
         missedEasy = [...unfound]
             .filter(w => !missed.includes(w))
             .sort((a, b) => a.length - b.length
                 || (EASY_WORDS.has(b) ? 1 : 0) - (EASY_WORDS.has(a) ? 1 : 0)
                 || a.localeCompare(b))
-            .slice(0, 10);
+            .slice(0, 5);
     }
 
     const sorted = [...H.players].sort((a, b) => b.score - a.score);
@@ -2607,6 +2618,12 @@ function renderResults() {
         <div class="slbl">⭐ Cool words this round — tap for meaning</div>
         <div style="display:flex;flex-direction:column;gap:5px">${coolRows}</div>
     </div>` : ''}
+    ${(isHost ? H.board : D?.board || []).length ? `<div class="card">
+        <div class="slbl">This round's board</div>
+        <div class="r-board" style="grid-template-columns:repeat(${isHost ? H.n : (D?.n || 4)},1fr)">
+            ${(isHost ? H.board : D.board).map(l => `<span class="v-mini-tile plain">${esc(l)}</span>`).join('')}
+        </div>
+    </div>` : ''}
     ${(res.missed || []).length ? `<div class="card">
         <div class="slbl">🔍 Longest words nobody found — tap for meaning</div>
         <div style="display:flex;flex-direction:column;gap:5px">${missedPhoneRows(res.missed)}</div>
@@ -2858,6 +2875,12 @@ function viewerOverlayHTML() {
                 <div class="v-lobby-hint" style="font-size:clamp(.55rem,1vw,.75rem)">Scan to join next round</div>
                 ${qrSVG(location.origin + location.pathname + '?room=' + (vD.roomCode || ''))}
                 <div class="v-join-code">${esc(vD.roomCode || '')}</div>
+            </div>
+            <div class="v-ov-board-wrap" style="${late(1.5)}">
+                <div class="v-lobby-hint" style="font-size:clamp(.55rem,1vw,.75rem)">This round's board</div>
+                <div class="v-ov-board" style="grid-template-columns:repeat(${vD.n || 4},1fr)">
+                    ${(vD.board || []).map(l => `<span class="v-mini-tile plain">${esc(l)}</span>`).join('')}
+                </div>
             </div>
         </div>`;
     }
