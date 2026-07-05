@@ -578,6 +578,20 @@
         }
         .winner-sub { text-align: center; color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: 3px; margin-top: 6px; animation: cardIn .5s .7s both; }
 
+        /* Words-of-the-game hall of fame */
+        .hof-rows { display: flex; flex-direction: column; gap: 6px; }
+        .hof-row {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 10px; border-radius: 10px;
+            background: rgba(255,201,60,.06); border: 1px solid rgba(255,201,60,.18);
+            animation: cdPopIn .55s cubic-bezier(.34,1.56,.64,1) both;
+        }
+        .hof-row:first-child { background: rgba(255,201,60,.13); border-color: rgba(255,201,60,.45); box-shadow: 0 0 16px rgba(255,201,60,.15); }
+        .hof-medal { font-size: 1rem; }
+        .hof-word { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: .82rem; letter-spacing: 2px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .hof-by { font-size: .62rem; font-weight: 700; max-width: 110px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .hof-pts { font-family: 'Orbitron', sans-serif; font-size: .72rem; color: var(--gold); font-weight: 700; }
+
         /* ══════════════════════════════════════
            VIEWER (TV) MODE
         ══════════════════════════════════════ */
@@ -822,10 +836,11 @@ const $id = id => document.getElementById(id);
 
 // ═══════════════════════════════════════════
 // AUDIO — procedural WebAudio music + SFX
-// (PvZ-style: looping phase music, gesture-
-//  started, ~0.35 music volume, SFX on top)
+// (retro-arcade style: square-wave chiptune,
+//  gesture-started, ~0.35 music vol, SFX on top)
 // ═══════════════════════════════════════════
 let AC = null, masterGain = null, musicGain = null, sfxGain = null, noiseBuf = null;
+let leadBus = null, musicDelay = null;
 let musicOn = localStorage.getItem('bp-music') !== '0';
 let sfxOn   = localStorage.getItem('bp-sfx')   !== '0';
 
@@ -835,6 +850,14 @@ function ac() {
         masterGain = AC.createGain(); masterGain.gain.value = 1; masterGain.connect(AC.destination);
         musicGain  = AC.createGain(); musicGain.gain.value = musicOn ? 0.33 : 0; musicGain.connect(masterGain);
         sfxGain    = AC.createGain(); sfxGain.gain.value   = sfxOn   ? 0.55 : 0; sfxGain.connect(masterGain);
+        // Lead bus with a short slapback delay — subtle, arcade PCBs had no reverb
+        leadBus = AC.createGain(); leadBus.gain.value = 1; leadBus.connect(musicGain);
+        musicDelay = AC.createDelay(1.2); musicDelay.delayTime.value = 0.27;
+        const fb = AC.createGain(); fb.gain.value = 0.18;
+        const dlp = AC.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 2200;
+        const wet = AC.createGain(); wet.gain.value = 0.16;
+        leadBus.connect(musicDelay); musicDelay.connect(dlp); dlp.connect(fb); fb.connect(musicDelay);
+        dlp.connect(wet); wet.connect(musicGain);
         const len = AC.sampleRate * 1.2;
         noiseBuf = AC.createBuffer(1, len, AC.sampleRate);
         const d = noiseBuf.getChannelData(0);
@@ -844,7 +867,7 @@ function ac() {
     return AC;
 }
 
-function tone(freq, dur, { type = 'sine', vol = 0.5, when = 0, slide = 0, dest = null } = {}) {
+function tone(freq, dur, { type = 'sine', vol = 0.5, when = 0, slide = 0, dest = null, lp = 0, attack = 0.012 } = {}) {
     if (!AC) return;
     const t = AC.currentTime + when;
     const o = AC.createOscillator(), g = AC.createGain();
@@ -852,9 +875,15 @@ function tone(freq, dur, { type = 'sine', vol = 0.5, when = 0, slide = 0, dest =
     o.frequency.setValueAtTime(freq, t);
     if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(slide, 20), t + dur);
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(vol, t + 0.012);
+    g.gain.linearRampToValueAtTime(vol, t + attack);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(dest || sfxGain);
+    if (lp) {
+        const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp;
+        o.connect(f); f.connect(g);
+    } else {
+        o.connect(g);
+    }
+    g.connect(dest || sfxGain);
     o.start(t); o.stop(t + dur + 0.06);
 }
 
@@ -872,85 +901,154 @@ function noiseHit(dur, { vol = 0.3, when = 0, hp = 6000, dest = null } = {}) {
 
 const mf = m => 440 * Math.pow(2, (m - 69) / 12); // midi → freq
 
-// ── SFX ──
+// ── SFX (classic arcade: raw square waves, sweeps, coin jingles) ──
 const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26, 28, 31, 33, 36];
-function sTick(n)   { if (!sfxOn || !AC) return; tone(mf(72 + (PENTA[Math.min(n, PENTA.length-1)] || 0)), 0.09, { type: 'triangle', vol: 0.35 }); }
+// Pac-Man "waka": quick square sweep, pitch climbs with word length
+function sTick(n) {
+    if (!sfxOn || !AC) return;
+    const f = mf(65 + (PENTA[Math.min(n, PENTA.length - 1)] || 0));
+    tone(f, 0.07, { type: 'square', vol: 0.22, slide: f * 1.9 });
+}
+// Coin / bonus-fruit jingle: fast rising square arpeggio
 function sGood(pts) {
     if (!sfxOn || !AC) return;
-    const steps = pts >= 600 ? [0,4,7,12,16,19] : pts >= 250 ? [0,4,7,12] : [0,4,7];
-    steps.forEach((s, i) => tone(mf(76 + s), 0.16, { type: 'triangle', vol: 0.4, when: i * 0.07 }));
-    if (pts >= 600) noiseHit(0.35, { vol: 0.18, when: steps.length * 0.07, hp: 8000 });
+    const steps = pts >= 600 ? [0,4,7,12,16,19,24] : pts >= 250 ? [0,4,7,12,16] : [0,4,7,12];
+    steps.forEach((s, i) => tone(mf(79 + s), 0.09, { type: 'square', vol: 0.26, when: i * 0.055 }));
+    if (pts >= 600) noiseHit(0.3, { vol: 0.16, when: steps.length * 0.055, hp: 8000 });
 }
-function sBad()  { if (!sfxOn || !AC) return; tone(196, 0.22, { type: 'sawtooth', vol: 0.22, slide: 98 }); }
-function sDupe() { if (!sfxOn || !AC) return; tone(494, 0.08, { type: 'square', vol: 0.15 }); tone(494, 0.08, { type: 'square', vol: 0.15, when: 0.11 }); }
-function sToken(){ if (!sfxOn || !AC) return; [1568, 2093, 2637, 3136].forEach((f, i) => tone(f, 0.3, { type: 'sine', vol: 0.3, when: i * 0.08 })); }
-function sPrankSend() { if (!sfxOn || !AC) return; tone(300, 0.35, { type: 'sawtooth', vol: 0.2, slide: 1200 }); noiseHit(0.3, { vol: 0.15, hp: 3000 }); }
+// Buzzer: low square dive (wrong answer / death sound)
+function sBad()  { if (!sfxOn || !AC) return; tone(180, 0.24, { type: 'square', vol: 0.16, slide: 55 }); }
+function sDupe() { if (!sfxOn || !AC) return; tone(494, 0.06, { type: 'square', vol: 0.15 }); tone(440, 0.06, { type: 'square', vol: 0.15, when: 0.09 }); }
+// Power-up jingle (extra-life style octave climb)
+function sToken(){ if (!sfxOn || !AC) return; [76, 81, 85, 88, 93].forEach((m, i) => tone(mf(m), 0.09, { type: 'square', vol: 0.24, when: i * 0.06 })); }
+// Hadouken-style throw: aggressive rising sweep + burst
+function sPrankSend() {
+    if (!sfxOn || !AC) return;
+    tone(180, 0.3, { type: 'square', vol: 0.18, slide: 1400 });
+    tone(240, 0.3, { type: 'sawtooth', vol: 0.12, slide: 1800, when: 0.03 });
+    noiseHit(0.25, { vol: 0.15, hp: 3000 });
+}
 function sPranked(kind) {
     if (!sfxOn || !AC) return;
-    if (kind === 'ink')    { tone(90, 0.35, { type: 'sine', vol: 0.55, slide: 40 }); noiseHit(0.28, { vol: 0.35, hp: 1200 }); }
-    if (kind === 'dizzy')  { tone(400, 0.7, { type: 'sine', vol: 0.3, slide: 800 }); tone(800, 0.7, { type: 'sine', vol: 0.3, when: 0.7, slide: 300 }); }
-    if (kind === 'freeze') { [2637, 2093, 1568, 1319, 1047].forEach((f, i) => tone(f, 0.22, { type: 'sine', vol: 0.28, when: i * 0.09 })); }
+    if (kind === 'ink')    { tone(110, 0.3, { type: 'square', vol: 0.3, slide: 40 }); noiseHit(0.28, { vol: 0.35, hp: 1200 }); }
+    if (kind === 'dizzy')  { [660, 880, 660, 880, 660].forEach((f, i) => tone(f, 0.1, { type: 'square', vol: 0.18, when: i * 0.09, slide: f * 1.3 })); }
+    if (kind === 'freeze') { [2637, 2093, 1568, 1319, 1047].forEach((f, i) => tone(f, 0.1, { type: 'square', vol: 0.18, when: i * 0.07 })); }
 }
 function sCount(n) {
     if (!sfxOn || !AC) return;
-    if (n > 0) tone(660, 0.12, { type: 'square', vol: 0.25 });
-    else { [523, 659, 784, 1047].forEach(f => tone(f, 0.5, { type: 'triangle', vol: 0.3 })); noiseHit(0.4, { vol: 0.2, hp: 7000 }); }
+    if (n > 0) tone(880, 0.09, { type: 'square', vol: 0.2 });
+    else [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.12, { type: 'square', vol: 0.22, when: i * 0.06 }));
 }
 function sUrgent()   { if (!sfxOn || !AC) return; tone(1100, 0.05, { type: 'square', vol: 0.16 }); }
-function sRoundEnd() { if (!sfxOn || !AC) return; [784, 659, 523].forEach((f, i) => tone(f, 0.3, { type: 'triangle', vol: 0.3, when: i * 0.14 })); }
+function sRoundEnd() { if (!sfxOn || !AC) return; [784, 659, 523].forEach((f, i) => tone(f, 0.14, { type: 'square', vol: 0.2, when: i * 0.12 })); }
+// Victory fanfare: brisk square-wave bugle with a closing trill
 function sWin() {
     if (!sfxOn || !AC) return;
-    [0, 4, 7, 12, 16, 12, 19, 24].forEach((s, i) => tone(mf(72 + s), 0.32, { type: 'triangle', vol: 0.36, when: i * 0.13 }));
-    noiseHit(0.9, { vol: 0.22, when: 1.05, hp: 5000 });
+    [0, 4, 7, 12, 16, 12, 19, 24].forEach((s, i) => tone(mf(72 + s), 0.13, { type: 'square', vol: 0.26, when: i * 0.11 }));
+    [26, 24, 26, 24, 26, 28].forEach((s, i) => tone(mf(72 + s), 0.08, { type: 'square', vol: 0.22, when: 0.95 + i * 0.06 }));
+    noiseHit(0.7, { vol: 0.2, when: 1.35, hp: 5000 });
 }
-function sBoom() { if (!sfxOn || !AC) return; tone(70 + Math.random() * 50, 0.5, { type: 'sine', vol: 0.25, slide: 35 }); noiseHit(0.4, { vol: 0.1, hp: 2500 }); }
+function sBoom() { if (!sfxOn || !AC) return; tone(70 + Math.random() * 50, 0.5, { type: 'square', vol: 0.15, slide: 35 }); noiseHit(0.4, { vol: 0.1, hp: 2500 }); }
 
-// ── Music sequencer (32 sixteenth-note steps per loop) ──
+// ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
 // A-minor party grooves. null = rest; numbers are midi notes.
+// Each track has several lead melodies + pad progressions that
+// cycle bar-to-bar, so the full loop is 4-8x longer than before.
 const TRACKS = {
-    lobby: { bpm: 96,
-        bass: [45,null,null,null, null,null,45,null, 41,null,null,null, null,null,41,null, 43,null,null,null, null,null,43,null, 40,null,null,40, null,null,43,null],
-        lead: [null,null,69,null, 72,null,null,null, null,null,null,null, 76,null,72,null, null,null,71,null, null,null,67,null, null,null,null,null, null,64,null,null],
+    lobby: { bpm: 112, swing: 0, arp: 2,
+        // Bouncing bass: root → fifth → octave per chord (Am F G E)
+        bass: [45,null,52,null, 57,null,52,null, 41,null,48,null, 53,null,48,null, 43,null,50,null, 55,null,50,null, 40,null,47,null, 52,null,47,null],
+        leads: [
+            [69,null,72,null, 74,null,76,null, 74,null,72,null, 69,null,67,null, 67,null,71,null, 74,null,71,null, 76,null,74,null, 71,null,69,null],
+            [69,null,72,null, 74,null,76,null, 74,null,72,null, 69,null,67,null, 67,null,71,null, 74,null,76,null, 79,null,76,null, 74,null,72,null],
+            [64,null,null,67, 69,null,null,null, 65,null,null,69, 72,null,null,null, 67,null,null,71, 74,null,null,null, 71,null,69,null, 67,null,64,null],
+            [null,null,null,null, null,null,null,null, null,null,null,null, null,null,null,null, null,null,null,null, null,null,null,null, 64,null,67,null, 69,null,71,null],
+        ],
         hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
         kick: [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
-        pad:  { 0: [57,60,64], 16: [55,59,62] } },
-    game: { bpm: 128,
-        bass: [45,null,45,null, 45,null,47,null, 41,null,41,null, 41,null,43,null, 43,null,43,null, 43,null,45,null, 40,null,40,null, 47,null,48,null],
-        lead: [69,null,null,72, null,74,null,null, 76,null,74,null, 72,null,69,null, 71,null,null,74, null,76,null,null, 79,null,76,null, 74,null,71,null],
+        stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        pads: [
+            { 0: [57,60,64], 16: [55,59,62] },
+            { 0: [53,57,60,64], 16: [52,55,59,64] },
+        ] },
+    game: { bpm: 136, swing: 0, arp: 1,
+        // Driving 8ths with octave pops
+        bass: [45,null,45,57, 45,null,47,null, 41,null,41,53, 41,null,43,null, 43,null,43,55, 43,null,45,null, 40,null,40,52, 47,null,48,null],
+        leads: [
+            [69,69,null,72, null,74,null,76, 77,null,76,null, 74,null,72,null, 74,null,null,74, null,76,null,74, 71,null,72,null, 69,null,null,null],
+            [76,76,null,79, null,81,null,84, 81,null,79,null, 77,null,76,null, 79,null,null,79, null,81,null,79, 76,null,74,null, 76,null,null,null],
+            [69,null,null,null, null,null,72,null, 77,null,null,null, null,null,76,null, 74,null,null,null, null,null,71,null, 72,null,74,null, 76,null,null,null],
+            [null,64,67,69, null,67,69,72, null,69,72,76, null,72,76,79, 81,null,79,null, 76,null,74,null, 72,null,71,null, 69,null,null,null],
+        ],
         hat:  [1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1],
         kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,1,0],
-        pad:  {} },
-    results: { bpm: 104,
-        bass: [45,null,null,null, null,null,null,null, 41,null,null,null, null,null,null,null, 43,null,null,null, null,null,null,null, 45,null,null,null, null,null,null,null],
-        lead: [null,null,76,null, 74,null,72,null, null,null,72,null, 71,null,69,null, null,null,71,null, 72,null,74,null, 76,null,null,null, null,null,null,null],
+        stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        pads: [
+            { 0: [57,60,64], 16: [55,59,62] },
+            { 0: [53,57,60], 16: [52,55,59] },
+        ] },
+    results: { bpm: 108, swing: 0, arp: 2,
+        bass: [45,null,null,null, 52,null,null,null, 41,null,null,null, 48,null,null,null, 43,null,null,null, 50,null,null,null, 45,null,null,null, 52,null,null,null],
+        leads: [
+            [null,null,76,null, 74,null,72,null, null,null,72,null, 71,null,69,null, null,null,71,null, 72,null,74,null, 76,null,null,null, null,null,null,null],
+            [null,null,72,null, 71,null,69,null, null,null,69,null, 67,null,64,null, null,null,67,null, 69,null,71,null, 72,null,null,null, null,null,null,null],
+        ],
         hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
         kick: [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
-        pad:  { 0: [57,60,64], 16: [53,57,60] } },
-    over: { bpm: 116,
-        bass: [45,null,45,null, 41,null,41,null, 43,null,43,null, 45,null,47,null, 45,null,45,null, 41,null,41,null, 43,null,43,null, 48,null,45,null],
-        lead: [76,null,74,null, 72,null,74,null, 76,76,null,76, null,74,null,72, null,null,79,null, 76,null,74,null, 72,null,74,null, 76,null,null,null],
+        stab: [0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0],
+        pads: [
+            { 0: [57,60,64], 16: [53,57,60] },
+            { 0: [55,59,62], 16: [57,60,64] },
+        ] },
+    over: { bpm: 124, swing: 0, arp: 1,
+        bass: [45,null,57,null, 41,null,53,null, 43,null,55,null, 45,null,52,null, 45,null,57,null, 41,null,53,null, 43,null,55,null, 48,null,45,null],
+        leads: [
+            [76,null,74,null, 72,null,74,null, 76,76,null,76, null,74,null,72, null,null,79,null, 76,null,74,null, 72,null,74,null, 76,null,null,null],
+            [79,null,76,null, 74,null,76,null, 79,79,null,79, null,76,null,74, null,null,81,null, 79,null,76,null, 74,null,76,null, 79,null,null,null],
+            [null,null,74,null, null,null,72,null, 74,null,null,null, null,null,71,null, null,null,72,null, null,null,74,null, 76,null,null,null, null,null,null,null],
+        ],
         hat:  [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
         kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
-        pad:  { 0: [57,60,64], 16: [55,59,64] } },
+        stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        pads: [
+            { 0: [57,60,64], 16: [55,59,64] },
+            { 0: [53,57,60], 16: [52,55,59] },
+        ] },
 };
-let musicTrack = 'lobby', musicStep = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
+let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
 
-function playMusicStep(i, t) {
+function playMusicStep(i, t, bar) {
     const tr = TRACKS[musicTrack];
-    const rel = t - AC.currentTime;
     const stepDur = 60 / tr.bpm / 4;
+    // Swing: push every off-16th slightly late for a looser groove
+    const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
     if (tr.kick[i]) { tone(150, 0.22, { type: 'sine', vol: 0.5, when: rel, slide: 45, dest: musicGain }); }
-    if (tr.hat[i])  { noiseHit(0.05, { vol: i % 4 === 2 ? 0.16 : 0.09, when: rel, hp: 9000, dest: musicGain }); }
+    if (tr.hat[i]) {
+        const open = musicTrack === 'game' && (i === 14 || i === 30);
+        const hv = (i % 4 === 2 ? 0.15 : 0.08) * (0.8 + Math.random() * 0.4);
+        noiseHit(open ? 0.14 : 0.05, { vol: hv, when: rel, hp: 9000, dest: musicGain });
+    }
     const b = tr.bass[i];
-    if (b != null) tone(mf(b), stepDur * 1.8, { type: 'triangle', vol: 0.5, when: rel, dest: musicGain });
-    let l = tr.lead[i];
+    if (b != null) tone(mf(b), stepDur * 1.5, { type: 'square', vol: 0.22, when: rel, dest: musicGain, lp: 900, attack: 0.004 });
+    const pad = tr.pads[bar % tr.pads.length];
+    // Offbeat chord stabs (square comping)
+    if (tr.stab && tr.stab[i]) {
+        const ch = i < 16 ? pad[0] : pad[16];
+        if (ch) ch.forEach(m => tone(mf(m + 12), stepDur * 0.9, { type: 'square', vol: 0.03, when: rel, lp: 2800, dest: musicGain, attack: 0.004 }));
+    }
+    let l = tr.leads[bar % tr.leads.length][i];
     if (l != null) {
         if (musicUrgent) l += 12;
-        tone(mf(l), stepDur * 1.6, { type: 'square', vol: 0.11, when: rel, dest: musicGain });
-        tone(mf(l) * 1.005, stepDur * 1.6, { type: 'square', vol: 0.07, when: rel, dest: musicGain });
+        // Classic arcade pulse lead: single bright square voice
+        const lv = 0.12 * (0.9 + Math.random() * 0.2);
+        tone(mf(l), stepDur * 1.4, { type: 'square', vol: lv, when: rel, dest: leadBus, lp: 4800, attack: 0.004 });
     }
-    const chord = tr.pad[i];
-    if (chord) chord.forEach(m => tone(mf(m), stepDur * 15, { type: 'sine', vol: 0.09, when: rel, dest: musicGain }));
+    // Running arpeggio channel — the signature arcade chord shimmer
+    // (arp: 1 = every 16th, 2 = every 8th)
+    if (tr.arp && i % tr.arp === 0) {
+        const ch = i < 16 ? pad[0] : pad[16];
+        if (ch) tone(mf(ch[(i / tr.arp) % ch.length] + 12), stepDur * tr.arp * 0.9, { type: 'square', vol: 0.04, when: rel, lp: 5500, dest: musicGain, attack: 0.003 });
+    }
     if (musicUrgent && i % 4 === 0) noiseHit(0.04, { vol: 0.12, when: rel + stepDur * 2, hp: 11000, dest: musicGain });
 }
 
@@ -958,9 +1056,10 @@ function musicScheduler() {
     const tr = TRACKS[musicTrack];
     const stepDur = 60 / tr.bpm / 4;
     while (musicNext < AC.currentTime + 0.18) {
-        playMusicStep(musicStep, musicNext);
+        playMusicStep(musicStep, musicNext, musicBar);
         musicNext += stepDur;
-        musicStep = (musicStep + 1) % 32;
+        musicStep++;
+        if (musicStep === 32) { musicStep = 0; musicBar++; }
     }
 }
 
@@ -968,6 +1067,8 @@ function startMusicLoop() {
     if (musicTimer || !AC) return;
     musicNext = AC.currentTime + 0.1;
     musicStep = 0;
+    musicBar = 0;
+    if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[musicTrack].bpm * 0.5;
     musicTimer = setInterval(musicScheduler, 30);
 }
 
@@ -975,6 +1076,8 @@ function setMusic(track) {
     if (musicTrack === track) return;
     musicTrack = track;
     musicStep = 0;
+    musicBar = 0;
+    if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[track].bpm * 0.5;
     if (track !== 'game') musicUrgent = false;
 }
 
@@ -1150,6 +1253,7 @@ let H = {
     roundsTarget: 3, round: 0,
     results: null, winner: null,
     feed: [],
+    hall: [],          // best words across the whole game [{word,pts,unique,name,color,round}]
 };
 
 // ── Dictionary (host only) ──
@@ -1505,6 +1609,19 @@ function hostEndRound() {
         p.words.sort((a, b) => (b.pts + (b.unique ? b.pts : 0)) - (a.pts + (a.unique ? a.pts : 0)) || a.word.localeCompare(b.word));
     });
 
+    // Keep a game-long hall of fame of the best-scoring words.
+    // Grouped by word: every player who found it is credited in `finders`.
+    H.players.forEach(p => p.words.forEach(w => {
+        if (w.pts <= 0) return;
+        const pts = w.pts * (w.unique ? 2 : 1);
+        let entry = H.hall.find(h => h.word === w.word);
+        if (!entry) { entry = { word: w.word, pts, unique: w.unique, finders: [] }; H.hall.push(entry); }
+        else { entry.pts = Math.max(entry.pts, pts); entry.unique = entry.unique && w.unique; }
+        if (!entry.finders.some(f => f.name === p.name)) entry.finders.push({ name: p.name, color: p.color });
+    }));
+    H.hall.sort((a, b) => b.pts - a.pts || b.word.length - a.word.length);
+    H.hall = H.hall.slice(0, 20);
+
     const sorted = [...H.players].sort((a, b) => b.score - a.score);
     H.results = {
         players: sorted.map(p => ({
@@ -1514,7 +1631,20 @@ function hostEndRound() {
         })),
         final: H.round >= H.roundsTarget,
     };
-    if (H.results.final) H.winner = sorted[0]?.name || null;
+    if (H.results.final) {
+        H.winner = sorted[0]?.name || null;
+        // Pick words so every player gets celebrated at least once, then top up by score
+        const covered = new Set(), picks = [];
+        H.hall.forEach(w => {
+            if (picks.length >= 6) return;
+            if (w.finders.some(f => !covered.has(f.name))) {
+                picks.push(w);
+                w.finders.forEach(f => covered.add(f.name));
+            }
+        });
+        H.hall.forEach(w => { if (picks.length < 6 && !picks.includes(w)) picks.push(w); });
+        H.results.hall = picks.sort((a, b) => b.pts - a.pts);
+    }
 
     broadcastState();
     currentPath = []; prankPick = null; frozen = false;
@@ -1537,7 +1667,7 @@ function hostShowPodium() {
 function hostNewGame() {
     H.phase = 'lobby';
     H.round = 0;
-    H.results = null; H.winner = null; H.feed = [];
+    H.results = null; H.winner = null; H.feed = []; H.hall = [];
     H.players.forEach(p => { p.words = []; p.score = 0; p.roundBase = 0; p.bonus = 0; p.tokens = 0; p.meter = 0; });
     myWords = []; myTokens = 0; myMeter = 0;
     ui = 'lobby_h';
@@ -2151,11 +2281,22 @@ function renderGameOver() {
         `<div class="lb-row"><div class="lb-rank">${i + 4}</div>
          <div class="lb-name" style="color:${esc(p.color)}">${esc(p.name)}</div>
          <div class="lb-pts">${p.score}</div></div>`).join('');
+    const hall = (res?.hall || []).map((w, i) => {
+        const names = (w.finders || []).map(f =>
+            `<span style="color:${esc(f.color)}">${esc(f.name)}${f.name === myName ? ' · you' : ''}</span>`).join(', ');
+        return `<div class="hof-row" style="animation-delay:${0.9 + i * 0.15}s">
+            <div class="hof-medal">${i === 0 ? '👑' : '⭐'}</div>
+            <div class="hof-word">${esc(w.word.toUpperCase())}</div>
+            <div class="hof-by">${names}</div>
+            <div class="hof-pts">+${w.pts}${w.unique ? ' ×2' : ''}</div>
+        </div>`;
+    }).join('');
     return `
     ${hdrHTML('Game over')}
     <div class="winner-name">${esc(winner || '')}</div>
     <div class="winner-sub">wins the party! 🎉</div>
     <div class="podium-wrap">${cols}</div>
+    ${hall ? `<div class="card highlight"><div class="slbl">✨ Words of the game</div><div class="hof-rows">${hall}</div></div>` : ''}
     ${rest ? `<div class="card"><div class="lb-rows">${rest}</div></div>` : ''}
     ${isHost
         ? `<button class="btn btn-p btn-full" style="padding:16px" onclick="hostNewGame()">🔁 New Game</button>`
@@ -2229,14 +2370,21 @@ function viewerOverlayHTML() {
                 <span class="v-lb-words">+${p.roundBase + p.bonus} this round</span>
                 <span class="v-lb-score">${p.score}</span>
             </div>`).join('');
-        const best = res.players
-            .flatMap(p => p.words.map(w => ({ ...w, name: p.name, color: p.color, total: w.pts * (w.unique ? 2 : 1) })))
-            .sort((a, b) => b.total - a.total).slice(0, 3);
-        const hl = best.map((w, i) =>
-            `<div class="v-hl-card" style="animation-delay:${0.5 + i * 0.15}s">
+        // Group by word so a shared best word credits everyone who found it
+        const byWord = {};
+        res.players.forEach(p => p.words.forEach(w => {
+            const total = w.pts * (w.unique ? 2 : 1);
+            if (!byWord[w.word]) byWord[w.word] = { word: w.word, total, unique: w.unique, finders: [] };
+            byWord[w.word].finders.push({ name: p.name, color: p.color });
+        }));
+        const best = Object.values(byWord).sort((a, b) => b.total - a.total).slice(0, 3);
+        const hl = best.map((w, i) => {
+            const names = w.finders.map(f => `<span style="color:${esc(f.color)}">${esc(f.name)}</span>`).join(', ');
+            return `<div class="v-hl-card" style="animation-delay:${0.5 + i * 0.15}s">
                 <div class="v-hl-word">${esc(w.word)}</div>
-                <div class="v-hl-sub"><span style="color:${esc(w.color)}">${esc(w.name)}</span> · +${w.total}${w.unique ? ' · UNIQUE ×2' : ''}</div>
-            </div>`).join('');
+                <div class="v-hl-sub">${names} · +${w.total}${w.unique ? ' · UNIQUE ×2' : ''}</div>
+            </div>`;
+        }).join('');
         return `<div class="v-overlay">
             <div class="v-reveal-headline">ROUND ${vD.round} RESULTS</div>
             <div class="v-results-grid">${rows}</div>
@@ -2244,10 +2392,18 @@ function viewerOverlayHTML() {
         </div>`;
     }
     if (vD.phase === 'gameover') {
+        const hall = (vD.results?.hall || []).map((w, i) => {
+            const names = (w.finders || []).map(f => `<span style="color:${esc(f.color)}">${esc(f.name)}</span>`).join(', ');
+            return `<div class="v-hl-card" style="animation-delay:${0.6 + i * 0.18}s">
+                <div class="v-hl-word">${i === 0 ? '👑 ' : ''}${esc(w.word.toUpperCase())}</div>
+                <div class="v-hl-sub">${names} · +${w.pts}${w.unique ? ' · UNIQUE ×2' : ''}</div>
+            </div>`;
+        }).join('');
         return `<div class="v-overlay">
             <div class="v-go-trophy">🏆</div>
             <div class="v-go-winner">${esc(vD.winner || '')}</div>
             <div class="v-lobby-hint">wins the party!</div>
+            ${hall ? `<div class="v-side-lbl" style="margin-top:14px">✨ Words of the game</div><div class="v-highlights">${hall}</div>` : ''}
             <div class="v-results-grid" style="margin-top:10px">${viewerLeaderboardHTML()}</div>
         </div>`;
     }
