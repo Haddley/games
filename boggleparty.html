@@ -643,7 +643,7 @@
             filter: drop-shadow(0 0 30px rgba(255,45,120,.4));
         }
         .v-lobby-row { display: flex; align-items: center; gap: clamp(24px,5vw,70px); flex-wrap: wrap; justify-content: center; }
-        .v-lobby-qr svg { width: clamp(150px,22vw,260px); height: clamp(150px,22vw,260px); border-radius: 14px; box-shadow: 0 0 0 8px #fff, 0 0 50px rgba(139,92,246,.6); }
+        .v-lobby-qr svg { width: clamp(220px,44vmin,520px); height: clamp(220px,44vmin,520px); border-radius: 14px; box-shadow: 0 0 0 10px #fff, 0 0 60px rgba(139,92,246,.6); }
         .v-lobby-code {
             font-family: 'Orbitron', sans-serif;
             font-size: clamp(2.4rem,9vw,7rem); font-weight: 900; letter-spacing: 14px; text-align: center;
@@ -1235,6 +1235,7 @@ let uiErr = '';
 let fName = localStorage.getItem('bp-name') || '';
 let fCode = '', fVCode = '';
 let isViewer = false;
+let isTvHost = false;  // this screen hosts the party AND renders the TV view
 let D = null, vD = null;
 
 // per-round local play state
@@ -1290,11 +1291,13 @@ function hostAddPlayer(id, name) {
 
 function lobbyMsg() {
     return { type: 'lobby', players: H.players.map(p => ({ name: p.name, color: p.color })),
-             roomCode, roundsTarget: H.roundsTarget, duration: H.duration, n: H.n };
+             roomCode, roundsTarget: H.roundsTarget, duration: H.duration, n: H.n,
+             tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null };
 }
 function broadcastLobby() {
     Object.values(guestConns).forEach(c => send(c, lobbyMsg()));
     broadcastViewers({ ...lobbyMsg(), type: 'viewer_lobby' });
+    tvHostSync();
     render();
 }
 
@@ -1307,6 +1310,7 @@ function stateFor(p) {
         players: H.players.map(q => ({ name: q.name, color: q.color, score: q.score, wordCount: q.words.length })),
         results: H.results, winner: H.winner,
         myTokens: p ? p.tokens : 0, myMeter: p ? p.meter : 0,
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
     };
 }
 
@@ -1320,6 +1324,7 @@ function broadcastState() {
         const me = H.players.find(p => p.id === myId);
         if (me) { myTokens = me.tokens; myMeter = me.meter; }
     }
+    tvHostSync();
 }
 
 function feedPush(ev) {
@@ -1392,6 +1397,20 @@ function setupGuestConn(conn) {
             }
             case 'prank': {
                 if (player) hostPrank(player, msg.kind, msg.target);
+                break;
+            }
+            case 'ctl': {
+                // TV-host mode: the captain (first player) drives the flow from their phone
+                if (!isTvHost || !player || player.id !== H.players[0]?.id) break;
+                if (msg.action === 'start' && (H.phase === 'lobby' || (H.phase === 'results' && !H.results?.final))) hostStartRound();
+                else if (msg.action === 'podium' && H.phase === 'results' && H.results?.final) hostShowPodium();
+                else if (msg.action === 'newgame' && H.phase === 'gameover') hostNewGame();
+                else if (msg.action === 'set' && H.phase === 'lobby') {
+                    if ([4, 5].includes(msg.n)) H.n = msg.n;
+                    if ([60, 90, 120].includes(msg.duration)) H.duration = msg.duration;
+                    if ([1, 3, 5].includes(msg.rounds)) H.roundsTarget = msg.rounds;
+                    broadcastLobby();
+                }
                 break;
             }
         }
@@ -1550,6 +1569,51 @@ function joinAsViewer(code, _attempt) {
         uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
         isViewer = false; ui = 'home'; render();
     });
+}
+
+// ── TV host: this screen creates and runs the party; phones control it.
+//    The first player to join is the captain and starts rounds. ──
+function hostOnTV() {
+    uiErr = '';
+    ui = 'creating';
+    render();
+
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    roomCode = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+
+    peer = new Peer('BGPARTY-' + roomCode);
+    peer.on('open', id => {
+        myId = id;
+        isHost = true;
+        isTvHost = true;
+        loadDictionary();
+        document.body.classList.add('viewer-mode');
+        setMusic('lobby');
+        tvHostSync();
+        render();
+    });
+    peer.on('connection', conn => setupGuestConn(conn));
+    peer.on('error', e => {
+        uiErr = 'Connection error: ' + e.message;
+        isTvHost = false; isHost = false;
+        document.body.classList.remove('viewer-mode');
+        ui = 'home'; render();
+    });
+}
+
+// Keep the TV's own viewer data mirrored to the authoritative host state
+function tvHostSync() {
+    if (!isTvHost) return;
+    vD = H.phase === 'lobby'
+        ? { ...lobbyMsg(), phase: 'lobby' }
+        : { ...stateFor(null), feed: H.feed.slice(-6) };
+    ui = 'viewer';
+    // Mid-round updates (timer ticks, words, pranks) patch in place like a remote viewer
+    if (H.phase === 'playing' && $id('v-timer')) patchViewer(vD);
+}
+
+function guestCtl(action, extra) {
+    if (hostConn) send(hostConn, { type: 'ctl', action, ...(extra || {}) });
 }
 
 // ═══════════════════════════════════════════
@@ -1961,6 +2025,8 @@ function hdrHTML(sub) {
 
 function render() {
     const app = $id('app');
+    // A TV host runs the phone-host game flow but always renders the big-screen view
+    if (isTvHost && ui !== 'home' && ui !== 'creating') ui = 'viewer';
     let html = '';
     switch (ui) {
         case 'home':       html = renderHome(); break;
@@ -2023,8 +2089,15 @@ function renderHome() {
     ${fromQR ? joinCard + hostCard : hostCard + joinCard}
     <div class="card">
         <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-p btn-full" onclick="hostOnTV()">
+            📺 Host the party on this screen
+        </button>
+        <div style="font-size:.68rem;color:var(--muted);text-align:center;margin:6px 0 10px">
+            Shows a big QR code to join — the first player's phone gets the start button
+        </div>
+        <hr>
         <div class="fg">
-            <label>Room Code</label>
+            <label>…or show the scoreboard for an existing room</label>
             <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
                 oninput="fVCode=this.value=this.value.toUpperCase()"
                 onkeydown="if(event.key==='Enter')joinAsViewer(fVCode)">
@@ -2092,19 +2165,39 @@ function setDur(v)    { H.duration = v; broadcastLobby(); }
 function setRounds(v) { H.roundsTarget = v; broadcastLobby(); }
 
 function renderLobbyG() {
+    const amCaptain = !!D?.tvHost && D?.captain === myName;
+    const leadTag = D?.tvHost ? ' — captain 👑' : ' — host';
     const pList = (D?.players || []).map((p, i) =>
         `<div class="player-row${i === 0 ? ' host-row' : ''}">
             <div class="pav" style="background:${esc(p.color)}">${esc((p.name || '?')[0].toUpperCase())}</div>
-            <div style="flex:1">${esc(p.name)}${p.name === myName ? ' (you)' : ''}${i === 0 ? ' — host' : ''}</div>
+            <div style="flex:1">${esc(p.name)}${p.name === myName ? ' (you)' : ''}${i === 0 ? leadTag : ''}</div>
             <div class="dot"></div>
         </div>`).join('');
+    const seg = (opts, cur, key) => opts.map(o =>
+        `<button class="btn btn-sm ${cur === o.v ? 'btn-p' : 'btn-g'}" onclick="guestCtl('set',{${key}:${o.v}})">${o.l}</button>`).join('');
+    const captainUI = amCaptain ? `
+    <div class="card">
+        <div class="slbl">Game settings — you're the captain 👑</div>
+        <div class="seg" style="margin-bottom:12px">${seg([{v:4,l:'4×4'},{v:5,l:'5×5 BIG'}], D?.n || 4, 'n')}</div>
+        <div class="slbl">Round timer</div>
+        <div class="seg" style="margin-bottom:12px">${seg([{v:60,l:'60s'},{v:90,l:'90s'},{v:120,l:'120s'}], D?.duration || 90, 'duration')}</div>
+        <div class="slbl">Rounds</div>
+        <div class="seg">${seg([{v:1,l:'1'},{v:3,l:'3'},{v:5,l:'5'}], D?.roundsTarget || 3, 'rounds')}</div>
+    </div>
+    <button class="btn btn-p btn-full" style="padding:16px" onclick="guestCtl('start')">▶ Start Round 1</button>` : '';
+    const waitMsg = amCaptain
+        ? 'You’re the captain — start when everyone’s in!'
+        : D?.tvHost
+            ? `Waiting for ${esc(D?.captain || 'the captain')} to start…`
+            : 'Waiting for the host to start…';
     return `
     ${hdrHTML('Party Lobby')}
     <div class="card highlight">
         <div class="slbl">Room</div>
         <div class="room-code">${esc(D?.roomCode || '')}</div>
-        <div class="status"><span class="spin" style="width:12px;height:12px;margin-right:8px"></span>Waiting for the host to start…</div>
+        <div class="status"><span class="spin" style="width:12px;height:12px;margin-right:8px"></span>${waitMsg}</div>
     </div>
+    ${captainUI}
     <div class="card">
         <div class="slbl">Players (${(D?.players || []).length} / 8)</div>
         <div class="player-list">${pList}</div>
@@ -2258,7 +2351,11 @@ function renderResults() {
         ? (res.final
             ? `<button class="btn btn-p btn-full" style="padding:16px" onclick="hostShowPodium()">🏆 Final Podium</button>`
             : `<button class="btn btn-p btn-full" style="padding:16px" onclick="hostStartRound()">▶ Round ${round + 1}</button>`)
-        : `<div class="status">Waiting for the host…</div>`}`;
+        : (D?.tvHost && D?.captain === myName
+            ? (res.final
+                ? `<button class="btn btn-p btn-full" style="padding:16px" onclick="guestCtl('podium')">🏆 Final Podium</button>`
+                : `<button class="btn btn-p btn-full" style="padding:16px" onclick="guestCtl('start')">▶ Round ${round + 1}</button>`)
+            : `<div class="status">Waiting for ${esc(D?.tvHost ? (D?.captain || 'the captain') : 'the host')}…</div>`)}`;
 }
 
 // ── Game over (phone) ──
@@ -2300,7 +2397,9 @@ function renderGameOver() {
     ${rest ? `<div class="card"><div class="lb-rows">${rest}</div></div>` : ''}
     ${isHost
         ? `<button class="btn btn-p btn-full" style="padding:16px" onclick="hostNewGame()">🔁 New Game</button>`
-        : `<div class="status">Waiting for the host to start a new game…</div>`}`;
+        : (D?.tvHost && D?.captain === myName
+            ? `<button class="btn btn-p btn-full" style="padding:16px" onclick="guestCtl('newgame')">🔁 New Game</button>`
+            : `<div class="status">Waiting for ${esc(D?.tvHost ? (D?.captain || 'the captain') : 'the host')} to start a new game…</div>`)}`;
 }
 
 // ═══════════════════════════════════════════
@@ -2320,7 +2419,13 @@ function renderViewer() {
 function renderViewerLobby() {
     const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
     const chips = (vD.players || []).map((p, i) =>
-        `<div class="v-chip" style="animation-delay:${i * 80}ms"><div class="dot"></div><span style="color:${esc(p.color)}">${esc(p.name)}</span></div>`).join('');
+        `<div class="v-chip" style="animation-delay:${i * 80}ms"><div class="dot"></div><span style="color:${esc(p.color)}">${esc(p.name)}${vD.tvHost && i === 0 ? ' 👑' : ''}</span></div>`).join('');
+    const captainHint = vD.tvHost
+        ? (vD.captain
+            ? `<div class="v-lobby-hint">👑 <span style="color:${esc((vD.players || [])[0]?.color || '#fff')}">${esc(vD.captain)}</span> is the captain — start from their phone</div>`
+            : `<div class="v-lobby-hint">👑 First player to join becomes the captain and starts the game</div>`)
+        : '';
+    const settings = `${vD.n === 5 ? '5×5 BIG' : '4×4'} board · ${vD.duration || 90}s rounds · ${vD.roundsTarget || 3} round${(vD.roundsTarget || 3) > 1 ? 's' : ''}`;
     return `
     <div class="v-lobby">
         <div class="v-lobby-title">BOGGLE PARTY</div>
@@ -2330,8 +2435,10 @@ function renderViewerLobby() {
             <div>
                 <div class="v-lobby-hint">room code</div>
                 <div class="v-lobby-code">${esc(vD.roomCode || '')}</div>
+                <div class="v-lobby-hint" style="margin-top:10px">${settings}</div>
             </div>
         </div>
+        ${captainHint}
         <div class="v-lobby-chips">${chips || '<span style="color:var(--muted)">Waiting for players…</span>'}</div>
         <button class="v-fs-btn" style="position:fixed;top:16px;right:16px" onclick="toggleFullscreen()">⛶</button>
     </div>`;
