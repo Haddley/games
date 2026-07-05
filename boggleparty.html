@@ -591,6 +591,9 @@
         .hof-word { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: .82rem; letter-spacing: 2px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .hof-by { font-size: .62rem; font-weight: 700; max-width: 110px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .hof-pts { font-family: 'Orbitron', sans-serif; font-size: .72rem; color: var(--gold); font-weight: 700; }
+        .def-box { font-size: .68rem; color: var(--muted); font-style: italic; padding: 2px 10px 6px; animation: cardIn .25s both; }
+        .v-missed { display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: center; max-width: 80vw; }
+        .v-missed span { font-family: 'Orbitron', sans-serif; font-size: clamp(.7rem,1.5vw,1rem); letter-spacing: 2px; color: var(--muted); }
 
         /* ══════════════════════════════════════
            VIEWER (TV) MODE
@@ -821,12 +824,95 @@ function shuffle(arr) {
     return a;
 }
 
+// ── Easy words: common 3–4 letter words even a poor player should spot.
+//    Boards are re-rolled until at least MIN_EASY_WORDS of these are findable.
+const EASY_WORDS = new Set((
+    'ace act add age ago aid aim air all and ant any ape arm art ash ask ate axe bad bag ban bar bat bay bed bee beg bet big bin bit boa bog box boy bud bug bun bus but buy cab can cap car cat cob cod cog cot cow cry cub cup cut dad dam day den dew did dig dim dip dog dot dry dug ear eat egg elf elk elm end eye fan far fat fed fee few fig fin fir fit fix fly fog for fox fun fur gap gas gel gem get got gum gut guy gym had ham has hat hay hen her hey hid him hip his hit hog hop hot how hub hue hug hum hut ice icy ill ink inn ion ivy jab jam jar jaw jet jig job jog jot joy jug keg key kid kin kit lab lad lag lap law lay led leg let lid lie lip lit log lot low mad man map mat may men met mix mob mom mop mow mud mug nab nag nap net new nod nor not now nun nut oak oar oat odd off oil old one orb ore our out owl own pad pal pan pat paw pay pea peg pen pet pie pig pin pit pod pop pot pub pun pup put rag ram ran rap rat raw ray red rib rid rim rip rob rod rot row rub rug run rut sad sap sat saw say sea set sew she shy sin sip sir sit six ski sky sly sob sod son sow spa spy sty sub sue sum sun tab tag tan tap tar tax tea ten the tie tin tip toe ton too top tow toy try tub tug two urn use van vat vet vow wad wag war was wax way web wed wet wig win wok won wow yak yam yap yes yet you zap zen zip zoo ' +
+    'able acid aged also apes area arts atom aunt away baby back bail bait bake ball band bank bare bark barn base bath bead beak beam bean bear beat beds been beer bell belt bend bent best bike bill bind bird bite blew blow blue boat body boil bold bolt bond bone book boot bore born boss both bowl brag bran brew brim buck bulk bull bump burn bury bush busy cage cake calf call calm came camp cane cape card care carp cart case cash cast cave cell cent chat chew chin chip chop cite city clam clan clap claw clay clip club clue coal coat code coil coin cold colt comb come cone cook cool cope copy cord core cork corn cost cozy crab crew crop crow cube cure curl cute dare dark dart dash date dawn days dead deaf deal dear debt deck deed deep deer dent desk dial dice diet dime dine dirt dish dive dock does doll dome done doom door dose dots down drag draw drew drip drop drum duck dude duel dues dull dumb dump dune dust duty each earn ears ease east easy edge eggs else even ever exit eyes face fact fade fail fair fake fall fame fang fare farm fast fate fawn fear feed feel fees feet fell felt fern file fill film find fine fire firm fish fist fits five flag flap flat flea fled flew flip flow foam foil fold folk fond food fool foot fore fork form fort foul four free frog from fuel full fume fund fury fuse gain game gang gate gave gaze gear gems gene gift girl give glad glow glue goal goat goes gold golf gone good gown grab gram gray grew grid grim grin grip grow gulf gust hail hair half hall halt hand hang hard hare harm harp hate haul have hawk haze head heal heap hear heat heel held helm help herb herd here hero hers hide high hike hill hint hire hive hold hole holy home hood hoof hook hoop hope horn hose host hour huge hull hunt hurt hush icon idea inch into iron isle item jade jail jars jaws jest jets jobs join joke jolt jump junk jury just keen keep kept keys kick kids kind king kiss kite knee knew knit knot know lace lack lady laid lake lamb lame lamp land lane laps last late lawn lays lazy lead leaf lean leap left legs lend lens less lets liar lick lids life lift like lily limb lime line link lint lion lips list live load loaf loan lock loft logs lone long look loop lord lose loss lost lots loud love luck lump lung lure mail main make male mall malt mane many maps mare mark mash mask mass mast mate math maze meal mean meat meet melt mend menu mesh mess mice mild mile milk mill mind mine mint miss mist moan moat mode mold mole monk mood moon more moss most moth move much mule must mute nail name nape navy near neat neck need nest nets news next nice nine node none noon nose note noun oath obey odds oils okay omit once ones only onto open oval oven over owed owls owns pace pack pact page paid pail pain pair pale palm pane park part pass past path pave pawn peak pear peas peck peel pens perk pest pets pier pigs pile pill pine pink pins pint pipe plan play plea plot plow plug plum plus poem poet pole polo pond pony pool poor pope pork port pose post pots pour prep prey prop pull pump punt pure push quit quiz race rack raft rage raid rail rain rake rang rank rant rare rash rate rats rays read real reap rear reef reel rent rest ribs rice rich ride rift ring ripe rise risk road roam roar robe rock rode role roll roof room root rope rose rows rude ruin rule rung runs rush rust sack safe sage said sail sale salt same sand sane sang sank save scan scar seal seam seat seed seek seem seen sees self sell send sent sets shed shin ship shoe shop shot show shut sick side sign silk silo sing sink site size skid skin skip slab slam slap sled slid slim slip slot slow snap snow soak soap sock sofa soft soil sold sole some song sons soon sore sort soul soup sour span spin spot spun star stay stem step stew stir stop stub such suit sung sunk sure swam swan swap swim tail take tale talk tall tame tank tape task team tear tell tend tent term test text than that thaw them then they thin this thud tick tide tidy ties tile till tilt time tint tiny tips tire toad toes toil told toll tomb tone tons took tool torn toss tour town toys trap tray tree trim trip trot true tuba tube tuck tune turf turn twig twin type unit upon urge used user vain vase vast veil vein vent verb very vest vine visa void vote wade wage wait wake walk wall wand want ward ware warm warn wart wash wasp wave ways weak wear webs weed week weep well went were west what when whip whom wide wife wild will wind wine wing wink wipe wire wise wish with wolf wood wool word wore work worm worn wove wrap yard yarn yawn year yell zero zone zoom'
+).split(/\s+/).filter(w => /^[a-z]{3,4}$/.test(w)));
+const EASY_PREFIX = new Set();
+EASY_WORDS.forEach(w => { for (let i = 1; i <= w.length; i++) EASY_PREFIX.add(w.slice(0, i)); });
+const MIN_EASY_WORDS = 10;
+
+function boardNbrs(n) {
+    const nbrs = [];
+    for (let i = 0; i < n * n; i++) {
+        const r = Math.floor(i / n), c = i % n, out = [];
+        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+            if (!dr && !dc) continue;
+            const rr = r + dr, cc = c + dc;
+            if (rr >= 0 && rr < n && cc >= 0 && cc < n) out.push(rr * n + cc);
+        }
+        nbrs.push(out);
+    }
+    return nbrs;
+}
+
+// Count how many easy words are actually findable on a board (standard
+// Boggle adjacency, each tile used once per word)
+function countEasyWords(board, n) {
+    const cells = board.map(t => t.toLowerCase());
+    const nbrs = boardNbrs(n);
+    const found = new Set();
+    const used = new Array(n * n).fill(false);
+    const dfs = (i, word) => {
+        const w = word + cells[i];
+        if (!EASY_PREFIX.has(w)) return;
+        if (EASY_WORDS.has(w)) found.add(w);
+        used[i] = true;
+        for (const j of nbrs[i]) if (!used[j]) dfs(j, w);
+        used[i] = false;
+    };
+    for (let i = 0; i < n * n; i++) dfs(i, '');
+    return found.size;
+}
+
+// Solve the whole board against the full dictionary (host, once per round).
+// A letter-availability pre-filter shrinks 170k words to a few thousand
+// candidates before the DFS, so this runs in well under a second.
+function solveBoard(board, n) {
+    if (!(dictionary instanceof Set)) return [];
+    const cells = board.map(t => t.toLowerCase());
+    const avail = {};
+    cells.forEach(t => { for (const ch of t) avail[ch] = (avail[ch] || 0) + 1; });
+    const maxLen = cells.join('').length;
+    const wordSet = new Set(), prefixes = new Set();
+    for (const w of dictionary) {
+        if (w.length > maxLen) continue;
+        let ok = true; const cnt = {};
+        for (const ch of w) { cnt[ch] = (cnt[ch] || 0) + 1; if (cnt[ch] > (avail[ch] || 0)) { ok = false; break; } }
+        if (!ok) continue;
+        wordSet.add(w);
+        for (let i = 1; i <= w.length; i++) prefixes.add(w.slice(0, i));
+    }
+    const nbrs = boardNbrs(n);
+    const found = new Set();
+    const used = new Array(n * n).fill(false);
+    const dfs = (i, word) => {
+        const w = word + cells[i];
+        if (!prefixes.has(w)) return;
+        if (wordSet.has(w)) found.add(w);
+        used[i] = true;
+        for (const j of nbrs[i]) if (!used[j]) dfs(j, w);
+        used[i] = false;
+    };
+    for (let i = 0; i < n * n; i++) dfs(i, '');
+    return [...found];
+}
+
 function rollBoard(n) {
     const dice = n === 5 ? DICE5 : DICE4;
-    return shuffle(dice).map(faces => {
-        const letter = faces[Math.floor(Math.random() * faces.length)];
-        return letter === 'Q' ? 'Qu' : letter;
-    });
+    let best = null, bestCount = -1;
+    for (let tries = 0; tries < 80; tries++) {
+        const board = shuffle(dice).map(faces => {
+            const letter = faces[Math.floor(Math.random() * faces.length)];
+            return letter === 'Q' ? 'Qu' : letter;
+        });
+        const count = countEasyWords(board, n);
+        if (count >= MIN_EASY_WORDS) return board;
+        if (count > bestCount) { bestCount = count; best = board; }
+    }
+    return best; // fallback: friendliest board seen
 }
 
 function esc(s) {
@@ -1686,6 +1772,17 @@ function hostEndRound() {
     H.hall.sort((a, b) => b.pts - a.pts || b.word.length - a.word.length);
     H.hall = H.hall.slice(0, 20);
 
+    // The longest valid words on the board that nobody found
+    let missed = [];
+    if (dictionary instanceof Set) {
+        const foundAll = new Set();
+        H.players.forEach(p => p.words.forEach(w => foundAll.add(w.word)));
+        missed = solveBoard(H.board, H.n)
+            .filter(w => !foundAll.has(w))
+            .sort((a, b) => b.length - a.length || a.localeCompare(b))
+            .slice(0, 10);
+    }
+
     const sorted = [...H.players].sort((a, b) => b.score - a.score);
     H.results = {
         players: sorted.map(p => ({
@@ -1694,6 +1791,7 @@ function hostEndRound() {
             words: p.words.map(w => ({ word: w.word, pts: w.pts, unique: w.unique })),
         })),
         final: H.round >= H.roundsTarget,
+        missed,
     };
     if (H.results.final) {
         H.winner = sorted[0]?.name || null;
@@ -2312,6 +2410,27 @@ function patchGame(st) {
     renderPrankBar();
 }
 
+// ── Word definitions (tap a word on the results screen) ──
+const _defs = {};
+function toggleDef(word, row) {
+    const next = row.nextElementSibling;
+    if (next && next.classList.contains('def-box')) { next.remove(); return; }
+    const box = document.createElement('div');
+    box.className = 'def-box';
+    box.textContent = _defs[word] || 'Looking up…';
+    row.after(box);
+    if (_defs[word]) return;
+    fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word))
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(d => {
+            const meaning = (d[0]?.meanings || [])[0];
+            const def = meaning?.definitions?.[0]?.definition;
+            _defs[word] = def ? `(${meaning.partOfSpeech}) ${def}` : 'No definition found.';
+        })
+        .catch(() => { _defs[word] = 'Definition unavailable.'; })
+        .finally(() => { if (box.isConnected) box.textContent = _defs[word]; });
+}
+
 // ── Results (phone) ──
 function renderResults() {
     const res = isHost ? H.results : D?.results;
@@ -2331,19 +2450,51 @@ function renderResults() {
     }).join('');
     const me = res.players.find(p => p.name === myName);
     const myRows = me ? me.words.map((w, i) =>
-        `<div class="word-result-row${w.unique ? ' unique' : ''}" style="animation-delay:${i * 45}ms">
+        `<div class="word-result-row${w.unique ? ' unique' : ''}" style="animation-delay:${i * 45}ms;cursor:pointer" onclick="toggleDef('${esc(w.word)}', this)">
             <div class="wr-word">${esc(w.word)}</div>
             ${w.unique ? '<span class="badge-unique">unique ×2</span>' : ''}
             <div class="wr-pts">+${w.pts * (w.unique ? 2 : 1)}</div>
         </div>`).join('') : '';
+    // Cool words other players found this round (grouped, best first)
+    const byWord = {};
+    res.players.forEach(p => p.words.forEach(w => {
+        const t = w.pts * (w.unique ? 2 : 1);
+        if (!byWord[w.word]) byWord[w.word] = { word: w.word, total: t, unique: w.unique, finders: [] };
+        byWord[w.word].finders.push({ name: p.name, color: p.color });
+    }));
+    const cool = Object.values(byWord)
+        .filter(w => w.finders.some(f => f.name !== myName))
+        .sort((a, b) => b.total - a.total).slice(0, 6);
+    const coolRows = cool.map((w, i) => {
+        const names = w.finders.map(f =>
+            `<span style="color:${esc(f.color)}">${esc(f.name)}${f.name === myName ? ' · you' : ''}</span>`).join(', ');
+        return `<div class="word-result-row${w.unique ? ' unique' : ''}" style="animation-delay:${i * 45}ms;cursor:pointer" onclick="toggleDef('${esc(w.word)}', this)">
+            <div class="wr-word">${esc(w.word)}</div>
+            ${w.unique ? '<span class="badge-unique">unique ×2</span>' : ''}
+            <div class="hof-by" style="max-width:130px">${names}</div>
+            <div class="wr-pts">+${w.total}</div>
+        </div>`;
+    }).join('');
     return `
     ${hdrHTML(`Round ${round} of ${total} — results`)}
     <div class="card highlight">
         <div class="slbl">Leaderboard</div>
         <div class="lb-rows">${lb}</div>
     </div>
+    ${coolRows ? `<div class="card">
+        <div class="slbl">⭐ Cool words this round — tap for meaning</div>
+        <div style="display:flex;flex-direction:column;gap:5px">${coolRows}</div>
+    </div>` : ''}
+    ${(res.missed || []).length ? `<div class="card">
+        <div class="slbl">🔍 Longest words nobody found — tap for meaning</div>
+        <div style="display:flex;flex-direction:column;gap:5px">${res.missed.map((w, i) =>
+            `<div class="word-result-row" style="animation-delay:${i * 45}ms;cursor:pointer" onclick="toggleDef('${esc(w)}', this)">
+                <div class="wr-word">${esc(w)}</div>
+                <div class="wr-pts" style="color:var(--muted)">+${wordScore(w)}</div>
+            </div>`).join('')}</div>
+    </div>` : ''}
     <div class="card">
-        <div class="slbl">Your words (${me ? me.words.length : 0})</div>
+        <div class="slbl">Your words (${me ? me.words.length : 0}) — tap for meaning</div>
         ${me && me.bonus > 0 ? `<div class="bonus-flash">✨ +${me.bonus} unique bonus!</div>` : ''}
         <div style="display:flex;flex-direction:column;gap:5px">${myRows || '<span style="color:var(--muted);font-size:.75rem">No words this round</span>'}</div>
     </div>
@@ -2492,10 +2643,13 @@ function viewerOverlayHTML() {
                 <div class="v-hl-sub">${names} · +${w.total}${w.unique ? ' · UNIQUE ×2' : ''}</div>
             </div>`;
         }).join('');
+        const missed = res.missed || [];
         return `<div class="v-overlay">
             <div class="v-reveal-headline">ROUND ${vD.round} RESULTS</div>
             <div class="v-results-grid">${rows}</div>
             ${best.length ? `<div class="v-side-lbl" style="margin-top:8px">Best words</div><div class="v-highlights">${hl}</div>` : ''}
+            ${missed.length ? `<div class="v-side-lbl" style="margin-top:8px">Longest words nobody found</div>
+            <div class="v-missed">${missed.map(w => `<span>${esc(w.toUpperCase())}</span>`).join('')}</div>` : ''}
         </div>`;
     }
     if (vD.phase === 'gameover') {
