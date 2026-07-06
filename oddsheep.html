@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>The Odd Sheep</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230a1811' width='100' height='100' rx='20'/><text x='50' y='68' font-size='52' text-anchor='middle'>🐑</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0a1811;
+            --bg2: #10241a;
+            --wool: #f8f4e8;
+            --wool2: #efe8d4;
+            --ink: #35402e;
+            --ink-soft: #6f7a63;
+            --cream: #ecf3e4;
+            --muted: #94a888;
+            --grass: #4ade80;
+            --lantern: #fbbf24;
+            --berry: #f472b6;
+            --bad: #ef5350;
+        }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--cream);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 26px 16px 48px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 70% 45% at 50% -5%, rgba(251,191,36,0.10) 0%, transparent 60%),
+                radial-gradient(ellipse 55% 45% at 10% 100%, rgba(74,222,128,0.10) 0%, transparent 65%),
+                radial-gradient(ellipse 55% 45% at 92% 100%, rgba(244,114,182,0.06) 0%, transparent 65%);
+        }
+        body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
+
+        h1.logo {
+            font-family: 'Fredoka', sans-serif; font-weight: 700; letter-spacing: 1px;
+            font-size: clamp(1.7rem, 7vw, 2.5rem); text-align: center; color: var(--lantern);
+            text-shadow: 0 2px 0 rgba(0,0,0,.35), 0 0 30px rgba(251,191,36,.35);
+        }
+        .sub { color: var(--muted); font-size: .7rem; letter-spacing: 2.5px; text-transform: uppercase; margin: 6px 0 22px; text-align: center; }
+
+        #app { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 13px; }
+        body.viewer-mode #app { max-width: none; height: 100dvh; display: block; }
+
+        .card {
+            background: var(--wool); color: var(--ink); border-radius: 18px;
+            padding: 19px; box-shadow: 0 14px 40px rgba(0,0,0,.45), inset 0 0 0 1px rgba(90,110,70,.16);
+        }
+        .card.dark { background: rgba(24,44,32,.72); color: var(--cream); box-shadow: 0 10px 30px rgba(0,0,0,.4), inset 0 0 0 1px rgba(74,222,128,.15); }
+        .card.highlight { outline: 3px solid var(--lantern); outline-offset: 2px; }
+        .slbl { font-size: .66rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 11px; }
+        .card.dark .slbl { color: var(--muted); }
+
+        .fg { margin-bottom: 12px; }
+        .fg label { display: block; font-size: .66rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 5px; }
+        .card.dark .fg label { color: var(--muted); }
+        input[type=text] {
+            width: 100%; padding: 12px 14px; font-family: inherit; font-size: 1rem; font-weight: 700;
+            border: 2px solid rgba(90,110,70,.35); border-radius: 12px; background: #fffdf5; color: var(--ink);
+            outline: none;
+        }
+        input[type=text]:focus { border-color: var(--grass); }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            font-family: inherit; font-weight: 900; font-size: .95rem; letter-spacing: .4px;
+            padding: 13px 18px; border: none; border-radius: 14px; cursor: pointer;
+            transition: filter .12s, opacity .12s, box-shadow .12s; user-select: none; -webkit-user-select: none;
+        }
+        .btn:active { filter: brightness(.92); }
+        .btn-p { background: linear-gradient(180deg, #fcd34d, #f59e0b); color: #3a2400; box-shadow: 0 5px 0 #96660c, 0 10px 22px rgba(251,191,36,.3); }
+        .btn-p:active { box-shadow: 0 2px 0 #96660c; }
+        .btn-grass { background: linear-gradient(180deg, #6ee7a0, #22c55e); color: #052e12; box-shadow: 0 5px 0 #14652f, 0 10px 22px rgba(74,222,128,.3); }
+        .btn-grass:active { box-shadow: 0 2px 0 #14652f; }
+        .btn-g { background: rgba(90,110,70,.14); color: inherit; box-shadow: inset 0 0 0 2px rgba(90,110,70,.35); }
+        .card.dark .btn-g, body.viewer-mode .btn-g { box-shadow: inset 0 0 0 2px rgba(148,168,136,.4); }
+        .btn-full { width: 100%; }
+        .btn-sm { padding: 8px 13px; font-size: .76rem; border-radius: 11px; }
+        .btn:disabled { opacity: .42; cursor: default; }
+
+        .err {
+            background: rgba(239,83,80,.14); border: 1px solid rgba(239,83,80,.5); color: #ffb3b0;
+            padding: 11px 14px; border-radius: 12px; font-size: .82rem; font-weight: 700; text-align: center;
+        }
+        hr { border: none; border-top: 1px dashed rgba(90,110,70,.4); margin: 13px 0; }
+
+        .connecting { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 46px 0; color: var(--muted); font-weight: 700; }
+        .spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid rgba(251,191,36,.18); border-top-color: var(--lantern); animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .avrow { display: flex; flex-wrap: wrap; gap: 7px; }
+        .av {
+            width: 42px; height: 42px; border-radius: 12px; font-size: 1.35rem; display: flex; align-items: center; justify-content: center;
+            background: #fffdf5; border: 2px solid rgba(90,110,70,.3); cursor: pointer;
+        }
+        .av.sel { border-color: var(--grass); background: #e7f8ec; box-shadow: 0 4px 12px rgba(74,222,128,.35); }
+
+        .player-row { display: flex; align-items: center; gap: 11px; padding: 9px 4px; border-bottom: 1px dashed rgba(90,110,70,.25); font-weight: 800; }
+        .player-row:last-child { border-bottom: none; }
+        .pav { width: 38px; height: 38px; border-radius: 11px; background: var(--wool2); border: 2px solid rgba(90,110,70,.3); font-size: 1.25rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--grass); box-shadow: 0 0 8px var(--grass); margin-left: auto; }
+        .qr-wrap { width: min(215px, 58vw); margin: 6px auto 10px; border-radius: 14px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.25); }
+        .qr-wrap svg { display: block; width: 100%; height: auto; }
+        .room-code { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 2.3rem; letter-spacing: 12px; text-align: center; color: var(--ink); padding-left: 12px; }
+        .share-row { display: flex; gap: 8px; justify-content: center; margin: 10px 0 6px; }
+        .seg-row { display: flex; flex-wrap: wrap; gap: 7px; }
+
+        /* word grid (phone) */
+        .wgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+        .wcell {
+            background: var(--wool2); border: 2px solid rgba(90,110,70,.25); border-radius: 10px;
+            padding: 9px 8px; font-weight: 800; font-size: .8rem; text-align: center; color: var(--ink);
+        }
+        .wcell.secret { background: #d9f7e4; border-color: var(--grass); box-shadow: 0 0 12px rgba(74,222,128,.35); }
+        .wcell.pick { cursor: pointer; }
+        .wcell.pick:active { filter: brightness(.9); }
+
+        /* role card */
+        .role-card { text-align: center; padding: 26px 14px; }
+        .role-card .big { font-size: 3rem; }
+        .role-card .rt { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 1.5rem; margin-top: 8px; }
+        .role-card .rw { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 2rem; color: #14803c; margin-top: 4px; }
+        .role-card .rs { color: var(--ink-soft); font-weight: 700; font-size: .82rem; margin-top: 8px; }
+        .role-card.sheepy { background: #fbe7ef; }
+        .role-card.sheepy .rt { color: #b0357a; }
+
+        /* clue wall */
+        .clue-row { display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-bottom: 1px dashed rgba(90,110,70,.25); font-weight: 800; }
+        .clue-row:last-child { border-bottom: none; }
+        .clue-row .cw { margin-left: auto; font-family: 'Fredoka', sans-serif; font-size: 1.05rem; color: #14803c; }
+        .clue-row.pending .cw { color: var(--ink-soft); font-size: .8rem; }
+        .turn-banner {
+            text-align: center; background: rgba(251,191,36,.12); border: 1px solid rgba(251,191,36,.45);
+            border-radius: 13px; padding: 11px; font-weight: 900; color: var(--lantern);
+        }
+        .timebar-wrap { height: 9px; border-radius: 6px; background: rgba(255,255,255,.09); overflow: hidden; }
+        .timebar { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--grass), var(--lantern)); transition: width .2s linear; }
+
+        /* vote buttons */
+        .vote-btn {
+            display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+            background: #fffdf5; border: 2px solid rgba(90,110,70,.3); border-radius: 13px;
+            padding: 11px 13px; font-family: inherit; font-weight: 900; font-size: 1rem; color: var(--ink);
+            cursor: pointer; margin-bottom: 8px;
+        }
+        .vote-btn:disabled { opacity: .45; }
+        .vote-btn.picked { border-color: var(--bad); background: #fdeaea; box-shadow: 0 0 14px rgba(239,83,80,.3); }
+
+        .verdict { text-align: center; padding: 8px 0 4px; }
+        .verdict .vico { font-size: 3.2rem; }
+        .verdict .vt { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 1.55rem; margin-top: 4px; }
+        .verdict .vpts { font-size: 1.9rem; font-weight: 900; color: #14803c; margin-top: 2px; }
+        .chip { display: inline-block; padding: 4px 12px; border-radius: 12px; background: rgba(251,191,36,.15); border: 1px solid rgba(251,191,36,.5); color: #8a6100; font-weight: 900; font-size: .78rem; margin: 3px; }
+        .card.dark .chip { color: var(--lantern); }
+        .standings .sc { margin-left: auto; font-weight: 900; }
+        .standings .delta { color: #14803c; font-size: .75rem; font-weight: 900; margin-left: 7px; }
+
+        /* ═════════ TV ═════════ */
+        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 3vmin 3.4vmin; gap: 2vmin; }
+        .tv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 2vmin; }
+        .tv-logo { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 3.3vmin; color: var(--lantern); text-shadow: 0 0 24px rgba(251,191,36,.4); }
+        .tv-meta { font-size: 1.9vmin; font-weight: 900; letter-spacing: .4vmin; text-transform: uppercase; color: var(--muted); }
+        .tv-main { flex: 1; display: flex; gap: 2.6vmin; min-height: 0; }
+        .tv-stage { flex: 1.5; display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: 1.6vmin; }
+        .tv-rail { flex: 1; display: flex; flex-direction: column; gap: 1.2vmin; min-width: 0; overflow: hidden; }
+        .rail-title { font-size: 1.7vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .rail-row {
+            display: flex; align-items: center; gap: 1.2vmin; background: rgba(24,44,32,.7);
+            border: 1px solid rgba(148,168,136,.2); border-radius: 1.6vmin; padding: 1.1vmin 1.5vmin;
+            font-weight: 800; font-size: 2vmin;
+        }
+        .rail-row .rav { font-size: 2.5vmin; }
+        .rail-row .rname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rail-row .rsc { font-weight: 900; color: var(--lantern); font-variant-numeric: tabular-nums; }
+        .rail-row .rclue { font-family: 'Fredoka', sans-serif; color: var(--grass); font-size: 2.2vmin; }
+        .rail-row.locked::after { content: '✓'; color: var(--grass); font-weight: 900; font-size: 2vmin; }
+        .rail-row.turn { border-color: var(--lantern); box-shadow: 0 0 16px rgba(251,191,36,.25); }
+
+        .tv-paper {
+            background: var(--wool); color: var(--ink); border-radius: 2.4vmin;
+            box-shadow: 0 18px 60px rgba(0,0,0,.55), inset 0 0 0 1px rgba(90,110,70,.2);
+            padding: 2.6vmin 3vmin; display: flex; flex-direction: column; min-height: 0; flex: 1;
+        }
+        .tv-kicker { font-size: 1.6vmin; font-weight: 900; letter-spacing: .45vmin; text-transform: uppercase; color: #b0357a; margin-bottom: 1.2vmin; }
+        .tv-theme { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 3.2vmin; margin-bottom: 1.6vmin; }
+        .tv-wgrid { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); gap: 1.2vmin; }
+        .tv-wcell {
+            background: var(--wool2); border: .28vmin solid rgba(90,110,70,.28); border-radius: 1.2vmin;
+            display: flex; align-items: center; justify-content: center; text-align: center;
+            font-weight: 800; font-size: 2vmin; padding: .8vmin; color: var(--ink);
+        }
+        .tv-wcell.secret { background: #d9f7e4; border-color: #22c55e; box-shadow: 0 0 22px rgba(74,222,128,.5); }
+        .tv-big {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 1.8vmin; text-align: center;
+        }
+        .tv-big .big-ico { font-size: 10vmin; }
+        .tv-big .big-t { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 4.6vmin; }
+        .tv-big .big-s { font-size: 2.2vmin; font-weight: 800; color: var(--muted); }
+        .tv-count { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 9vmin; color: var(--lantern); font-variant-numeric: tabular-nums; }
+        .tv-timebar-wrap { height: 1.4vmin; border-radius: .8vmin; background: rgba(255,255,255,.1); overflow: hidden; }
+        .tv-timebar { height: 100%; background: linear-gradient(90deg, var(--grass), var(--lantern)); transition: width .2s linear; }
+        .tv-hint { text-align: center; color: var(--muted); font-weight: 800; font-size: 1.8vmin; }
+
+        /* TV lobby */
+        .tv-lobby { flex: 1; display: flex; gap: 4vmin; align-items: center; min-height: 0; }
+        .tv-lobby .qr-side { background: var(--wool); color: var(--ink); border-radius: 2.4vmin; padding: 3.2vmin; text-align: center; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+        .tv-lobby .qr-side .qr-wrap { width: 32vmin; margin: 1.4vmin auto; }
+        .tv-lobby .qr-side .room-code { font-size: 4.8vmin; letter-spacing: 1.9vmin; padding-left: 1.9vmin; }
+        .tv-lobby .join-hint { font-size: 1.7vmin; font-weight: 800; color: var(--ink-soft); }
+        .tv-players { flex: 1; display: flex; flex-direction: column; gap: 1.5vmin; min-width: 0; }
+        .tv-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20vmin, 1fr)); gap: 1.5vmin; }
+        .tv-pcard {
+            background: rgba(24,44,32,.72); border: 1px solid rgba(148,168,136,.22); border-radius: 1.8vmin;
+            padding: 1.7vmin; text-align: center; font-weight: 900; font-size: 2vmin; animation: popIn .35s ease both;
+        }
+        .tv-pcard .pav-big { font-size: 4.2vmin; }
+        @keyframes popIn { from { opacity: 0; } to { opacity: 1; } }
+        .tv-waiting { color: var(--muted); font-weight: 800; font-size: 1.9vmin; }
+
+        /* vote tally + podium */
+        .tally-row { display: flex; align-items: center; gap: 1.4vmin; margin-bottom: 1.2vmin; }
+        .tally-name { width: 26%; font-weight: 800; font-size: 2vmin; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tally-bar-wrap { flex: 1; height: 3.6vmin; border-radius: 1vmin; background: rgba(90,110,70,.15); overflow: hidden; }
+        .tally-bar { height: 100%; border-radius: 1vmin; width: 0%; background: linear-gradient(90deg, #f9a8d4, #ec4899); transition: width .9s cubic-bezier(.2,.8,.2,1); display: flex; align-items: center; padding-left: 1vmin; font-size: 2vmin; }
+        .tally-count { width: 3vmin; text-align: right; font-weight: 900; font-size: 2vmin; color: var(--ink); }
+
+        .podium-wrap { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2.4vmin; padding-bottom: 2vmin; }
+        .pod { text-align: center; font-weight: 900; animation: popIn .5s ease both; }
+        .pod .pname { font-size: 2.4vmin; margin-bottom: 1vmin; }
+        .pod .pscore { font-size: 2vmin; color: var(--lantern); margin-bottom: 1vmin; }
+        .pod .block { border-radius: 1.6vmin 1.6vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.4vmin; font-size: 3.4vmin; width: 18vmin; }
+        .pod.p1 .block { height: 22vmin; background: linear-gradient(180deg, #fcd34d, #96660c); }
+        .pod.p2 .block { height: 15vmin; background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
+        .pod.p3 .block { height: 10vmin; background: linear-gradient(180deg, #e8a06a, #9c5a33); }
+        .pod .pav-big { font-size: 5vmin; }
+        .awards-row { display: flex; gap: 1.6vmin; justify-content: center; flex-wrap: wrap; }
+        .award {
+            background: rgba(24,44,32,.75); border: 1px solid rgba(251,191,36,.3); border-radius: 1.6vmin;
+            padding: 1.4vmin 2.2vmin; font-weight: 800; font-size: 1.9vmin; text-align: center;
+        }
+        .award .aw-t { color: var(--lantern); font-weight: 900; }
+
+        #confetti-cv { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <canvas id="confetti-cv"></canvas>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════
+// CATEGORY GRIDS (theme + 16 family-friendly words)
+// ═══════════════════════════════════════════
+const CATEGORIES = [
+    { theme: 'Breakfast', words: ['Toast', 'Cereal', 'Bacon', 'Eggs', 'Porridge', 'Pancakes', 'Jam', 'Croissant', 'Sausage', 'Beans', 'Muffin', 'Yoghurt', 'Orange Juice', 'Waffles', 'Marmalade', 'Crumpets'] },
+    { theme: 'Under the Sea', words: ['Shark', 'Octopus', 'Dolphin', 'Whale', 'Crab', 'Jellyfish', 'Seahorse', 'Starfish', 'Coral', 'Seaweed', 'Turtle', 'Eel', 'Lobster', 'Clam', 'Stingray', 'Anchovy'] },
+    { theme: 'In the Park', words: ['Swings', 'Slide', 'Bench', 'Duck Pond', 'Picnic', 'Roundabout', 'Seesaw', 'Fountain', 'Kite', 'Dog Walker', 'Ice Cream Van', 'Sandpit', 'Climbing Frame', 'Jogger', 'Pigeons', 'Flower Bed'] },
+    { theme: 'Pizza Toppings', words: ['Cheese', 'Pepperoni', 'Mushroom', 'Ham', 'Pineapple', 'Olives', 'Sweetcorn', 'Peppers', 'Onion', 'Chicken', 'Tuna', 'Anchovies', 'Bacon', 'Tomato', 'Basil', 'Chilli'] },
+    { theme: 'Jobs', words: ['Doctor', 'Teacher', 'Firefighter', 'Chef', 'Pilot', 'Farmer', 'Dentist', 'Plumber', 'Astronaut', 'Vet', 'Builder', 'Postman', 'Hairdresser', 'Police Officer', 'Artist', 'Mechanic'] },
+    { theme: 'Pets', words: ['Dog', 'Cat', 'Hamster', 'Goldfish', 'Rabbit', 'Budgie', 'Tortoise', 'Guinea Pig', 'Snake', 'Lizard', 'Parrot', 'Ferret', 'Mouse', 'Pony', 'Stick Insect', 'Chinchilla'] },
+    { theme: 'Weather', words: ['Rain', 'Snow', 'Sunshine', 'Fog', 'Thunder', 'Lightning', 'Hail', 'Wind', 'Rainbow', 'Drizzle', 'Heatwave', 'Frost', 'Clouds', 'Storm', 'Sleet', 'Breeze'] },
+    { theme: 'Sports', words: ['Football', 'Tennis', 'Swimming', 'Cricket', 'Rugby', 'Golf', 'Boxing', 'Gymnastics', 'Cycling', 'Skiing', 'Darts', 'Snooker', 'Netball', 'Hockey', 'Archery', 'Rowing'] },
+    { theme: 'Fruit Bowl', words: ['Apple', 'Banana', 'Orange', 'Strawberry', 'Grapes', 'Pineapple', 'Mango', 'Kiwi', 'Peach', 'Plum', 'Cherry', 'Watermelon', 'Raspberry', 'Lemon', 'Pear', 'Blueberry'] },
+    { theme: 'In the Kitchen', words: ['Kettle', 'Toaster', 'Fridge', 'Oven', 'Sink', 'Whisk', 'Saucepan', 'Microwave', 'Blender', 'Chopping Board', 'Rolling Pin', 'Colander', 'Grater', 'Bin', 'Dishwasher', 'Spatula'] },
+    { theme: 'At School', words: ['Homework', 'Playground', 'Whiteboard', 'Pencil Case', 'Assembly', 'Register', 'Lunchbox', 'Uniform', 'Ruler', 'Backpack', 'Detention', 'Library', 'Science Lab', 'School Bell', 'PE Kit', 'Head Teacher'] },
+    { theme: 'At the Beach', words: ['Sandcastle', 'Bucket', 'Spade', 'Waves', 'Sunscreen', 'Deckchair', 'Seagull', 'Ice Lolly', 'Flip Flops', 'Rock Pool', 'Surfboard', 'Pier', 'Shells', 'Towel', 'Windbreak', 'Donkey Ride'] },
+    { theme: 'Outer Space', words: ['Rocket', 'Moon', 'Mars', 'Astronaut', 'Comet', 'Satellite', 'Telescope', 'Alien', 'Black Hole', 'Saturn', 'Meteor', 'Space Station', 'Galaxy', 'Countdown', 'Gravity', 'Stars'] },
+    { theme: 'On the Farm', words: ['Tractor', 'Barn', 'Scarecrow', 'Hay Bale', 'Chicken Coop', 'Milking', 'Sheepdog', 'Plough', 'Duck Pond', 'Pigsty', 'Combine', 'Farmhouse', 'Wellies', 'Gate', 'Trough', 'Orchard'] },
+    { theme: 'Fairy Tales', words: ['Dragon', 'Castle', 'Witch', 'Prince', 'Tower', 'Magic Beans', 'Glass Slipper', 'Wolf', 'Gingerbread', 'Frog', 'Wand', 'Beanstalk', 'Godmother', 'Troll', 'Spinning Wheel', 'Crown'] },
+    { theme: 'Making Music', words: ['Guitar', 'Drums', 'Piano', 'Violin', 'Trumpet', 'Choir', 'Concert', 'Microphone', 'Orchestra', 'DJ', 'Karaoke', 'Flute', 'Headphones', 'Bagpipes', 'Conductor', 'Encore'] },
+    { theme: 'Getting Around', words: ['Bus', 'Train', 'Bicycle', 'Aeroplane', 'Ferry', 'Taxi', 'Scooter', 'Helicopter', 'Tram', 'Motorbike', 'Canoe', 'Lorry', 'Hot Air Balloon', 'Skateboard', 'Campervan', 'Underground'] },
+    { theme: 'Getting Dressed', words: ['Socks', 'Jumper', 'Jeans', 'Scarf', 'Wellies', 'Pyjamas', 'Hat', 'Gloves', 'Dress', 'Hoodie', 'Slippers', 'Raincoat', 'Shorts', 'Tie', 'Onesie', 'Cardigan'] },
+    { theme: 'Christmas', words: ['Tinsel', 'Stocking', 'Reindeer', 'Mince Pies', 'Carols', 'Crackers', 'Snowman', 'Presents', 'Sleigh', 'Mistletoe', 'Elf', 'Turkey', 'Baubles', 'Advent', 'Chimney', 'Sprouts'] },
+    { theme: 'Spooky Night', words: ['Ghost', 'Pumpkin', 'Bat', 'Cobweb', 'Cauldron', 'Skeleton', 'Vampire', 'Full Moon', 'Broomstick', 'Trick or Treat', 'Zombie', 'Haunted House', 'Owl', 'Graveyard', 'Black Cat', 'Fangs'] },
+    { theme: 'In the Garden', words: ['Lawn', 'Shed', 'Gnome', 'Hosepipe', 'Compost', 'Greenhouse', 'Wheelbarrow', 'Bird Bath', 'Hedge', 'Trampoline', 'Slug', 'Watering Can', 'Patio', 'Bumblebee', 'Washing Line', 'Flowerpot'] },
+    { theme: 'Birthday Party', words: ['Balloons', 'Cake', 'Candles', 'Party Bags', 'Musical Chairs', 'Bouncy Castle', 'Invitations', 'Pass the Parcel', 'Pinata', 'Banner', 'Jelly', 'Magician', 'Face Paint', 'Presents', 'Sparklers', 'Party Hats'] },
+    { theme: 'At the Zoo', words: ['Lion', 'Elephant', 'Giraffe', 'Penguin', 'Monkey', 'Zebra', 'Crocodile', 'Flamingo', 'Panda', 'Gorilla', 'Meerkat', 'Rhino', 'Zookeeper', 'Enclosure', 'Peacock', 'Sloth'] },
+    { theme: 'Bathroom', words: ['Toothbrush', 'Shampoo', 'Towel', 'Rubber Duck', 'Bubbles', 'Mirror', 'Soap', 'Plughole', 'Loo Roll', 'Shower', 'Flannel', 'Toothpaste', 'Bath Mat', 'Razor', 'Comb', 'Sponge'] },
+    { theme: 'Camping Trip', words: ['Tent', 'Campfire', 'Marshmallows', 'Sleeping Bag', 'Torch', 'Midges', 'Groundsheet', 'Lantern', 'Tent Pegs', 'Camp Stove', 'Compass', 'Backpack', 'Starry Sky', 'Airbed', 'Thermos', 'Map'] },
+];
+
+// ═══════════════════════════════════════════
+// CONSTANTS & HELPERS
+// ═══════════════════════════════════════════
+const PFX = 'ODDSHEEP-';
+const MAX_PLAYERS = 12, MIN_PLAYERS = 3;
+const AVATARS = ['🐮', '🐷', '🐔', '🐴', '🐰', '🦆', '🐶', '🐱', '🦊', '🐸', '🐢', '🦉'];
+
+function $id(id) { return document.getElementById(id); }
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ── QR code (themed SVG) ──
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+        let rects = '';
+        for (let r = 0; r < n; r++)
+            for (let c = 0; c < n; c++)
+                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+            `<rect width="${size}" height="${size}" fill="#fffdf5"/>` +
+            `<g fill="#182c20">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+
+// ── Confetti ──
+let _cf = { parts: [], raf: 0, running: false, until: 0 };
+function startConfetti(ms) {
+    if (REDUCED) return;
+    const cv = $id('confetti-cv'), ctx = cv.getContext('2d');
+    cv.width = innerWidth; cv.height = innerHeight;
+    _cf.until = performance.now() + (ms || 2600);
+    const cols = ['#fbbf24', '#4ade80', '#f472b6', '#60a5fa', '#f8f4e8'];
+    for (let i = 0; i < 130; i++) {
+        _cf.parts.push({
+            x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5,
+            vx: (Math.random() - 0.5) * 2.4, vy: 2 + Math.random() * 3.6,
+            rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.25,
+            w: 6 + Math.random() * 7, h: 4 + Math.random() * 5,
+            col: cols[Math.floor(Math.random() * cols.length)],
+        });
+    }
+    if (_cf.running) return;
+    _cf.running = true;
+    (function frame(t) {
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        _cf.parts = _cf.parts.filter(p => p.y < cv.height + 30);
+        for (const p of _cf.parts) {
+            p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+            ctx.fillStyle = p.col; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            ctx.restore();
+        }
+        if (t < _cf.until || _cf.parts.length) _cf.raf = requestAnimationFrame(frame);
+        else { _cf.running = false; ctx.clearRect(0, 0, cv.width, cv.height); }
+    })(performance.now());
+}
+
+// ── Synth sounds ──
+let _ac = null;
+function ac() { if (!_ac) { try { _ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return _ac; }
+function tone(freq, dur, type, gain, when) {
+    const a = ac(); if (!a) return;
+    try {
+        const t0 = a.currentTime + (when || 0);
+        const o = a.createOscillator(), g = a.createGain();
+        o.type = type || 'triangle'; o.frequency.value = freq;
+        g.gain.setValueAtTime(gain || 0.07, t0);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        o.connect(g); g.connect(a.destination);
+        o.start(t0); o.stop(t0 + dur);
+    } catch (e) {}
+}
+function sDeal() { tone(523, 0.12); tone(659, 0.16, 'triangle', 0.06, 0.1); }
+function sClue() { tone(740, 0.09, 'triangle', 0.06); }
+function sVote() { tone(220, 0.16, 'square', 0.04); tone(220, 0.16, 'square', 0.04, 0.2); }
+function sCaught() { tone(392, 0.2, 'sawtooth', 0.05); tone(311, 0.3, 'sawtooth', 0.05, 0.18); }
+function sEscape() { [523, 659, 784].forEach((f, i) => tone(f, 0.18, 'triangle', 0.06, i * 0.11)); }
+function sWin() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.3, 'triangle', 0.06, i * 0.13)); }
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let peer = null, myId = '', myName = '', myAvatar = '', isHost = false, isTvHost = false, isViewer = false, roomCode = '';
+let hostConn = null, guestConns = {}, viewerConns = {};
+let ui = 'home';   // home|creating|connecting|lobby_h|lobby_g|deal|clues|discuss|vote|guess|reveal|podium|viewer
+let uiErr = '';
+let fName = localStorage.getItem('sheep-name') || '';
+let fAvatar = localStorage.getItem('sheep-avatar') || '';
+let fCode = '', fVCode = '';
+let D = null, vD = null;
+let fClue = '', clueErr = '';
+let _clientTick = null, _vTick = null;
+let qEndsAt = 0, qTotal = 1;
+
+// Host authoritative state
+let H = {
+    phase: 'lobby',            // lobby|deal|clues|discuss|vote|guess|reveal|podium
+    players: [],               // [{id,name,avatar,score,escapes,dog,lastDelta}]
+    settings: { rounds: 3, clueSecs: 30, discussSecs: 60 },
+    round: 0,
+    category: null, secretIdx: 0, sheepId: null,
+    turnOrder: [], turnIdx: 0,
+    clues: [],                 // [{id,name,avatar,word}]
+    votes: {},                 // voterId -> targetName
+    usedCats: [],
+    lastReveal: null,
+};
+let _turnTimer = null, _discussTimer = null, _guessTimer = null;
+
+// ═══════════════════════════════════════════
+// NETWORK
+// ═══════════════════════════════════════════
+function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('send err', e); } }
+function broadcastViewers(msg) { Object.values(viewerConns).forEach(c => send(c, msg)); }
+function broadcastPlayers(fn) {
+    H.players.forEach(p => {
+        if (p.id === myId) return;
+        const c = guestConns[p.id];
+        if (c) send(c, typeof fn === 'function' ? fn(p) : fn);
+    });
+}
+function connectedPlayers() {
+    return H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+}
+
+function hostAddPlayer(id, name, avatar) {
+    if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
+    const taken = new Set(H.players.map(p => p.avatar));
+    const av = avatar && !taken.has(avatar) ? avatar : (AVATARS.find(a => !taken.has(a)) || '🐾');
+    H.players.push({ id, name, avatar: av, score: 0, escapes: 0, dog: 0, lastDelta: 0 });
+}
+
+function capField() { return { tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null }; }
+
+function lobbyMsg() {
+    return {
+        type: 'lobby', roomCode,
+        players: H.players.map(p => ({ name: p.name, avatar: p.avatar })),
+        settings: { ...H.settings },
+        ...capField(),
+    };
+}
+function broadcastLobby() {
+    broadcastPlayers(lobbyMsg());
+    broadcastViewers({ ...lobbyMsg(), type: 'viewer_lobby' });
+    hostSyncSelf(lobbyMsg());
+}
+
+function railPlayers(extra) {
+    return H.players.map(p => ({
+        name: p.name, avatar: p.avatar, score: p.score, delta: p.lastDelta,
+        clue: (H.clues.find(c => c.id === p.id) || {}).word || null,
+        voted: !!H.votes[p.id],
+        turn: H.phase === 'clues' && H.turnOrder[H.turnIdx] === p.id,
+    }));
+}
+function standings() {
+    return H.players.slice().sort((a, b) => b.score - a.score)
+        .map(p => ({ name: p.name, avatar: p.avatar, score: p.score, delta: p.lastDelta, escapes: p.escapes, dog: p.dog }));
+}
+
+function dealMsgFor(p) {
+    return {
+        type: 'deal', num: H.round, total: H.settings.rounds,
+        theme: H.category.theme, words: H.category.words,
+        amSheep: p ? p.id === H.sheepId : false,
+        mySecret: p && p.id !== H.sheepId ? H.secretIdx : -1,
+        ...capField(),
+    };
+}
+function cluesMsgFor(p) {
+    const turnP = H.players.find(q => q.id === H.turnOrder[H.turnIdx]);
+    return {
+        type: 'clues', num: H.round, total: H.settings.rounds,
+        theme: H.category.theme, words: H.category.words,
+        amSheep: p ? p.id === H.sheepId : false,
+        mySecret: p && p.id !== H.sheepId ? H.secretIdx : -1,
+        clues: H.clues.map(c => ({ name: c.name, avatar: c.avatar, word: c.word })),
+        turn: turnP ? { name: turnP.name, avatar: turnP.avatar } : null,
+        myTurn: !!(p && turnP && p.id === turnP.id),
+        seconds: H.settings.clueSecs,
+        players: railPlayers(),
+        ...capField(),
+    };
+}
+function discussMsg() {
+    return {
+        type: 'discuss', num: H.round, total: H.settings.rounds,
+        theme: H.category.theme, words: H.category.words,
+        clues: H.clues.map(c => ({ name: c.name, avatar: c.avatar, word: c.word })),
+        seconds: H.settings.discussSecs,
+        players: railPlayers(),
+        ...capField(),
+    };
+}
+function voteMsgFor(p) {
+    return {
+        type: 'vote_state', num: H.round, total: H.settings.rounds,
+        players: H.players.map(q => ({ name: q.name, avatar: q.avatar, voted: !!H.votes[q.id] })),
+        clues: H.clues.map(c => ({ name: c.name, avatar: c.avatar, word: c.word })),
+        myVote: p ? (H.votes[p.id] || null) : null,
+        votedCount: Object.keys(H.votes).length,
+        playerCount: connectedPlayers().length,
+        ...capField(),
+    };
+}
+function guessMsgFor(p) {
+    const sheep = H.players.find(q => q.id === H.sheepId);
+    return {
+        type: 'guess_state', num: H.round, total: H.settings.rounds,
+        theme: H.category.theme, words: H.category.words,
+        amSheep: p ? p.id === H.sheepId : false,
+        sheep: sheep ? { name: sheep.name, avatar: sheep.avatar } : null,
+        ...capField(),
+    };
+}
+function revealMsg() {
+    return { type: 'reveal', ...H.lastReveal, standings: standings(), ...capField() };
+}
+function podiumMsg() {
+    const most = k => H.players.filter(p => p[k] > 0).sort((a, b) => b[k] - a[k])[0];
+    const awards = [];
+    const dis = most('escapes');
+    if (dis) awards.push({ emoji: '🎭', title: 'Master of Disguise', name: dis.name, detail: dis.escapes + '× escaped as the sheep' });
+    const dog = most('dog');
+    if (dog) awards.push({ emoji: '🐕', title: 'Sheepdog', name: dog.name, detail: dog.dog + '× sniffed out the sheep' });
+    return { type: 'podium', standings: standings(), awards, ...capField() };
+}
+
+function phaseSnapshotFor(p) {
+    switch (H.phase) {
+        case 'lobby': return lobbyMsg();
+        case 'deal': return dealMsgFor(p);
+        case 'clues': return cluesMsgFor(p);
+        case 'discuss': return discussMsg();
+        case 'vote': return voteMsgFor(p);
+        case 'guess': return guessMsgFor(p);
+        case 'reveal': return revealMsg();
+        case 'podium': return podiumMsg();
+        default: return lobbyMsg();
+    }
+}
+function viewerSnapshot() {
+    const t = { lobby: 'viewer_lobby', deal: 'viewer_deal', clues: 'viewer_clues', discuss: 'viewer_discuss', vote: 'viewer_vote', guess: 'viewer_guess', reveal: 'viewer_reveal', podium: 'viewer_podium' }[H.phase];
+    const base = H.phase === 'lobby' ? lobbyMsg() : phaseSnapshotFor(null);
+    return { ...base, type: t, players: railPlayers() };
+}
+
+// ── Host: incoming connections ──
+function setupGuestConn(conn) {
+    conn.on('open', () => { conn._role = null; });
+
+    conn.on('data', msg => {
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer';
+            viewerConns[conn.peer] = conn;
+            send(conn, viewerSnapshot());
+            return;
+        }
+        if (conn._role === null) {
+            conn._role = 'player';
+            guestConns[conn.peer] = conn;
+        }
+        const player = H.players.find(p => p.id === conn.peer);
+        switch (msg.type) {
+            case 'join': {
+                const name = String(msg.name || 'Player').slice(0, 16);
+                const zombie = H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
+                if (zombie) zombie.id = conn.peer;
+                else hostAddPlayer(conn.peer, name, msg.avatar);
+                const p2 = H.players.find(p => p.id === conn.peer);
+                if (!p2) { send(conn, lobbyMsg()); break; }
+                if (H.phase === 'lobby') broadcastLobby();
+                else { send(conn, phaseSnapshotFor(p2)); broadcastViewers(viewerSnapshot()); if (isTvHost) tvHostSync(); }
+                break;
+            }
+            case 'clue':  if (player) hostClue(player, msg.word, conn); break;
+            case 'vote':  if (player) hostVote(player, msg.target); break;
+            case 'guess': if (player) hostGuess(player, msg.idx); break;
+            case 'ctl': {
+                if (!isTvHost || !player || player.id !== H.players[0]?.id) break;
+                hostCtl(msg.action, msg);
+                break;
+            }
+        }
+    });
+
+    conn.on('close', () => {
+        delete guestConns[conn.peer];
+        delete viewerConns[conn.peer];
+        if (H.phase === 'lobby') {
+            const pi = H.players.findIndex(p => p.id === conn.peer);
+            if (pi >= 0) { H.players.splice(pi, 1); broadcastLobby(); }
+        } else if (H.phase === 'clues' && H.turnOrder[H.turnIdx] === conn.peer) {
+            hostClue(H.players.find(p => p.id === conn.peer), '…', null, true);
+        } else if (H.phase === 'vote') {
+            maybeTally();
+        }
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+function hostCtl(action, msg) {
+    if (action === 'start' && H.phase === 'lobby') hostStartGame();
+    else if (action === 'clues' && H.phase === 'deal') startClues();
+    else if (action === 'vote_now' && H.phase === 'discuss') startVote();
+    else if (action === 'next' && H.phase === 'reveal') nextRound();
+    else if (action === 'again' && H.phase === 'podium') hostNewGame();
+    else if (action === 'set' && H.phase === 'lobby') {
+        const s = H.settings;
+        if ([3, 5, 7].includes(msg.rounds)) s.rounds = msg.rounds;
+        if ([30, 45].includes(msg.clueSecs)) s.clueSecs = msg.clueSecs;
+        if ([60, 90].includes(msg.discussSecs)) s.discussSecs = msg.discussSecs;
+        broadcastLobby();
+    }
+}
+function guestCtl(action, extra) {
+    if (isHost && !isTvHost) { hostCtl(action, extra || {}); return; }
+    if (hostConn) send(hostConn, { type: 'ctl', action, ...(extra || {}) });
+}
+
+// ── Create a room (phone host or TV host) ──
+function makeRoom(onOpen) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    roomCode = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    peer = new Peer(PFX + roomCode);
+    peer.on('open', id => { myId = id; isHost = true; onOpen(); });
+    peer.on('connection', conn => setupGuestConn(conn));
+    peer.on('error', e => {
+        uiErr = 'Connection error: ' + e.message;
+        isHost = false; isTvHost = false;
+        document.body.classList.remove('viewer-mode');
+        ui = 'home'; render();
+    });
+}
+
+function hostGame(name) {
+    myName = name.trim().slice(0, 16) || 'Host';
+    myAvatar = fAvatar || AVATARS[0];
+    localStorage.setItem('sheep-name', myName);
+    localStorage.setItem('sheep-avatar', myAvatar);
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        hostAddPlayer(myId, myName, myAvatar);
+        ui = 'lobby_h';
+        render();
+    });
+}
+
+function hostOnTV() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        isTvHost = true;
+        document.body.classList.add('viewer-mode');
+        tvHostSync();
+        render();
+    });
+}
+
+// ── Guest ──
+function joinGame(code, name) {
+    myName = name.trim().slice(0, 16) || 'Player';
+    myAvatar = fAvatar || AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    localStorage.setItem('sheep-name', myName);
+    localStorage.setItem('sheep-avatar', myAvatar);
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        isHost = false;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join', name: myName, avatar: myAvatar }));
+        hostConn.on('data', msg => applyMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the flock.'; ui = 'home'; D = null; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        ui = 'home'; render();
+    });
+}
+
+// ── Viewer (TV joining a phone-hosted game) ──
+function joinAsViewer(code, _attempt) {
+    const attempt = _attempt || 1;
+    isViewer = true;
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join_viewer' }));
+        hostConn.on('data', msg => applyViewerMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the flock.'; isViewer = false; vD = null; document.body.classList.remove('viewer-mode'); ui = 'home'; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; isViewer = false; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        if (attempt < 2) {
+            try { peer.destroy(); } catch (_) {}
+            peer = null;
+            setTimeout(() => joinAsViewer(code, 2), 600);
+            return;
+        }
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        isViewer = false; ui = 'home'; render();
+    });
+}
+
+function tvHostSync() {
+    if (!isTvHost) return;
+    applyViewerMsg(viewerSnapshot());
+}
+function hostSyncSelf(msg) {
+    if (isTvHost) { tvHostSync(); return; }
+    if (isHost && msg) applyMsg(msg);
+}
+
+// ═══════════════════════════════════════════
+// HOST GAME FLOW
+// ═══════════════════════════════════════════
+function clearHostTimers() { clearTimeout(_turnTimer); clearTimeout(_discussTimer); clearTimeout(_guessTimer); }
+
+function hostStartGame() {
+    if (connectedPlayers().length < MIN_PLAYERS) { uiErr = 'Need at least ' + MIN_PLAYERS + ' players.'; if (ui === 'lobby_h') render(); return; }
+    H.round = 0; H.usedCats = [];
+    H.players.forEach(p => { p.score = 0; p.escapes = 0; p.dog = 0; p.lastDelta = 0; });
+    startRound();
+}
+
+function startRound() {
+    clearHostTimers();
+    H.round += 1;
+    H.players.forEach(p => { p.lastDelta = 0; });
+    if (H.usedCats.length >= CATEGORIES.length) H.usedCats = [];
+    const avail = CATEGORIES.map((_, i) => i).filter(i => !H.usedCats.includes(i));
+    const ci = avail[Math.floor(Math.random() * avail.length)];
+    H.usedCats.push(ci);
+    H.category = CATEGORIES[ci];
+    H.secretIdx = Math.floor(Math.random() * 16);
+    // pick the sheep — avoid the same sheep twice running when possible
+    const pool = H.players.filter(p => H.players.length < 2 || p.id !== H._lastSheep);
+    H.sheepId = (pool.length ? pool : H.players)[Math.floor(Math.random() * (pool.length ? pool.length : H.players.length))].id;
+    H._lastSheep = H.sheepId;
+    H.turnOrder = shuffle(H.players.map(p => p.id));
+    H.turnIdx = 0;
+    H.clues = []; H.votes = {};
+    H.phase = 'deal';
+    dealBroadcast();
+}
+
+// global so tests can rig category/secret/sheep then re-broadcast
+function dealBroadcast() {
+    H.phase = 'deal';
+    broadcastPlayers(p => dealMsgFor(p));
+    broadcastViewers(viewerSnapshot());
+    hostSyncSelf(isTvHost ? null : dealMsgFor(H.players.find(p => p.id === myId)));
+}
+
+function startClues() {
+    if (H.phase !== 'deal') return;
+    H.phase = 'clues';
+    H.clues = []; H.turnIdx = 0;
+    cluesBroadcast();
+}
+
+// global so tests can rig H.turnOrder then re-broadcast
+function cluesBroadcast() {
+    clearTimeout(_turnTimer);
+    // skip disconnected players automatically
+    while (H.turnIdx < H.turnOrder.length) {
+        const pid = H.turnOrder[H.turnIdx];
+        const connected = pid === myId ? (isHost && !isTvHost) : !!guestConns[pid];
+        if (connected) break;
+        const p = H.players.find(q => q.id === pid);
+        if (p) H.clues.push({ id: p.id, name: p.name, avatar: p.avatar, word: '…' });
+        H.turnIdx++;
+    }
+    if (H.turnIdx >= H.turnOrder.length) { startDiscuss(); return; }
+    broadcastPlayers(p => cluesMsgFor(p));
+    broadcastViewers(viewerSnapshot());
+    hostSyncSelf(isTvHost ? null : cluesMsgFor(H.players.find(p => p.id === myId)));
+    _turnTimer = setTimeout(() => {
+        const p = H.players.find(q => q.id === H.turnOrder[H.turnIdx]);
+        if (p) hostClue(p, '…', null, true);
+    }, H.settings.clueSecs * 1000 + 600);
+}
+
+// returns a rejection reason or null on success
+function hostClue(player, raw, conn, force) {
+    if (H.phase !== 'clues' || !player || H.turnOrder[H.turnIdx] !== player.id) return 'Not your turn';
+    let word = String(raw || '').trim();
+    let reason = null;
+    if (!force) {
+        if (!word) reason = 'Type a clue first';
+        else if (/\s/.test(word)) reason = 'One word only!';
+        else if (word.length > 20) reason = 'Bit long for one word…';
+        else if (H.category.words.some(w => w.toLowerCase() === word.toLowerCase())) reason = "You can't use a word from the board!";
+        else if (H.clues.some(c => c.word.toLowerCase() === word.toLowerCase())) reason = 'Someone already said that!';
+    }
+    if (reason) {
+        if (conn) send(conn, { type: 'clue_reject', reason });
+        return reason;
+    }
+    H.clues.push({ id: player.id, name: player.name, avatar: player.avatar, word: force ? '…' : word });
+    H.turnIdx++;
+    if (H.turnIdx >= H.turnOrder.length) startDiscuss();
+    else cluesBroadcast();
+    return null;
+}
+
+function startDiscuss() {
+    clearHostTimers();
+    H.phase = 'discuss';
+    broadcastPlayers(discussMsg());
+    broadcastViewers(viewerSnapshot());
+    hostSyncSelf(isTvHost ? null : discussMsg());
+    _discussTimer = setTimeout(startVote, H.settings.discussSecs * 1000 + 600);
+}
+
+function startVote() {
+    if (H.phase !== 'discuss') return;
+    clearHostTimers();
+    H.phase = 'vote';
+    H.votes = {};
+    broadcastPlayers(p => voteMsgFor(p));
+    broadcastViewers(viewerSnapshot());
+    hostSyncSelf(isTvHost ? null : voteMsgFor(H.players.find(p => p.id === myId)));
+}
+
+function hostVote(player, targetName) {
+    if (H.phase !== 'vote' || H.votes[player.id]) return;
+    const target = H.players.find(p => p.name === targetName);
+    if (!target || target.id === player.id) return;
+    H.votes[player.id] = targetName;
+    broadcastPlayers(p => voteMsgFor(p));
+    broadcastViewers(viewerSnapshot());
+    hostSyncSelf(isTvHost ? null : voteMsgFor(H.players.find(p => p.id === myId)));
+    maybeTally();
+}
+
+function maybeTally() {
+    if (H.phase !== 'vote') return;
+    const active = connectedPlayers();
+    if (active.length && active.every(p => H.votes[p.id])) setTimeout(tally, 700);
+}
+
+function tally() {
+    if (H.phase !== 'vote') return;
+    const sheep = H.players.find(p => p.id === H.sheepId);
+    const counts = {};
+    Object.values(H.votes).forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+    // sheepdog counter: every correct finger pointed
+    H.players.forEach(p => { if (H.votes[p.id] === sheep.name) p.dog++; });
+    const max = Math.max(0, ...Object.values(counts));
+    const tops = Object.keys(counts).filter(n => counts[n] === max);
+    const caught = tops.length === 1 && tops[0] === sheep.name;
+    if (caught) {
+        H.phase = 'guess';
+        broadcastPlayers(p => guessMsgFor(p));
+        broadcastViewers(viewerSnapshot());
+        hostSyncSelf(isTvHost ? null : guessMsgFor(H.players.find(p => p.id === myId)));
+        _guessTimer = setTimeout(() => hostGuess(sheep, -1), 45_000);
+    } else {
+        sheep.score += 150; sheep.escapes++; sheep.lastDelta = 150;
+        finishReveal(false, tops.length > 1 ? 'tie' : 'escaped', null);
+    }
+}
+
+function hostGuess(player, idx) {
+    if (H.phase !== 'guess' || !player || player.id !== H.sheepId) return;
+    clearTimeout(_guessTimer);
+    const sheep = H.players.find(p => p.id === H.sheepId);
+    const correct = idx === H.secretIdx;
+    if (correct) { sheep.score += 100; sheep.lastDelta = 100; }
+    else H.players.forEach(p => { if (p.id !== H.sheepId) { p.score += 100; p.lastDelta = 100; } });
+    finishReveal(true, correct ? 'guessed' : 'busted', idx);
+}
+
+function finishReveal(caught, outcome, guessIdx) {
+    const sheep = H.players.find(p => p.id === H.sheepId);
+    H.lastReveal = {
+        num: H.round, total: H.settings.rounds,
+        theme: H.category.theme, words: H.category.words, secretIdx: H.secretIdx,
+        sheep: { name: sheep.name, avatar: sheep.avatar },
+        caught, outcome, guessIdx,
+        votes: H.players.filter(p => H.votes[p.id]).map(p => ({ name: p.name, avatar: p.avatar, target: H.votes[p.id] })),
+        counts: Object.values(H.votes).reduce((m, t) => { m[t] = (m[t] || 0) + 1; return m; }, {}),
+        isLast: H.round >= H.settings.rounds,
+    };
+    H.phase = 'reveal';
+    broadcastPlayers(revealMsg());
+    broadcastViewers(viewerSnapshot());
+    hostSyncSelf(isTvHost ? null : revealMsg());
+}
+
+function nextRound() {
+    if (H.round >= H.settings.rounds) {
+        H.phase = 'podium';
+        broadcastPlayers(podiumMsg());
+        broadcastViewers(viewerSnapshot());
+        hostSyncSelf(isTvHost ? null : podiumMsg());
+    } else startRound();
+}
+
+function hostNewGame() {
+    clearHostTimers();
+    H.phase = 'lobby';
+    H.round = 0; H.category = null; H.clues = []; H.votes = {}; H.lastReveal = null; H.usedCats = [];
+    H.players.forEach(p => { p.score = 0; p.escapes = 0; p.dog = 0; p.lastDelta = 0; });
+    H.players = H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+    broadcastLobby();
+    if (isHost && !isTvHost) { ui = 'lobby_h'; render(); }
+}
+
+function hostSet(patch) {
+    Object.assign(H.settings, patch);
+    broadcastLobby();
+    if (ui === 'lobby_h') render();
+}
+
+// ═══════════════════════════════════════════
+// CLIENT (phone) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+function stopClientTimers() { clearInterval(_clientTick); _clientTick = null; }
+
+function startCountdown(seconds, barId, numId, big) {
+    stopClientTimers();
+    qTotal = seconds * 1000;
+    qEndsAt = Date.now() + qTotal;
+    _clientTick = setInterval(() => {
+        const left = Math.max(0, qEndsAt - Date.now());
+        const bar = $id(barId), num = numId && $id(numId);
+        if (bar) bar.style.width = (left / qTotal * 100) + '%';
+        if (num) num.textContent = Math.ceil(left / 1000);
+        if (left <= 0) stopClientTimers();
+    }, 200);
+}
+
+function applyMsg(msg) {
+    switch (msg.type) {
+        case 'lobby':
+            D = msg; stopClientTimers();
+            ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g';
+            render();
+            break;
+        case 'deal':
+            D = msg; stopClientTimers();
+            fClue = ''; clueErr = '';
+            ui = 'deal'; render(); sDeal();
+            break;
+        case 'clues': {
+            const wasMyTurn = D && D.type === 'clues' && D.myTurn;
+            const fresh = ui !== 'clues' || msg.myTurn !== wasMyTurn;
+            D = msg;
+            ui = 'clues';
+            if (fresh) {
+                clueErr = ''; if (msg.myTurn) fClue = '';
+                render();
+                startCountdown(msg.seconds, 'clue-timebar', null);
+                if (msg.myTurn) { try { navigator.vibrate && navigator.vibrate(60); } catch (e) {} }
+            } else {
+                const wall = $id('clue-wall');
+                if (wall) wall.innerHTML = clueWallHTML(msg.clues);
+                const tb = $id('turn-banner');
+                if (tb) tb.innerHTML = turnBannerHTML(msg);
+                startCountdown(msg.seconds, 'clue-timebar', null);
+            }
+            sClue();
+            break;
+        }
+        case 'clue_reject':
+            clueErr = msg.reason;
+            { const e = $id('clue-err'); if (e) { e.textContent = clueErr; e.style.display = 'block'; } }
+            break;
+        case 'discuss':
+            D = msg; ui = 'discuss'; render();
+            startCountdown(msg.seconds, 'disc-timebar', 'disc-num');
+            break;
+        case 'vote_state': {
+            const fresh = ui !== 'vote';
+            D = msg; ui = 'vote';
+            if (fresh) { stopClientTimers(); render(); sVote(); }
+            else {
+                const zone = $id('vote-zone');
+                if (zone) zone.innerHTML = voteButtonsHTML(msg);
+                const vc = $id('vote-count');
+                if (vc) vc.textContent = `${msg.votedCount} of ${msg.playerCount} voted`;
+            }
+            break;
+        }
+        case 'guess_state':
+            D = msg; stopClientTimers(); ui = 'guess'; render();
+            if (msg.amSheep) { try { navigator.vibrate && navigator.vibrate([80, 40, 80]); } catch (e) {} }
+            break;
+        case 'reveal': {
+            D = msg; stopClientTimers(); ui = 'reveal'; render();
+            const meDelta = (msg.standings.find(p => p.name === myName) || {}).delta || 0;
+            if (meDelta > 0) { startConfetti(2200); sEscape(); } else sCaught();
+            break;
+        }
+        case 'podium':
+            D = msg; stopClientTimers(); ui = 'podium'; render();
+            sWin(); startConfetti(3600);
+            break;
+    }
+}
+
+// ── phone actions ──
+function sendClue() {
+    const word = fClue.trim();
+    if (!word) { clueErr = 'Type a clue first'; const e = $id('clue-err'); if (e) { e.textContent = clueErr; e.style.display = 'block'; } return; }
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        const reason = hostClue(me, word, null);
+        if (reason) { clueErr = reason; const e = $id('clue-err'); if (e) { e.textContent = reason; e.style.display = 'block'; } }
+    } else send(hostConn, { type: 'clue', word });
+}
+function sendVote(name) {
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        hostVote(me, name);
+    } else send(hostConn, { type: 'vote', target: name });
+}
+function sendGuess(idx) {
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        hostGuess(me, idx);
+    } else send(hostConn, { type: 'guess', idx });
+}
+
+// ═══════════════════════════════════════════
+// VIEWER (TV) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+function stopViewerTimers() { clearInterval(_vTick); _vTick = null; }
+function startViewerCountdown(seconds, barId, numId) {
+    stopViewerTimers();
+    const total = seconds * 1000, ends = Date.now() + total;
+    _vTick = setInterval(() => {
+        const left = Math.max(0, ends - Date.now());
+        const bar = $id(barId), num = numId && $id(numId);
+        if (bar) bar.style.width = (left / total * 100) + '%';
+        if (num) num.textContent = Math.ceil(left / 1000);
+        if (left <= 0) stopViewerTimers();
+    }, 200);
+}
+
+function applyViewerMsg(msg) {
+    document.body.classList.add('viewer-mode');
+    ui = 'viewer';
+    const prev = vD;
+    vD = msg;
+    switch (msg.type) {
+        case 'viewer_lobby': stopViewerTimers(); render(); break;
+        case 'viewer_deal': stopViewerTimers(); render(); sDeal(); break;
+        case 'viewer_clues': {
+            const fresh = !prev || prev.type !== 'viewer_clues';
+            if (fresh) render();
+            else {
+                const wall = $id('v-wall');
+                if (wall) wall.innerHTML = railRowsHTML(msg.players, 'clue');
+                const tn = $id('v-turn');
+                if (tn) tn.textContent = msg.turn ? `${msg.turn.avatar} ${msg.turn.name} is thinking of a clue…` : '';
+            }
+            startViewerCountdown(msg.seconds, 'v-timebar', null);
+            sClue();
+            break;
+        }
+        case 'viewer_discuss': render(); startViewerCountdown(msg.seconds, 'v-timebar', 'v-num'); break;
+        case 'viewer_vote': {
+            const fresh = !prev || prev.type !== 'viewer_vote';
+            if (fresh) { stopViewerTimers(); render(); sVote(); }
+            else {
+                const wall = $id('v-wall');
+                if (wall) wall.innerHTML = railRowsHTML(msg.players, 'voted');
+                const vc = $id('v-votecount');
+                if (vc) vc.textContent = `${msg.votedCount} of ${msg.playerCount} voted`;
+            }
+            break;
+        }
+        case 'viewer_guess': stopViewerTimers(); render(); sCaught(); break;
+        case 'viewer_reveal':
+            stopViewerTimers(); render();
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                document.querySelectorAll('.tally-bar').forEach(b => { b.style.width = b.dataset.w + '%'; });
+            }));
+            if (msg.caught && msg.outcome === 'busted') sCaught();
+            else if (msg.outcome === 'guessed') sEscape();
+            else { sEscape(); }
+            break;
+        case 'viewer_podium': stopViewerTimers(); render(); sWin(); startConfetti(5200); break;
+    }
+}
+
+// ═══════════════════════════════════════════
+// RENDER — shared bits
+// ═══════════════════════════════════════════
+function hdrHTML(sub) {
+    return `<h1 class="logo">🐑 The Odd Sheep</h1><div class="sub">${esc(sub || 'everyone knows the word · one of you is faking')}</div>`;
+}
+function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+function isCaptain() { return !!(D && D.tvHost && D.captain && D.captain === myName); }
+function canDrive() { return (isHost && !isTvHost) || isCaptain(); }
+
+function avatarPickerHTML() {
+    return `<div class="fg"><label>Pick your animal</label><div class="avrow">${
+        AVATARS.map(a => `<div class="av${fAvatar === a ? ' sel' : ''}" onclick="fAvatar='${a}';localStorage.setItem('sheep-avatar','${a}');render()">${a}</div>`).join('')
+    }</div></div>`;
+}
+
+function settingsSegsHTML(settings, expr) {
+    const seg = (opts, curV, key) => `<div class="seg-row">${opts.map(o =>
+        `<button class="btn btn-sm ${curV === o.v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{${key}:${o.j}}`)}">${o.l}</button>`).join('')}</div>`;
+    return `
+        <div class="fg"><label>Rounds</label>${seg([3, 5, 7].map(v => ({ v, j: v, l: v })), settings.rounds, 'rounds')}</div>
+        <div class="fg"><label>Clue time (each)</label>${seg([30, 45].map(v => ({ v, j: v, l: v + 's' })), settings.clueSecs, 'clueSecs')}</div>
+        <div class="fg"><label>Discussion</label>${seg([60, 90].map(v => ({ v, j: v, l: v + 's' })), settings.discussSecs, 'discussSecs')}</div>`;
+}
+
+function wgridHTML(words, secretIdx, pickable) {
+    return `<div class="wgrid">${words.map((w, i) =>
+        `<div class="wcell${i === secretIdx ? ' secret' : ''}${pickable ? ' pick' : ''}"${pickable ? ` onclick="sendGuess(${i})"` : ''}>${esc(w)}</div>`).join('')}</div>`;
+}
+
+function clueWallHTML(clues) {
+    if (!clues.length) return `<div style="color:var(--ink-soft);font-weight:700;font-size:.85rem">Clues appear here as they land…</div>`;
+    return clues.map(c => `
+        <div class="clue-row">
+            <div class="pav">${esc(c.avatar)}</div>
+            <div>${esc(c.name)}</div>
+            <div class="cw">${esc(c.word)}</div>
+        </div>`).join('');
+}
+
+function turnBannerHTML(msg) {
+    if (msg.myTurn) return `🫵 Your turn — one word!`;
+    return msg.turn ? `${esc(msg.turn.avatar)} ${esc(msg.turn.name)} is thinking of a clue…` : '';
+}
+
+function roleReminderHTML(msg) {
+    return msg.amSheep
+        ? `<div class="card role-card sheepy" style="padding:14px"><div class="rt" style="font-size:1.05rem">🐑 You're the Odd Sheep — blend in!</div></div>`
+        : `<div class="card" style="padding:12px;text-align:center;font-weight:900">The word is <span style="color:#14803c">${esc(msg.words[msg.mySecret])}</span> 🤫</div>`;
+}
+
+function standingsHTML(st) {
+    const medals = ['🥇', '🥈', '🥉'];
+    return `<div class="card standings"><div class="slbl">Scores</div>${
+        st.map((p, i) => `
+        <div class="player-row">
+            <span style="width:22px;text-align:center">${medals[i] || (i + 1)}</span>
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:#b0357a">(you)</span>' : ''}</div>
+            <div class="sc">${p.score}${p.delta ? `<span class="delta">+${p.delta}</span>` : ''}</div>
+        </div>`).join('')
+    }</div>`;
+}
+
+function railRowsHTML(players, mode) {
+    return (players || []).map(p => `
+        <div class="rail-row${mode === 'voted' && p.voted ? ' locked' : ''}${p.turn ? ' turn' : ''}">
+            <span class="rav">${esc(p.avatar)}</span>
+            <span class="rname">${esc(p.name)}</span>
+            ${mode === 'clue' ? (p.clue ? `<span class="rclue">${esc(p.clue)}</span>` : `<span style="color:var(--muted);font-size:1.5vmin">…</span>`) : ''}
+            ${mode === 'score' ? `<span class="rsc">${p.score}</span>${p.delta ? `<span style="color:var(--grass);font-size:1.6vmin;font-weight:900">+${p.delta}</span>` : ''}` : ''}
+        </div>`).join('');
+}
+
+// ═══════════════════════════════════════════
+// RENDER — phone screens
+// ═══════════════════════════════════════════
+function render() {
+    const app = $id('app');
+    if (isTvHost || isViewer) ui = 'viewer';
+    let html = '';
+    switch (ui) {
+        case 'home':       html = renderHome(); break;
+        case 'creating':   html = renderSpinner('Gathering the flock…'); break;
+        case 'connecting': html = renderSpinner('Joining the flock…'); break;
+        case 'lobby_h':    html = renderLobbyH(); break;
+        case 'lobby_g':    html = renderLobbyG(); break;
+        case 'deal':       html = renderDeal(); break;
+        case 'clues':      html = renderClues(); break;
+        case 'discuss':    html = renderDiscuss(); break;
+        case 'vote':       html = renderVote(); break;
+        case 'guess':      html = renderGuess(); break;
+        case 'reveal':     html = renderReveal(); break;
+        case 'podium':     html = renderPodium(); break;
+        case 'viewer':     html = renderViewer(); break;
+        default:           html = renderHome();
+    }
+    app.innerHTML = html;
+    if (ui === 'clues' && D && D.myTurn) { const inp = $id('clue-input'); if (inp) inp.focus(); }
+}
+
+function renderSpinner(msg) {
+    return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`;
+}
+
+function renderHome() {
+    const fromQR = !!fCode;
+    const youCard = `
+    <div class="card">
+        <div class="slbl">Who are you?</div>
+        <div class="fg">
+            <label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
+                ${fromQR ? 'autofocus' : ''} oninput="fName=this.value">
+        </div>
+        ${avatarPickerHTML()}
+    </div>`;
+    const joinCard = `
+    <div class="card${fromQR ? ' highlight' : ''}">
+        <div class="slbl">Join a Flock</div>
+        <div class="fg">
+            <label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fCode)}"
+                oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
+        </div>
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">
+            📱 Join with your phone
+        </button>
+    </div>`;
+    const hostCard = `
+    <div class="card">
+        <div class="slbl">Start a Game</div>
+        <button class="btn btn-p btn-full"
+            onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
+            🐑 Host on this phone
+        </button>
+        <div style="font-size:.68rem;color:var(--ink-soft);text-align:center;margin-top:8px">
+            3–12 players (best with 4+) — put a TV up with the room code
+        </div>
+    </div>`;
+    const tvCard = `
+    <div class="card dark">
+        <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-p btn-full" onclick="hostOnTV()">📺 Create the game on this screen</button>
+        <div style="font-size:.68rem;color:var(--muted);text-align:center;margin:6px 0 10px">
+            Shows a big QR code — the first phone to join becomes 👑 Captain
+        </div>
+        <hr>
+        <div class="fg">
+            <label>…or show an existing game</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')joinAsViewer(fVCode)">
+        </div>
+        <button class="btn btn-g btn-full"
+            onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code.';render()}">
+            📺 Open TV screen
+        </button>
+    </div>`;
+    return `
+    ${hdrHTML('3–12 players · clue · discuss · vote')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+}
+
+function renderLobbyH() {
+    const pList = H.players.map((p, i) =>
+        `<div class="player-row">
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1">${esc(p.name)}${i === 0 ? ' <span style="color:var(--ink-soft)">(you — host)</span>' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    return `
+    ${hdrHTML('Host Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card highlight">
+        <div class="slbl">Scan to join — or share the code</div>
+        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        <div class="room-code">${esc(roomCode)}</div>
+        <div class="share-row">
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.share&&navigator.share({title:'Join The Odd Sheep',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
+        </div>
+        <div style="font-size:.68rem;color:var(--ink-soft);text-align:center">Open the TV screen on a big display with code <b>${esc(roomCode)}</b></div>
+    </div>
+    <div class="card">
+        <div class="slbl">Flock (${H.players.length}/${MAX_PLAYERS}) — need ${MIN_PLAYERS}+</div>
+        ${pList}
+    </div>
+    <div class="card">
+        <div class="slbl">Settings</div>
+        ${settingsSegsHTML(H.settings, patch => `hostSet(${patch})`)}
+    </div>
+    <button class="btn btn-grass btn-full" style="font-size:1.08rem;padding:16px" onclick="hostStartGame()">🐑 Start the game</button>`;
+}
+
+function renderLobbyG() {
+    const cap = isCaptain();
+    const pList = (D.players || []).map(p =>
+        `<div class="player-row">
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--ink-soft)">(you)</span>' : ''}${D.tvHost && p.name === D.captain ? ' 👑' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    const s = D.settings || {};
+    return `
+    ${hdrHTML(cap ? '👑 You are the Captain' : 'Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card">
+        <div class="slbl">Room ${esc(D.roomCode || '')} — Flock (${(D.players || []).length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    ${cap ? `
+    <div class="card highlight">
+        <div class="slbl">👑 Captain's Settings</div>
+        ${settingsSegsHTML(s, patch => `guestCtl('set',${patch})`)}
+    </div>
+    <button class="btn btn-grass btn-full" style="font-size:1.08rem;padding:16px" onclick="guestCtl('start')">🐑 Start the game</button>`
+    : `
+    <div class="card dark">
+        <div class="slbl">Settings</div>
+        <div style="font-weight:800;font-size:.85rem;line-height:1.9">${s.rounds} rounds · ${s.clueSecs}s clues · ${s.discussSecs}s discussion</div>
+        <div style="color:var(--muted);font-size:.75rem;font-weight:700;margin-top:8px">
+            Waiting for ${D.tvHost ? `👑 ${esc(D.captain || 'the captain')}` : 'the host'} to start…
+        </div>
+    </div>`}`;
+}
+
+function renderDeal() {
+    const role = D.amSheep
+        ? `<div class="card role-card sheepy">
+            <div class="big">🐑</div>
+            <div class="rt">YOU are the Odd Sheep!</div>
+            <div class="rs">You DON'T know the word. Bluff a clue and blend in…</div>
+        </div>`
+        : `<div class="card role-card">
+            <div class="big">🤫</div>
+            <div class="rt">The secret word is</div>
+            <div class="rw">${esc(D.words[D.mySecret])}</div>
+            <div class="rs">Your clue must prove you know it — without giving it away to the sheep!</div>
+        </div>`;
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-grass btn-full" onclick="guestCtl('clues')">🗣️ Everyone ready — start the clues</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.75rem;font-weight:800">${D.tvHost ? `👑 ${esc(D.captain || '')} starts the clues` : 'The host starts the clues'}…</div>`;
+    return `
+    ${hdrHTML(`Round ${D.num} of ${D.total} — “${esc(D.theme)}”`)}
+    ${role}
+    <div class="card">
+        <div class="slbl">The board (also on the TV)</div>
+        ${wgridHTML(D.words, D.amSheep ? -1 : D.mySecret, false)}
+    </div>
+    ${driveBtn}`;
+}
+
+function renderClues() {
+    const myTurnBlock = D.myTurn ? `
+    <div class="card highlight">
+        <div class="slbl">Your clue — one word</div>
+        <input type="text" id="clue-input" maxlength="20" placeholder="one word…" value="${esc(fClue)}"
+            oninput="fClue=this.value" onkeydown="if(event.key==='Enter')sendClue()">
+        <div id="clue-err" class="err" style="margin-top:8px;${clueErr ? '' : 'display:none'}">${esc(clueErr)}</div>
+        <button class="btn btn-p btn-full" style="margin-top:10px" onclick="sendClue()">🗣️ Say it</button>
+    </div>` : '';
+    return `
+    <div class="q-meta" style="display:flex;justify-content:space-between;font-size:.72rem;font-weight:800;color:var(--muted);letter-spacing:1px;text-transform:uppercase">
+        <span>Round ${D.num}/${D.total} — clues</span><span>“${esc(D.theme)}”</span>
+    </div>
+    <div class="timebar-wrap"><div class="timebar" id="clue-timebar" style="width:100%"></div></div>
+    <div class="turn-banner" id="turn-banner">${turnBannerHTML(D)}</div>
+    ${myTurnBlock}
+    ${roleReminderHTML(D)}
+    <div class="card">
+        <div class="slbl">Clue wall</div>
+        <div id="clue-wall">${clueWallHTML(D.clues)}</div>
+    </div>`;
+}
+
+function renderDiscuss() {
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" onclick="guestCtl('vote_now')">🗳️ Enough talk — vote!</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.75rem;font-weight:800">${D.tvHost ? `👑 ${esc(D.captain || '')} can jump to the vote` : 'The host can jump to the vote'}…</div>`;
+    return `
+    ${hdrHTML(`Round ${D.num} of ${D.total} — discuss!`)}
+    <div class="card dark" style="text-align:center">
+        <div style="font-size:2.4rem;font-weight:900" id="disc-num">${D.seconds}</div>
+        <div class="timebar-wrap" style="margin-top:8px"><div class="timebar" id="disc-timebar" style="width:100%"></div></div>
+        <div style="color:var(--muted);font-weight:800;font-size:.78rem;margin-top:8px">Argue out loud — who sounded woolly? 🐑</div>
+    </div>
+    ${roleReminderHTML(D)}
+    <div class="card">
+        <div class="slbl">The clues</div>
+        ${clueWallHTML(D.clues)}
+    </div>
+    ${driveBtn}`;
+}
+
+function voteButtonsHTML(msg) {
+    return msg.players.map(p => {
+        if (p.name === myName) return '';
+        const picked = msg.myVote === p.name;
+        return `<button class="vote-btn${picked ? ' picked' : ''}" ${msg.myVote ? 'disabled' : ''} onclick="sendVote('${esc(p.name).replace(/'/g, "\\'")}')">
+            <div class="pav">${esc(p.avatar)}</div><span>${esc(p.name)}</span>${picked ? '<span style="margin-left:auto">🫵</span>' : ''}
+        </button>`;
+    }).join('');
+}
+
+function renderVote() {
+    return `
+    ${hdrHTML(`Round ${D.num} of ${D.total} — the vote`)}
+    <div class="card">
+        <div class="slbl">Who is the Odd Sheep?</div>
+        <div id="vote-zone">${voteButtonsHTML(D)}</div>
+        <div id="vote-count" style="text-align:center;color:var(--ink-soft);font-weight:800;font-size:.78rem">${D.votedCount} of ${D.playerCount} voted</div>
+    </div>
+    ${D.myVote ? `<div class="card dark" style="text-align:center;font-weight:900">🗳️ Vote locked — watch the TV…</div>` : ''}`;
+}
+
+function renderGuess() {
+    if (D.amSheep) return `
+    ${hdrHTML('Caught! One last chance…')}
+    <div class="card role-card sheepy" style="padding:16px">
+        <div class="rt" style="font-size:1.15rem">🐑 They got you! Guess the word to save your points</div>
+    </div>
+    <div class="card">
+        <div class="slbl">Tap the secret word — “${esc(D.theme)}”</div>
+        ${wgridHTML(D.words, -1, true)}
+    </div>`;
+    return `
+    ${hdrHTML('Caught!')}
+    <div class="card verdict">
+        <div class="vico">🫰</div>
+        <div class="vt">${esc(D.sheep?.name || 'The sheep')} was the Odd Sheep!</div>
+        <div style="color:var(--ink-soft);font-weight:800;font-size:.8rem;margin-top:6px">Now they get one guess at the word — hold your breath…</div>
+    </div>`;
+}
+
+function renderReveal() {
+    const meDelta = (D.standings.find(p => p.name === myName) || {}).delta || 0;
+    const amSheep = D.sheep && D.sheep.name === myName;
+    let ico, vt, sub;
+    if (!D.caught) {
+        ico = '🐑💨'; vt = amSheep ? 'You escaped!' : `${D.sheep.name} escaped!`;
+        sub = D.outcome === 'tie' ? 'The vote was tied — the sheep slips away (+150)' : 'The flock pointed the wrong way (+150 to the sheep)';
+    } else if (D.outcome === 'guessed') {
+        ico = '😏'; vt = amSheep ? 'Caught — but you guessed it!' : `${D.sheep.name} guessed the word!`;
+        sub = 'The sheep found the word and keeps +100';
+    } else {
+        ico = '🎉'; vt = amSheep ? 'Busted!' : `${D.sheep.name} was BUSTED!`;
+        sub = 'Wrong guess — everyone else scores +100';
+    }
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-grass btn-full" style="font-size:1.02rem;padding:15px" onclick="guestCtl('next')">${D.isLast ? '🏆 See the podium' : '➡️ Next round'}</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.75rem;font-weight:800">${D.tvHost ? `👑 ${esc(D.captain || '')} taps next` : 'The host taps next'}…</div>`;
+    return `
+    <div class="card verdict">
+        <div class="vico">${ico}</div>
+        <div class="vt">${esc(vt)}</div>
+        ${meDelta ? `<div class="vpts">+${meDelta}</div>` : ''}
+        <div style="color:var(--ink-soft);font-weight:800;font-size:.8rem;margin-top:6px">${esc(sub)}</div>
+        <div style="margin-top:8px"><span class="chip">The word was “${esc(D.words[D.secretIdx])}”</span></div>
+    </div>
+    ${standingsHTML(D.standings)}
+    ${driveBtn}`;
+}
+
+function renderPodium() {
+    const st = D.standings || [];
+    const awards = (D.awards || []).map(a =>
+        `<span class="chip">${a.emoji} ${esc(a.title)}: ${esc(a.name)} (${esc(a.detail)})</span>`).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.02rem;padding:15px" onclick="guestCtl('again')">🔁 Play again</button>` : '';
+    return `
+    ${hdrHTML('Game over!')}
+    <div class="card verdict">
+        <div class="vico">🏆</div>
+        <div class="vt">${esc(st[0]?.name || '')} wins!</div>
+        <div style="margin-top:8px">${awards}</div>
+    </div>
+    ${standingsHTML(st)}
+    ${driveBtn}`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — TV screens
+// ═══════════════════════════════════════════
+function tvShell(inner, meta) {
+    return `<div class="tv">
+        <div class="tv-top">
+            <div class="tv-logo">🐑 The Odd Sheep</div>
+            <div class="tv-meta">${esc(meta || ('Room ' + (vD.roomCode || roomCode || '')))}</div>
+        </div>
+        ${inner}
+    </div>`;
+}
+
+function renderViewer() {
+    if (!vD) return renderSpinner('Waiting for the flock…');
+    switch (vD.type) {
+        case 'viewer_lobby':   return renderViewerLobby();
+        case 'viewer_deal':    return renderViewerDeal();
+        case 'viewer_clues':   return renderViewerClues();
+        case 'viewer_discuss': return renderViewerDiscuss();
+        case 'viewer_vote':    return renderViewerVote();
+        case 'viewer_guess':   return renderViewerGuess();
+        case 'viewer_reveal':  return renderViewerReveal();
+        case 'viewer_podium':  return renderViewerPodium();
+        default:               return renderSpinner('Waiting for the flock…');
+    }
+}
+
+function renderViewerLobby() {
+    const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
+    const players = vD.players || [];
+    const cards = players.map(p =>
+        `<div class="tv-pcard"><div class="pav-big">${esc(p.avatar)}</div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
+    const s = vD.settings || {};
+    return tvShell(`
+    <div class="tv-lobby">
+        <div class="qr-side">
+            <div class="slbl">Scan with your phone to join</div>
+            <div class="qr-wrap">${qrSVG(url)}</div>
+            <div class="room-code">${esc(vD.roomCode || '')}</div>
+            <div class="join-hint">${location.host}${location.pathname}</div>
+        </div>
+        <div class="tv-players">
+            <div class="tv-meta">Flock — ${players.length}/${MAX_PLAYERS}</div>
+            <div class="tv-player-grid">${cards}</div>
+            <div class="tv-waiting">${players.length === 0
+                ? 'Waiting for the first phone… they become 👑 Captain'
+                : (players.length < MIN_PLAYERS ? `Need at least ${MIN_PLAYERS} players…`
+                    : `${vD.tvHost ? `Waiting for 👑 ${esc(vD.captain || '')}` : 'Waiting for the host'} to start · ${s.rounds} rounds`)}</div>
+        </div>
+    </div>`, 'Lobby');
+}
+
+function tvGridHTML(words, secretIdx, guessIdx) {
+    return `<div class="tv-wgrid">${words.map((w, i) =>
+        `<div class="tv-wcell${i === secretIdx ? ' secret' : ''}" ${guessIdx === i && guessIdx !== secretIdx ? 'style="border-color:#ef5350;box-shadow:0 0 18px rgba(239,83,80,.4)"' : ''}>${esc(w)}${i === secretIdx ? ' ✓' : (guessIdx === i && guessIdx !== secretIdx ? ' 🐑' : '')}</div>`).join('')}</div>`;
+}
+
+function renderViewerDeal() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-paper">
+                <div class="tv-kicker">One of these is THE word — one of you is faking</div>
+                <div class="tv-theme">“${esc(vD.theme)}”</div>
+                ${tvGridHTML(vD.words, -1, null)}
+            </div>
+            <div class="tv-hint">📱 Check your phones… ${vD.tvHost ? `👑 ${esc(vD.captain || '')}` : 'the host'} starts the clues</div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">Flock</div>
+            ${railRowsHTML(vD.players, 'score')}
+        </div>
+    </div>`, `Round ${vD.num} of ${vD.total}`);
+}
+
+function renderViewerClues() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-paper">
+                <div class="tv-kicker">“${esc(vD.theme)}” — one word each</div>
+                ${tvGridHTML(vD.words, -1, null)}
+            </div>
+            <div class="tv-hint" id="v-turn">${vD.turn ? `${esc(vD.turn.avatar)} ${esc(vD.turn.name)} is thinking of a clue…` : ''}</div>
+            <div class="tv-timebar-wrap"><div class="tv-timebar" id="v-timebar" style="width:100%"></div></div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">Clue wall</div>
+            <div id="v-wall" style="display:flex;flex-direction:column;gap:1.2vmin">${railRowsHTML(vD.players, 'clue')}</div>
+        </div>
+    </div>`, `Round ${vD.num} of ${vD.total} — clues`);
+}
+
+function renderViewerDiscuss() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-big">
+                <div class="big-ico">🗣️</div>
+                <div class="big-t">Who sounded woolly?</div>
+                <div class="tv-count" id="v-num">${vD.seconds}</div>
+                <div class="tv-timebar-wrap" style="width:60%"><div class="tv-timebar" id="v-timebar" style="width:100%"></div></div>
+                <div class="big-s">Argue it out — the vote is coming</div>
+            </div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">The clues</div>
+            ${railRowsHTML(vD.players, 'clue')}
+        </div>
+    </div>`, `Round ${vD.num} of ${vD.total} — discuss`);
+}
+
+function renderViewerVote() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-big">
+                <div class="big-ico">🗳️</div>
+                <div class="big-t">Point at the sheep!</div>
+                <div class="big-s" id="v-votecount">${vD.votedCount} of ${vD.playerCount} voted</div>
+                <div class="big-s">Votes are secret until everyone's in…</div>
+            </div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">Locked in</div>
+            <div id="v-wall" style="display:flex;flex-direction:column;gap:1.2vmin">${railRowsHTML(vD.players, 'voted')}</div>
+        </div>
+    </div>`, `Round ${vD.num} of ${vD.total} — vote`);
+}
+
+function renderViewerGuess() {
+    return tvShell(`
+    <div class="tv-big">
+        <div class="big-ico">🫰🐑</div>
+        <div class="big-t">${esc(vD.sheep?.name || 'The sheep')} was the Odd Sheep — CAUGHT!</div>
+        <div class="big-s">One guess at the secret word to save the round… hold your breath</div>
+    </div>`, `Round ${vD.num} of ${vD.total}`);
+}
+
+function renderViewerReveal() {
+    const counts = vD.counts || {};
+    const total = Math.max(1, Object.values(counts).reduce((a, b) => a + b, 0));
+    const rows = (vD.players || []).filter(p => counts[p.name]).sort((a, b) => counts[b.name] - counts[a.name]).map(p => `
+        <div class="tally-row">
+            <div class="tally-name">${esc(p.avatar)} ${esc(p.name)}${vD.sheep.name === p.name ? ' 🐑' : ''}</div>
+            <div class="tally-bar-wrap"><div class="tally-bar" data-w="${Math.round(counts[p.name] / total * 100)}"></div></div>
+            <div class="tally-count">${counts[p.name]}</div>
+        </div>`).join('');
+    let banner;
+    if (!vD.caught) banner = `🐑💨 ${esc(vD.sheep.name)} ESCAPED${vD.outcome === 'tie' ? ' — tied vote!' : '!'} +150`;
+    else if (vD.outcome === 'guessed') banner = `😏 Caught… but ${esc(vD.sheep.name)} guessed the word! +100`;
+    else banner = `🎉 ${esc(vD.sheep.name)} was BUSTED — everyone else +100`;
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-paper">
+                <div class="tv-kicker">The word was…</div>
+                <div class="tv-theme">“${esc(vD.theme)}”</div>
+                ${tvGridHTML(vD.words, vD.secretIdx, vD.guessIdx)}
+                <div style="margin-top:1.6vmin">${rows}</div>
+            </div>
+            <div class="tv-hint" style="font-size:2.6vmin;color:var(--lantern);font-weight:900">${banner}</div>
+            <div class="tv-hint">${vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}` : 'Host'}: ${vD.isLast ? '“See the podium”' : '“Next round”'} is on your phone</div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">Scores</div>
+            ${railRowsHTML((vD.standings || []).map(p => ({ ...p })), 'score')}
+        </div>
+    </div>`, `Round ${vD.num} of ${vD.total} — reveal`);
+}
+
+function renderViewerPodium() {
+    const st = vD.standings || [];
+    const podOrder = [st[1], st[0], st[2]].filter(Boolean);
+    const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
+    const medal = { p1: '🥇', p2: '🥈', p3: '🥉' };
+    const pods = podOrder.map((p, i) => `
+        <div class="pod ${cls[i]}" style="animation-delay:${i * 0.18}s">
+            <div class="pav-big">${esc(p.avatar)}</div>
+            <div class="pname">${esc(p.name)}</div>
+            <div class="pscore">${p.score} pts</div>
+            <div class="block">${medal[cls[i]]}</div>
+        </div>`).join('');
+    const rest = st.slice(3).map((p, i) =>
+        `<div class="rail-row"><span>${i + 4}.</span><span class="rav">${esc(p.avatar)}</span><span class="rname">${esc(p.name)}</span><span class="rsc">${p.score}</span></div>`).join('');
+    const awards = (vD.awards || []).map(a =>
+        `<div class="award">${a.emoji} <span class="aw-t">${esc(a.title)}</span><br>${esc(a.name)} — ${esc(a.detail)}</div>`).join('');
+    const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: “Play again” is on your phone` : 'Host: “Play again” is on your phone';
+    return tvShell(`
+    <div class="tv-main" style="flex-direction:column">
+        <div class="podium-wrap">${pods}</div>
+        <div class="awards-row">${awards}</div>
+        ${rest ? `<div style="display:flex;gap:1.4vmin;justify-content:center;flex-wrap:wrap;margin-top:1.4vmin">${rest}</div>` : ''}
+        <div class="tv-waiting" style="text-align:center;margin-top:1.6vmin">${hint}</div>
+    </div>`, '🏆 Final scores');
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+window.addEventListener('resize', () => {
+    const cv = $id('confetti-cv');
+    if (cv && _cf.running) { cv.width = innerWidth; cv.height = innerHeight; }
+});
+
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
+    if (!fAvatar) fAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    render();
+})();
+</script>
+</body>
+</html>

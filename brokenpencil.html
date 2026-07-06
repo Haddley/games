@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Broken Pencil</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23141920' width='100' height='100' rx='20'/><text x='50' y='68' font-size='52' text-anchor='middle'>✏️</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #141920; --panel: rgba(30,38,50,0.85);
+            --border: rgba(148,163,184,0.25); --border-hot: rgba(244,114,182,0.5);
+            --text: #eef2f8; --muted: #8fa0b5;
+            --paper: #fffdf5; --paper2: #f4efdf; --ink: #2b3442; --ink-soft: #6b7686;
+            --pink: #f472b6; --blue: #38bdf8; --green: #4ade80; --gold: #fbbf24;
+        }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 26px 16px 48px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 65% 45% at 50% -5%, rgba(244,114,182,0.10) 0%, transparent 60%),
+                radial-gradient(ellipse 55% 45% at 10% 100%, rgba(56,189,248,0.08) 0%, transparent 60%),
+                repeating-linear-gradient(0deg, transparent 0 30px, rgba(148,163,184,0.05) 30px 31px),
+                repeating-linear-gradient(90deg, transparent 0 30px, rgba(148,163,184,0.05) 30px 31px);
+        }
+        body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
+
+        h1.logo {
+            font-family: 'Patrick Hand', cursive; font-weight: 400; letter-spacing: 1px;
+            font-size: clamp(1.9rem, 8vw, 2.8rem); text-align: center; color: var(--pink);
+            text-shadow: 0 0 26px rgba(244,114,182,.4);
+        }
+        .sub { color: var(--muted); font-size: .7rem; letter-spacing: 2.5px; text-transform: uppercase; margin: 6px 0 22px; text-align: center; font-weight: 800; }
+
+        #app { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 13px; }
+        body.viewer-mode #app { max-width: none; height: 100dvh; display: block; }
+
+        .card {
+            background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
+            padding: 18px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 12px 34px rgba(0,0,0,.45);
+        }
+        .card.paper { background: var(--paper); color: var(--ink); border: none; box-shadow: 0 14px 40px rgba(0,0,0,.5), inset 0 0 0 1px rgba(107,118,134,.18); }
+        .card.highlight { border: 1px solid var(--border-hot); box-shadow: 0 0 26px rgba(244,114,182,.15), 0 12px 34px rgba(0,0,0,.45); }
+        .slbl { font-size: .64rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 11px; }
+        .card.paper .slbl { color: var(--ink-soft); }
+
+        .fg { margin-bottom: 12px; }
+        .fg label { display: block; font-size: .64rem; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+        .card.paper .fg label { color: var(--ink-soft); }
+        input[type=text] {
+            width: 100%; padding: 12px 14px; font-family: inherit; font-size: 1rem; font-weight: 700;
+            border: 2px solid var(--border); border-radius: 11px; background: rgba(20,25,32,.6); color: var(--text);
+            outline: none;
+        }
+        input[type=text]:focus { border-color: var(--pink); }
+        .card.paper input[type=text] { background: #fff; color: var(--ink); border-color: rgba(107,118,134,.35); }
+        .card.paper input[type=text]:focus { border-color: var(--pink); }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            font-family: inherit; font-weight: 900; font-size: .92rem; letter-spacing: .4px;
+            padding: 13px 18px; border: none; border-radius: 13px; cursor: pointer;
+            transition: filter .12s, opacity .12s; user-select: none; -webkit-user-select: none;
+            color: var(--text);
+        }
+        .btn:active { filter: brightness(1.2); }
+        .btn-p { background: linear-gradient(180deg, #f89bd0, #ec4899); color: #3d0722; box-shadow: 0 5px 0 #9d174d, 0 10px 22px rgba(236,72,153,.3); }
+        .btn-p:active { box-shadow: 0 2px 0 #9d174d; }
+        .btn-b { background: linear-gradient(180deg, #7dd3fc, #0ea5e9); color: #082f49; box-shadow: 0 5px 0 #075985, 0 10px 22px rgba(14,165,233,.3); }
+        .btn-b:active { box-shadow: 0 2px 0 #075985; }
+        .btn-g { background: rgba(148,163,184,.12); box-shadow: inset 0 0 0 2px var(--border); }
+        .card.paper .btn-g { color: var(--ink); }
+        .btn-full { width: 100%; }
+        .btn-sm { padding: 8px 13px; font-size: .74rem; border-radius: 10px; }
+        .btn:disabled { opacity: .4; cursor: default; }
+
+        .err {
+            background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.5); color: #fca5a5;
+            padding: 11px 14px; border-radius: 12px; font-size: .8rem; font-weight: 800; text-align: center;
+        }
+        hr { border: none; border-top: 1px dashed var(--border); margin: 13px 0; }
+
+        .connecting { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 46px 0; color: var(--muted); font-weight: 800; }
+        .spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid rgba(244,114,182,.2); border-top-color: var(--pink); animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .avrow { display: flex; flex-wrap: wrap; gap: 7px; }
+        .av {
+            width: 42px; height: 42px; border-radius: 12px; font-size: 1.35rem; display: flex; align-items: center; justify-content: center;
+            background: rgba(20,25,32,.6); border: 2px solid var(--border); cursor: pointer;
+        }
+        .av.sel { border-color: var(--pink); background: rgba(244,114,182,.15); box-shadow: 0 4px 12px rgba(244,114,182,.3); }
+
+        .player-row { display: flex; align-items: center; gap: 11px; padding: 8px 4px; border-bottom: 1px dashed var(--border); font-weight: 800; font-size: .92rem; }
+        .player-row:last-child { border-bottom: none; }
+        .pav { width: 36px; height: 36px; border-radius: 10px; background: rgba(20,25,32,.6); border: 1px solid var(--border); font-size: 1.2rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); margin-left: auto; }
+        .qr-wrap { width: min(210px, 58vw); margin: 6px auto 10px; border-radius: 13px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.35); }
+        .qr-wrap svg { display: block; width: 100%; height: auto; }
+        .room-code { font-family: 'Patrick Hand', cursive; font-size: 2.6rem; letter-spacing: 12px; text-align: center; color: var(--pink); padding-left: 12px; }
+        .card.paper .room-code { color: #be185d; }
+        .share-row { display: flex; gap: 8px; justify-content: center; margin: 10px 0 6px; }
+        .seg-row { display: flex; flex-wrap: wrap; gap: 7px; }
+
+        /* ── work phase ── */
+        .w-meta { display: flex; justify-content: space-between; align-items: center; font-size: .72rem; font-weight: 900; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+        .timebar-wrap { height: 9px; border-radius: 6px; background: rgba(148,163,184,.15); overflow: hidden; }
+        .timebar { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--blue), var(--pink)); transition: width .2s linear; }
+        .prompt-line { font-family: 'Patrick Hand', cursive; font-size: 1.5rem; line-height: 1.3; }
+        .cv-wrap { position: relative; border-radius: 12px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(107,118,134,.25); background: var(--paper); touch-action: none; }
+        canvas.sketch { display: block; width: 100%; touch-action: none; }
+        .toolbar { display: flex; gap: 7px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+        .pen {
+            width: 36px; height: 36px; border-radius: 50%; border: 3px solid rgba(107,118,134,.25); cursor: pointer; flex-shrink: 0;
+        }
+        .pen.sel { border-color: var(--ink); box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--ink); }
+        .tool { width: 40px; height: 36px; border-radius: 10px; border: none; background: var(--paper2); color: var(--ink); font-size: 1rem; cursor: pointer; font-weight: 900; }
+        .tool.sel { outline: 3px solid var(--ink); }
+        .done-note { text-align: center; font-weight: 900; color: var(--green); padding: 6px 0 0; }
+        .prog-list { display: flex; flex-direction: column; gap: 5px; }
+        .prog-row { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: .85rem; }
+        .prog-row .st { margin-left: auto; }
+
+        /* ── reveal / vote (phone) ── */
+        .eyes { text-align: center; padding: 34px 10px; }
+        .eyes .big { font-size: 3.2rem; animation: bob 2.2s ease-in-out infinite; }
+        @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+        .eyes .t { font-family: 'Patrick Hand', cursive; font-size: 1.6rem; margin-top: 8px; }
+        .eyes .s { color: var(--muted); font-weight: 800; font-size: .82rem; margin-top: 6px; }
+        .lol-btn {
+            width: 100%; font-size: 2.2rem; padding: 16px; border: none; border-radius: 16px; cursor: pointer;
+            background: linear-gradient(180deg, #fde68a, #f59e0b); box-shadow: 0 5px 0 #92600a;
+        }
+        .lol-btn:active { box-shadow: 0 2px 0 #92600a; }
+        .vote-opt {
+            width: 100%; text-align: left; font-family: inherit; font-weight: 800; font-size: .92rem;
+            background: var(--panel); border: 1px solid var(--border); color: var(--text);
+            border-radius: 13px; padding: 14px; cursor: pointer; margin-bottom: 9px;
+        }
+        .vote-opt:disabled { opacity: .4; }
+        .vote-opt.mine { opacity: .4; }
+        .vote-opt .who { color: var(--muted); font-size: .72rem; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 3px; }
+        .chip { display: inline-block; padding: 4px 12px; border-radius: 11px; background: rgba(244,114,182,.12); border: 1px solid var(--border-hot); color: var(--pink); font-weight: 900; font-size: .76rem; margin: 3px; }
+        .standings .sc { margin-left: auto; font-weight: 900; }
+        .standings .delta { color: var(--green); font-size: .74rem; font-weight: 900; margin-left: 7px; }
+
+        /* ═════════ TV ═════════ */
+        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 2.6vmin 3.2vmin; gap: 1.8vmin; }
+        .tv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 2vmin; }
+        .tv-logo { font-family: 'Patrick Hand', cursive; font-size: 3.6vmin; color: var(--pink); text-shadow: 0 0 24px rgba(244,114,182,.4); }
+        .tv-meta { font-size: 1.8vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .tv-main { flex: 1; display: flex; gap: 2.2vmin; min-height: 0; }
+
+        .tv-lobby { flex: 1; display: flex; gap: 4vmin; align-items: center; min-height: 0; }
+        .tv-lobby .qr-side { background: var(--paper); color: var(--ink); border-radius: 2.2vmin; padding: 3.2vmin; text-align: center; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+        .tv-lobby .qr-side .qr-wrap { width: 32vmin; margin: 1.4vmin auto; }
+        .tv-lobby .qr-side .room-code { font-size: 5vmin; letter-spacing: 2vmin; padding-left: 2vmin; }
+        .tv-lobby .join-hint { font-size: 1.7vmin; font-weight: 800; color: var(--ink-soft); }
+        .tv-players { flex: 1; display: flex; flex-direction: column; gap: 1.5vmin; min-width: 0; }
+        .tv-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20vmin, 1fr)); gap: 1.5vmin; }
+        .tv-pcard {
+            background: var(--panel); border: 1px solid var(--border); border-radius: 1.7vmin;
+            padding: 1.7vmin; text-align: center; font-weight: 900; font-size: 2vmin; animation: popIn .35s ease both;
+        }
+        .tv-pcard .big { font-size: 4vmin; }
+        @keyframes popIn { from { opacity: 0; } to { opacity: 1; } }
+        .tv-waiting { color: var(--muted); font-weight: 800; font-size: 1.9vmin; }
+
+        /* TV work wall */
+        .tv-wall { flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(24vmin, 1fr)); gap: 1.8vmin; align-content: center; }
+        .tv-wall .wcard {
+            background: var(--panel); border: 1px solid var(--border); border-radius: 1.8vmin;
+            padding: 2.2vmin; text-align: center; font-weight: 900; font-size: 2.2vmin;
+        }
+        .tv-wall .wcard .big { font-size: 4.6vmin; }
+        .tv-wall .wcard.done { border-color: rgba(74,222,128,.5); box-shadow: 0 0 18px rgba(74,222,128,.12); }
+        .tv-timebar-wrap { height: 1.4vmin; border-radius: .8vmin; background: rgba(148,163,184,.15); overflow: hidden; }
+        .tv-timebar { height: 100%; background: linear-gradient(90deg, var(--blue), var(--pink)); border-radius: .8vmin; transition: width .2s linear; }
+
+        /* TV reveal theatre */
+        .tv-stagewrap { flex: 1; display: flex; gap: 2.2vmin; min-height: 0; }
+        .tv-history { width: 24vmin; display: flex; flex-direction: column; gap: 1.2vmin; overflow: hidden; }
+        .tv-history .hcard { background: var(--panel); border: 1px solid var(--border); border-radius: 1.3vmin; padding: 1vmin 1.3vmin; font-weight: 800; font-size: 1.5vmin; color: var(--muted); }
+        .tv-history .hcard canvas { width: 100%; border-radius: .8vmin; background: var(--paper); display: block; margin-top: .6vmin; }
+        .tv-stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; min-height: 0; }
+        .beat-paper {
+            background: var(--paper); color: var(--ink); border-radius: 2.2vmin; padding: 3vmin 3.6vmin;
+            box-shadow: 0 18px 60px rgba(0,0,0,.55); max-width: 92%; max-height: 100%; overflow: hidden;
+            text-align: center;
+        }
+        .beat-paper .bwho { font-size: 1.7vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 1.2vmin; }
+        .beat-paper .btext { font-family: 'Patrick Hand', cursive; font-size: 4vmin; line-height: 1.3; }
+        .beat-paper canvas { background: var(--paper); border-radius: 1.2vmin; box-shadow: inset 0 0 0 1px rgba(107,118,134,.2); }
+        .lol-layer { position: fixed; inset: 0; pointer-events: none; z-index: 55; overflow: hidden; }
+        .lol-fly { position: absolute; bottom: -6vmin; font-size: 5vmin; animation: lolUp 1.6s ease-out forwards; }
+        @keyframes lolUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-58vmin); opacity: 0; } }
+
+        /* TV vote / podium */
+        .tv-voteopts { display: flex; flex-direction: column; gap: 1.4vmin; max-width: 70%; margin: 0 auto; }
+        .tv-voteopt { background: var(--panel); border: 1px solid var(--border); border-radius: 1.5vmin; padding: 1.6vmin 2vmin; font-weight: 800; font-size: 2.2vmin; display: flex; justify-content: space-between; gap: 2vmin; }
+        .tv-voteopt .votes { color: var(--gold); font-weight: 900; }
+        .podium-wrap { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2.4vmin; padding-bottom: 1vmin; }
+        .pod { text-align: center; font-weight: 900; animation: popIn .5s ease both; }
+        .pod .pname { font-size: 2.4vmin; margin-bottom: .8vmin; }
+        .pod .pscore { font-size: 2vmin; color: var(--gold); margin-bottom: .8vmin; }
+        .pod .block { border-radius: 1.5vmin 1.5vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.3vmin; font-size: 3.2vmin; width: 17vmin; }
+        .pod.p1 .block { height: 21vmin; background: linear-gradient(180deg, #f9a8d4, #be185d); }
+        .pod.p2 .block { height: 14vmin; background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
+        .pod.p3 .block { height: 9.5vmin; background: linear-gradient(180deg, #7dd3fc, #0369a1); }
+        .pod .big { font-size: 4.6vmin; }
+        .awards-row { display: flex; gap: 1.5vmin; justify-content: center; flex-wrap: wrap; padding-bottom: 2vmin; }
+        .award { background: var(--panel); border: 1px solid var(--border-hot); border-radius: 1.5vmin; padding: 1.3vmin 2vmin; font-weight: 800; font-size: 1.8vmin; text-align: center; }
+        .award .aw-t { color: var(--pink); font-weight: 900; }
+
+        #confetti-cv { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <div class="lol-layer" id="lol-layer"></div>
+    <canvas id="confetti-cv"></canvas>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════
+// CONSTANTS & CONTENT
+// ═══════════════════════════════════════════
+const PFX = 'BRKPNCL-';
+const MAX_PLAYERS = 10;
+const MAX_STEPS = 6;
+const CV_W = 1000, CV_H = 750;            // logical canvas space
+const PENS = ['#2b3442', '#e5484d', '#3b82f6', '#22a06b', '#f59e0b', '#8b5cf6'];
+const PEN_W = 9, ERASER_W = 46;
+const AVATARS = ['🦊', '🐼', '🦁', '🐸', '🐙', '🦄', '🐝', '🐶', '🐨', '🐯', '🐢', '🦉'];
+
+const STARTERS = [
+    'a dragon doing the washing up', 'a snail winning a marathon', 'grandma riding a skateboard',
+    'a shark at a birthday party', 'an octopus playing the drums', 'a penguin ordering pizza',
+    'a robot walking a goldfish', 'a cow on a trampoline', 'a wizard stuck in traffic',
+    'a pirate afraid of water', 'a cat teaching maths', 'a banana going to the moon',
+    'a dinosaur at the dentist', 'a ghost doing yoga', 'a unicorn eating spaghetti',
+    'a spider knitting a jumper', 'dad dancing at a wedding', 'a frog winning the lottery',
+    'a llama driving a bus', 'an alien trying on hats', 'a crab playing tennis',
+    'a hedgehog having a bad hair day', 'a T-rex making a sandwich', 'a mermaid at the supermarket',
+    'a dog flying a kite', 'a sloth in a hurry', 'a chicken crossing a motorway',
+    'a snowman on holiday at the beach', 'a bear stuck in a slide', 'a duck reading the news',
+    'a monkey fixing a car', 'a giraffe in a tiny house', 'a goldfish dreaming of the sea',
+    'a knight scared of a mouse', 'a vampire at the dentist', 'a superhero doing laundry',
+    'an elephant on a seesaw', 'a squirrel burying treasure', 'a jellyfish playing football',
+    'a tortoise delivering pizza', 'a flamingo on ice skates', 'a walrus at a tea party',
+    'a caterpillar buying shoes', 'a moose in a photo booth', 'a hamster on a rollercoaster',
+    'a crocodile brushing its teeth', 'an owl who lost its glasses', 'a kangaroo playing hopscotch',
+    'a whale in a paddling pool', 'a fox hosting a cooking show', 'a badger winning a dance-off',
+    'a seagull stealing chips', 'a polar bear ordering ice cream', 'a bee stuck in a lift',
+    'a raccoon opening a restaurant', 'a horse using a laptop', 'a lobster at the hairdresser',
+    'a pig building a rocket', 'a goat mowing the lawn', 'a parrot doing karaoke',
+];
+
+function $id(id) { return document.getElementById(id); }
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ── QR code ──
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+        let rects = '';
+        for (let r = 0; r < n; r++)
+            for (let c = 0; c < n; c++)
+                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+            `<rect width="${size}" height="${size}" fill="#fffdf5"/>` +
+            `<g fill="#1e2632">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+
+// ── Confetti ──
+let _cf = { parts: [], raf: 0, running: false, until: 0 };
+function startConfetti(ms) {
+    if (REDUCED) return;
+    const cv = $id('confetti-cv'), ctx = cv.getContext('2d');
+    cv.width = innerWidth; cv.height = innerHeight;
+    _cf.until = performance.now() + (ms || 2600);
+    const cols = ['#f472b6', '#38bdf8', '#4ade80', '#fbbf24', '#a78bfa', '#eef2f8'];
+    for (let i = 0; i < 130; i++) {
+        _cf.parts.push({
+            x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5,
+            vx: (Math.random() - 0.5) * 2.4, vy: 2 + Math.random() * 3.6,
+            rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.25,
+            w: 6 + Math.random() * 7, h: 4 + Math.random() * 5,
+            col: cols[Math.floor(Math.random() * cols.length)],
+        });
+    }
+    if (_cf.running) return;
+    _cf.running = true;
+    (function frame(t) {
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        _cf.parts = _cf.parts.filter(p => p.y < cv.height + 30);
+        for (const p of _cf.parts) {
+            p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+            ctx.fillStyle = p.col; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            ctx.restore();
+        }
+        if (t < _cf.until || _cf.parts.length) _cf.raf = requestAnimationFrame(frame);
+        else { _cf.running = false; ctx.clearRect(0, 0, cv.width, cv.height); }
+    })(performance.now());
+}
+
+// ── Synth sounds ──
+let _ac = null;
+function ac() { if (!_ac) { try { _ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return _ac; }
+function tone(freq, dur, type, gain, when) {
+    const a = ac(); if (!a) return;
+    try {
+        const t0 = a.currentTime + (when || 0);
+        const o = a.createOscillator(), g = a.createGain();
+        o.type = type || 'triangle'; o.frequency.value = freq;
+        g.gain.setValueAtTime(gain || 0.07, t0);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        o.connect(g); g.connect(a.destination);
+        o.start(t0); o.stop(t0 + dur);
+    } catch (e) {}
+}
+function sSend() { tone(660, 0.1); tone(880, 0.16, 'triangle', 0.06, 0.08); }
+function sStep() { tone(520, 0.12, 'square', 0.05); tone(780, 0.18, 'square', 0.04, 0.1); }
+function sBeat() { tone(740, 0.12); }
+function sLol() { tone(880, 0.08); tone(1100, 0.1, 'triangle', 0.05, 0.06); }
+function sWin() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.3, 'triangle', 0.06, i * 0.13)); }
+
+// ── Stroke rendering (shared phone/TV) ──
+function drawStrokes(cv, strokes, frac) {
+    const ctx = cv.getContext('2d');
+    const sx = cv.width / CV_W, sy = cv.height / CV_H;
+    ctx.fillStyle = '#fffdf5';
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    const total = strokes.reduce((s, st) => s + st.p.length / 2, 0) || 1;
+    let budget = (frac === undefined ? 1 : frac) * total;
+    for (const st of strokes) {
+        const pts = st.p.length / 2;
+        const take = Math.min(pts, Math.max(0, budget));
+        budget -= pts;
+        if (take < 1) break;
+        ctx.strokeStyle = st.c < 0 ? '#fffdf5' : PENS[st.c];
+        ctx.lineWidth = (st.c < 0 ? ERASER_W : PEN_W) * sx;
+        ctx.beginPath();
+        ctx.moveTo(st.p[0] * sx, st.p[1] * sy);
+        if (take === 1) ctx.lineTo(st.p[0] * sx + 0.5, st.p[1] * sy + 0.5);
+        for (let i = 1; i < take; i++) ctx.lineTo(st.p[i * 2] * sx, st.p[i * 2 + 1] * sy);
+        ctx.stroke();
+    }
+}
+function sizeCanvas(cv) {
+    const w = cv.clientWidth || 300;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(w * (CV_H / CV_W) * dpr);
+}
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let peer = null, myId = '', myName = '', myAvatar = '', isHost = false, isTvHost = false, isViewer = false, roomCode = '';
+let hostConn = null, guestConns = {}, viewerConns = {};
+let ui = 'home';   // home|creating|connecting|lobby_h|lobby_g|work|reveal|vote|voted|podium|viewer
+let uiErr = '';
+let fName = localStorage.getItem('bp2-name') || '';
+let fAvatar = localStorage.getItem('bp2-avatar') || '';
+let fCode = '', fVCode = '';
+let D = null, vD = null;
+
+// phone-local work state
+let myStrokes = [], curStroke = null, curPen = 0, isEraser = false;
+let workText = '', submitted = false, wEndsAt = 0;
+let _clientTick = null, _lastLol = 0;
+
+// Host authoritative state
+let H = {
+    phase: 'lobby',              // lobby|work|reveal|vote|voted|podium
+    players: [],                 // [{id,name,avatar,score,lols}] — seat order fixed at game start
+    settings: { pace: 'brisk', shortCircuit: false },
+    step: 0, totalSteps: 0,
+    chains: [],                  // [{owner, beats:[{kind,'text'|'drawing', author, text?, strokes?}]}]
+    pending: {},                 // playerId -> submission for current step
+    revealChain: 0, revealBeat: 0,
+    votes: {}, voteResult: null,
+    lastLolAt: {},               // playerId -> ts (rate limit)
+};
+let _stepTimer = null, _voteTimer = null;
+
+function stepKind(s) { return s === 0 ? 'write' : (s % 2 === 1 ? 'draw' : 'describe'); }
+function stepSecs(s) {
+    const base = stepKind(s) === 'draw' ? 90 : 45;
+    return H.settings.pace === 'relaxed' ? Math.round(base * 1.5) : base;
+}
+
+// ═══════════════════════════════════════════
+// NETWORK (familytrivia/pit pattern)
+// ═══════════════════════════════════════════
+function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('send err', e); } }
+function broadcastViewers(msg) { Object.values(viewerConns).forEach(c => send(c, msg)); }
+function broadcastPlayers(fn) {
+    H.players.forEach(p => {
+        if (p.id === myId) return;
+        const c = guestConns[p.id];
+        if (c) send(c, typeof fn === 'function' ? fn(p) : fn);
+    });
+}
+function connectedPlayers() {
+    return H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+}
+function minPlayers() { return H.settings.shortCircuit ? 2 : 3; }
+
+function hostAddPlayer(id, name, avatar) {
+    if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
+    const taken = new Set(H.players.map(p => p.avatar));
+    const av = avatar && !taken.has(avatar) ? avatar : (AVATARS.find(a => !taken.has(a)) || '🙂');
+    H.players.push({ id, name, avatar: av, score: 0, lols: 0 });
+}
+
+function capName() { return isTvHost ? (H.players[0]?.name || null) : null; }
+function lobbyMsg() {
+    return {
+        type: 'lobby', roomCode,
+        players: H.players.map(p => ({ name: p.name, avatar: p.avatar })),
+        settings: { ...H.settings },
+        tvHost: isTvHost, captain: capName(),
+    };
+}
+function broadcastLobby() {
+    broadcastPlayers(lobbyMsg());
+    broadcastViewers({ ...lobbyMsg(), type: 'viewer_lobby' });
+    hostSyncSelf(lobbyMsg());
+}
+
+function progressList() {
+    return H.players.map(p => ({ name: p.name, avatar: p.avatar, done: !!H.pending[p.id] }));
+}
+function seatOf(id) { return H.players.findIndex(p => p.id === id); }
+function chainForSeat(seat, step) { return (seat + step) % H.players.length; }
+function nameOf(id) { return H.players.find(p => p.id === id)?.name || '?'; }
+
+function workMsgFor(p) {
+    const seat = seatOf(p.id);
+    const chain = H.chains[chainForSeat(seat, H.step)];
+    const kind = stepKind(H.step);
+    const last = chain.beats[chain.beats.length - 1] || null;
+    return {
+        type: 'work', step: H.step, total: H.totalSteps, kind,
+        seconds: stepSecs(H.step),
+        input: kind === 'write' ? null : (kind === 'draw' ? { text: last?.text || '…no words…' } : { strokes: last?.strokes || [] }),
+        done: !!H.pending[p.id],
+        progress: progressList(),
+        roomCode, tvHost: isTvHost, captain: capName(),
+    };
+}
+function viewerWorkMsg() {
+    return {
+        type: 'viewer_work', step: H.step, total: H.totalSteps, kind: stepKind(H.step),
+        seconds: stepSecs(H.step), progress: progressList(),
+        roomCode, tvHost: isTvHost, captain: capName(),
+    };
+}
+
+function revealMsg() {
+    const chain = H.chains[H.revealChain];
+    return {
+        type: 'reveal', chainNum: H.revealChain + 1, totalChains: H.chains.length,
+        beatNum: H.revealBeat + 1, totalBeats: chain.beats.length,
+        owner: nameOf(chain.owner),
+        tvHost: isTvHost, captain: capName(),
+    };
+}
+function viewerRevealMsg() {
+    const chain = H.chains[H.revealChain];
+    return {
+        type: 'viewer_reveal', chainNum: H.revealChain + 1, totalChains: H.chains.length,
+        owner: nameOf(chain.owner),
+        beats: chain.beats.slice(0, H.revealBeat + 1).map(b => ({
+            kind: b.kind, author: nameOf(b.author), text: b.text, strokes: b.strokes,
+        })),
+        tvHost: isTvHost, captain: capName(),
+    };
+}
+
+function voteOptions() {
+    const chain = H.chains[H.revealChain];
+    return chain.beats.map((b, i) => ({
+        beat: i,
+        label: b.kind === 'text' ? `“${(b.text || '').slice(0, 44)}”` : `🖼️ ${nameOf(b.author)}'s drawing`,
+        author: nameOf(b.author), authorId: b.author,
+    }));
+}
+function voteMsgFor(p) {
+    return {
+        type: 'vote', chainNum: H.revealChain + 1, totalChains: H.chains.length,
+        options: voteOptions().map(o => ({ beat: o.beat, label: o.label, author: o.author, mine: o.authorId === p.id })),
+        voted: H.votes[p.id] !== undefined,
+        tvHost: isTvHost, captain: capName(),
+    };
+}
+function viewerVoteMsg() {
+    return {
+        type: 'viewer_vote', chainNum: H.revealChain + 1, totalChains: H.chains.length,
+        options: voteOptions().map(o => ({ beat: o.beat, label: o.label, author: o.author })),
+        votesIn: Object.keys(H.votes).length, playerCount: connectedPlayers().length,
+        tvHost: isTvHost, captain: capName(),
+    };
+}
+function standings() {
+    return H.players.slice().sort((a, b) => b.score - a.score || b.lols - a.lols)
+        .map(p => ({ name: p.name, avatar: p.avatar, score: p.score, lols: p.lols }));
+}
+function votedMsg() {
+    return {
+        type: 'voted', chainNum: H.revealChain + 1, totalChains: H.chains.length,
+        result: H.voteResult, standings: standings(),
+        isLast: H.revealChain >= H.chains.length - 1,
+        tvHost: isTvHost, captain: capName(),
+    };
+}
+function podiumMsg() {
+    const st = standings();
+    const byLols = H.players.slice().sort((a, b) => b.lols - a.lols)[0];
+    const awards = [];
+    if (byLols && byLols.lols > 0) awards.push({ emoji: '😂', title: 'Comedy Gold', name: byLols.name, detail: byLols.lols + ' LOLs' });
+    return { type: 'podium', standings: st, awards, tvHost: isTvHost, captain: capName() };
+}
+
+function phaseSnapshotFor(p) {
+    if (H.phase === 'work') return workMsgFor(p);
+    if (H.phase === 'reveal') return revealMsg();
+    if (H.phase === 'vote') return voteMsgFor(p);
+    if (H.phase === 'voted') return votedMsg();
+    if (H.phase === 'podium') return podiumMsg();
+    return lobbyMsg();
+}
+function viewerSnapshot() {
+    if (H.phase === 'work') return viewerWorkMsg();
+    if (H.phase === 'reveal') return viewerRevealMsg();
+    if (H.phase === 'vote') return viewerVoteMsg();
+    if (H.phase === 'voted') return { ...votedMsg(), type: 'viewer_voted' };
+    if (H.phase === 'podium') return { ...podiumMsg(), type: 'viewer_podium' };
+    return { ...lobbyMsg(), type: 'viewer_lobby' };
+}
+
+// ── Host: incoming connections ──
+function setupGuestConn(conn) {
+    conn.on('open', () => { conn._role = null; });
+
+    conn.on('data', msg => {
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer';
+            viewerConns[conn.peer] = conn;
+            send(conn, viewerSnapshot());
+            return;
+        }
+        if (conn._role === null) {
+            conn._role = 'player';
+            guestConns[conn.peer] = conn;
+        }
+        const player = H.players.find(p => p.id === conn.peer);
+        switch (msg.type) {
+            case 'join': {
+                const name = String(msg.name || 'Player').slice(0, 16);
+                const zombie = H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
+                if (zombie) zombie.id = conn.peer;
+                else if (H.phase === 'lobby') hostAddPlayer(conn.peer, name, msg.avatar);
+                const p2 = H.players.find(p => p.id === conn.peer);
+                if (!p2) { send(conn, lobbyMsg()); break; }
+                if (H.phase === 'lobby') broadcastLobby();
+                else { send(conn, phaseSnapshotFor(p2)); if (isTvHost) tvHostSync(); }
+                break;
+            }
+            case 'submit': if (player) hostSubmit(player, msg); break;
+            case 'lol':    if (player) hostLol(player); break;
+            case 'vote':   if (player) hostVote(player, msg.beat); break;
+            case 'ctl': {
+                if (!isTvHost || !player || player.id !== H.players[0]?.id) break;
+                hostCtl(msg.action, msg);
+                break;
+            }
+        }
+    });
+
+    conn.on('close', () => {
+        delete guestConns[conn.peer];
+        delete viewerConns[conn.peer];
+        if (H.phase === 'lobby') {
+            const pi = H.players.findIndex(p => p.id === conn.peer);
+            if (pi >= 0) { H.players.splice(pi, 1); broadcastLobby(); }
+        } else if (H.phase === 'work') maybeFinishStep();
+        else if (H.phase === 'vote') maybeFinishVote();
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+function hostCtl(action, msg) {
+    if (action === 'start' && H.phase === 'lobby') hostStartGame();
+    else if (action === 'next' && H.phase === 'reveal') hostNextBeat();
+    else if (action === 'next' && H.phase === 'voted') hostNextChain();
+    else if (action === 'again' && H.phase === 'podium') hostNewGame();
+    else if (action === 'set' && H.phase === 'lobby') {
+        if (['brisk', 'relaxed'].includes(msg.pace)) H.settings.pace = msg.pace;
+        broadcastLobby();
+    }
+}
+function guestCtl(action, extra) {
+    if (isHost && !isTvHost) { hostCtl(action, extra || {}); return; }
+    if (hostConn) send(hostConn, { type: 'ctl', action, ...(extra || {}) });
+}
+
+// ── Create a room ──
+function makeRoom(onOpen) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    roomCode = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    peer = new Peer(PFX + roomCode);
+    peer.on('open', id => { myId = id; isHost = true; onOpen(); });
+    peer.on('connection', conn => setupGuestConn(conn));
+    peer.on('error', e => {
+        uiErr = 'Connection error: ' + e.message;
+        isHost = false; isTvHost = false;
+        document.body.classList.remove('viewer-mode');
+        ui = 'home'; render();
+    });
+}
+
+function hostGame(name) {
+    myName = name.trim().slice(0, 16) || 'Host';
+    myAvatar = fAvatar || AVATARS[0];
+    localStorage.setItem('bp2-name', myName);
+    localStorage.setItem('bp2-avatar', myAvatar);
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        hostAddPlayer(myId, myName, myAvatar);
+        ui = 'lobby_h';
+        render();
+    });
+}
+
+function hostOnTV() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        isTvHost = true;
+        document.body.classList.add('viewer-mode');
+        tvHostSync();
+        render();
+    });
+}
+
+function joinGame(code, name) {
+    myName = name.trim().slice(0, 16) || 'Player';
+    myAvatar = fAvatar || AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    localStorage.setItem('bp2-name', myName);
+    localStorage.setItem('bp2-avatar', myAvatar);
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        isHost = false;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join', name: myName, avatar: myAvatar }));
+        hostConn.on('data', msg => applyMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the game.'; ui = 'home'; D = null; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        ui = 'home'; render();
+    });
+}
+
+function joinAsViewer(code, _attempt) {
+    const attempt = _attempt || 1;
+    isViewer = true;
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join_viewer' }));
+        hostConn.on('data', msg => applyViewerMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the game.'; isViewer = false; vD = null; document.body.classList.remove('viewer-mode'); ui = 'home'; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; isViewer = false; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        if (attempt < 2) {
+            try { peer.destroy(); } catch (_) {}
+            peer = null;
+            setTimeout(() => joinAsViewer(code, 2), 600);
+            return;
+        }
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        isViewer = false; ui = 'home'; render();
+    });
+}
+
+function tvHostSync() {
+    if (!isTvHost) return;
+    applyViewerMsg(viewerSnapshot());
+}
+function hostSyncSelf(msg) {
+    if (isTvHost) { tvHostSync(); return; }
+    if (isHost && msg) applyMsg(msg);
+}
+
+// ═══════════════════════════════════════════
+// HOST GAME FLOW
+// ═══════════════════════════════════════════
+function clearHostTimers() { clearTimeout(_stepTimer); clearTimeout(_voteTimer); }
+
+function hostStartGame() {
+    if (connectedPlayers().length < minPlayers()) {
+        uiErr = 'Need at least ' + minPlayers() + ' players.';
+        if (ui === 'lobby_h') render();
+        return;
+    }
+    clearHostTimers();
+    // seat order fixes here; late joiners spectate till next game
+    H.players.forEach(p => { p.score = 0; p.lols = 0; });
+    H.totalSteps = Math.min(H.players.length, MAX_STEPS);
+    H.chains = H.players.map(p => ({ owner: p.id, beats: [] }));
+    H.step = 0;
+    H.pending = {};
+    H.phase = 'work';
+    broadcastWork();
+    armStepTimer();
+}
+
+function armStepTimer() {
+    clearTimeout(_stepTimer);
+    _stepTimer = setTimeout(finalizeStep, stepSecs(H.step) * 1000 + 2500);
+}
+
+function broadcastWork() {
+    broadcastPlayers(p => workMsgFor(p));
+    broadcastViewers(viewerWorkMsg());
+    hostSyncSelf(isTvHost ? null : workMsgFor(H.players.find(p => p.id === myId)));
+    if (isTvHost) tvHostSync();
+}
+
+function sanitizeStrokes(raw) {
+    if (!Array.isArray(raw)) return [];
+    const out = [];
+    let points = 0;
+    for (const st of raw.slice(0, 220)) {
+        if (!st || !Array.isArray(st.p)) continue;
+        const c = Number.isInteger(st.c) && st.c >= -1 && st.c < PENS.length ? st.c : 0;
+        const p = st.p.slice(0, Math.max(0, (4200 - points) * 2)).map(n => Math.max(0, Math.min(CV_W, Math.round(Number(n) || 0))));
+        if (p.length < 2) continue;
+        if (p.length % 2) p.pop();
+        points += p.length / 2;
+        out.push({ c, p });
+        if (points >= 4200) break;
+    }
+    return out;
+}
+
+function hostSubmit(player, msg) {
+    if (H.phase !== 'work' || msg.step !== H.step || H.pending[player.id]) return;
+    if (seatOf(player.id) < 0) return;
+    const kind = stepKind(H.step);
+    if (kind === 'draw') H.pending[player.id] = { strokes: sanitizeStrokes(msg.strokes) };
+    else H.pending[player.id] = { text: String(msg.text || '').slice(0, 90).trim() || '…no words…' };
+    broadcastProgress();
+    maybeFinishStep();
+}
+
+function broadcastProgress() {
+    const msg = { type: 'progress', progress: progressList() };
+    broadcastPlayers(msg);
+    broadcastViewers({ ...viewerWorkMsg() });
+    hostSyncSelf(isTvHost ? null : msg);
+    if (isTvHost) tvHostSync();
+}
+
+function maybeFinishStep() {
+    if (H.phase !== 'work') return;
+    const active = connectedPlayers().filter(p => seatOf(p.id) >= 0);
+    if (active.length && active.every(p => H.pending[p.id])) {
+        const s = H.step;   // token: a queued call must not finalize a LATER step
+        setTimeout(() => { if (H.phase === 'work' && H.step === s) finalizeStep(); }, 500);
+    }
+}
+
+function finalizeStep() {
+    if (H.phase !== 'work') return;
+    clearTimeout(_stepTimer);
+    const kind = stepKind(H.step);
+    H.players.forEach((p, seat) => {
+        const chain = H.chains[chainForSeat(seat, H.step)];
+        const sub = H.pending[p.id];
+        if (kind === 'draw') chain.beats.push({ kind: 'drawing', author: p.id, strokes: sub ? sub.strokes : [] });
+        else chain.beats.push({ kind: 'text', author: p.id, text: sub ? sub.text : '…no words…' });
+    });
+    H.pending = {};
+    H.step += 1;
+    if (H.step >= H.totalSteps) {
+        H.phase = 'reveal';
+        H.revealChain = 0;
+        H.revealBeat = 0;
+        broadcastReveal();
+    } else {
+        broadcastWork();
+        armStepTimer();
+    }
+}
+
+function broadcastReveal() {
+    broadcastPlayers(revealMsg());
+    broadcastViewers(viewerRevealMsg());
+    hostSyncSelf(isTvHost ? null : revealMsg());
+    if (isTvHost) tvHostSync();
+}
+
+function hostNextBeat() {
+    if (H.phase !== 'reveal') return;
+    const chain = H.chains[H.revealChain];
+    if (H.revealBeat + 1 >= chain.beats.length) startVote();
+    else { H.revealBeat += 1; broadcastReveal(); }
+}
+
+function startVote() {
+    H.phase = 'vote';
+    H.votes = {};
+    H.voteResult = null;
+    broadcastPlayers(p => voteMsgFor(p));
+    broadcastViewers(viewerVoteMsg());
+    hostSyncSelf(isTvHost ? null : voteMsgFor(H.players.find(p => p.id === myId)));
+    if (isTvHost) tvHostSync();
+    clearTimeout(_voteTimer);
+    _voteTimer = setTimeout(finalizeVote, 30_000);
+}
+
+function hostVote(player, beat) {
+    if (H.phase !== 'vote' || H.votes[player.id] !== undefined) return;
+    const beats = H.chains[H.revealChain].beats;
+    if (!Number.isInteger(beat) || beat < 0 || beat >= beats.length) return;
+    if (beats[beat].author === player.id) return;
+    H.votes[player.id] = beat;
+    const conn = guestConns[player.id];
+    if (conn) send(conn, voteMsgFor(player));
+    broadcastViewers(viewerVoteMsg());
+    if (isTvHost) tvHostSync();
+    maybeFinishVote();
+}
+
+function maybeFinishVote() {
+    if (H.phase !== 'vote') return;
+    const active = connectedPlayers().filter(p => seatOf(p.id) >= 0);
+    if (active.length && active.every(p => H.votes[p.id] !== undefined)) {
+        const c = H.revealChain;
+        setTimeout(() => { if (H.phase === 'vote' && H.revealChain === c) finalizeVote(); }, 500);
+    }
+}
+
+function finalizeVote() {
+    if (H.phase !== 'vote') return;
+    clearTimeout(_voteTimer);
+    const beats = H.chains[H.revealChain].beats;
+    const counts = beats.map(() => 0);
+    Object.values(H.votes).forEach(b => { counts[b] += 1; });
+    const max = Math.max(...counts, 0);
+    const winners = [];
+    if (max > 0) {
+        counts.forEach((c, i) => {
+            if (c === max) {
+                const b = beats[i];
+                const pl = H.players.find(p => p.id === b.author);
+                if (pl) pl.score += 100;
+                winners.push({
+                    label: b.kind === 'text' ? `“${(b.text || '').slice(0, 44)}”` : `🖼️ ${nameOf(b.author)}'s drawing`,
+                    author: nameOf(b.author), votes: c,
+                });
+            }
+        });
+    }
+    H.voteResult = { winners, pts: 100 };
+    H.phase = 'voted';
+    broadcastPlayers(votedMsg());
+    broadcastViewers({ ...votedMsg(), type: 'viewer_voted' });
+    hostSyncSelf(isTvHost ? null : votedMsg());
+    if (isTvHost) tvHostSync();
+}
+
+function hostNextChain() {
+    if (H.phase !== 'voted') return;
+    H.revealChain += 1;
+    if (H.revealChain >= H.chains.length) {
+        H.phase = 'podium';
+        broadcastPlayers(podiumMsg());
+        broadcastViewers({ ...podiumMsg(), type: 'viewer_podium' });
+        hostSyncSelf(isTvHost ? null : podiumMsg());
+        if (isTvHost) tvHostSync();
+    } else {
+        H.revealBeat = 0;
+        H.phase = 'reveal';
+        broadcastReveal();
+    }
+}
+
+function hostLol(player) {
+    if (H.phase !== 'reveal') return;
+    const now = Date.now();
+    if (H.lastLolAt[player.id] && now - H.lastLolAt[player.id] < 2000) return;
+    H.lastLolAt[player.id] = now;
+    const beat = H.chains[H.revealChain].beats[H.revealBeat];
+    const author = H.players.find(p => p.id === beat.author);
+    if (author && author.id !== player.id) author.lols += 1;
+    broadcastViewers({ type: 'viewer_lol' });
+    if (isTvHost) spawnLol();
+}
+
+function hostNewGame() {
+    clearHostTimers();
+    H.phase = 'lobby';
+    H.chains = []; H.pending = {}; H.votes = {}; H.voteResult = null;
+    H.step = 0; H.revealChain = 0; H.revealBeat = 0; H.lastLolAt = {};
+    H.players.forEach(p => { p.score = 0; p.lols = 0; });
+    H.players = H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+    broadcastLobby();
+    if (isHost && !isTvHost) { ui = 'lobby_h'; render(); }
+}
+
+function hostSet(patch) {
+    Object.assign(H.settings, patch);
+    broadcastLobby();
+    if (ui === 'lobby_h') render();
+}
+
+// ═══════════════════════════════════════════
+// CLIENT (phone) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+function stopClientTimers() { clearInterval(_clientTick); _clientTick = null; }
+
+function applyMsg(msg) {
+    switch (msg.type) {
+        case 'lobby':
+            D = msg;
+            stopClientTimers();
+            ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g';
+            render();
+            break;
+        case 'work': {
+            const fresh = !D || D.type !== 'work' || D.step !== msg.step;
+            D = msg;
+            if (fresh) {
+                stopClientTimers();
+                myStrokes = []; curStroke = null; workText = ''; submitted = !!msg.done;
+                wEndsAt = Date.now() + msg.seconds * 1000;
+                ui = 'work';
+                render();
+                sStep();
+                _clientTick = setInterval(patchWorkTimer, 250);
+            } else if (ui === 'work') {
+                const pr = $id('w-progress');
+                if (pr) pr.innerHTML = progressHTML(msg.progress);
+            }
+            break;
+        }
+        case 'progress': {
+            if (D) D.progress = msg.progress;
+            const pr = $id('w-progress');
+            if (pr) pr.innerHTML = progressHTML(msg.progress);
+            break;
+        }
+        case 'reveal':
+            D = msg; stopClientTimers(); ui = 'reveal'; render(); sBeat();
+            break;
+        case 'vote':
+            D = msg; stopClientTimers();
+            if (ui !== 'vote') { ui = 'vote'; render(); }
+            else render();
+            break;
+        case 'voted':
+            D = msg; stopClientTimers(); ui = 'voted'; render();
+            break;
+        case 'podium':
+            D = msg; stopClientTimers(); ui = 'podium'; render();
+            sWin(); startConfetti(3600);
+            break;
+    }
+}
+
+function patchWorkTimer() {
+    const left = Math.max(0, wEndsAt - Date.now());
+    const total = (D?.seconds || 45) * 1000;
+    const bar = $id('w-timebar'), num = $id('w-timenum');
+    if (bar) bar.style.width = (left / total * 100) + '%';
+    if (num) num.textContent = Math.ceil(left / 1000) + 's';
+    if (left <= 0) {
+        stopClientTimers();
+        if (!submitted && ui === 'work') submitWork();
+    }
+}
+
+function submitWork() {
+    if (submitted || !D || ui !== 'work') return;
+    const payload = D.kind === 'draw'
+        ? { strokes: myStrokes }
+        : { text: (workText || '').trim() };
+    submitted = true;
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostSubmit(me, { step: D.step, ...payload });
+    } else send(hostConn, { type: 'submit', step: D.step, ...payload });
+    sSend();
+    render();
+}
+
+function sendVote(beat) {
+    if (!D || ui !== 'vote' || D.voted) return;
+    D.voted = true;
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostVote(me, beat);
+    } else send(hostConn, { type: 'vote', beat });
+    render();
+}
+
+function sendLol() {
+    const now = Date.now();
+    if (now - _lastLol < 2000) return;
+    _lastLol = now;
+    sLol();
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostLol(me);
+    } else if (hostConn) send(hostConn, { type: 'lol' });
+}
+
+// ── phone canvas input ──
+function logicalXY(cv, e) {
+    const r = cv.getBoundingClientRect();
+    return [
+        Math.max(0, Math.min(CV_W, Math.round((e.clientX - r.left) / r.width * CV_W))),
+        Math.max(0, Math.min(CV_H, Math.round((e.clientY - r.top) / r.height * CV_H))),
+    ];
+}
+function redrawSketch() {
+    const cv = $id('draw-cv');
+    if (!cv) return;
+    drawStrokes(cv, curStroke ? myStrokes.concat([curStroke]) : myStrokes);
+}
+function initSketchCanvas() {
+    const cv = $id('draw-cv');
+    if (!cv) return;
+    sizeCanvas(cv);
+    redrawSketch();
+    cv.onpointerdown = e => {
+        if (submitted) return;
+        e.preventDefault();
+        try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+        const [x, y] = logicalXY(cv, e);
+        curStroke = { c: isEraser ? -1 : curPen, p: [x, y] };
+    };
+    cv.onpointermove = e => {
+        if (!curStroke) return;
+        e.preventDefault();
+        const [x, y] = logicalXY(cv, e);
+        const n = curStroke.p.length;
+        const dx = x - curStroke.p[n - 2], dy = y - curStroke.p[n - 1];
+        if (dx * dx + dy * dy < 16) return;
+        curStroke.p.push(x, y);
+        // live incremental segment
+        const ctx = cv.getContext('2d');
+        const sx = cv.width / CV_W;
+        ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+        ctx.strokeStyle = curStroke.c < 0 ? '#fffdf5' : PENS[curStroke.c];
+        ctx.lineWidth = (curStroke.c < 0 ? ERASER_W : PEN_W) * sx;
+        ctx.beginPath();
+        ctx.moveTo(curStroke.p[n - 2] * sx, curStroke.p[n - 1] * (cv.height / CV_H));
+        ctx.lineTo(x * sx, y * (cv.height / CV_H));
+        ctx.stroke();
+    };
+    const up = e => {
+        if (!curStroke) return;
+        if (curStroke.p.length === 2) curStroke.p.push(curStroke.p[0] + 1, curStroke.p[1] + 1);
+        myStrokes.push(curStroke);
+        curStroke = null;
+        redrawSketch();
+    };
+    cv.onpointerup = up;
+    cv.onpointercancel = up;
+}
+function setPen(i) { curPen = i; isEraser = false; syncToolbar(); }
+function setEraser() { isEraser = true; syncToolbar(); }
+function undoStroke() { myStrokes.pop(); redrawSketch(); }
+function clearSketch() { myStrokes = []; redrawSketch(); }
+function syncToolbar() {
+    document.querySelectorAll('.pen').forEach((el, i) => el.classList.toggle('sel', !isEraser && i === curPen));
+    const er = $id('tool-eraser');
+    if (er) er.classList.toggle('sel', isEraser);
+}
+
+// ═══════════════════════════════════════════
+// VIEWER (TV) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+let _vTick = null, _vEndsAt = 0, _vTotal = 0, _beatAnim = 0, _typeTimer = null;
+function stopViewerTimers() { clearInterval(_vTick); _vTick = null; clearInterval(_typeTimer); _typeTimer = null; cancelAnimationFrame(_beatAnim); }
+
+function spawnLol() {
+    if (REDUCED) return;
+    const layer = $id('lol-layer');
+    if (!layer) return;
+    const el = document.createElement('div');
+    el.className = 'lol-fly';
+    el.textContent = ['😂', '🤣', '😆'][Math.floor(Math.random() * 3)];
+    el.style.left = (8 + Math.random() * 84) + '%';
+    layer.appendChild(el);
+    setTimeout(() => el.remove(), 1700);
+    sLol();
+}
+
+function applyViewerMsg(msg) {
+    if (msg.type === 'viewer_lol') { spawnLol(); return; }
+    document.body.classList.add('viewer-mode');
+    ui = 'viewer';
+    const prev = vD;
+    vD = msg;
+    switch (msg.type) {
+        case 'viewer_lobby':
+            stopViewerTimers(); render(); break;
+        case 'viewer_work': {
+            const fresh = !prev || prev.type !== 'viewer_work' || prev.step !== msg.step;
+            if (fresh) {
+                stopViewerTimers();
+                render();
+                sStep();
+                _vTotal = msg.seconds * 1000;
+                _vEndsAt = Date.now() + _vTotal;
+                _vTick = setInterval(patchViewerTimer, 250);
+            } else {
+                const wall = $id('tv-wall');
+                if (wall) wall.innerHTML = tvWallHTML(msg.progress);
+            }
+            break;
+        }
+        case 'viewer_reveal':
+            stopViewerTimers(); render(); sBeat();
+            requestAnimationFrame(() => { paintHistory(); animateNewestBeat(); });
+            break;
+        case 'viewer_vote': {
+            const fresh = !prev || prev.type !== 'viewer_vote' || prev.chainNum !== msg.chainNum;
+            if (fresh) { stopViewerTimers(); render(); }
+            else {
+                const vi = $id('tv-votesin');
+                if (vi) vi.textContent = `${msg.votesIn} of ${msg.playerCount} voted`;
+            }
+            break;
+        }
+        case 'viewer_voted':
+            stopViewerTimers(); render(); break;
+        case 'viewer_podium':
+            stopViewerTimers(); render(); sWin(); startConfetti(5200); break;
+    }
+}
+
+function patchViewerTimer() {
+    const left = Math.max(0, _vEndsAt - Date.now());
+    const bar = $id('tv-timebar'), num = $id('tv-timenum');
+    if (bar) bar.style.width = (left / _vTotal * 100) + '%';
+    if (num) num.textContent = Math.ceil(left / 1000) + 's';
+    if (left <= 0) clearInterval(_vTick);
+}
+
+// newest beat animation: typewriter for text, stroke replay for drawings
+function animateNewestBeat() {
+    const beats = vD.beats || [];
+    const beat = beats[beats.length - 1];
+    if (!beat) return;
+    if (beat.kind === 'drawing') {
+        const cv = $id('beat-cv');
+        if (!cv) return;
+        sizeCanvas(cv);
+        if (REDUCED || !beat.strokes.length) { drawStrokes(cv, beat.strokes); return; }
+        const t0 = performance.now(), DUR = 2200;
+        (function frame(t) {
+            const f = Math.min(1, (t - t0) / DUR);
+            drawStrokes(cv, beat.strokes, f);
+            if (f < 1) _beatAnim = requestAnimationFrame(frame);
+        })(t0);
+    } else {
+        const el = $id('beat-text');
+        if (!el) return;
+        const words = String(beat.text || '').split(/\s+/);
+        if (REDUCED || words.length < 2) { el.textContent = beat.text; return; }
+        el.textContent = '';
+        let i = 0;
+        _typeTimer = setInterval(() => {
+            el.textContent = words.slice(0, ++i).join(' ');
+            if (i >= words.length) clearInterval(_typeTimer);
+        }, 140);
+    }
+}
+
+function paintHistory() {
+    document.querySelectorAll('canvas.mini-cv').forEach(cv => {
+        const i = Number(cv.dataset.i);
+        const beat = (vD.beats || [])[i];
+        if (!beat || beat.kind !== 'drawing') return;
+        sizeCanvas(cv);
+        drawStrokes(cv, beat.strokes);
+    });
+}
+
+// ═══════════════════════════════════════════
+// RENDER — shared bits
+// ═══════════════════════════════════════════
+function hdrHTML(sub) {
+    return `<h1 class="logo">✏️ Broken Pencil</h1><div class="sub">${esc(sub || 'write it · draw it · ruin it')}</div>`;
+}
+function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+function isCaptain() { return !!(D && D.tvHost && D.captain && D.captain === myName); }
+function canDrive() { return (isHost && !isTvHost) || isCaptain(); }
+function kindMeta(kind) {
+    return kind === 'write' ? { emoji: '💡', label: 'Write a prompt' }
+        : kind === 'draw' ? { emoji: '✏️', label: 'Draw it!' }
+        : { emoji: '🔍', label: 'What is it?' };
+}
+
+function avatarPickerHTML() {
+    return `<div class="fg"><label>Pick your face</label><div class="avrow">${
+        AVATARS.map(a => `<div class="av${fAvatar === a ? ' sel' : ''}" onclick="fAvatar='${a}';localStorage.setItem('bp2-avatar','${a}');render()">${a}</div>`).join('')
+    }</div></div>`;
+}
+
+function progressHTML(progress) {
+    return (progress || []).map(p => `
+        <div class="prog-row">
+            <span>${esc(p.avatar)}</span><span>${esc(p.name)}</span>
+            <span class="st">${p.done ? '✅' : '✏️'}</span>
+        </div>`).join('');
+}
+
+function settingsSegsHTML(settings, expr) {
+    const seg = (opts, curV, key) => `<div class="seg-row">${opts.map(o =>
+        `<button class="btn btn-sm ${curV === o.v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{${key}:${o.j}}`)}">${o.l}</button>`).join('')}</div>`;
+    return `<div class="fg"><label>Pace</label>${seg(
+        [{ v: 'brisk', j: `'brisk'`, l: '⚡ Brisk' }, { v: 'relaxed', j: `'relaxed'`, l: '🐢 Relaxed (×1.5)' }], settings.pace, 'pace')}</div>`;
+}
+
+function standingsHTML(st) {
+    const medals = ['🥇', '🥈', '🥉'];
+    return `<div class="card standings"><div class="slbl">Scores</div>${
+        st.map((p, i) => `
+        <div class="player-row">
+            <span style="width:22px;text-align:center">${medals[i] || (i + 1)}</span>
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--pink)">(you)</span>' : ''}</div>
+            <div class="sc">${p.score}${p.lols ? `<span class="delta">😂${p.lols}</span>` : ''}</div>
+        </div>`).join('')
+    }</div>`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — phone screens
+// ═══════════════════════════════════════════
+function render() {
+    const app = $id('app');
+    if (isTvHost || isViewer) ui = 'viewer';
+    let html = '';
+    switch (ui) {
+        case 'home':       html = renderHome(); break;
+        case 'creating':   html = renderSpinner('Sharpening pencils…'); break;
+        case 'connecting': html = renderSpinner('Joining the game…'); break;
+        case 'lobby_h':    html = renderLobbyH(); break;
+        case 'lobby_g':    html = renderLobbyG(); break;
+        case 'work':       html = renderWork(); break;
+        case 'reveal':     html = renderRevealPhone(); break;
+        case 'vote':       html = renderVotePhone(); break;
+        case 'voted':      html = renderVotedPhone(); break;
+        case 'podium':     html = renderPodiumPhone(); break;
+        case 'viewer':     html = renderViewer(); break;
+        default:           html = renderHome();
+    }
+    app.innerHTML = html;
+    // post-render wiring
+    if (ui === 'work' && !submitted) {
+        if ($id('draw-cv')) { initSketchCanvas(); syncToolbar(); }
+        const view = $id('view-cv');
+        if (view && D?.input?.strokes) { sizeCanvas(view); drawStrokes(view, D.input.strokes); }
+    }
+}
+
+function renderSpinner(msg) {
+    return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`;
+}
+
+function renderHome() {
+    const fromQR = !!fCode;
+    const youCard = `
+    <div class="card">
+        <div class="slbl">Who are you?</div>
+        <div class="fg">
+            <label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
+                ${fromQR ? 'autofocus' : ''} oninput="fName=this.value">
+        </div>
+        ${avatarPickerHTML()}
+    </div>`;
+    const joinCard = `
+    <div class="card${fromQR ? ' highlight' : ''}">
+        <div class="slbl">Join a Game</div>
+        <div class="fg">
+            <label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fCode)}"
+                oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
+        </div>
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">
+            📱 Join with your phone
+        </button>
+    </div>`;
+    const hostCard = `
+    <div class="card">
+        <div class="slbl">Start a Game</div>
+        <button class="btn btn-p btn-full"
+            onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
+            ✏️ Host on this phone
+        </button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin-top:8px">
+            3–10 players — the TV replays every mangled chain at the end
+        </div>
+    </div>`;
+    const tvCard = `
+    <div class="card">
+        <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-b btn-full" onclick="hostOnTV()">📺 Create the game on this screen</button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin:6px 0 10px">
+            Shows a big QR code — the first phone to join becomes 👑 Captain
+        </div>
+        <hr>
+        <div class="fg">
+            <label>…or show an existing game</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')joinAsViewer(fVCode)">
+        </div>
+        <button class="btn btn-g btn-full"
+            onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code.';render()}">
+            📺 Open TV screen
+        </button>
+    </div>`;
+    return `
+    ${hdrHTML('the telephone game, in drawings')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+}
+
+function renderLobbyH() {
+    const pList = H.players.map((p, i) =>
+        `<div class="player-row">
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1">${esc(p.name)}${i === 0 ? ' <span style="color:var(--muted)">(you — host)</span>' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    return `
+    ${hdrHTML('Host Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card paper highlight">
+        <div class="slbl">Scan to join — or share the code</div>
+        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        <div class="room-code">${esc(roomCode)}</div>
+        <div class="share-row">
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.share&&navigator.share({title:'Join Broken Pencil',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
+        </div>
+        <div style="font-size:.66rem;color:var(--ink-soft);text-align:center">Put the TV up with code <b>${esc(roomCode)}</b> — the reveal plays there</div>
+    </div>
+    <div class="card">
+        <div class="slbl">Players (${H.players.length}/${MAX_PLAYERS}) — need ${minPlayers()}+</div>
+        ${pList}
+    </div>
+    <div class="card">
+        <div class="slbl">Settings</div>
+        ${settingsSegsHTML(H.settings, patch => `hostSet(${patch})`)}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.05rem;padding:16px" onclick="hostStartGame()">✏️ Start the game</button>`;
+}
+
+function renderLobbyG() {
+    const cap = isCaptain();
+    const pList = (D.players || []).map(p =>
+        `<div class="player-row">
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--muted)">(you)</span>' : ''}${D.tvHost && p.name === D.captain ? ' 👑' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    return `
+    ${hdrHTML(cap ? '👑 You are the Captain' : 'Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card">
+        <div class="slbl">Room ${esc(D.roomCode || '')} — Players (${(D.players || []).length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    ${cap ? `
+    <div class="card highlight">
+        <div class="slbl">👑 Captain's Settings</div>
+        ${settingsSegsHTML(D.settings || {}, patch => `guestCtl('set',${patch})`)}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.05rem;padding:16px" onclick="guestCtl('start')">✏️ Start the game</button>`
+    : `
+    <div class="card">
+        <div class="slbl">Waiting</div>
+        <div style="color:var(--muted);font-size:.78rem;font-weight:800">
+            ${D.tvHost ? `👑 ${esc(D.captain || 'The captain')} starts the game` : 'The host starts the game'}… pace: ${esc(D.settings?.pace || 'brisk')}
+        </div>
+    </div>`}`;
+}
+
+function toolbarHTML() {
+    return `<div class="toolbar">
+        ${PENS.map((c, i) => `<div class="pen${!isEraser && i === curPen ? ' sel' : ''}" style="background:${c}" onclick="setPen(${i})"></div>`).join('')}
+        <button class="tool${isEraser ? ' sel' : ''}" id="tool-eraser" onclick="setEraser()">🧽</button>
+        <button class="tool" onclick="undoStroke()">↩️</button>
+        <button class="tool" onclick="clearSketch()">🗑️</button>
+    </div>`;
+}
+
+function renderWork() {
+    const km = kindMeta(D.kind);
+    const head = `
+    <div class="w-meta"><span>Step ${D.step + 1} / ${D.total} · ${km.emoji} ${esc(km.label)}</span><span id="w-timenum">${D.seconds}s</span></div>
+    <div class="timebar-wrap"><div class="timebar" id="w-timebar" style="width:100%"></div></div>`;
+    if (submitted) {
+        return `${head}
+        <div class="card eyes">
+            <div class="big">✅</div>
+            <div class="t">Sent it!</div>
+            <div class="s">Waiting for the slowcoaches…</div>
+        </div>
+        <div class="card"><div class="slbl">Who's done</div><div class="prog-list" id="w-progress">${progressHTML(D.progress)}</div></div>`;
+    }
+    if (D.kind === 'write') {
+        return `${head}
+        <div class="card paper">
+            <div class="slbl">Start a chain — something drawable &amp; silly</div>
+            <div class="fg"><input type="text" id="w-text" maxlength="80" placeholder="Type something silly…"
+                value="${esc(workText)}" oninput="workText=this.value"
+                onkeydown="if(event.key==='Enter')submitWork()"></div>
+            <div class="seg-row">
+                <button class="btn btn-g btn-sm" onclick="workText=STARTERS[Math.floor(Math.random()*STARTERS.length)];document.getElementById('w-text').value=workText">🎲 Surprise me</button>
+            </div>
+        </div>
+        <button class="btn btn-p btn-full" style="font-size:1.02rem;padding:15px" onclick="if(workText.trim()){submitWork()}else{uiErr='';document.getElementById('w-text').focus()}">📨 Send it!</button>`;
+    }
+    if (D.kind === 'draw') {
+        return `${head}
+        <div class="card paper">
+            <div class="slbl">Draw this</div>
+            <div class="prompt-line">“${esc(D.input?.text || '')}”</div>
+        </div>
+        <div class="card paper">
+            <div class="cv-wrap"><canvas class="sketch" id="draw-cv"></canvas></div>
+            ${toolbarHTML()}
+        </div>
+        <button class="btn btn-p btn-full" style="font-size:1.02rem;padding:15px" onclick="submitWork()">📨 Send it!</button>`;
+    }
+    return `${head}
+    <div class="card paper">
+        <div class="slbl">What on earth is this?</div>
+        <div class="cv-wrap"><canvas class="sketch" id="view-cv"></canvas></div>
+        <div class="fg" style="margin-top:10px"><input type="text" id="w-text" maxlength="80" placeholder="Describe the masterpiece…"
+            value="${esc(workText)}" oninput="workText=this.value"
+            onkeydown="if(event.key==='Enter')submitWork()"></div>
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.02rem;padding:15px" onclick="if(workText.trim()){submitWork()}else{document.getElementById('w-text').focus()}">📨 Send it!</button>`;
+}
+
+function renderRevealPhone() {
+    const lastBeat = D.beatNum >= D.totalBeats;
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.05rem;padding:15px" onclick="guestCtl('next')">${lastBeat ? '🗳️ Vote for the funniest!' : 'Next ▶'}</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.74rem;font-weight:800">${D.tvHost ? `👑 ${esc(D.captain || '')} drives the show` : 'The host drives the show'}…</div>`;
+    return `
+    <div class="card eyes">
+        <div class="big">👀</div>
+        <div class="t">Watch the TV!</div>
+        <div class="s">Chain ${D.chainNum} of ${D.totalChains} — started by ${esc(D.owner)} · beat ${D.beatNum}/${D.totalBeats}</div>
+    </div>
+    <button class="lol-btn" onclick="sendLol()">😂</button>
+    ${driveBtn}`;
+}
+
+function renderVotePhone() {
+    const opts = (D.options || []).map(o => `
+        <button class="vote-opt${o.mine ? ' mine' : ''}" ${o.mine || D.voted ? 'disabled' : ''} onclick="sendVote(${o.beat})">
+            <span class="who">${o.mine ? 'yours — no self-votes!' : esc(o.author)}</span>${esc(o.label)}
+        </button>`).join('');
+    return `
+    ${hdrHTML(`Chain ${D.chainNum} of ${D.totalChains}`)}
+    <div class="card">
+        <div class="slbl">🗳️ Funniest beat of that chain?</div>
+        ${opts}
+        ${D.voted ? `<div class="done-note">✅ Vote's in — watch the TV</div>` : ''}
+    </div>`;
+}
+
+function renderVotedPhone() {
+    const r = D.result || { winners: [] };
+    const winners = r.winners.map(w =>
+        `<div class="chip">🏆 ${esc(w.author)} +${r.pts} — ${esc(w.label)} (${w.votes} vote${w.votes === 1 ? '' : 's'})</div>`).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.05rem;padding:15px" onclick="guestCtl('next')">${D.isLast ? '🏆 See the podium' : '➡️ Next chain'}</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.74rem;font-weight:800">${D.tvHost ? `👑 ${esc(D.captain || '')} taps next` : 'The host taps next'}…</div>`;
+    return `
+    ${hdrHTML(`Chain ${D.chainNum} of ${D.totalChains}`)}
+    <div class="card" style="text-align:center">
+        <div class="slbl">The votes are in</div>
+        ${winners || '<div style="color:var(--muted);font-weight:800">Nobody voted! Tough crowd.</div>'}
+    </div>
+    ${standingsHTML(D.standings || [])}
+    ${driveBtn}`;
+}
+
+function renderPodiumPhone() {
+    const st = D.standings || [];
+    const awards = (D.awards || []).map(a =>
+        `<span class="chip">${a.emoji} ${esc(a.title)}: ${esc(a.name)} (${esc(a.detail)})</span>`).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.05rem;padding:15px" onclick="guestCtl('again')">🔁 Play again</button>` : '';
+    return `
+    ${hdrHTML('The gallery is closed!')}
+    <div class="card eyes">
+        <div class="big">🏆</div>
+        <div class="t">${esc(st[0]?.name || '')} wins!</div>
+        <div style="margin-top:8px">${awards}</div>
+    </div>
+    ${standingsHTML(st)}
+    ${driveBtn}`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — TV screens
+// ═══════════════════════════════════════════
+function tvShell(inner, meta) {
+    return `<div class="tv">
+        <div class="tv-top">
+            <div class="tv-logo">✏️ Broken Pencil</div>
+            <div class="tv-meta">${esc(meta || ('Room ' + (vD.roomCode || roomCode || '')))}</div>
+        </div>
+        ${inner}
+    </div>`;
+}
+
+function renderViewer() {
+    if (!vD) return renderSpinner('Waiting for the game…');
+    switch (vD.type) {
+        case 'viewer_lobby':  return renderViewerLobby();
+        case 'viewer_work':   return renderViewerWork();
+        case 'viewer_reveal': return renderViewerReveal();
+        case 'viewer_vote':   return renderViewerVote();
+        case 'viewer_voted':  return renderViewerVoted();
+        case 'viewer_podium': return renderViewerPodium();
+        default:              return renderSpinner('Waiting for the game…');
+    }
+}
+
+function renderViewerLobby() {
+    const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
+    const players = vD.players || [];
+    const cards = players.map(p =>
+        `<div class="tv-pcard"><div class="big">${esc(p.avatar)}</div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
+    return tvShell(`
+    <div class="tv-lobby">
+        <div class="qr-side">
+            <div class="slbl">Scan with your phone to join</div>
+            <div class="qr-wrap">${qrSVG(url)}</div>
+            <div class="room-code">${esc(vD.roomCode || '')}</div>
+            <div class="join-hint">${location.host}${location.pathname}</div>
+        </div>
+        <div class="tv-players">
+            <div class="tv-meta">Players — ${players.length}/${MAX_PLAYERS} (need 3+)</div>
+            <div class="tv-player-grid">${cards}</div>
+            <div class="tv-waiting">${players.length === 0
+                ? 'Waiting for the first phone… they become 👑 Captain'
+                : (vD.tvHost ? `Waiting for 👑 ${esc(vD.captain || '')} to start` : 'Waiting for the host to start')} · write → draw → describe → laugh</div>
+        </div>
+    </div>`, 'Lobby');
+}
+
+function tvWallHTML(progress) {
+    return (progress || []).map(p => `
+        <div class="wcard${p.done ? ' done' : ''}">
+            <div class="big">${esc(p.avatar)}</div>
+            ${esc(p.name)}<br>
+            <span style="color:var(--muted);font-size:1.6vmin">${p.done ? '✅ done!' : '✏️ scribbling…'}</span>
+        </div>`).join('');
+}
+
+function renderViewerWork() {
+    const km = kindMeta(vD.kind);
+    return tvShell(`
+    <div class="tv-main" style="flex-direction:column">
+        <div class="tv-wall" id="tv-wall">${tvWallHTML(vD.progress)}</div>
+        <div style="display:flex;align-items:center;gap:2vmin">
+            <div class="tv-meta" style="white-space:nowrap">${km.emoji} ${esc(km.label)}</div>
+            <div class="tv-timebar-wrap" style="flex:1"><div class="tv-timebar" id="tv-timebar" style="width:100%"></div></div>
+            <div class="tv-meta" id="tv-timenum">${vD.seconds}s</div>
+        </div>
+    </div>`, `Step ${vD.step + 1} of ${vD.total}`);
+}
+
+function renderViewerReveal() {
+    const beats = vD.beats || [];
+    const newest = beats[beats.length - 1];
+    const history = beats.slice(0, -1).map((b, i) => b.kind === 'text'
+        ? `<div class="hcard">${esc(b.author)}: “${esc((b.text || '').slice(0, 60))}”</div>`
+        : `<div class="hcard">🖼️ ${esc(b.author)}<canvas class="mini-cv" data-i="${i}"></canvas></div>`).join('');
+    const stage = !newest ? '' : (newest.kind === 'drawing'
+        ? `<div class="beat-paper"><div class="bwho">🖼️ ${esc(newest.author)} drew…</div><canvas id="beat-cv" style="width:62vmin"></canvas></div>`
+        : `<div class="beat-paper" style="min-width:50%"><div class="bwho">${beats.length === 1 ? '💡 ' + esc(newest.author) + ' started with…' : '🔍 ' + esc(newest.author) + ' saw…'}</div><div class="btext" id="beat-text"></div></div>`);
+    const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')} taps Next` : 'Host taps Next';
+    return tvShell(`
+    <div class="tv-stagewrap">
+        ${history ? `<div class="tv-history">${history}</div>` : ''}
+        <div class="tv-stage">${stage}</div>
+    </div>
+    <div class="tv-waiting" style="text-align:center">${hint} · 😂 buttons are live on the phones!</div>`,
+    `Chain ${vD.chainNum} of ${vD.totalChains} — started by ${vD.owner}`);
+}
+
+function renderViewerVote() {
+    const opts = (vD.options || []).map(o =>
+        `<div class="tv-voteopt"><span>${esc(o.label)} <span style="color:var(--muted)">— ${esc(o.author)}</span></span></div>`).join('');
+    return tvShell(`
+    <div class="tv-main" style="flex-direction:column;justify-content:center;gap:2vmin">
+        <div style="text-align:center;font-family:'Patrick Hand',cursive;font-size:4vmin">🗳️ Funniest beat?</div>
+        <div class="tv-voteopts">${opts}</div>
+        <div class="tv-waiting" style="text-align:center" id="tv-votesin">${vD.votesIn} of ${vD.playerCount} voted</div>
+    </div>`, `Chain ${vD.chainNum} of ${vD.totalChains}`);
+}
+
+function renderViewerVoted() {
+    const r = vD.result || { winners: [] };
+    const winners = r.winners.map(w =>
+        `<div class="tv-voteopt"><span>🏆 ${esc(w.label)} <span style="color:var(--muted)">— ${esc(w.author)}</span></span><span class="votes">+${r.pts} · ${w.votes} vote${w.votes === 1 ? '' : 's'}</span></div>`).join('');
+    const chips = (vD.standings || []).map(p =>
+        `<div class="tv-voteopt" style="padding:.9vmin 1.6vmin"><span>${esc(p.avatar)} ${esc(p.name)}</span><span class="votes">${p.score}</span></div>`).join('');
+    const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: ${vD.isLast ? '“See the podium”' : '“Next chain”'} is on your phone` : `Host: ${vD.isLast ? '“See the podium”' : '“Next chain”'} is on your phone`;
+    return tvShell(`
+    <div class="tv-main" style="flex-direction:column;justify-content:center;gap:2vmin">
+        <div style="text-align:center;font-family:'Patrick Hand',cursive;font-size:4vmin">The votes are in!</div>
+        <div class="tv-voteopts">${winners || '<div class="tv-waiting" style="text-align:center">Nobody voted!</div>'}</div>
+        <div class="tv-voteopts" style="max-width:44%">${chips}</div>
+        <div class="tv-waiting" style="text-align:center">${hint}</div>
+    </div>`, `Chain ${vD.chainNum} of ${vD.totalChains}`);
+}
+
+function renderViewerPodium() {
+    const st = vD.standings || [];
+    const podOrder = [st[1], st[0], st[2]].filter(Boolean);
+    const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
+    const medal = { p1: '🥇', p2: '🥈', p3: '🥉' };
+    const pods = podOrder.map((p, i) => `
+        <div class="pod ${cls[i]}" style="animation-delay:${i * 0.18}s">
+            <div class="big">${esc(p.avatar)}</div>
+            <div class="pname">${esc(p.name)}</div>
+            <div class="pscore">${p.score} pts${p.lols ? ` · 😂${p.lols}` : ''}</div>
+            <div class="block">${medal[cls[i]]}</div>
+        </div>`).join('');
+    const awards = (vD.awards || []).map(a =>
+        `<div class="award">${a.emoji} <span class="aw-t">${esc(a.title)}</span><br>${esc(a.name)} — ${esc(a.detail)}</div>`).join('');
+    const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: “Play again” is on your phone` : 'Host: “Play again” is on your phone';
+    return tvShell(`
+    <div class="tv-main" style="flex-direction:column">
+        <div class="podium-wrap">${pods}</div>
+        <div class="awards-row">${awards}</div>
+        <div class="tv-waiting" style="text-align:center;padding-bottom:1.5vmin">${hint}</div>
+    </div>`, '🏆 Final gallery');
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+window.addEventListener('resize', () => {
+    const cv = $id('confetti-cv');
+    if (cv && _cf.running) { cv.width = innerWidth; cv.height = innerHeight; }
+});
+
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
+    if (!fAvatar) fAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    render();
+})();
+</script>
+</body>
+</html>

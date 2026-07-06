@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Doodle Party</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230b0a1f' width='100' height='100' rx='20'/><text x='50' y='68' font-size='52' text-anchor='middle'>🎨</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0b0a1f; --panel: rgba(26,23,56,0.85); --panel2: rgba(36,32,76,0.9);
+            --border: rgba(244,114,182,0.35); --border2: rgba(148,143,196,0.28);
+            --text: #f1efff; --muted: #9a95c4;
+            --pink: #f472b6; --yellow: #facc15; --cyan: #22d3ee; --green: #4ade80;
+        }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 26px 16px 48px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 60% 45% at 15% 0%, rgba(244,114,182,0.14) 0%, transparent 60%),
+                radial-gradient(ellipse 55% 45% at 90% 10%, rgba(34,211,238,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 55% 45% at 50% 105%, rgba(250,204,21,0.10) 0%, transparent 60%);
+        }
+        body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
+
+        h1.logo {
+            font-family: 'Fredoka', sans-serif; font-weight: 700; letter-spacing: 1px;
+            font-size: clamp(1.7rem, 7vw, 2.5rem); text-align: center;
+            background: linear-gradient(90deg, #f472b6, #facc15, #22d3ee, #f472b6);
+            background-size: 300% 100%;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            animation: gradShift 8s linear infinite;
+            filter: drop-shadow(0 0 20px rgba(244,114,182,.3));
+        }
+        @keyframes gradShift { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+        .sub { color: var(--muted); font-size: .7rem; letter-spacing: 2.5px; text-transform: uppercase; margin: 7px 0 22px; text-align: center; font-weight: 800; }
+
+        #app { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 13px; }
+        body.viewer-mode #app { max-width: none; height: 100dvh; display: block; }
+
+        .card {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 18px;
+            padding: 18px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 12px 34px rgba(0,0,0,.5);
+        }
+        .card.highlight { border-color: var(--pink); box-shadow: 0 0 26px rgba(244,114,182,.18), 0 12px 34px rgba(0,0,0,.5); }
+        .slbl { font-size: .66rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 11px; }
+
+        .fg { margin-bottom: 12px; }
+        .fg label { display: block; font-size: .66rem; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+        input[type=text] {
+            width: 100%; padding: 12px 14px; font-family: inherit; font-size: 1rem; font-weight: 700;
+            border: 2px solid var(--border2); border-radius: 12px; background: rgba(11,10,31,.7); color: var(--text);
+            outline: none;
+        }
+        input[type=text]:focus { border-color: var(--pink); }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            font-family: inherit; font-weight: 900; font-size: .94rem; letter-spacing: .3px;
+            padding: 13px 18px; border: none; border-radius: 14px; cursor: pointer;
+            transition: filter .12s, opacity .12s, box-shadow .12s; user-select: none; -webkit-user-select: none;
+            color: var(--text);
+        }
+        .btn:active { filter: brightness(1.15); }
+        .btn-p { background: linear-gradient(180deg, #f9a8d4, #ec4899); color: #3d0722; box-shadow: 0 5px 0 #9d2463, 0 10px 22px rgba(244,114,182,.35); }
+        .btn-p:active { box-shadow: 0 2px 0 #9d2463; }
+        .btn-c { background: linear-gradient(180deg, #fde047, #eab308); color: #3c2f00; box-shadow: 0 5px 0 #8f6d06, 0 10px 22px rgba(250,204,21,.3); }
+        .btn-c:active { box-shadow: 0 2px 0 #8f6d06; }
+        .btn-g { background: rgba(148,143,196,.14); box-shadow: inset 0 0 0 2px var(--border2); }
+        .btn-full { width: 100%; }
+        .btn-sm { padding: 8px 13px; font-size: .76rem; border-radius: 11px; }
+        .btn:disabled { opacity: .4; cursor: default; }
+
+        .err {
+            background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.5); color: #fca5a5;
+            padding: 11px 14px; border-radius: 12px; font-size: .8rem; font-weight: 700; text-align: center;
+        }
+        hr { border: none; border-top: 1px dashed var(--border2); margin: 13px 0; }
+
+        .connecting { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 46px 0; color: var(--muted); font-weight: 700; }
+        .spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid rgba(244,114,182,.18); border-top-color: var(--pink); animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .player-row { display: flex; align-items: center; gap: 11px; padding: 8px 4px; border-bottom: 1px dashed var(--border2); font-weight: 800; font-size: .92rem; }
+        .player-row:last-child { border-bottom: none; }
+        .pdot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 10px currentColor; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); margin-left: auto; }
+        .qr-wrap { width: min(210px, 58vw); margin: 6px auto 10px; border-radius: 13px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.4); }
+        .qr-wrap svg { display: block; width: 100%; height: auto; }
+        .room-code { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 2.3rem; letter-spacing: 12px; text-align: center; color: var(--yellow); padding-left: 12px; text-shadow: 0 0 18px rgba(250,204,21,.35); }
+        .share-row { display: flex; gap: 8px; justify-content: center; margin: 10px 0 6px; }
+        .seg-row { display: flex; flex-wrap: wrap; gap: 7px; }
+
+        /* ── canvas ── */
+        .cv-card { background: #fffdf6; border-radius: 18px; padding: 10px; box-shadow: 0 12px 34px rgba(0,0,0,.5); }
+        canvas.doodle { display: block; width: 100%; border-radius: 12px; background: #ffffff; touch-action: none; box-shadow: inset 0 0 0 1px #e5e0d0; }
+        .toolbar { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; padding-top: 10px; }
+        .swatch {
+            width: 38px; height: 38px; border-radius: 50%; border: 3px solid rgba(0,0,0,.15); cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,.25);
+        }
+        .swatch.on { border-color: #0b0a1f; box-shadow: 0 0 0 3px #fffdf6, 0 0 0 5px #0b0a1f; }
+        .tool { width: 42px; height: 38px; border-radius: 10px; border: none; background: #eee7d7; font-size: 1.1rem; cursor: pointer; }
+        .tool.on { background: #0b0a1f; color: #fff; }
+
+        .masked {
+            font-family: ui-monospace, monospace; font-weight: 800; letter-spacing: 5px;
+            font-size: 1.3rem; text-align: center; color: var(--yellow);
+        }
+        .timebar-wrap { height: 10px; border-radius: 6px; background: rgba(255,255,255,.09); overflow: hidden; }
+        .timebar { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--cyan), var(--pink)); transition: width .2s linear; }
+        .q-meta { display: flex; justify-content: space-between; align-items: center; font-size: .72rem; font-weight: 900; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+
+        .guess-row { display: flex; gap: 8px; }
+        .guess-row input { flex: 1; }
+        .feed { display: flex; flex-direction: column-reverse; gap: 5px; max-height: 150px; overflow: hidden; }
+        .feed-row { font-size: .78rem; font-weight: 700; color: var(--muted); }
+        .feed-row b { color: var(--text); }
+        .feed-row.hot { color: var(--green); }
+        .nudge { text-align: center; font-weight: 900; color: var(--yellow); min-height: 1.3em; transition: opacity .3s; }
+
+        .word-choice { display: flex; flex-direction: column; gap: 10px; }
+        .word-choice .btn { font-size: 1.15rem; padding: 18px; }
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: .6rem; letter-spacing: 1px; text-transform: uppercase; font-weight: 900; background: rgba(34,211,238,.15); color: var(--cyan); margin-left: 8px; }
+
+        .verdict { text-align: center; padding: 8px 0 4px; }
+        .verdict .vico { font-size: 3rem; }
+        .verdict .vt { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 1.5rem; margin-top: 4px; }
+        .verdict .vword { font-size: 1.6rem; font-weight: 900; color: var(--yellow); margin-top: 4px; letter-spacing: 2px; }
+        .chip { display: inline-block; padding: 4px 12px; border-radius: 12px; background: rgba(244,114,182,.14); border: 1px solid var(--border); color: var(--pink); font-weight: 900; font-size: .76rem; margin: 3px; }
+        .standings .sc { margin-left: auto; font-weight: 900; }
+        .standings .delta { color: var(--green); font-size: .74rem; font-weight: 900; margin-left: 7px; }
+
+        /* ═════════ TV ═════════ */
+        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 2.6vmin 3.2vmin; gap: 1.6vmin; }
+        .tv-top { display: flex; align-items: center; justify-content: space-between; gap: 2vmin; }
+        .tv-logo { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 3.2vmin; color: var(--pink); text-shadow: 0 0 22px rgba(244,114,182,.4); }
+        .tv-meta { font-size: 1.8vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .tv-main { flex: 1; display: flex; gap: 2.4vmin; min-height: 0; }
+        .tv-stage { flex: 1; display: flex; flex-direction: column; gap: 1.4vmin; min-width: 0; align-items: center; }
+        .tv-cv-wrap { background: #fffdf6; border-radius: 2vmin; padding: 1.2vmin; box-shadow: 0 18px 60px rgba(0,0,0,.55); height: 100%; aspect-ratio: 1; max-width: 100%; }
+        .tv-cv-wrap canvas { display: block; height: 100%; aspect-ratio: 1; border-radius: 1.4vmin; background: #fff; }
+        .tv-masked { font-family: ui-monospace, monospace; font-weight: 800; font-size: 4vmin; letter-spacing: 1.4vmin; color: var(--yellow); text-shadow: 0 0 18px rgba(250,204,21,.3); }
+        .tv-bottom { display: flex; align-items: center; gap: 2vmin; width: 100%; }
+        .tv-timebar-wrap { flex: 1; height: 1.5vmin; border-radius: .8vmin; background: rgba(255,255,255,.1); overflow: hidden; }
+        .tv-timebar { height: 100%; background: linear-gradient(90deg, var(--cyan), var(--pink)); border-radius: .8vmin; transition: width .2s linear; }
+        .tv-timenum { font-size: 2.4vmin; font-weight: 900; font-variant-numeric: tabular-nums; width: 5vmin; text-align: right; }
+        .tv-guessed { font-size: 2vmin; font-weight: 900; color: var(--green); white-space: nowrap; }
+        .tv-rail { width: 32vmin; min-width: 250px; display: flex; flex-direction: column; gap: 1.3vmin; min-height: 0; }
+        .rail-title { font-size: 1.6vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .rail-row {
+            display: flex; align-items: center; gap: 1.1vmin; background: var(--panel);
+            border: 1px solid var(--border2); border-radius: 1.5vmin; padding: 1.1vmin 1.4vmin;
+            font-weight: 800; font-size: 1.9vmin; position: relative;
+        }
+        .rail-row .rdot { width: 1.5vmin; height: 1.5vmin; border-radius: 50%; box-shadow: 0 0 10px currentColor; flex-shrink: 0; }
+        .rail-row .rname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rail-row .rsc { font-weight: 900; color: var(--yellow); font-variant-numeric: tabular-nums; }
+        .rail-row.gotit::after { content: '✅'; font-size: 1.8vmin; }
+        .rail-row.drawing::after { content: '🖌️'; font-size: 1.8vmin; }
+        .tv-feedpanel { flex: 1; background: var(--panel); border: 1px solid var(--border2); border-radius: 1.6vmin; padding: 1.4vmin 1.7vmin; overflow: hidden; display: flex; flex-direction: column; }
+        .tv-feed { display: flex; flex-direction: column-reverse; gap: .6vmin; overflow: hidden; flex: 1; }
+        .tv-feed .frow { font-size: 1.85vmin; font-weight: 700; color: var(--muted); animation: riseIn .35s ease both; }
+        .tv-feed .frow b { color: var(--text); }
+        .tv-feed .frow.hot { color: var(--green); }
+        @keyframes riseIn { from { opacity: 0; transform: translateY(1vmin); } to { opacity: 1; transform: none; } }
+
+        .tv-lobby { flex: 1; display: flex; gap: 4vmin; align-items: center; min-height: 0; }
+        .tv-lobby .qr-side { background: #fffdf6; color: #201a3a; border-radius: 2.2vmin; padding: 3.2vmin; text-align: center; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+        .tv-lobby .qr-side .slbl { color: #7a739e; }
+        .tv-lobby .qr-side .qr-wrap { width: 32vmin; margin: 1.4vmin auto; }
+        .tv-lobby .qr-side .room-code { font-size: 4.6vmin; letter-spacing: 1.9vmin; padding-left: 1.9vmin; color: #d61f79; text-shadow: none; }
+        .tv-lobby .join-hint { font-size: 1.7vmin; font-weight: 700; color: #7a739e; }
+        .tv-players { flex: 1; display: flex; flex-direction: column; gap: 1.5vmin; min-width: 0; }
+        .tv-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20vmin, 1fr)); gap: 1.5vmin; }
+        .tv-pcard {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 1.7vmin;
+            padding: 1.7vmin; text-align: center; font-weight: 900; font-size: 2vmin; animation: popIn .35s ease both;
+        }
+        .tv-pcard .pdot { width: 2.2vmin; height: 2.2vmin; margin: 0 auto 1vmin; }
+        @keyframes popIn { from { opacity: 0; } to { opacity: 1; } }
+        .tv-waiting { color: var(--muted); font-weight: 800; font-size: 1.9vmin; }
+
+        .tv-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vmin; text-align: center; }
+        .tv-center .big { font-size: 9vmin; }
+        .tv-center .t { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 4.4vmin; }
+        .tv-center .word { font-size: 5vmin; font-weight: 900; color: var(--yellow); letter-spacing: .8vmin; text-shadow: 0 0 24px rgba(250,204,21,.35); }
+
+        .podium-wrap { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2.4vmin; padding-bottom: 1vmin; }
+        .pod { text-align: center; font-weight: 900; animation: popIn .5s ease both; }
+        .pod .pname { font-size: 2.4vmin; margin-bottom: .8vmin; }
+        .pod .pscore { font-size: 2vmin; color: var(--yellow); margin-bottom: .8vmin; }
+        .pod .block { border-radius: 1.5vmin 1.5vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.3vmin; font-size: 3.2vmin; width: 17vmin; }
+        .pod.p1 .block { height: 21vmin; background: linear-gradient(180deg, #fde047, #a16207); }
+        .pod.p2 .block { height: 14vmin; background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
+        .pod.p3 .block { height: 9.5vmin; background: linear-gradient(180deg, #e8a06a, #9c5a33); }
+        .awards-row { display: flex; gap: 1.5vmin; justify-content: center; flex-wrap: wrap; padding-bottom: 2vmin; }
+        .award { background: var(--panel); border: 1px solid var(--border); border-radius: 1.5vmin; padding: 1.3vmin 2vmin; font-weight: 800; font-size: 1.8vmin; text-align: center; }
+        .award .aw-t { color: var(--pink); font-weight: 900; }
+
+        #confetti-cv { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <canvas id="confetti-cv"></canvas>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════
+// CONSTANTS & HELPERS
+// ═══════════════════════════════════════════
+const PFX = 'DOODLE-';
+const MAX_PLAYERS = 12, MIN_PLAYERS = 2;
+const PLAYER_COLORS = ['#f472b6', '#22d3ee', '#facc15', '#4ade80', '#a78bfa', '#fb923c', '#f87171', '#38bdf8', '#34d399', '#e879f9', '#fbbf24', '#94a3b8'];
+const DRAW_COLORS = ['#1f2937', '#e5484d', '#3b82f6', '#22a06b', '#f59e0b', '#8b5cf6'];
+const ERASE = '#ffffff';
+
+const WORDS_EASY = ['cat','dog','fish','house','tree','sun','moon','star','car','bus','boat','train','plane','apple','banana','pizza','cake','ice cream','egg','cheese','bread','cookie','clock','chair','table','bed','door','window','book','pencil','ball','balloon','kite','hat','sock','shoe','shirt','glasses','crown','key','ring','ladder','broom','candle','cup','spoon','fork','umbrella','rainbow','cloud','rain','snow','snowman','lightning','flower','grass','leaf','mushroom','butterfly','bee','spider','snail','ant','bird','duck','chicken','pig','cow','sheep','horse','rabbit','mouse','frog','snake','turtle','monkey','lion','tiger','bear','elephant','giraffe','zebra','whale','shark','octopus','crab','starfish','penguin','owl','bat','ghost','robot','rocket','alien','wizard','pirate','king','queen','baby','eye','nose','ear','hand','foot','heart','smile','tooth','drum','guitar','bell','gift','tent','flag','bridge','castle','farm','barn','island','mountain','volcano','beach','wave','fire','campfire','anchor','sword','shield','arrow','dice','puzzle','swing','slide','sandcastle'];
+const WORDS_MEDIUM = ['telescope','microscope','waterfall','lighthouse','windmill','helicopter','submarine','parachute','astronaut','dinosaur','skeleton','mermaid','unicorn','dragon','treasure','compass','magnet','tornado','iceberg','cactus','palm tree','pineapple','watermelon','hamburger','hot dog','spaghetti','pancake','popcorn','cupcake','doughnut','sandwich','toaster','kettle','microwave','vacuum','washing machine','lawnmower','wheelbarrow','scarecrow','birdhouse','beehive','spiderweb','footprint','fingerprint','shadow','juggler','tightrope','trampoline','roller coaster','ferris wheel','bowling','chess','skateboard','scooter','surfboard','sledge','ice skate','snowball fight','pillow fight','hide and seek','tug of war','leapfrog','handstand','cartwheel','yo-yo','boomerang','stilts','pogo stick','hammock','backpack','binoculars','camera','torch','lantern','map','globe','hourglass','sundial','periscope','cannon','catapult','drawbridge','mummy','vampire','zombie'];
+
+function $id(id) { return document.getElementById(id); }
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function norm(s) { return String(s || '').toLowerCase().trim().replace(/\s+/g, ' '); }
+function lev1(a, b) {
+    // is edit distance <= 1?
+    if (a === b) return true;
+    if (Math.abs(a.length - b.length) > 1) return false;
+    let i = 0, j = 0, edits = 0;
+    while (i < a.length && j < b.length) {
+        if (a[i] === b[j]) { i++; j++; continue; }
+        if (++edits > 1) return false;
+        if (a.length > b.length) i++;
+        else if (b.length > a.length) j++;
+        else { i++; j++; }
+    }
+    return edits + (a.length - i) + (b.length - j) <= 1;
+}
+
+// ── QR code (themed SVG) ──
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+        let rects = '';
+        for (let r = 0; r < n; r++)
+            for (let c = 0; c < n; c++)
+                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+            `<rect width="${size}" height="${size}" fill="#fffdf6"/>` +
+            `<g fill="#201a3a">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+
+// ── Confetti ──
+let _cf = { parts: [], raf: 0, running: false, until: 0 };
+function startConfetti(ms) {
+    if (REDUCED) return;
+    const cv = $id('confetti-cv'), ctx = cv.getContext('2d');
+    cv.width = innerWidth; cv.height = innerHeight;
+    _cf.until = performance.now() + (ms || 2600);
+    const cols = ['#f472b6', '#facc15', '#22d3ee', '#4ade80', '#a78bfa', '#f1efff'];
+    for (let i = 0; i < 130; i++) {
+        _cf.parts.push({
+            x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5,
+            vx: (Math.random() - 0.5) * 2.4, vy: 2 + Math.random() * 3.6,
+            rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.25,
+            w: 6 + Math.random() * 7, h: 4 + Math.random() * 5,
+            col: cols[Math.floor(Math.random() * cols.length)],
+        });
+    }
+    if (_cf.running) return;
+    _cf.running = true;
+    (function frame(t) {
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        _cf.parts = _cf.parts.filter(p => p.y < cv.height + 30);
+        for (const p of _cf.parts) {
+            p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+            ctx.fillStyle = p.col; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            ctx.restore();
+        }
+        if (t < _cf.until || _cf.parts.length) _cf.raf = requestAnimationFrame(frame);
+        else { _cf.running = false; ctx.clearRect(0, 0, cv.width, cv.height); }
+    })(performance.now());
+}
+
+// ── Synth sounds (no assets) ──
+let _ac = null;
+function ac() { if (!_ac) { try { _ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return _ac; }
+function tone(freq, dur, type, gain, when) {
+    const a = ac(); if (!a) return;
+    try {
+        const t0 = a.currentTime + (when || 0);
+        const o = a.createOscillator(), g = a.createGain();
+        o.type = type || 'triangle'; o.frequency.value = freq;
+        g.gain.setValueAtTime(gain || 0.07, t0);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        o.connect(g); g.connect(a.destination);
+        o.start(t0); o.stop(t0 + dur);
+    } catch (e) {}
+}
+function sRight() { tone(523, 0.12); tone(784, 0.2, 'triangle', 0.06, 0.1); }
+function sClose() { tone(440, 0.15, 'sine', 0.05); }
+function sHint() { tone(660, 0.1, 'square', 0.04); }
+function sTurn() { tone(392, 0.14); tone(523, 0.2, 'triangle', 0.06, 0.12); }
+function sWin() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.3, 'triangle', 0.06, i * 0.13)); }
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let peer = null, myId = '', myName = '', isHost = false, isTvHost = false, isViewer = false, roomCode = '';
+let hostConn = null, guestConns = {}, viewerConns = {};
+let ui = 'home';   // home|creating|connecting|lobby_h|lobby_g|pick|waitpick|draw|guess|turnend|podium|viewer
+let uiErr = '';
+let fName = localStorage.getItem('doodle-name') || '';
+let fCode = '', fVCode = '';
+let D = null, vD = null;
+let iGuessed = false;
+
+// Host authoritative state
+let H = {
+    phase: 'lobby',          // lobby|pick|draw|turnend|podium
+    players: [],             // [{id,name,color,score,drawScore,guessMs:[],lastDelta}]
+    settings: { cycles: 1, drawSecs: 60 },
+    turnList: [], turnPtr: -1,
+    usedWords: new Set(),
+    cur: null,               // {drawerId, choices, word, revealed:[], endsAt, totalMs, drawerPts}
+    strokes: [],             // canonical [{sid,color,size,pts:[[x,y]…]}]
+    guessed: [],             // [{id, ms}] in order
+    feed: [],                // last 10 [{name,color,text,correct}]
+    lastTurnMsg: null, lastPodiumMsg: null,
+};
+let _pickTimer = null, _hintT1 = null, _hintT2 = null, _endTimer = null, _nextTimer = null;
+function clearHostTimers() { [_pickTimer, _hintT1, _hintT2, _endTimer, _nextTimer].forEach(clearTimeout); }
+
+// ═══════════════════════════════════════════
+// NETWORK
+// ═══════════════════════════════════════════
+function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('send err', e); } }
+function broadcastViewers(msg) { Object.values(viewerConns).forEach(c => send(c, msg)); }
+function broadcastPlayers(msg, exceptId) {
+    H.players.forEach(p => {
+        if (p.id === myId || p.id === exceptId) return;
+        const c = guestConns[p.id];
+        if (c) send(c, msg);
+    });
+}
+function connectedPlayers() {
+    return H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+}
+
+function hostAddPlayer(id, name) {
+    if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
+    H.players.push({
+        id, name, color: PLAYER_COLORS[H.players.length % PLAYER_COLORS.length],
+        score: 0, drawScore: 0, guessMs: [], lastDelta: 0,
+    });
+}
+
+function lobbyMsg() {
+    return {
+        type: 'lobby', roomCode,
+        players: H.players.map(p => ({ name: p.name, color: p.color })),
+        settings: { ...H.settings },
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+function broadcastLobby() {
+    broadcastPlayers(lobbyMsg());
+    broadcastViewers({ ...lobbyMsg(), type: 'viewer_lobby' });
+    hostSyncSelf(lobbyMsg());
+}
+
+function drawerName() { const d = H.players.find(p => p.id === H.cur?.drawerId); return d ? d.name : ''; }
+function maskedWord() {
+    return H.cur.word.split('').map((ch, i) =>
+        ch === ' ' ? ' ' : (H.cur.revealed.includes(i) ? ch.toUpperCase() : '_')).join(' ');
+}
+function railPlayers() {
+    return H.players.map(p => ({
+        name: p.name, color: p.color, score: p.score,
+        gotit: H.guessed.some(g => g.id === p.id), drawing: p.id === H.cur?.drawerId,
+    })).sort((a, b) => b.score - a.score);
+}
+function turnMeta() { return { num: H.turnPtr + 1, total: H.turnList.length }; }
+function remainingSecs() { return Math.max(1, Math.ceil((H.cur.endsAt - Date.now()) / 1000)); }
+function guessTotal() { return connectedPlayers().filter(p => p.id !== H.cur?.drawerId).length; }
+
+function drawStartFor(p) {
+    const isDrawer = p && p.id === H.cur.drawerId;
+    return {
+        type: 'draw_start', ...turnMeta(),
+        role: isDrawer ? 'draw' : 'guess',
+        word: isDrawer ? H.cur.word : null,
+        masked: maskedWord(), drawerName: drawerName(),
+        seconds: remainingSecs(), totalSecs: Math.round(H.cur.totalMs / 1000),
+        strokes: H.strokes, feed: H.feed.slice(-8),
+        guessedCount: H.guessed.length, guessTotal: guessTotal(),
+        iGuessed: !!(p && H.guessed.some(g => g.id === p.id)),
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+function viewerDrawMsg() {
+    return { ...drawStartFor(null), type: 'viewer_draw', players: railPlayers() };
+}
+function pickMsgFor(p) {
+    const isDrawer = p && p.id === H.cur.drawerId;
+    return isDrawer
+        ? { type: 'pick', choices: H.cur.choices, ...turnMeta(), tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null }
+        : { type: 'wait_pick', drawerName: drawerName(), ...turnMeta(), tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null };
+}
+
+function phaseSnapshotFor(p) {
+    if (H.phase === 'lobby') return lobbyMsg();
+    if (H.phase === 'pick') return pickMsgFor(p);
+    if (H.phase === 'draw') return drawStartFor(p);
+    if (H.phase === 'turnend') return H.lastTurnMsg;
+    if (H.phase === 'podium') return H.lastPodiumMsg;
+    return lobbyMsg();
+}
+function viewerSnapshot() {
+    if (H.phase === 'lobby') return { ...lobbyMsg(), type: 'viewer_lobby' };
+    if (H.phase === 'pick') return { type: 'viewer_pick', drawerName: drawerName(), ...turnMeta(), players: railPlayers() };
+    if (H.phase === 'draw') return viewerDrawMsg();
+    if (H.phase === 'turnend') return { ...H.lastTurnMsg, type: 'viewer_turnend', players: railPlayers() };
+    if (H.phase === 'podium') return { ...H.lastPodiumMsg, type: 'viewer_podium' };
+    return { ...lobbyMsg(), type: 'viewer_lobby' };
+}
+
+// ── Host: incoming connections ──
+function setupGuestConn(conn) {
+    conn.on('open', () => { conn._role = null; });
+
+    conn.on('data', msg => {
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer';
+            viewerConns[conn.peer] = conn;
+            send(conn, viewerSnapshot());
+            return;
+        }
+        if (conn._role === null) {
+            conn._role = 'player';
+            guestConns[conn.peer] = conn;
+        }
+        const player = H.players.find(p => p.id === conn.peer);
+        switch (msg.type) {
+            case 'join': {
+                const name = String(msg.name || 'Doodler').slice(0, 16);
+                const zombie = H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
+                if (zombie) {
+                    // keep turn ownership if the drawer reconnects
+                    if (H.cur && H.cur.drawerId === zombie.id) H.cur.drawerId = conn.peer;
+                    H.turnList = H.turnList.map(id => id === zombie.id ? conn.peer : id);
+                    H.guessed.forEach(g => { if (g.id === zombie.id) g.id = conn.peer; });
+                    zombie.id = conn.peer;
+                } else hostAddPlayer(conn.peer, name);
+                const p2 = H.players.find(p => p.id === conn.peer);
+                if (!p2) { send(conn, lobbyMsg()); break; }
+                if (H.phase === 'lobby') broadcastLobby();
+                else { send(conn, phaseSnapshotFor(p2)); broadcastViewers(viewerSnapshot()); if (isTvHost) tvHostSync(); }
+                break;
+            }
+            case 'pick':   if (player && player.id === H.cur?.drawerId) hostPick(msg.word); break;
+            case 'stroke': if (player && player.id === H.cur?.drawerId) hostStroke(msg); break;
+            case 'undo':   if (player && player.id === H.cur?.drawerId) hostUndo(); break;
+            case 'clear':  if (player && player.id === H.cur?.drawerId) hostClear(); break;
+            case 'guess':  if (player) hostGuess(player, msg.text); break;
+            case 'ctl': {
+                if (!isTvHost || !player || player.id !== H.players[0]?.id) break;
+                hostCtl(msg.action, msg);
+                break;
+            }
+        }
+    });
+
+    conn.on('close', () => {
+        delete guestConns[conn.peer];
+        delete viewerConns[conn.peer];
+        if (H.phase === 'lobby') {
+            const pi = H.players.findIndex(p => p.id === conn.peer);
+            if (pi >= 0) { H.players.splice(pi, 1); broadcastLobby(); }
+        } else if (H.phase === 'draw') {
+            if (H.cur && H.cur.drawerId === conn.peer) endTurn();      // drawer left → reveal & move on
+            else maybeAllGuessed();
+        } else if (H.phase === 'pick' && H.cur && H.cur.drawerId === conn.peer) {
+            hostPick(H.cur.choices[0]);                                 // picker left → auto-pick
+        }
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+function hostCtl(action, msg) {
+    if (action === 'start' && H.phase === 'lobby') hostStartGame();
+    else if (action === 'next' && H.phase === 'turnend') nextTurn();
+    else if (action === 'again' && H.phase === 'podium') hostNewGame();
+    else if (action === 'set' && H.phase === 'lobby') {
+        if ([1, 2, 3].includes(msg.cycles)) H.settings.cycles = msg.cycles;
+        if ([60, 90].includes(msg.drawSecs)) H.settings.drawSecs = msg.drawSecs;
+        broadcastLobby();
+    }
+}
+function guestCtl(action, extra) {
+    if (isHost && !isTvHost) { hostCtl(action, extra || {}); return; }
+    if (hostConn) send(hostConn, { type: 'ctl', action, ...(extra || {}) });
+}
+
+// ── Create a room (phone host or TV host) ──
+function makeRoom(onOpen) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    roomCode = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    peer = new Peer(PFX + roomCode);
+    peer.on('open', id => { myId = id; isHost = true; onOpen(); });
+    peer.on('connection', conn => setupGuestConn(conn));
+    peer.on('error', e => {
+        uiErr = 'Connection error: ' + e.message;
+        isHost = false; isTvHost = false;
+        document.body.classList.remove('viewer-mode');
+        ui = 'home'; render();
+    });
+}
+
+function hostGame(name) {
+    myName = name.trim().slice(0, 16) || 'Host';
+    localStorage.setItem('doodle-name', myName);
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        hostAddPlayer(myId, myName);
+        ui = 'lobby_h';
+        render();
+    });
+}
+
+function hostOnTV() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        isTvHost = true;
+        document.body.classList.add('viewer-mode');
+        tvHostSync();
+        render();
+    });
+}
+
+// ── Guest ──
+function joinGame(code, name) {
+    myName = name.trim().slice(0, 16) || 'Doodler';
+    localStorage.setItem('doodle-name', myName);
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        isHost = false;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join', name: myName }));
+        hostConn.on('data', msg => applyMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the game.'; ui = 'home'; D = null; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        ui = 'home'; render();
+    });
+}
+
+// ── Viewer (a TV joining a phone-hosted game) ──
+function joinAsViewer(code, _attempt) {
+    const attempt = _attempt || 1;
+    isViewer = true;
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join_viewer' }));
+        hostConn.on('data', msg => applyViewerMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the game.'; isViewer = false; vD = null; document.body.classList.remove('viewer-mode'); ui = 'home'; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; isViewer = false; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        if (attempt < 2) {
+            try { peer.destroy(); } catch (_) {}
+            peer = null;
+            setTimeout(() => joinAsViewer(code, 2), 600);
+            return;
+        }
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        isViewer = false; ui = 'home'; render();
+    });
+}
+
+// The TV-host mirrors authoritative state into its own viewer UI
+function tvHostSync() {
+    if (!isTvHost) return;
+    applyViewerMsg(viewerSnapshot());
+}
+// The phone-host applies its own broadcasts through the same client path as guests
+function hostSyncSelf(msg) {
+    if (isTvHost) { tvHostSync(); return; }
+    if (isHost && msg) applyMsg(msg);
+}
+
+// ═══════════════════════════════════════════
+// HOST GAME FLOW
+// ═══════════════════════════════════════════
+function localApply(msg) {
+    // apply an incremental event to this device's own screen (TV-host or phone-host)
+    if (isTvHost) applyViewerMsg(msg);
+    else if (isHost) applyMsg(msg);
+}
+
+function pickChoices() {
+    const avail = pool => { const a = pool.filter(w => !H.usedWords.has(w)); return a.length ? a : pool.slice(); };
+    const easy = shuffle(avail(WORDS_EASY)), med = shuffle(avail(WORDS_MEDIUM));
+    const choices = [easy[0], easy[1] || med[1] || easy[0], med[0]];
+    choices.forEach(w => H.usedWords.add(w));
+    return choices;
+}
+
+function hostStartGame() {
+    if (connectedPlayers().length < MIN_PLAYERS) { uiErr = 'Need at least ' + MIN_PLAYERS + ' doodlers.'; if (ui === 'lobby_h') render(); return; }
+    clearHostTimers();
+    H.players.forEach(p => { p.score = 0; p.drawScore = 0; p.guessMs = []; p.lastDelta = 0; });
+    H.usedWords = new Set();
+    const order = shuffle(connectedPlayers().map(p => p.id));
+    H.turnList = [];
+    for (let c = 0; c < H.settings.cycles; c++) H.turnList.push(...order);
+    H.turnPtr = -1;
+    nextTurn();
+}
+
+function nextTurn() {
+    clearHostTimers();
+    do { H.turnPtr += 1; } while (
+        H.turnPtr < H.turnList.length &&
+        !connectedPlayers().some(p => p.id === H.turnList[H.turnPtr])
+    );
+    if (H.turnPtr >= H.turnList.length) { showPodium(); return; }
+    H.cur = { drawerId: H.turnList[H.turnPtr], choices: pickChoices(), word: null, revealed: [], endsAt: 0, totalMs: 0, drawerPts: 0 };
+    H.strokes = []; H.guessed = []; H.feed = [];
+    H.phase = 'pick';
+    H.players.forEach(p => {
+        if (p.id === myId) return;
+        const c = guestConns[p.id];
+        if (c) send(c, pickMsgFor(p));
+    });
+    broadcastViewers(viewerSnapshot());
+    hostSyncSelf(pickMsgFor(H.players.find(p => p.id === myId)));
+    if (isTvHost) tvHostSync();
+    _pickTimer = setTimeout(() => hostPick(H.cur.choices[0]), 15000);
+}
+
+function hostPick(word) {
+    if (H.phase !== 'pick' || !H.cur.choices.includes(word)) return;
+    clearHostTimers();
+    H.phase = 'draw';
+    H.cur.word = word;
+    H.cur.totalMs = H.settings.drawSecs * 1000;
+    H.cur.endsAt = Date.now() + H.cur.totalMs;
+    H.players.forEach(p => { p.lastDelta = 0; });
+    H.players.forEach(p => {
+        if (p.id === myId) return;
+        const c = guestConns[p.id];
+        if (c) send(c, drawStartFor(p));
+    });
+    broadcastViewers(viewerDrawMsg());
+    hostSyncSelf(drawStartFor(H.players.find(p => p.id === myId)));
+    if (isTvHost) tvHostSync();
+    _hintT1 = setTimeout(() => revealHint(), H.cur.totalMs * 0.5);
+    _hintT2 = setTimeout(() => revealHint(), H.cur.totalMs * 0.75);
+    _endTimer = setTimeout(() => endTurn(), H.cur.totalMs + 400);
+}
+
+function revealHint() {
+    if (H.phase !== 'draw') return;
+    const hidden = H.cur.word.split('').map((ch, i) => (ch !== ' ' && !H.cur.revealed.includes(i)) ? i : -1).filter(i => i >= 0);
+    if (hidden.length <= 1) return;   // never reveal the whole word
+    H.cur.revealed.push(hidden[Math.floor(Math.random() * hidden.length)]);
+    const msg = { type: 'hint', masked: maskedWord() };
+    broadcastPlayers(msg, H.cur.drawerId);
+    broadcastViewers(msg);
+    localApply(msg);
+}
+
+// ── strokes ──
+function hostStroke(msg) {
+    if (H.phase !== 'draw') return;
+    const color = DRAW_COLORS.includes(msg.color) || msg.color === ERASE ? msg.color : DRAW_COLORS[0];
+    const size = Math.min(0.09, Math.max(0.004, Number(msg.size) || 0.012));
+    const pts = (Array.isArray(msg.pts) ? msg.pts : []).slice(0, 80)
+        .map(p => [Math.min(1, Math.max(0, +p[0] || 0)), Math.min(1, Math.max(0, +p[1] || 0))]);
+    if (!pts.length || H.strokes.length > 500) return;
+    let s = H.strokes.find(q => q.sid === msg.sid);
+    if (!s) { s = { sid: msg.sid, color, size, pts: [] }; H.strokes.push(s); }
+    if (s.pts.length > 3000) return;
+    s.pts.push(...pts);
+    const relay = { type: 'stroke', sid: msg.sid, color, size, pts };
+    broadcastPlayers(relay, H.cur.drawerId);
+    broadcastViewers(relay);
+    if (H.cur.drawerId !== myId) localApply(relay);   // the drawer already echoed locally
+}
+function hostUndo() {
+    if (H.phase !== 'draw' || !H.strokes.length) return;
+    H.strokes.pop();
+    const relay = { type: 'undo' };
+    broadcastPlayers(relay, H.cur.drawerId);
+    broadcastViewers(relay);
+    if (H.cur.drawerId !== myId) localApply(relay);
+}
+function hostClear() {
+    if (H.phase !== 'draw') return;
+    H.strokes = [];
+    const relay = { type: 'clear' };
+    broadcastPlayers(relay, H.cur.drawerId);
+    broadcastViewers(relay);
+    if (H.cur.drawerId !== myId) localApply(relay);
+}
+
+// ── guesses ──
+function hostGuess(player, text) {
+    if (H.phase !== 'draw' || player.id === H.cur.drawerId) return;
+    if (H.guessed.some(g => g.id === player.id)) return;
+    const t = norm(text), w = norm(H.cur.word);
+    if (!t) return;
+    const conn = guestConns[player.id];
+    if (t === w) {
+        const order = H.guessed.length;
+        const elapsed = H.cur.totalMs - Math.max(0, H.cur.endsAt - Date.now());
+        H.guessed.push({ id: player.id, ms: elapsed });
+        const base = [100, 80, 60, 50][order] ?? 40;
+        const bonus = Math.round(20 * Math.max(0, H.cur.endsAt - Date.now()) / H.cur.totalMs);
+        const delta = base + bonus;
+        player.score += delta;
+        player.lastDelta = delta;
+        player.guessMs.push(elapsed);
+        H.cur.drawerPts = Math.min(150, 30 * H.guessed.length);
+        if (conn) send(conn, { type: 'guess_result', correct: true, delta });
+        else if (player.id === myId) applyMsg({ type: 'guess_result', correct: true, delta });
+        pushFeed({ name: player.name, color: player.color, correct: true });
+        maybeAllGuessed();
+    } else if (lev1(t, w) || (t.length >= 4 && (w.includes(t) || t.includes(w)))) {
+        if (conn) send(conn, { type: 'guess_result', close: true });
+        else if (player.id === myId) applyMsg({ type: 'guess_result', close: true });
+    } else {
+        pushFeed({ name: player.name, color: player.color, text: String(text).slice(0, 24) });
+    }
+}
+
+function pushFeed(ev) {
+    H.feed.push(ev);
+    if (H.feed.length > 10) H.feed.shift();
+    const msg = { type: 'feedev', ev, guessedCount: H.guessed.length, guessTotal: guessTotal() };
+    broadcastPlayers(msg);
+    broadcastViewers(msg);
+    localApply(msg);
+}
+
+function maybeAllGuessed() {
+    if (H.phase === 'draw' && guessTotal() > 0 && H.guessed.length >= guessTotal())
+        setTimeout(() => endTurn(), 600);
+}
+
+function endTurn() {
+    if (H.phase !== 'draw') return;
+    clearHostTimers();
+    H.phase = 'turnend';
+    const drawer = H.players.find(p => p.id === H.cur.drawerId);
+    if (drawer) {
+        drawer.score += H.cur.drawerPts;
+        drawer.drawScore += H.cur.drawerPts;
+        drawer.lastDelta = H.cur.drawerPts;
+    }
+    const standings = H.players.map(p => ({ name: p.name, color: p.color, score: p.score, delta: p.lastDelta }))
+        .sort((a, b) => b.score - a.score);
+    const results = standings.filter(p => p.delta > 0);
+    H.lastTurnMsg = {
+        type: 'turn_end', ...turnMeta(),
+        word: H.cur.word, drawerName: drawerName(),
+        guessedCount: H.guessed.length, guessTotal: guessTotal(),
+        results, standings, autoSecs: 6,
+        isLast: H.turnPtr >= H.turnList.length - 1,
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+    broadcastPlayers(H.lastTurnMsg);
+    broadcastViewers({ ...H.lastTurnMsg, type: 'viewer_turnend', players: railPlayers() });
+    hostSyncSelf(H.lastTurnMsg);
+    if (isTvHost) tvHostSync();
+    _nextTimer = setTimeout(() => nextTurn(), 6500);
+}
+
+function showPodium() {
+    clearHostTimers();
+    H.phase = 'podium';
+    const standings = H.players.map(p => ({ name: p.name, color: p.color, score: p.score }))
+        .sort((a, b) => b.score - a.score);
+    const awards = [];
+    const picasso = H.players.filter(p => p.drawScore > 0).sort((a, b) => b.drawScore - a.drawScore)[0];
+    if (picasso) awards.push({ emoji: '🖌️', title: 'Picasso', name: picasso.name, detail: picasso.drawScore + ' drawing pts' });
+    const hounds = H.players.filter(p => p.guessMs.length > 0)
+        .map(p => ({ p, avg: p.guessMs.reduce((a, b) => a + b, 0) / p.guessMs.length }))
+        .sort((a, b) => a.avg - b.avg)[0];
+    if (hounds) awards.push({ emoji: '🐕', title: 'Bloodhound', name: hounds.p.name, detail: (hounds.avg / 1000).toFixed(1) + 's avg guess' });
+    H.lastPodiumMsg = { type: 'podium', standings, awards, tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null };
+    broadcastPlayers(H.lastPodiumMsg);
+    broadcastViewers({ ...H.lastPodiumMsg, type: 'viewer_podium' });
+    hostSyncSelf(H.lastPodiumMsg);
+    if (isTvHost) tvHostSync();
+}
+
+function hostNewGame() {
+    clearHostTimers();
+    H.phase = 'lobby';
+    H.turnList = []; H.turnPtr = -1; H.cur = null; H.strokes = []; H.guessed = []; H.feed = [];
+    H.players.forEach(p => { p.score = 0; p.drawScore = 0; p.guessMs = []; p.lastDelta = 0; });
+    H.players = H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+    broadcastLobby();
+    if (isHost && !isTvHost) { ui = 'lobby_h'; render(); }
+}
+
+function hostSet(patch) {
+    Object.assign(H.settings, patch);
+    broadcastLobby();
+    if (ui === 'lobby_h') render();
+}
+
+// ═══════════════════════════════════════════
+// CANVAS ENGINE (drawer, guesser preview, TV)
+// ═══════════════════════════════════════════
+let CV = { strokes: [], cvId: null };
+function cvEl() { return CV.cvId ? $id(CV.cvId) : null; }
+function cvSetup(id, strokes) {
+    CV.cvId = id;
+    CV.strokes = (strokes || []).map(s => ({ sid: s.sid, color: s.color, size: s.size, pts: s.pts.slice() }));
+    cvResizeAndRedraw();
+}
+function cvResizeAndRedraw() {
+    const el = cvEl();
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const px = Math.max(60, Math.round((r.width || 300) * (devicePixelRatio || 1)));
+    if (el.width !== px) { el.width = px; el.height = px; }
+    cvRedraw();
+}
+function cvRedraw() {
+    const el = cvEl();
+    if (!el) return;
+    const x = el.getContext('2d');
+    x.fillStyle = '#ffffff';
+    x.fillRect(0, 0, el.width, el.height);
+    CV.strokes.forEach(s => paintWholeStroke(x, el.width, s));
+}
+function strokeStyle(x, W, s) {
+    x.strokeStyle = s.color; x.fillStyle = s.color;
+    x.lineWidth = Math.max(1.5, s.size * W);
+    x.lineCap = 'round'; x.lineJoin = 'round';
+}
+function paintWholeStroke(x, W, s) {
+    if (!s.pts.length) return;
+    strokeStyle(x, W, s);
+    if (s.pts.length === 1) {
+        x.beginPath(); x.arc(s.pts[0][0] * W, s.pts[0][1] * W, Math.max(1, s.size * W / 2), 0, Math.PI * 2); x.fill();
+        return;
+    }
+    x.beginPath();
+    x.moveTo(s.pts[0][0] * W, s.pts[0][1] * W);
+    for (let i = 1; i < s.pts.length; i++) x.lineTo(s.pts[i][0] * W, s.pts[i][1] * W);
+    x.stroke();
+}
+function strokeApply(msg) {
+    let s = CV.strokes.find(q => q.sid === msg.sid);
+    if (!s) { s = { sid: msg.sid, color: msg.color, size: msg.size, pts: [] }; CV.strokes.push(s); }
+    const startIdx = s.pts.length;
+    s.pts.push(...msg.pts);
+    const el = cvEl();
+    if (!el) return;
+    const x = el.getContext('2d'), W = el.width;
+    strokeStyle(x, W, s);
+    if (s.pts.length === 1) {
+        x.beginPath(); x.arc(s.pts[0][0] * W, s.pts[0][1] * W, Math.max(1, s.size * W / 2), 0, Math.PI * 2); x.fill();
+        return;
+    }
+    const from = Math.max(0, startIdx - 1);
+    x.beginPath();
+    x.moveTo(s.pts[from][0] * W, s.pts[from][1] * W);
+    for (let i = from + 1; i < s.pts.length; i++) x.lineTo(s.pts[i][0] * W, s.pts[i][1] * W);
+    x.stroke();
+}
+function strokeUndo() { CV.strokes.pop(); cvRedraw(); }
+function strokeClear() { CV.strokes = []; cvRedraw(); }
+
+// ── drawer input ──
+let DR = { drawing: false, n: 0, sid: '', pend: [], color: DRAW_COLORS[0], erase: false, flushT: null };
+function drSize() { return DR.erase ? 0.06 : 0.014; }
+function drColor() { return DR.erase ? ERASE : DR.color; }
+function sendStrokeMsg(m) {
+    if (isHost && !isTvHost) hostStroke(m);
+    else if (hostConn) send(hostConn, m);
+}
+function drFlush() {
+    if (DR.pend.length) sendStrokeMsg({ type: 'stroke', sid: DR.sid, color: drColor(), size: drSize(), pts: DR.pend.splice(0) });
+}
+function drPoint(e, el) {
+    const r = el.getBoundingClientRect();
+    const p = [
+        Math.round(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * 1000) / 1000,
+        Math.round(Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) * 1000) / 1000,
+    ];
+    strokeApply({ sid: DR.sid, color: drColor(), size: drSize(), pts: [p] });   // local echo
+    DR.pend.push(p);
+    if (!DR.flushT) DR.flushT = setTimeout(() => { DR.flushT = null; drFlush(); }, 120);
+}
+function initDrawerEvents() {
+    const el = cvEl();
+    if (!el) return;
+    el.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        try { el.setPointerCapture(e.pointerId); } catch (_) {}
+        DR.drawing = true;
+        DR.sid = 's' + (++DR.n) + '_' + Math.floor(Math.random() * 1e6);
+        drPoint(e, el);
+    });
+    el.addEventListener('pointermove', e => { if (DR.drawing) { e.preventDefault(); drPoint(e, el); } });
+    const up = e => { if (DR.drawing) { DR.drawing = false; clearTimeout(DR.flushT); DR.flushT = null; drFlush(); } };
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+}
+function drUndo() {
+    strokeUndo();
+    if (isHost && !isTvHost) hostUndo();
+    else if (hostConn) send(hostConn, { type: 'undo' });
+}
+function drClear() {
+    strokeClear();
+    if (isHost && !isTvHost) hostClear();
+    else if (hostConn) send(hostConn, { type: 'clear' });
+}
+function drSetColor(c) {
+    DR.erase = false; DR.color = c;
+    document.querySelectorAll('.swatch').forEach(el => el.classList.toggle('on', el.dataset.c === c));
+    const er = $id('tool-erase'); if (er) er.classList.remove('on');
+}
+function drSetErase() {
+    DR.erase = true;
+    document.querySelectorAll('.swatch').forEach(el => el.classList.remove('on'));
+    const er = $id('tool-erase'); if (er) er.classList.add('on');
+}
+
+// ═══════════════════════════════════════════
+// CLIENT (phone) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+let _cTick = null, _cEndsAt = 0, _cTotal = 0;
+let clientFeed = [];
+function stopClientTimer() { clearInterval(_cTick); _cTick = null; }
+function startClientTimer(seconds, total, barId, numId) {
+    stopClientTimer();
+    _cEndsAt = Date.now() + seconds * 1000;
+    _cTotal = total * 1000;
+    _cTick = setInterval(() => {
+        const left = Math.max(0, _cEndsAt - Date.now());
+        const bar = $id(barId), num = $id(numId);
+        if (bar) bar.style.width = (left / _cTotal * 100) + '%';
+        if (num) num.textContent = Math.ceil(left / 1000);
+        if (left <= 0) stopClientTimer();
+    }, 200);
+}
+
+function feedRowHTML(ev, tv) {
+    const cls = tv ? 'frow' : 'feed-row';
+    if (ev.correct) return `<div class="${cls} hot">✅ <b>${esc(ev.name)}</b> got it!</div>`;
+    return `<div class="${cls}"><b style="color:${ev.color}">${esc(ev.name)}</b>: ${esc(ev.text)}</div>`;
+}
+function feedApply(msg, tv) {
+    clientFeed.push(msg.ev);
+    if (clientFeed.length > 10) clientFeed.shift();
+    const feed = $id(tv ? 'v-feed' : 'feed');
+    if (feed) feed.innerHTML = clientFeed.map(ev => feedRowHTML(ev, tv)).join('');
+    const g = $id(tv ? 'v-guessed' : 'guessed-count');
+    if (g) g.textContent = `✅ ${msg.guessedCount}/${msg.guessTotal}`;
+    if (msg.ev.correct) sRight();
+}
+
+function applyMsg(msg) {
+    switch (msg.type) {
+        case 'lobby':
+            D = msg;
+            stopClientTimer();
+            ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g';
+            render();
+            break;
+        case 'pick':
+            D = msg; stopClientTimer();
+            ui = 'pick'; render();
+            break;
+        case 'wait_pick':
+            D = msg; stopClientTimer();
+            ui = 'waitpick'; render();
+            break;
+        case 'draw_start': {
+            D = msg;
+            iGuessed = !!msg.iGuessed;
+            clientFeed = (msg.feed || []).slice();
+            ui = msg.role === 'draw' ? 'draw' : 'guess';
+            render();
+            cvSetup('doodle-cv', msg.strokes);
+            if (msg.role === 'draw') { DR.color = DRAW_COLORS[0]; DR.erase = false; initDrawerEvents(); }
+            startClientTimer(msg.seconds, msg.totalSecs, 'timebar', 'timenum');
+            break;
+        }
+        case 'stroke': strokeApply(msg); break;
+        case 'undo':   strokeUndo(); break;
+        case 'clear':  strokeClear(); break;
+        case 'hint': {
+            const m = $id('masked');
+            if (m) m.textContent = msg.masked;
+            sHint();
+            break;
+        }
+        case 'feedev': feedApply(msg, false); break;
+        case 'guess_result': {
+            const n = $id('nudge');
+            if (msg.correct) {
+                iGuessed = true;
+                if (n) n.textContent = `✅ Got it! +${msg.delta}`;
+                const inp = $id('guess-inp'), btn = $id('guess-btn');
+                if (inp) { inp.disabled = true; inp.placeholder = 'You got it! 🎉'; inp.value = ''; }
+                if (btn) btn.disabled = true;
+                sRight();
+                try { navigator.vibrate && navigator.vibrate([60, 30, 60]); } catch (e) {}
+            } else if (msg.close) {
+                if (n) { n.textContent = '🔥 So close!'; setTimeout(() => { if (n.textContent === '🔥 So close!') n.textContent = ''; }, 1800); }
+                sClose();
+            }
+            break;
+        }
+        case 'turn_end':
+            D = msg; stopClientTimer();
+            ui = 'turnend'; render();
+            sTurn();
+            break;
+        case 'podium':
+            D = msg; stopClientTimer();
+            ui = 'podium'; render();
+            sWin(); startConfetti(3600);
+            break;
+    }
+}
+
+function sendPick(word) {
+    if (isHost && !isTvHost) hostPick(word);
+    else if (hostConn) send(hostConn, { type: 'pick', word });
+}
+function sendGuess() {
+    const inp = $id('guess-inp');
+    if (!inp || iGuessed) return;
+    const text = inp.value;
+    if (!norm(text)) return;
+    inp.value = '';
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostGuess(me, text);
+    } else send(hostConn, { type: 'guess', text });
+}
+
+// ═══════════════════════════════════════════
+// VIEWER (TV) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+function applyViewerMsg(msg) {
+    document.body.classList.add('viewer-mode');
+    ui = 'viewer';
+    switch (msg.type) {
+        case 'viewer_lobby':
+            vD = msg; stopClientTimer(); render(); break;
+        case 'viewer_pick':
+            vD = msg; stopClientTimer(); render(); break;
+        case 'viewer_draw': {
+            vD = msg;
+            clientFeed = (msg.feed || []).slice();
+            render();
+            cvSetup('tv-cv', msg.strokes);
+            startClientTimer(msg.seconds, msg.totalSecs, 'v-timebar', 'v-timenum');
+            break;
+        }
+        case 'stroke': strokeApply(msg); break;
+        case 'undo':   strokeUndo(); break;
+        case 'clear':  strokeClear(); break;
+        case 'hint': {
+            const m = $id('v-masked');
+            if (m) m.textContent = msg.masked;
+            sHint();
+            break;
+        }
+        case 'feedev': feedApply(msg, true); break;
+        case 'viewer_turnend':
+            vD = msg; stopClientTimer(); render(); sTurn(); break;
+        case 'viewer_podium':
+            vD = msg; stopClientTimer(); render(); sWin(); startConfetti(5200); break;
+    }
+}
+
+// ═══════════════════════════════════════════
+// RENDER — shared bits
+// ═══════════════════════════════════════════
+function hdrHTML(sub) {
+    return `<h1 class="logo">🎨 Doodle Party</h1><div class="sub">${esc(sub || 'sketch on your phone · guess on the TV')}</div>`;
+}
+function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+function isCaptain() { return !!(D && D.tvHost && D.captain && D.captain === myName); }
+function canDrive() { return (isHost && !isTvHost) || isCaptain(); }
+
+function settingsSegsHTML(settings, expr) {
+    const seg = (opts, curV, key) => `<div class="seg-row">${opts.map(o =>
+        `<button class="btn btn-sm ${curV === o.v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{${key}:${o.j}}`)}">${o.l}</button>`).join('')}</div>`;
+    return `
+        <div class="fg"><label>Rounds (everyone draws each round)</label>${seg(
+            [1, 2, 3].map(v => ({ v, j: v, l: v })), settings.cycles, 'cycles')}</div>
+        <div class="fg"><label>Drawing time</label>${seg(
+            [60, 90].map(v => ({ v, j: v, l: v + 's' })), settings.drawSecs, 'drawSecs')}</div>`;
+}
+
+function standingsHTML(st) {
+    const medals = ['🥇', '🥈', '🥉'];
+    return `<div class="card standings"><div class="slbl">Scores</div>${
+        st.map((p, i) => `
+        <div class="player-row">
+            <span style="width:22px;text-align:center">${medals[i] || (i + 1)}</span>
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--pink)">(you)</span>' : ''}</div>
+            <div class="sc">${p.score}${p.delta ? `<span class="delta">+${p.delta}</span>` : ''}</div>
+        </div>`).join('')
+    }</div>`;
+}
+
+function railRowsHTML(players) {
+    return (players || []).map(p => `
+        <div class="rail-row${p.gotit ? ' gotit' : ''}${p.drawing ? ' drawing' : ''}">
+            <span class="rdot" style="background:${p.color};color:${p.color}"></span>
+            <span class="rname">${esc(p.name)}</span>
+            <span class="rsc">${p.score}</span>
+        </div>`).join('');
+}
+
+// ═══════════════════════════════════════════
+// RENDER — phone screens
+// ═══════════════════════════════════════════
+function render() {
+    const app = $id('app');
+    if (isTvHost || isViewer) ui = 'viewer';
+    let html = '';
+    switch (ui) {
+        case 'home':       html = renderHome(); break;
+        case 'creating':   html = renderSpinner('Setting up the studio…'); break;
+        case 'connecting': html = renderSpinner('Joining the party…'); break;
+        case 'lobby_h':    html = renderLobbyH(); break;
+        case 'lobby_g':    html = renderLobbyG(); break;
+        case 'pick':       html = renderPick(); break;
+        case 'waitpick':   html = renderWaitPick(); break;
+        case 'draw':       html = renderDraw(); break;
+        case 'guess':      html = renderGuess(); break;
+        case 'turnend':    html = renderTurnend(); break;
+        case 'podium':     html = renderPodium(); break;
+        case 'viewer':     html = renderViewer(); break;
+        default:           html = renderHome();
+    }
+    app.innerHTML = html;
+}
+
+function renderSpinner(msg) {
+    return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`;
+}
+
+function renderHome() {
+    const fromQR = !!fCode;
+    const youCard = `
+    <div class="card">
+        <div class="slbl">Who are you?</div>
+        <div class="fg">
+            <label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
+                ${fromQR ? 'autofocus' : ''} oninput="fName=this.value">
+        </div>
+    </div>`;
+    const joinCard = `
+    <div class="card${fromQR ? ' highlight' : ''}">
+        <div class="slbl">Join a Game</div>
+        <div class="fg">
+            <label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fCode)}"
+                oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
+        </div>
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">
+            📱 Join with your phone
+        </button>
+    </div>`;
+    const hostCard = `
+    <div class="card">
+        <div class="slbl">Start a Game</div>
+        <button class="btn btn-p btn-full"
+            onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
+            🎨 Host on this phone
+        </button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin-top:8px">
+            2–12 doodlers — put the TV up with the room code so everyone sees the drawing
+        </div>
+    </div>`;
+    const tvCard = `
+    <div class="card">
+        <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-p btn-full" onclick="hostOnTV()">📺 Create the game on this screen</button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin:6px 0 10px">
+            Shows a big QR code — the first phone to join becomes 👑 Captain
+        </div>
+        <hr>
+        <div class="fg">
+            <label>…or show an existing game</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')joinAsViewer(fVCode)">
+        </div>
+        <button class="btn btn-g btn-full"
+            onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code.';render()}">
+            📺 Open TV screen
+        </button>
+    </div>`;
+    return `
+    ${hdrHTML('2–12 players · phones are sketchpads')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+}
+
+function renderLobbyH() {
+    const pList = H.players.map((p, i) =>
+        `<div class="player-row">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1">${esc(p.name)}${i === 0 ? ' <span style="color:var(--muted)">(you — host)</span>' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    return `
+    ${hdrHTML('Host Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card highlight">
+        <div class="slbl">Scan to join — or share the code</div>
+        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        <div class="room-code">${esc(roomCode)}</div>
+        <div class="share-row">
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.share&&navigator.share({title:'Join Doodle Party',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
+        </div>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center">Open the TV screen on a big display with code <b style="color:var(--yellow)">${esc(roomCode)}</b></div>
+    </div>
+    <div class="card">
+        <div class="slbl">Doodlers (${H.players.length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    <div class="card">
+        <div class="slbl">Settings</div>
+        ${settingsSegsHTML(H.settings, patch => `hostSet(${patch})`)}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.08rem;padding:16px" onclick="hostStartGame()">🎨 Start doodling</button>`;
+}
+
+function renderLobbyG() {
+    const cap = isCaptain();
+    const pList = (D.players || []).map(p =>
+        `<div class="player-row">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--muted)">(you)</span>' : ''}${D.tvHost && p.name === D.captain ? ' 👑' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    const s = D.settings || {};
+    return `
+    ${hdrHTML(cap ? '👑 You are the Captain' : 'Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card">
+        <div class="slbl">Room ${esc(D.roomCode || '')} — Doodlers (${(D.players || []).length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    ${cap ? `
+    <div class="card highlight">
+        <div class="slbl">👑 Captain's Settings</div>
+        ${settingsSegsHTML(s, patch => `guestCtl('set',${patch})`)}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.08rem;padding:16px" onclick="guestCtl('start')">🎨 Start doodling</button>`
+    : `
+    <div class="card">
+        <div class="slbl">Settings</div>
+        <div style="font-weight:800;font-size:.84rem;line-height:1.9">
+            🔁 ${s.cycles} round${s.cycles === 1 ? '' : 's'} · ⏱️ ${s.drawSecs}s per drawing
+        </div>
+        <div style="color:var(--muted);font-size:.72rem;font-weight:700;margin-top:8px">
+            Waiting for ${D.tvHost ? `👑 ${esc(D.captain || 'the captain')}` : 'the host'} to start…
+        </div>
+    </div>`}`;
+}
+
+function renderPick() {
+    return `
+    ${hdrHTML(`Doodle ${D.num} of ${D.total} — your turn!`)}
+    <div class="card highlight">
+        <div class="slbl">🤫 Pick a secret word to draw</div>
+        <div class="word-choice">
+            ${D.choices.map((w, i) => `
+            <button class="btn ${i === 2 ? 'btn-c' : 'btn-p'}" onclick="sendPick('${esc(w).replace(/'/g, "\\'")}')">
+                ${esc(w)}${i === 2 ? '<span class="badge">tricky</span>' : ''}
+            </button>`).join('')}
+        </div>
+        <div style="color:var(--muted);font-size:.7rem;font-weight:700;text-align:center;margin-top:10px">Auto-picks in 15 seconds…</div>
+    </div>`;
+}
+
+function renderWaitPick() {
+    return `
+    ${hdrHTML(`Doodle ${D.num} of ${D.total}`)}
+    <div class="card" style="text-align:center;padding:38px 14px">
+        <div style="font-size:3rem">🖌️</div>
+        <div style="font-family:'Fredoka',sans-serif;font-weight:700;font-size:1.4rem;margin-top:8px">${esc(D.drawerName)} is choosing a word…</div>
+        <div style="color:var(--muted);font-weight:700;font-size:.82rem;margin-top:6px">Get your guessing fingers ready!</div>
+    </div>`;
+}
+
+function renderDraw() {
+    return `
+    <div class="q-meta"><span>Doodle ${D.num}/${D.total} — you're drawing!</span><span id="timenum">${D.seconds}</span></div>
+    <div class="timebar-wrap"><div class="timebar" id="timebar" style="width:100%"></div></div>
+    <div class="card" style="text-align:center;padding:10px">
+        <span style="font-size:.68rem;font-weight:900;letter-spacing:2px;color:var(--muted);text-transform:uppercase">Draw:</span>
+        <span style="font-size:1.25rem;font-weight:900;color:var(--yellow);letter-spacing:1px"> ${esc(D.word)}</span>
+    </div>
+    <div class="cv-card">
+        <canvas id="doodle-cv" class="doodle"></canvas>
+        <div class="toolbar">
+            ${DRAW_COLORS.map(c => `<button class="swatch${!DR.erase && DR.color === c ? ' on' : ''}" data-c="${c}" style="background:${c}" onclick="drSetColor('${c}')"></button>`).join('')}
+            <button class="tool${DR.erase ? ' on' : ''}" id="tool-erase" onclick="drSetErase()">🧽</button>
+            <button class="tool" onclick="drUndo()">↩️</button>
+            <button class="tool" onclick="drClear()">🗑️</button>
+        </div>
+    </div>
+    <div class="card">
+        <div class="slbl">Guesses — <span id="guessed-count">✅ ${D.guessedCount}/${D.guessTotal}</span></div>
+        <div class="feed" id="feed">${clientFeed.map(ev => feedRowHTML(ev, false)).join('')}</div>
+    </div>`;
+}
+
+function renderGuess() {
+    return `
+    <div class="q-meta"><span>Doodle ${D.num}/${D.total} — ${esc(D.drawerName)} draws</span><span id="timenum">${D.seconds}</span></div>
+    <div class="timebar-wrap"><div class="timebar" id="timebar" style="width:100%"></div></div>
+    <div class="masked" id="masked">${esc(D.masked)}</div>
+    <div class="cv-card"><canvas id="doodle-cv" class="doodle"></canvas></div>
+    <div class="nudge" id="nudge"></div>
+    <div class="guess-row">
+        <input type="text" id="guess-inp" maxlength="30" placeholder="${iGuessed ? 'You got it! 🎉' : 'Type your guess…'}" ${iGuessed ? 'disabled' : ''}
+            onkeydown="if(event.key==='Enter')sendGuess()">
+        <button class="btn btn-p" id="guess-btn" ${iGuessed ? 'disabled' : ''} onclick="sendGuess()">Guess</button>
+    </div>
+    <div class="card">
+        <div class="slbl">Guesses — <span id="guessed-count">✅ ${D.guessedCount}/${D.guessTotal}</span></div>
+        <div class="feed" id="feed">${clientFeed.map(ev => feedRowHTML(ev, false)).join('')}</div>
+    </div>`;
+}
+
+function renderTurnend() {
+    const results = (D.results || []).map(p =>
+        `<span class="chip" style="border-color:${p.color}66;color:${p.color}">${esc(p.name)} +${p.delta}</span>`).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.02rem;padding:15px" onclick="guestCtl('next')">${D.isLast ? '🏆 See the podium' : '▶ Next doodle'}</button>`
+        : '';
+    return `
+    <div class="card verdict highlight">
+        <div class="vico">${D.guessedCount > 0 ? '🎉' : '😅'}</div>
+        <div class="vt">The word was…</div>
+        <div class="vword">${esc(D.word).toUpperCase()}</div>
+        <div style="color:var(--muted);font-weight:700;font-size:.78rem;margin-top:6px">
+            ${esc(D.drawerName)} drew · ${D.guessedCount} of ${D.guessTotal} guessed it
+        </div>
+        ${results ? `<div style="margin-top:10px">${results}</div>` : ''}
+    </div>
+    ${standingsHTML(D.standings || [])}
+    ${driveBtn}
+    <div style="text-align:center;color:var(--muted);font-size:.7rem;font-weight:700">Next doodle in a few seconds…</div>`;
+}
+
+function renderPodium() {
+    const st = D.standings || [];
+    const awards = (D.awards || []).map(a =>
+        `<span class="chip">${a.emoji} ${esc(a.title)}: ${esc(a.name)} (${esc(a.detail)})</span>`).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.02rem;padding:15px" onclick="guestCtl('again')">🔁 Play again</button>` : '';
+    return `
+    ${hdrHTML('Gallery closed!')}
+    <div class="card verdict highlight">
+        <div class="vico">🏆</div>
+        <div class="vt">${esc(st[0]?.name || '')} wins!</div>
+        <div style="margin-top:10px">${awards}</div>
+    </div>
+    ${standingsHTML(st)}
+    ${driveBtn}`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — TV screens
+// ═══════════════════════════════════════════
+function tvShell(inner, meta) {
+    return `<div class="tv">
+        <div class="tv-top">
+            <div class="tv-logo">🎨 Doodle Party</div>
+            <div class="tv-meta">${esc(meta || ('Room ' + (vD.roomCode || roomCode || '')))}</div>
+        </div>
+        ${inner}
+    </div>`;
+}
+
+function renderViewer() {
+    if (!vD) return renderSpinner('Waiting for the party…');
+    switch (vD.type) {
+        case 'viewer_lobby':   return renderViewerLobby();
+        case 'viewer_pick':    return renderViewerPick();
+        case 'viewer_draw':    return renderViewerDraw();
+        case 'viewer_turnend': return renderViewerTurnend();
+        case 'viewer_podium':  return renderViewerPodium();
+        default:               return renderSpinner('Waiting for the party…');
+    }
+}
+
+function renderViewerLobby() {
+    const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
+    const players = vD.players || [];
+    const cards = players.map(p =>
+        `<div class="tv-pcard"><div class="pdot" style="background:${p.color};color:${p.color}"></div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
+    const s = vD.settings || {};
+    return tvShell(`
+    <div class="tv-lobby">
+        <div class="qr-side">
+            <div class="slbl">Scan with your phone to join</div>
+            <div class="qr-wrap">${qrSVG(url)}</div>
+            <div class="room-code">${esc(vD.roomCode || '')}</div>
+            <div class="join-hint">${location.host}${location.pathname}</div>
+        </div>
+        <div class="tv-players">
+            <div class="tv-meta">Doodlers — ${players.length}/${MAX_PLAYERS}</div>
+            <div class="tv-player-grid">${cards}</div>
+            <div class="tv-waiting">${players.length === 0
+                ? 'Waiting for the first phone… they become 👑 Captain'
+                : (players.length < MIN_PLAYERS ? 'Need at least ' + MIN_PLAYERS + ' doodlers…'
+                    : (vD.tvHost ? `Waiting for 👑 ${esc(vD.captain || '')} to start` : 'Waiting for the host to start')
+                      + ` · 🔁 ${s.cycles} round${s.cycles === 1 ? '' : 's'} · ⏱️ ${s.drawSecs}s`)}</div>
+        </div>
+    </div>`, 'Lobby');
+}
+
+function renderViewerPick() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-center">
+            <div class="big">🖌️</div>
+            <div class="t">${esc(vD.drawerName)} is choosing a word…</div>
+            <div class="tv-waiting">Doodle ${vD.num} of ${vD.total}</div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">Scores</div>
+            ${railRowsHTML(vD.players)}
+        </div>
+    </div>`, `Doodle ${vD.num} of ${vD.total}`);
+}
+
+function renderViewerDraw() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-masked" id="v-masked">${esc(vD.masked)}</div>
+            <div class="tv-cv-wrap" style="flex:1;min-height:0"><canvas id="tv-cv"></canvas></div>
+            <div class="tv-bottom">
+                <div class="tv-guessed" id="v-guessed">✅ ${vD.guessedCount}/${vD.guessTotal}</div>
+                <div class="tv-timebar-wrap"><div class="tv-timebar" id="v-timebar" style="width:100%"></div></div>
+                <div class="tv-timenum" id="v-timenum">${vD.seconds}</div>
+            </div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">🖌️ ${esc(vD.drawerName)} is drawing</div>
+            ${railRowsHTML(vD.players)}
+            <div class="tv-feedpanel">
+                <div class="rail-title" style="margin-bottom:.8vmin">Guesses</div>
+                <div class="tv-feed" id="v-feed">${clientFeed.map(ev => feedRowHTML(ev, true)).join('')}</div>
+            </div>
+        </div>
+    </div>`, `Doodle ${vD.num} of ${vD.total}`);
+}
+
+function renderViewerTurnend() {
+    const results = (vD.results || []).map(p =>
+        `<span class="chip" style="border-color:${p.color}66;color:${p.color};font-size:1.9vmin">${esc(p.name)} +${p.delta}</span>`).join('');
+    const hint = vD.tvHost
+        ? `👑 ${esc(vD.captain || 'Captain')} can tap next — or it advances automatically`
+        : 'Next doodle in a few seconds…';
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-center">
+            <div class="big">${vD.guessedCount > 0 ? '🎉' : '😅'}</div>
+            <div class="t">The word was</div>
+            <div class="word">${esc(vD.word).toUpperCase()}</div>
+            <div class="tv-waiting">${esc(vD.drawerName)} drew · ${vD.guessedCount} of ${vD.guessTotal} guessed it</div>
+            <div>${results}</div>
+            <div class="tv-waiting">${hint}</div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">Scores</div>
+            ${railRowsHTML(vD.players)}
+        </div>
+    </div>`, `Doodle ${vD.num} of ${vD.total}`);
+}
+
+function renderViewerPodium() {
+    const st = vD.standings || [];
+    const podOrder = [st[1], st[0], st[2]].filter(Boolean);
+    const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
+    const medal = { p1: '🥇', p2: '🥈', p3: '🥉' };
+    const pods = podOrder.map((p, i) => `
+        <div class="pod ${cls[i]}" style="animation-delay:${i * 0.18}s">
+            <div class="pname"><span class="pdot" style="background:${p.color};color:${p.color};display:inline-block;vertical-align:middle;margin-right:.6vmin"></span>${esc(p.name)}</div>
+            <div class="pscore">${p.score} pts</div>
+            <div class="block">${medal[cls[i]]}</div>
+        </div>`).join('');
+    const rest = st.slice(3).map((p, i) =>
+        `<div class="rail-row"><span>${i + 4}.</span><span class="rdot" style="background:${p.color};color:${p.color}"></span><span class="rname">${esc(p.name)}</span><span class="rsc">${p.score}</span></div>`).join('');
+    const awards = (vD.awards || []).map(a =>
+        `<div class="award">${a.emoji} <span class="aw-t">${esc(a.title)}</span><br>${esc(a.name)} — ${esc(a.detail)}</div>`).join('');
+    const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: “Play again” is on your phone` : 'Host: “Play again” is on your phone';
+    return tvShell(`
+    <div class="tv-main" style="flex-direction:column">
+        <div class="podium-wrap">${pods}</div>
+        <div class="awards-row">${awards}</div>
+        ${rest ? `<div style="display:flex;gap:1.4vmin;justify-content:center;flex-wrap:wrap">${rest}</div>` : ''}
+        <div class="tv-waiting" style="text-align:center;padding-bottom:1.5vmin">${hint}</div>
+    </div>`, '🏆 Final gallery');
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+window.addEventListener('resize', () => {
+    const cv = $id('confetti-cv');
+    if (cv && _cf.running) { cv.width = innerWidth; cv.height = innerHeight; }
+    cvResizeAndRedraw();
+});
+
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
+    render();
+})();
+</script>
+</body>
+</html>

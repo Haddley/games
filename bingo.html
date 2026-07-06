@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Full House Bingo</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%231b0f26' width='100' height='100' rx='20'/><text x='50' y='68' font-size='52' text-anchor='middle'>🎱</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #1b0f26; --panel: rgba(48,28,74,0.72); --panel2: rgba(64,38,98,0.85);
+            --border: rgba(255,95,162,0.30); --border2: rgba(178,148,220,0.28);
+            --text: #fdf4ff; --muted: #b294dc;
+            --pink: #ff5fa2; --teal: #2dd4bf; --gold: #ffc93c; --bad: #f87171;
+        }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 26px 16px 48px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 65% 45% at 50% -5%, rgba(255,95,162,0.16) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 40% at 8% 100%, rgba(45,212,191,0.10) 0%, transparent 65%),
+                radial-gradient(ellipse 50% 40% at 95% 100%, rgba(255,201,60,0.10) 0%, transparent 65%);
+        }
+        body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
+
+        h1.logo {
+            font-family: 'Baloo 2', sans-serif; font-weight: 800; letter-spacing: 1px;
+            font-size: clamp(1.7rem, 7vw, 2.5rem); text-align: center; color: var(--gold);
+            text-shadow: 0 0 26px rgba(255,201,60,.4), 0 2px 0 rgba(0,0,0,.3);
+        }
+        .sub { color: var(--muted); font-size: .7rem; letter-spacing: 2.5px; text-transform: uppercase; margin: 6px 0 22px; text-align: center; font-weight: 800; }
+
+        #app { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 13px; }
+        body.viewer-mode #app { max-width: none; height: 100dvh; display: block; }
+
+        .card {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 18px;
+            padding: 18px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 12px 34px rgba(0,0,0,.45);
+        }
+        .card.highlight { border-color: var(--pink); box-shadow: 0 0 26px rgba(255,95,162,.18), 0 12px 34px rgba(0,0,0,.45); }
+        .slbl { font-size: .64rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 11px; }
+
+        .fg { margin-bottom: 12px; }
+        .fg label { display: block; font-size: .64rem; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+        input[type=text] {
+            width: 100%; padding: 12px 14px; font-family: inherit; font-size: 1rem; font-weight: 700;
+            border: 2px solid var(--border2); border-radius: 12px; background: rgba(27,15,38,.7); color: var(--text);
+            outline: none;
+        }
+        input[type=text]:focus { border-color: var(--pink); }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            font-family: inherit; font-weight: 900; font-size: .92rem; letter-spacing: .5px;
+            padding: 13px 18px; border: none; border-radius: 14px; cursor: pointer;
+            transition: filter .12s, opacity .12s, box-shadow .12s; user-select: none; -webkit-user-select: none;
+            color: var(--text);
+        }
+        .btn:active { filter: brightness(1.15); }
+        .btn-p { background: linear-gradient(180deg, #ff8fc0, #ff5fa2); color: #3d0a22; box-shadow: 0 5px 0 #a92e63, 0 10px 22px rgba(255,95,162,.35); }
+        .btn-p:active { box-shadow: 0 2px 0 #a92e63; }
+        .btn-t { background: linear-gradient(180deg, #5eead4, #14b8a6); color: #032620; box-shadow: 0 5px 0 #0d6e63, 0 10px 22px rgba(45,212,191,.3); }
+        .btn-t:active { box-shadow: 0 2px 0 #0d6e63; }
+        .btn-g { background: rgba(178,148,220,.12); box-shadow: inset 0 0 0 2px var(--border2); }
+        .btn-full { width: 100%; }
+        .btn-sm { padding: 8px 13px; font-size: .74rem; border-radius: 11px; }
+        .btn:disabled { opacity: .4; cursor: default; }
+
+        .err {
+            background: rgba(248,113,113,.12); border: 1px solid rgba(248,113,113,.5); color: #fca5a5;
+            padding: 11px 14px; border-radius: 12px; font-size: .8rem; font-weight: 700; text-align: center;
+        }
+        hr { border: none; border-top: 1px dashed var(--border2); margin: 13px 0; }
+
+        .connecting { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 46px 0; color: var(--muted); font-weight: 700; }
+        .spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid rgba(255,95,162,.18); border-top-color: var(--pink); animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .player-row { display: flex; align-items: center; gap: 11px; padding: 8px 4px; border-bottom: 1px dashed var(--border2); font-weight: 800; font-size: .92rem; }
+        .player-row:last-child { border-bottom: none; }
+        .pdot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 10px currentColor; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 8px var(--teal); margin-left: auto; }
+        .qr-wrap { width: min(210px, 58vw); margin: 6px auto 10px; border-radius: 13px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.4); }
+        .qr-wrap svg { display: block; width: 100%; height: auto; }
+        .room-code { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 2.3rem; letter-spacing: 11px; text-align: center; color: var(--gold); padding-left: 11px; text-shadow: 0 0 18px rgba(255,201,60,.4); }
+        .share-row { display: flex; gap: 8px; justify-content: center; margin: 10px 0 6px; }
+        .seg-row { display: flex; flex-wrap: wrap; gap: 7px; }
+        .chip { display: inline-block; padding: 4px 12px; border-radius: 12px; background: rgba(255,201,60,.12); border: 1px solid rgba(255,201,60,.4); color: var(--gold); font-weight: 900; font-size: .74rem; margin: 3px; }
+        .chip.pen { background: rgba(248,113,113,.12); border-color: rgba(248,113,113,.45); color: #fca5a5; }
+
+        /* ── phone: ticket ── */
+        .ballstrip { display: flex; align-items: center; gap: 7px; font-weight: 900; }
+        .ballstrip .mini {
+            width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-family: 'Baloo 2', sans-serif; font-size: .85rem; color: #2a1200; flex-shrink: 0;
+            box-shadow: inset 0 -3px 0 rgba(0,0,0,.2), 0 2px 6px rgba(0,0,0,.35);
+        }
+        .ballstrip .cnt { margin-left: auto; color: var(--muted); font-size: .72rem; letter-spacing: 1px; text-transform: uppercase; }
+        .ticket { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; }
+        .cell {
+            aspect-ratio: 1; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+            font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 1.02rem;
+            background: #fdf4ff; color: #3c1e56; cursor: pointer; position: relative; border: none;
+            transition: background .15s, color .15s;
+        }
+        .cell.blank { background: rgba(178,148,220,.10); cursor: default; }
+        .cell.daub { background: radial-gradient(circle at 50% 42%, #ff5fa2 0 62%, #e04785 63% 100%); color: #fff; }
+        .cell.daub::after { content: ''; position: absolute; inset: 14%; border-radius: 50%; border: 2px dashed rgba(255,255,255,.55); }
+        .btn-bingo {
+            width: 100%; font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 1.5rem; letter-spacing: 3px;
+            padding: 18px; border: none; border-radius: 17px; cursor: pointer;
+            background: linear-gradient(180deg, #ffd76a, #ffb63c); color: #3d2400;
+            box-shadow: 0 6px 0 #a96f14, 0 0 0 0 rgba(255,201,60,.5); animation: bingoPulse 1.2s ease-in-out infinite;
+        }
+        @keyframes bingoPulse {
+            0%,100% { box-shadow: 0 6px 0 #a96f14, 0 0 0 0 rgba(255,201,60,.45); }
+            50% { box-shadow: 0 6px 0 #a96f14, 0 0 0 14px rgba(255,201,60,0); }
+        }
+        .btn-bingo:disabled { opacity: .45; animation: none; cursor: default; }
+        .toggle-row { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: .8rem; color: var(--muted); }
+        .toggle-row input { width: 20px; height: 20px; accent-color: var(--pink); }
+        .event-note { text-align: center; font-weight: 900; min-height: 1.4em; transition: opacity .3s; }
+        .event-note.win { color: var(--gold); }
+        .event-note.bad { color: var(--bad); }
+        .prize-strip { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; font-size: .74rem; font-weight: 900; }
+        .prize-strip .pz { padding: 5px 12px; border-radius: 11px; background: rgba(178,148,220,.12); border: 1px solid var(--border2); color: var(--muted); }
+        .prize-strip .pz.won { background: rgba(255,201,60,.14); border-color: rgba(255,201,60,.5); color: var(--gold); }
+
+        /* ═════════ TV ═════════ */
+        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 2.6vmin 3.2vmin; gap: 1.8vmin; }
+        .tv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 2vmin; }
+        .tv-logo { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 3.2vmin; color: var(--gold); text-shadow: 0 0 24px rgba(255,201,60,.4); }
+        .tv-meta { font-size: 1.8vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .tv-main { flex: 1; display: flex; gap: 2.4vmin; min-height: 0; }
+
+        .tv-callzone { flex: 1.05; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vmin; min-width: 0; position: relative; }
+        .machine {
+            width: 34vmin; height: 34vmin; border-radius: 50%; position: relative;
+            background: radial-gradient(circle at 32% 28%, rgba(255,255,255,.16), transparent 55%), var(--panel2);
+            border: .7vmin solid rgba(255,201,60,.5); box-shadow: 0 0 44px rgba(255,95,162,.25), inset 0 0 34px rgba(0,0,0,.4);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .bigball {
+            width: 21vmin; height: 21vmin; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-family: 'Baloo 2', sans-serif; color: #2a1200;
+            box-shadow: inset 0 -2vmin 0 rgba(0,0,0,.18), 0 1.6vmin 4vmin rgba(0,0,0,.5);
+            animation: ballpop .45s cubic-bezier(.2,1.6,.4,1) both;
+        }
+        .bigball .bn { font-size: 8.5vmin; font-weight: 800; line-height: 1; }
+        .bigball .bl { font-size: 1.7vmin; font-weight: 800; letter-spacing: .2vmin; }
+        @keyframes ballpop { from { opacity: 0; } to { opacity: 1; } }
+        .nickname { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 3.1vmin; color: var(--text); text-align: center; min-height: 4vmin; text-shadow: 0 2px 12px rgba(0,0,0,.5); }
+        .lastballs { display: flex; gap: 1vmin; }
+        .lastballs .mini {
+            width: 4.6vmin; height: 4.6vmin; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 1.9vmin; color: #2a1200;
+            box-shadow: inset 0 -.6vmin 0 rgba(0,0,0,.18), 0 .4vmin 1vmin rgba(0,0,0,.4);
+        }
+        .tv-paused { position: absolute; top: 1vmin; right: 1vmin; font-weight: 900; color: var(--gold); font-size: 2vmin; letter-spacing: .3vmin; }
+
+        .tv-boardzone { flex: 1.3; display: flex; flex-direction: column; gap: 1.5vmin; min-width: 0; }
+        .flashboard { display: grid; grid-template-columns: repeat(10, 1fr); gap: .7vmin; }
+        .bcell {
+            aspect-ratio: 1; border-radius: 24%; display: flex; align-items: center; justify-content: center;
+            font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 2.1vmin;
+            background: rgba(178,148,220,.10); color: rgba(178,148,220,.5);
+            transition: background .3s, color .3s, box-shadow .3s;
+        }
+        .bcell.lit { background: var(--gold); color: #3d2400; box-shadow: 0 0 1.6vmin rgba(255,201,60,.55); }
+        .tv-rail { display: flex; flex-direction: column; gap: 1vmin; width: 26vmin; }
+        .rail-row {
+            display: flex; align-items: center; gap: 1.1vmin; background: var(--panel);
+            border: 1px solid var(--border2); border-radius: 1.4vmin; padding: 1.1vmin 1.4vmin;
+            font-weight: 800; font-size: 1.9vmin;
+        }
+        .rail-row .rname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rail-row .rsc { font-family: 'Baloo 2', sans-serif; color: var(--gold); }
+        .rail-title { font-size: 1.5vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .tv-prizes { display: flex; gap: 1vmin; }
+        .tv-prizes .pz { flex: 1; background: var(--panel); border: 1px solid var(--border2); border-radius: 1.4vmin; padding: 1.1vmin 1.4vmin; font-weight: 900; font-size: 1.7vmin; color: var(--muted); text-align: center; }
+        .tv-prizes .pz.won { border-color: rgba(255,201,60,.55); color: var(--gold); background: rgba(255,201,60,.1); }
+
+        #v-event {
+            position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;
+            background: rgba(27,15,38,.82); backdrop-filter: blur(5px); flex-direction: column; gap: 1.6vmin;
+            opacity: 0; pointer-events: none; transition: opacity .3s;
+        }
+        #v-event.show { opacity: 1; }
+        #v-event .big { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 9vmin; color: var(--gold); text-shadow: 0 0 44px rgba(255,201,60,.55); }
+        #v-event .who { font-size: 3.4vmin; font-weight: 900; }
+        #v-event.bad .big { color: var(--bad); text-shadow: 0 0 44px rgba(248,113,113,.4); font-size: 6.5vmin; }
+
+        /* TV lobby + results */
+        .tv-lobby { flex: 1; display: flex; gap: 4vmin; align-items: center; min-height: 0; }
+        .tv-lobby .qr-side { background: #2a1840; border: 1px solid var(--border); border-radius: 2.2vmin; padding: 3.2vmin; text-align: center; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+        .tv-lobby .qr-side .qr-wrap { width: 32vmin; margin: 1.4vmin auto; }
+        .tv-lobby .qr-side .room-code { font-size: 4.6vmin; letter-spacing: 1.9vmin; padding-left: 1.9vmin; }
+        .tv-lobby .join-hint { font-size: 1.7vmin; font-weight: 800; color: var(--muted); }
+        .tv-players { flex: 1; display: flex; flex-direction: column; gap: 1.5vmin; min-width: 0; }
+        .tv-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20vmin, 1fr)); gap: 1.5vmin; }
+        .tv-pcard {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 1.7vmin;
+            padding: 1.7vmin; text-align: center; font-weight: 900; font-size: 2vmin; animation: popIn .35s ease both;
+        }
+        .tv-pcard .pdot { width: 2.2vmin; height: 2.2vmin; margin: 0 auto 1vmin; }
+        @keyframes popIn { from { opacity: 0; } to { opacity: 1; } }
+        .tv-waiting { color: var(--muted); font-weight: 800; font-size: 1.9vmin; }
+        .tv-results { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vmin; text-align: center; }
+        .tv-results .big { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 7vmin; color: var(--gold); text-shadow: 0 0 40px rgba(255,201,60,.5); }
+        .tv-results .winline { font-size: 2.8vmin; font-weight: 900; }
+
+        #confetti-cv { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <canvas id="confetti-cv"></canvas>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════
+// CONSTANTS & HELPERS
+// ═══════════════════════════════════════════
+const PFX = 'BINGO-';
+const MAX_PLAYERS = 12;
+const PLAYER_COLORS = ['#ffc93c', '#2dd4bf', '#ff5fa2', '#4ade80', '#a78bfa', '#fb923c', '#f87171', '#38bdf8', '#e879f9', '#facc15', '#34d399', '#f472b6'];
+const DECADE_COLORS = ['#ff8fa3', '#ffc93c', '#5eead4', '#93c5fd', '#c4b5fd', '#fdba74', '#86efac', '#f9a8d4', '#fde047'];
+
+// traditional-style, family-friendly calls
+const CALLS = {
+    1: "Kelly's eye", 2: 'One little duck', 3: 'Cup of tea', 4: 'Knock at the door',
+    5: 'Man alive', 6: 'Half a dozen', 7: 'Lucky seven', 8: 'Garden gate',
+    9: "Doctor's orders", 10: "Gerald's den", 11: 'Legs eleven!', 12: 'One dozen',
+    13: 'Unlucky for some', 15: 'Young and keen', 16: 'Sweet sixteen', 17: 'Dancing queen',
+    18: 'Coming of age', 21: 'Key of the door', 22: 'Two little ducks', 25: 'Duck and dive',
+    26: 'Pick and mix', 30: 'Speed limit', 33: 'Fish, chips and peas', 39: 'All the steps',
+    40: 'Life begins', 44: 'Droopy drawers', 45: 'Halfway there', 50: 'Half a century',
+    55: 'Snakes alive', 57: 'Heinz varieties', 60: 'Five dozen', 65: 'Time to retire',
+    66: 'Clickety click', 70: 'Three score and ten', 76: 'Trombones', 77: 'Sunset strip',
+    88: 'Two fat ladies', 90: 'Top of the shop',
+};
+function nickOf(n) {
+    if (CALLS[n]) return CALLS[n];
+    if (n < 10) return 'On its own';
+    if (n % 11 === 0) return 'All the ' + (n / 11) + 's';
+    if (n % 10 === 0) return 'Blind ' + n;
+    return '';
+}
+function ballColor(n) { return DECADE_COLORS[Math.min(8, Math.floor((n - 1) / 10))]; }
+
+function $id(id) { return document.getElementById(id); }
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ── Classic 9×3 ticket: each row 5 numbers, columns hold decades ──
+function makeTicket() {
+    for (let attempt = 0; attempt < 50; attempt++) {
+        const colCounts = Array(9).fill(1);
+        let left = 6;
+        while (left > 0) {
+            const i = Math.floor(Math.random() * 9);
+            if (colCounts[i] < 3) { colCounts[i]++; left--; }
+        }
+        const rowsNeed = [5, 5, 5];
+        const colRows = Array.from({ length: 9 }, () => []);
+        const order = [...Array(9).keys()].sort((a, b) => colCounts[b] - colCounts[a]);
+        let ok = true;
+        for (const c of order) {
+            const rows = [0, 1, 2].sort((a, b) => rowsNeed[b] - rowsNeed[a] || Math.random() - 0.5).slice(0, colCounts[c]);
+            if (rows.some(r => rowsNeed[r] <= 0)) { ok = false; break; }
+            rows.forEach(r => rowsNeed[r]--);
+            colRows[c] = rows.sort();
+        }
+        if (!ok || rowsNeed.some(n => n !== 0)) continue;
+        const ticket = [Array(9).fill(null), Array(9).fill(null), Array(9).fill(null)];
+        for (let c = 0; c < 9; c++) {
+            const lo = c === 0 ? 1 : c * 10, hi = c === 8 ? 90 : c * 10 + 9;
+            const pool = [];
+            for (let n = lo; n <= hi; n++) pool.push(n);
+            const nums = shuffle(pool).slice(0, colCounts[c]).sort((a, b) => a - b);
+            colRows[c].forEach((r, i) => { ticket[r][c] = nums[i]; });
+        }
+        return ticket;
+    }
+    return null; // never in practice
+}
+function ticketNums(t) { return t.flat().filter(n => n !== null); }
+
+// ── QR code (themed SVG) ──
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+        let rects = '';
+        for (let r = 0; r < n; r++)
+            for (let c = 0; c < n; c++)
+                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+            `<rect width="${size}" height="${size}" fill="#fdf4ff"/>` +
+            `<g fill="#2a1840">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+
+// ── Confetti ──
+let _cf = { parts: [], raf: 0, running: false, until: 0 };
+function startConfetti(ms) {
+    if (REDUCED) return;
+    const cv = $id('confetti-cv'), ctx = cv.getContext('2d');
+    cv.width = innerWidth; cv.height = innerHeight;
+    _cf.until = performance.now() + (ms || 2600);
+    const cols = ['#ffc93c', '#ff5fa2', '#2dd4bf', '#a78bfa', '#4ade80', '#fdf4ff'];
+    for (let i = 0; i < 130; i++) {
+        _cf.parts.push({
+            x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5,
+            vx: (Math.random() - 0.5) * 2.4, vy: 2 + Math.random() * 3.6,
+            rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.25,
+            w: 6 + Math.random() * 7, h: 4 + Math.random() * 5,
+            col: cols[Math.floor(Math.random() * cols.length)],
+        });
+    }
+    if (_cf.running) return;
+    _cf.running = true;
+    (function frame(t) {
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        _cf.parts = _cf.parts.filter(p => p.y < cv.height + 30);
+        for (const p of _cf.parts) {
+            p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+            ctx.fillStyle = p.col; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            ctx.restore();
+        }
+        if (t < _cf.until || _cf.parts.length) _cf.raf = requestAnimationFrame(frame);
+        else { _cf.running = false; ctx.clearRect(0, 0, cv.width, cv.height); }
+    })(performance.now());
+}
+
+// ── Synth sounds ──
+let _ac = null;
+function ac() { if (!_ac) { try { _ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return _ac; }
+function tone(freq, dur, type, gain, when) {
+    const a = ac(); if (!a) return;
+    try {
+        const t0 = a.currentTime + (when || 0);
+        const o = a.createOscillator(), g = a.createGain();
+        o.type = type || 'sine'; o.frequency.value = freq;
+        g.gain.setValueAtTime(gain || 0.07, t0);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        o.connect(g); g.connect(a.destination);
+        o.start(t0); o.stop(t0 + dur);
+    } catch (e) {}
+}
+function sPop() { tone(520, 0.08, 'triangle', 0.07); tone(780, 0.14, 'triangle', 0.06, 0.06); }
+function sDrum() { tone(180, 0.05, 'square', 0.03); }
+function sKlaxon() { [660, 880, 660, 880, 1100].forEach((f, i) => tone(f, 0.16, 'square', 0.06, i * 0.14)); }
+function sBuzz() { tone(150, 0.4, 'sawtooth', 0.05); }
+function sWin() { [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.3, 'triangle', 0.06, i * 0.12)); }
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let peer = null, myId = '', myName = '', isHost = false, isTvHost = false, isViewer = false, roomCode = '';
+let hostConn = null, guestConns = {}, viewerConns = {};
+let ui = 'home';   // home|creating|connecting|lobby_h|lobby_g|game|results|viewer
+let uiErr = '';
+let fName = localStorage.getItem('bingo-name') || '';
+let fCode = '', fVCode = '';
+let D = null, vD = null;
+
+// phone-local
+let daubs = new Set();
+let autoDaub = localStorage.getItem('bingo-autodaub') === '1';
+let _gameKey = '', _seenEventSeq = 0, _vSeenEventSeq = 0;
+
+// Host authoritative state
+let H = {
+    phase: 'lobby',              // lobby|playing|results
+    players: [],                 // [{id,name,color,ticket,score,lines,houses,lockUntil}]
+    settings: { interval: 6 },
+    callOrder: [], called: [],
+    paused: false,
+    prizes: { line: null, house: null },   // {name, ball}
+    lastEvent: null,             // {seq,kind:'line'|'house'|'both'|'false',name,ball}
+    gamesPlayed: 0,
+    results: null,               // {line,house,balls,tally}
+};
+let _eventSeq = 0, _callTimer = null, _holdUntil = 0;
+
+// ═══════════════════════════════════════════
+// NETWORK
+// ═══════════════════════════════════════════
+function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('send err', e); } }
+function broadcastViewers(msg) { Object.values(viewerConns).forEach(c => send(c, msg)); }
+function connectedPlayers() {
+    return H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+}
+
+function hostAddPlayer(id, name) {
+    if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
+    H.players.push({
+        id, name, color: PLAYER_COLORS[H.players.length % PLAYER_COLORS.length],
+        ticket: null, score: 0, lines: 0, houses: 0, lockUntil: 0,
+    });
+}
+
+function lobbyMsg() {
+    return {
+        type: 'lobby', roomCode,
+        players: H.players.map(p => ({ name: p.name, color: p.color, score: p.score })),
+        settings: { ...H.settings },
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+function broadcastLobby() {
+    H.players.forEach(p => { if (p.id !== myId && guestConns[p.id]) send(guestConns[p.id], lobbyMsg()); });
+    broadcastViewers({ ...lobbyMsg(), type: 'viewer_lobby' });
+    hostSyncSelf(lobbyMsg());
+}
+
+function stateFor(p) {
+    return {
+        type: 'state',
+        phase: H.phase, roomCode, interval: H.settings.interval, paused: H.paused,
+        called: H.called, ballCount: H.called.length,
+        myTicket: p ? p.ticket : null,
+        myLockUntil: p ? p.lockUntil : 0,
+        prizes: H.prizes, lastEvent: H.lastEvent,
+        gamesPlayed: H.gamesPlayed, results: H.results,
+        players: H.players.map(q => ({ name: q.name, color: q.color, score: q.score, lines: q.lines, houses: q.houses })),
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+function viewerStateMsg() { return { ...stateFor(null), type: 'viewer_state' }; }
+function broadcastState() {
+    H.players.forEach(p => {
+        if (p.id === myId) return;
+        const conn = guestConns[p.id];
+        if (conn) send(conn, stateFor(p));
+    });
+    broadcastViewers(viewerStateMsg());
+    hostSyncSelf(isTvHost ? null : stateFor(H.players.find(p => p.id === myId)));
+}
+
+// ── Host: incoming connections ──
+function setupGuestConn(conn) {
+    conn.on('open', () => { conn._role = null; });
+
+    conn.on('data', msg => {
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer';
+            viewerConns[conn.peer] = conn;
+            send(conn, H.phase === 'lobby' ? { ...lobbyMsg(), type: 'viewer_lobby' } : viewerStateMsg());
+            return;
+        }
+        if (conn._role === null) {
+            conn._role = 'player';
+            guestConns[conn.peer] = conn;
+        }
+        const player = H.players.find(p => p.id === conn.peer);
+        switch (msg.type) {
+            case 'join': {
+                const name = String(msg.name || 'Player').slice(0, 16);
+                const zombie = H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
+                if (zombie) zombie.id = conn.peer;
+                else hostAddPlayer(conn.peer, name);
+                const p2 = H.players.find(p => p.id === conn.peer);
+                if (!p2) { send(conn, lobbyMsg()); break; }
+                // mid-game joiner gets a ticket and plays the current game
+                if (H.phase !== 'lobby' && !p2.ticket) p2.ticket = makeTicket();
+                if (H.phase === 'lobby') broadcastLobby();
+                else { send(conn, stateFor(p2)); broadcastViewers(viewerStateMsg()); if (isTvHost) tvHostSync(); }
+                break;
+            }
+            case 'bingo': if (player) hostClaim(player, msg.daubs); break;
+            case 'ctl': {
+                if (!isTvHost || !player || player.id !== H.players[0]?.id) break;
+                hostCtl(msg.action, msg);
+                break;
+            }
+        }
+    });
+
+    conn.on('close', () => {
+        delete guestConns[conn.peer];
+        delete viewerConns[conn.peer];
+        if (H.phase === 'lobby') {
+            const pi = H.players.findIndex(p => p.id === conn.peer);
+            if (pi >= 0) { H.players.splice(pi, 1); broadcastLobby(); }
+        }
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+function hostCtl(action, msg) {
+    if (action === 'start' && H.phase === 'lobby') hostStartGame();
+    else if (action === 'again' && H.phase === 'results') hostStartGame();
+    else if (action === 'pause' && H.phase === 'playing') { H.paused = true; broadcastState(); }
+    else if (action === 'resume' && H.phase === 'playing') { H.paused = false; broadcastState(); }
+    else if (action === 'set' && H.phase === 'lobby') {
+        if ([4, 6, 9].includes(msg.interval)) H.settings.interval = msg.interval;
+        broadcastLobby();
+    }
+}
+function guestCtl(action, extra) {
+    if (isHost && !isTvHost) { hostCtl(action, extra || {}); return; }
+    if (hostConn) send(hostConn, { type: 'ctl', action, ...(extra || {}) });
+}
+
+// ── Create a room (phone host or TV host) ──
+function makeRoom(onOpen) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    roomCode = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    peer = new Peer(PFX + roomCode);
+    peer.on('open', id => { myId = id; isHost = true; onOpen(); });
+    peer.on('connection', conn => setupGuestConn(conn));
+    peer.on('error', e => {
+        uiErr = 'Connection error: ' + e.message;
+        isHost = false; isTvHost = false;
+        document.body.classList.remove('viewer-mode');
+        ui = 'home'; render();
+    });
+}
+
+function hostGame(name) {
+    myName = name.trim().slice(0, 16) || 'Host';
+    localStorage.setItem('bingo-name', myName);
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        hostAddPlayer(myId, myName);
+        ui = 'lobby_h';
+        render();
+    });
+}
+
+function hostOnTV() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        isTvHost = true;
+        document.body.classList.add('viewer-mode');
+        tvHostSync();
+        render();
+    });
+}
+
+// ── Guest ──
+function joinGame(code, name) {
+    myName = name.trim().slice(0, 16) || 'Player';
+    localStorage.setItem('bingo-name', myName);
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        isHost = false;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join', name: myName }));
+        hostConn.on('data', msg => applyMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the bingo hall.'; ui = 'home'; D = null; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        ui = 'home'; render();
+    });
+}
+
+// ── Viewer (TV joining a phone-hosted game) ──
+function joinAsViewer(code, _attempt) {
+    const attempt = _attempt || 1;
+    isViewer = true;
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join_viewer' }));
+        hostConn.on('data', msg => applyViewerMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the bingo hall.'; isViewer = false; vD = null; document.body.classList.remove('viewer-mode'); ui = 'home'; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; isViewer = false; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        if (attempt < 2) {
+            try { peer.destroy(); } catch (_) {}
+            peer = null;
+            setTimeout(() => joinAsViewer(code, 2), 600);
+            return;
+        }
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        isViewer = false; ui = 'home'; render();
+    });
+}
+
+function tvHostSync() {
+    if (!isTvHost) return;
+    applyViewerMsg(H.phase === 'lobby' ? { ...lobbyMsg(), type: 'viewer_lobby' } : viewerStateMsg());
+}
+function hostSyncSelf(msg) {
+    if (isTvHost) { tvHostSync(); return; }
+    if (isHost && msg) applyMsg(msg);
+}
+
+// ═══════════════════════════════════════════
+// HOST GAME FLOW
+// ═══════════════════════════════════════════
+function hostStartGame() {
+    if (!connectedPlayers().length) { uiErr = 'Nobody has joined yet.'; if (ui === 'lobby_h') render(); return; }
+    H.players.forEach(p => { p.ticket = makeTicket(); p.lockUntil = 0; });
+    H.callOrder = shuffle(Array.from({ length: 90 }, (_, i) => i + 1));
+    H.called = [];
+    H.paused = false;
+    H.prizes = { line: null, house: null };
+    H.lastEvent = null;
+    H.results = null;
+    H.gamesPlayed += 1;
+    H.phase = 'playing';
+    _holdUntil = 0;
+    startCaller();
+    broadcastState();
+}
+
+function startCaller() {
+    clearInterval(_callTimer);
+    _callTimer = setInterval(() => hostCallNext(false), H.settings.interval * 1000);
+}
+
+function hostCallNext(force) {
+    if (H.phase !== 'playing') return;
+    if (!force && (H.paused || Date.now() < _holdUntil)) return;
+    if (H.called.length >= 90) { H.paused = true; broadcastState(); return; }
+    H.called.push(H.callOrder[H.called.length]);
+    broadcastState();
+}
+
+function hostClaim(player, claimed) {
+    if (H.phase !== 'playing' || !player.ticket) return;
+    if (player.lockUntil > H.called.length) return;
+    _holdUntil = Date.now() + 4000;   // the caller takes a breath while we check
+
+    const calledSet = new Set(H.called);
+    const nums = new Set((Array.isArray(claimed) ? claimed : []).filter(n => calledSet.has(n)));
+    const rows = player.ticket.map(r => r.filter(n => n !== null));
+    const rowDone = rows.some(r => r.every(n => nums.has(n)));
+    const houseDone = rows.flat().every(n => nums.has(n));
+
+    let kind = 'false';
+    if (houseDone) {
+        kind = H.prizes.line ? 'house' : 'both';
+        if (!H.prizes.line) { H.prizes.line = { name: player.name, ball: H.called.length }; player.lines++; player.score += 1; }
+        H.prizes.house = { name: player.name, ball: H.called.length };
+        player.houses++; player.score += 3;
+        H.phase = 'results';
+        H.results = {
+            line: H.prizes.line, house: H.prizes.house, balls: H.called.length,
+            tally: H.players.map(q => ({ name: q.name, color: q.color, score: q.score, lines: q.lines, houses: q.houses }))
+                .sort((a, b) => b.score - a.score),
+        };
+    } else if (rowDone && !H.prizes.line) {
+        kind = 'line';
+        H.prizes.line = { name: player.name, ball: H.called.length };
+        player.lines++; player.score += 1;
+    } else {
+        player.lockUntil = H.called.length + 3;
+    }
+    H.lastEvent = { seq: ++_eventSeq, kind, name: player.name, ball: H.called.length };
+    broadcastState();
+}
+
+// ═══════════════════════════════════════════
+// CLIENT (phone) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+let _seenBallCount = 0;
+
+function isCaptain() { return !!(D && D.tvHost && D.captain && D.captain === myName); }
+function canDrive() { return (isHost && !isTvHost) || isCaptain(); }
+
+function effectiveDaubs() {
+    if (!D || !D.myTicket) return [];
+    if (autoDaub) {
+        const calledSet = new Set(D.called);
+        return ticketNums(D.myTicket).filter(n => calledSet.has(n));
+    }
+    return [...daubs];
+}
+
+function applyMsg(msg) {
+    switch (msg.type) {
+        case 'lobby':
+            D = msg;
+            _gameKey = '';
+            ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g';
+            render();
+            break;
+        case 'state': {
+            D = msg;
+            const key = msg.phase + ':' + msg.gamesPlayed;
+            if (msg.phase === 'playing') {
+                if (key !== _gameKey) {
+                    _gameKey = key;
+                    daubs.clear();
+                    _seenBallCount = msg.ballCount;
+                    ui = 'game';
+                    render();
+                } else {
+                    if (ui !== 'game') { ui = 'game'; render(); }
+                    else patchGame(msg);
+                }
+                if (msg.ballCount > _seenBallCount) { _seenBallCount = msg.ballCount; sPop(); }
+            } else if (msg.phase === 'results') {
+                if (key !== _gameKey) {
+                    _gameKey = key;
+                    ui = 'results';
+                    render();
+                    sWin(); startConfetti(3600);
+                } else { ui = 'results'; render(); }
+            }
+            handleEvent(msg);
+            break;
+        }
+    }
+}
+
+function handleEvent(msg) {
+    const ev = msg.lastEvent;
+    if (!ev || ev.seq <= _seenEventSeq) return;
+    _seenEventSeq = ev.seq;
+    const mine = ev.name === myName;
+    if (ev.kind === 'false') {
+        if (mine) { sBuzz(); try { navigator.vibrate && navigator.vibrate(200); } catch (e) {} }
+    } else {
+        sKlaxon();
+        if (mine) { startConfetti(3000); try { navigator.vibrate && navigator.vibrate([90, 40, 90, 40, 220]); } catch (e) {} }
+    }
+    const note = $id('p-event');
+    if (note) {
+        note.className = 'event-note ' + (ev.kind === 'false' ? 'bad' : 'win');
+        note.textContent = eventText(ev);
+        setTimeout(() => { if (_seenEventSeq === ev.seq && $id('p-event')) $id('p-event').textContent = ''; }, 4000);
+    }
+}
+
+function eventText(ev) {
+    if (ev.kind === 'false') return `😬 ${ev.name === myName ? 'Ooh no — not quite!' : esc(ev.name) + ' called a false bingo!'}`;
+    if (ev.kind === 'line') return `🎉 LINE! ${esc(ev.name)} (ball ${ev.ball})`;
+    if (ev.kind === 'house') return `🏆 FULL HOUSE! ${esc(ev.name)}`;
+    return `🏆 LINE + FULL HOUSE! ${esc(ev.name)}`;
+}
+
+function tapCell(el) {
+    if (autoDaub || !D || D.phase !== 'playing') return;
+    const n = parseInt(el.dataset.n, 10);
+    if (!n) return;
+    if (daubs.has(n)) { daubs.delete(n); el.classList.remove('daub'); }
+    else { daubs.add(n); el.classList.add('daub'); }
+}
+
+function sendBingo() {
+    if (!D || D.phase !== 'playing') return;
+    if (D.myLockUntil > D.ballCount) return;
+    const claimed = effectiveDaubs();
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostClaim(me, claimed);
+    } else send(hostConn, { type: 'bingo', daubs: claimed });
+}
+
+function setAutoDaub(on) {
+    autoDaub = on;
+    localStorage.setItem('bingo-autodaub', on ? '1' : '0');
+    refreshCells();
+}
+
+function refreshCells() {
+    if (!D || !D.myTicket) return;
+    const marked = new Set(effectiveDaubs());
+    document.querySelectorAll('.ticket .cell').forEach(el => {
+        const n = parseInt(el.dataset.n, 10);
+        if (n) el.classList.toggle('daub', marked.has(n));
+    });
+}
+
+function patchGame(msg) {
+    const strip = $id('ballstrip');
+    if (strip) strip.innerHTML = ballStripHTML(msg);
+    const btn = $id('bingo-btn');
+    if (btn) {
+        const locked = msg.myLockUntil > msg.ballCount;
+        btn.disabled = locked;
+        btn.textContent = locked ? `🔒 WAIT ${msg.myLockUntil - msg.ballCount} BALL${msg.myLockUntil - msg.ballCount === 1 ? '' : 'S'}` : 'BINGO!';
+    }
+    const pz = $id('p-prizes');
+    if (pz) pz.innerHTML = prizeStripHTML(msg);
+    const drv = $id('drive-zone');
+    if (drv) drv.innerHTML = driveZoneHTML(msg);
+    if (autoDaub) refreshCells();
+}
+
+// ═══════════════════════════════════════════
+// VIEWER (TV) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+let _vKey = '', _vSeenBall = 0, _vEventTimer = null;
+
+function applyViewerMsg(msg) {
+    document.body.classList.add('viewer-mode');
+    ui = 'viewer';
+    vD = msg;
+    if (msg.type === 'viewer_lobby') { _vKey = ''; render(); return; }
+    const key = msg.phase + ':' + msg.gamesPlayed;
+    if (msg.phase === 'playing') {
+        if (key !== _vKey) { _vKey = key; _vSeenBall = msg.ballCount; render(); }
+        else patchViewer(msg);
+    } else if (msg.phase === 'results') {
+        if (key !== _vKey) { _vKey = key; render(); sWin(); startConfetti(5200); }
+        else render();
+    }
+    viewerEvent(msg);
+}
+
+function patchViewer(msg) {
+    if (msg.ballCount > _vSeenBall) {
+        _vSeenBall = msg.ballCount;
+        sDrum(); setTimeout(sPop, 120);
+        const bz = $id('v-ball');
+        if (bz) bz.innerHTML = bigBallHTML(msg);
+    }
+    msg.called.forEach(n => { const c = $id('bn-' + n); if (c) c.classList.add('lit'); });
+    const cnt = $id('v-count');
+    if (cnt) cnt.textContent = `Ball ${msg.ballCount} of 90`;
+    const last = $id('v-last');
+    if (last) last.innerHTML = lastBallsHTML(msg, 5);
+    const pz = $id('v-prizes');
+    if (pz) pz.innerHTML = tvPrizesHTML(msg);
+    const rail = $id('v-rail');
+    if (rail) rail.innerHTML = railHTML(msg);
+    const pa = $id('v-paused');
+    if (pa) pa.textContent = msg.paused ? '⏸ PAUSED' : '';
+}
+
+function viewerEvent(msg) {
+    const ev = msg.lastEvent;
+    if (!ev || ev.seq <= _vSeenEventSeq) return;
+    _vSeenEventSeq = ev.seq;
+    const ovParent = $id('v-event');
+    if (!ovParent) return;
+    const bad = ev.kind === 'false';
+    ovParent.className = bad ? 'bad show' : 'show';
+    ovParent.innerHTML = bad
+        ? `<div class="big">😬 OOH, NO!</div><div class="who">${esc(ev.name)} — not quite! Locked for 3 balls</div>`
+        : `<div class="big">${ev.kind === 'line' ? '🎉 LINE!' : '🏆 FULL HOUSE!'}</div><div class="who">${esc(ev.name)} — ball ${ev.ball}</div>`;
+    if (bad) sBuzz(); else { sKlaxon(); startConfetti(2600); }
+    clearTimeout(_vEventTimer);
+    _vEventTimer = setTimeout(() => { const o = $id('v-event'); if (o) o.className = ''; }, 3500);
+}
+
+// ═══════════════════════════════════════════
+// RENDER — shared bits
+// ═══════════════════════════════════════════
+function hdrHTML(sub) {
+    return `<h1 class="logo">🎱 Full House Bingo</h1><div class="sub">${esc(sub || 'eyes down for a full house')}</div>`;
+}
+function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+
+function miniBall(n) {
+    return `<span class="mini" style="background:${ballColor(n)}">${n}</span>`;
+}
+function ballStripHTML(msg) {
+    const last = msg.called.slice(-3).reverse();
+    return (last.length ? last.map(miniBall).join('') : '<span style="color:var(--muted);font-weight:800;font-size:.78rem">Eyes down…</span>')
+        + `<span class="cnt">Ball ${msg.ballCount}/90${msg.paused ? ' · ⏸' : ''}</span>`;
+}
+function prizeStripHTML(msg) {
+    const line = msg.prizes.line, house = msg.prizes.house;
+    return `
+        <span class="pz${line ? ' won' : ''}">LINE ${line ? '✓ ' + esc(line.name) : '· up for grabs'}</span>
+        <span class="pz${house ? ' won' : ''}">FULL HOUSE ${house ? '✓ ' + esc(house.name) : '· up for grabs'}</span>`;
+}
+function driveZoneHTML(msg) {
+    if (!canDrive() || msg.phase !== 'playing') return '';
+    return msg.paused
+        ? `<button class="btn btn-t btn-sm btn-full" onclick="guestCtl('resume')">▶️ Resume the caller</button>`
+        : `<button class="btn btn-g btn-sm btn-full" onclick="guestCtl('pause')">⏸ Pause the caller</button>`;
+}
+function railHTML(msg) {
+    return msg.players.slice().sort((a, b) => b.score - a.score).map(p => `
+        <div class="rail-row">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <span class="rname">${esc(p.name)}</span>
+            <span class="rsc">${p.score}</span>
+        </div>`).join('');
+}
+
+// ═══════════════════════════════════════════
+// RENDER — phone screens
+// ═══════════════════════════════════════════
+function render() {
+    const app = $id('app');
+    if (isTvHost || isViewer) ui = 'viewer';
+    let html = '';
+    switch (ui) {
+        case 'home':       html = renderHome(); break;
+        case 'creating':   html = renderSpinner('Setting up the bingo hall…'); break;
+        case 'connecting': html = renderSpinner('Joining the bingo hall…'); break;
+        case 'lobby_h':    html = renderLobbyH(); break;
+        case 'lobby_g':    html = renderLobbyG(); break;
+        case 'game':       html = renderGame(); break;
+        case 'results':    html = renderResults(); break;
+        case 'viewer':     html = renderViewer(); break;
+        default:           html = renderHome();
+    }
+    app.innerHTML = html;
+}
+
+function renderSpinner(msg) {
+    return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`;
+}
+
+function renderHome() {
+    const fromQR = !!fCode;
+    const youCard = `
+    <div class="card">
+        <div class="slbl">Who are you?</div>
+        <div class="fg">
+            <label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
+                ${fromQR ? 'autofocus' : ''} oninput="fName=this.value">
+        </div>
+    </div>`;
+    const joinCard = `
+    <div class="card${fromQR ? ' highlight' : ''}">
+        <div class="slbl">Join a Game</div>
+        <div class="fg">
+            <label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fCode)}"
+                oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
+        </div>
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">
+            📱 Join with your phone
+        </button>
+    </div>`;
+    const hostCard = `
+    <div class="card">
+        <div class="slbl">Start a Game</div>
+        <button class="btn btn-p btn-full"
+            onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
+            🎱 Host on this phone
+        </button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin-top:8px">
+            2–12 players — put the flashboard on a TV with the room code
+        </div>
+    </div>`;
+    const tvCard = `
+    <div class="card">
+        <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-p btn-full" onclick="hostOnTV()">📺 Run the bingo hall on this screen</button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin:6px 0 10px">
+            Shows a big QR code — the first phone to join becomes 👑 Captain
+        </div>
+        <hr>
+        <div class="fg">
+            <label>…or show an existing game</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')joinAsViewer(fVCode)">
+        </div>
+        <button class="btn btn-g btn-full"
+            onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code.';render()}">
+            📺 Open the flashboard
+        </button>
+    </div>`;
+    return `
+    ${hdrHTML('the TV calls · you daub · smash BINGO!')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+}
+
+function settingsSegsHTML(settings, expr) {
+    const seg = (opts, curV, key) => `<div class="seg-row">${opts.map(o =>
+        `<button class="btn btn-sm ${curV === o.v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{${key}:${o.j}}`)}">${o.l}</button>`).join('')}</div>`;
+    return `<div class="fg"><label>Call speed</label>${seg(
+        [{ v: 9, j: 9, l: '🐢 Relaxed 9s' }, { v: 6, j: 6, l: '🎱 Classic 6s' }, { v: 4, j: 4, l: '🐇 Turbo 4s' }],
+        settings.interval, 'interval')}</div>`;
+}
+
+function renderLobbyH() {
+    const pList = H.players.map((p, i) =>
+        `<div class="player-row">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1">${esc(p.name)}${i === 0 ? ' <span style="color:var(--muted)">(you — host)</span>' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    return `
+    ${hdrHTML('Host Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card highlight">
+        <div class="slbl">Scan to join — or share the code</div>
+        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        <div class="room-code">${esc(roomCode)}</div>
+        <div class="share-row">
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.share&&navigator.share({title:'Join Full House Bingo',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
+        </div>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center">Open the flashboard on a TV with code <b style="color:var(--gold)">${esc(roomCode)}</b></div>
+    </div>
+    <div class="card">
+        <div class="slbl">Players (${H.players.length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    <div class="card">
+        <div class="slbl">Settings</div>
+        ${settingsSegsHTML(H.settings, patch => `hostCtl('set',${patch})`)}
+    </div>
+    <button class="btn btn-t btn-full" style="font-size:1.08rem;padding:16px" onclick="hostStartGame()">👀 Eyes down — start!</button>`;
+}
+
+function renderLobbyG() {
+    const cap = isCaptain();
+    const pList = (D.players || []).map(p =>
+        `<div class="player-row">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--muted)">(you)</span>' : ''}${D.tvHost && p.name === D.captain ? ' 👑' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    const s = D.settings || {};
+    return `
+    ${hdrHTML(cap ? '👑 You are the Captain' : 'Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card">
+        <div class="slbl">Room ${esc(D.roomCode || '')} — Players (${(D.players || []).length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    ${cap ? `
+    <div class="card highlight">
+        <div class="slbl">👑 Captain's Settings</div>
+        ${settingsSegsHTML(s, patch => `guestCtl('set',${patch})`)}
+    </div>
+    <button class="btn btn-t btn-full" style="font-size:1.08rem;padding:16px" onclick="guestCtl('start')">👀 Eyes down — start!</button>`
+    : `
+    <div class="card">
+        <div class="slbl">Settings</div>
+        <div style="font-weight:800;font-size:.85rem">🎱 A ball every ${s.interval}s</div>
+        <div style="color:var(--muted);font-size:.72rem;font-weight:800;margin-top:8px">
+            Waiting for ${D.tvHost ? `👑 ${esc(D.captain || 'the captain')}` : 'the host'} to start…
+        </div>
+    </div>`}`;
+}
+
+function renderGame() {
+    const ticket = D.myTicket || [[], [], []];
+    const marked = new Set(effectiveDaubs());
+    const cells = [];
+    for (let r = 0; r < 3; r++)
+        for (let c = 0; c < 9; c++) {
+            const n = ticket[r] ? ticket[r][c] : null;
+            cells.push(n
+                ? `<button class="cell${marked.has(n) ? ' daub' : ''}" data-n="${n}" onclick="tapCell(this)">${n}</button>`
+                : `<div class="cell blank"></div>`);
+        }
+    const locked = D.myLockUntil > D.ballCount;
+    return `
+    <div class="card" style="padding:12px 14px"><div class="ballstrip" id="ballstrip">${ballStripHTML(D)}</div></div>
+    <div class="prize-strip" id="p-prizes">${prizeStripHTML(D)}</div>
+    <div class="event-note" id="p-event"></div>
+    <div class="card">
+        <div class="slbl">Your ticket — tap the numbers you spot!</div>
+        <div class="ticket">${cells.join('')}</div>
+        <hr>
+        <label class="toggle-row"><input type="checkbox" ${autoDaub ? 'checked' : ''} onchange="setAutoDaub(this.checked)"> 🧒 Auto-daub (for little kids)</label>
+    </div>
+    <button class="btn-bingo" id="bingo-btn" ${locked ? 'disabled' : ''} onclick="sendBingo()">${locked ? `🔒 WAIT ${D.myLockUntil - D.ballCount} BALLS` : 'BINGO!'}</button>
+    <div id="drive-zone">${driveZoneHTML(D)}</div>`;
+}
+
+function renderResults() {
+    const r = D.results || {};
+    const rows = (r.tally || []).map((p, i) => `
+        <div class="player-row">
+            <span style="width:22px;text-align:center">${['🥇', '🥈', '🥉'][i] || (i + 1)}</span>
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--gold)">(you)</span>' : ''}</div>
+            <div style="font-weight:900">${p.score}</div>
+        </div>`).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.02rem;padding:15px" onclick="guestCtl('again')">🔁 New game — fresh tickets</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.72rem;font-weight:800">${D.tvHost ? `👑 ${esc(D.captain || '')} starts the next game` : 'The host starts the next game'}…</div>`;
+    return `
+    ${hdrHTML('Full house!')}
+    <div class="card highlight" style="text-align:center">
+        <div style="font-size:3rem">🏆</div>
+        <div style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:1.5rem;margin-top:4px">FULL HOUSE — ${esc(r.house?.name || '')}!</div>
+        <div style="margin-top:8px">
+            <span class="chip">📏 Line: ${esc(r.line?.name || '—')} (ball ${r.line?.ball || '—'})</span>
+            <span class="chip">🏠 House: ${esc(r.house?.name || '—')} (ball ${r.house?.ball || '—'})</span>
+        </div>
+        <div style="color:var(--muted);font-size:.72rem;font-weight:800;margin-top:8px">${r.balls || 0} balls called · line +1, house +3</div>
+    </div>
+    <div class="card"><div class="slbl">Session tally</div>${rows}</div>
+    ${driveBtn}`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — TV screens
+// ═══════════════════════════════════════════
+function tvShell(inner, meta) {
+    return `<div class="tv">
+        <div class="tv-top">
+            <div class="tv-logo">🎱 FULL HOUSE BINGO</div>
+            <div class="tv-meta">${esc(meta || ('Room ' + (vD.roomCode || roomCode || '')))}</div>
+        </div>
+        ${inner}
+    </div>`;
+}
+
+function renderViewer() {
+    if (!vD) return renderSpinner('Waiting for the bingo hall…');
+    if (vD.type === 'viewer_lobby') return renderViewerLobby();
+    if (vD.phase === 'playing') return renderViewerPlaying();
+    if (vD.phase === 'results') return renderViewerResults();
+    return renderSpinner('Waiting for the bingo hall…');
+}
+
+function renderViewerLobby() {
+    const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
+    const players = vD.players || [];
+    const cards = players.map(p =>
+        `<div class="tv-pcard"><div class="pdot" style="background:${p.color};color:${p.color}"></div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
+    return tvShell(`
+    <div class="tv-lobby">
+        <div class="qr-side">
+            <div class="slbl">Scan with your phone to join</div>
+            <div class="qr-wrap">${qrSVG(url)}</div>
+            <div class="room-code">${esc(vD.roomCode || '')}</div>
+            <div class="join-hint">${location.host}${location.pathname}</div>
+        </div>
+        <div class="tv-players">
+            <div class="tv-meta">Players — ${players.length}/${MAX_PLAYERS}</div>
+            <div class="tv-player-grid">${cards}</div>
+            <div class="tv-waiting">${players.length === 0
+                ? 'Waiting for the first phone… they become 👑 Captain'
+                : (vD.tvHost ? `Waiting for 👑 ${esc(vD.captain || '')} to start` : 'Waiting for the host to start')
+                  + ` · 🎱 a ball every ${(vD.settings || {}).interval}s`}</div>
+        </div>
+    </div>`, 'Lobby');
+}
+
+function bigBallHTML(msg) {
+    const n = msg.called[msg.called.length - 1];
+    if (!n) return `<div class="bigball" style="background:#efe7f7"><div class="bn" style="font-size:3.4vmin">👀</div><div class="bl">Eyes down!</div></div>`;
+    const nick = nickOf(n);
+    return `<div class="bigball" style="background:${ballColor(n)}"><div class="bn">${n}</div>${nick ? `<div class="bl">${esc(nick)}</div>` : ''}</div>`;
+}
+function lastBallsHTML(msg, k) {
+    return msg.called.slice(-(k + 1), -1).reverse().map(n =>
+        `<span class="mini" style="background:${ballColor(n)}">${n}</span>`).join('');
+}
+function tvPrizesHTML(msg) {
+    const line = msg.prizes.line, house = msg.prizes.house;
+    return `
+        <div class="pz${line ? ' won' : ''}">📏 LINE ${line ? '✓ ' + esc(line.name) + ' · ball ' + line.ball : '— up for grabs'}</div>
+        <div class="pz${house ? ' won' : ''}">🏠 FULL HOUSE ${house ? '✓ ' + esc(house.name) : '— up for grabs'}</div>`;
+}
+
+function renderViewerPlaying() {
+    let board = '';
+    const calledSet = new Set(vD.called);
+    for (let n = 1; n <= 90; n++)
+        board += `<div class="bcell${calledSet.has(n) ? ' lit' : ''}" id="bn-${n}">${n}</div>`;
+    const nick = vD.called.length ? nickOf(vD.called[vD.called.length - 1]) : '';
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-callzone">
+            <div class="tv-paused" id="v-paused">${vD.paused ? '⏸ PAUSED' : ''}</div>
+            <div class="machine"><div id="v-ball">${bigBallHTML(vD)}</div></div>
+            <div class="nickname">${esc(nick)}</div>
+            <div class="lastballs" id="v-last">${lastBallsHTML(vD, 5)}</div>
+            <div class="tv-meta" id="v-count">Ball ${vD.ballCount} of 90</div>
+        </div>
+        <div class="tv-boardzone">
+            <div class="flashboard">${board}</div>
+            <div class="tv-prizes" id="v-prizes">${tvPrizesHTML(vD)}</div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">Session tally</div>
+            <div id="v-rail" style="display:flex;flex-direction:column;gap:1vmin">${railHTML(vD)}</div>
+        </div>
+    </div>
+    <div id="v-event"></div>`, `Room ${vD.roomCode || ''}`);
+}
+
+function renderViewerResults() {
+    const r = vD.results || {};
+    const rows = (r.tally || []).map(p =>
+        `<div class="rail-row"><span class="pdot" style="background:${p.color};color:${p.color}"></span><span class="rname">${esc(p.name)}</span><span class="rsc">${p.score}</span></div>`).join('');
+    const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: “New game” is on your phone` : 'Host: “New game” is on your phone';
+    return tvShell(`
+    <div class="tv-results">
+        <div class="big">🏆 FULL HOUSE!</div>
+        <div class="winline">${esc(r.house?.name || '')} — in ${r.balls || 0} balls</div>
+        <div class="winline" style="font-size:2.1vmin;color:var(--muted)">📏 Line: ${esc(r.line?.name || '—')} (ball ${r.line?.ball || '—'})</div>
+        <div style="display:flex;gap:1vmin;flex-wrap:wrap;justify-content:center;max-width:70vmin">${rows}</div>
+        <div class="tv-waiting">${hint}</div>
+    </div>`, 'Results');
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+window.addEventListener('resize', () => {
+    const cv = $id('confetti-cv');
+    if (cv && _cf.running) { cv.width = innerWidth; cv.height = innerHeight; }
+});
+
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
+    render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Best Guess</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23070b1a' width='100' height='100' rx='20'/><text x='50' y='68' font-size='52' text-anchor='middle'>💰</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #070b1a; --panel: rgba(17,24,48,0.86); --panel2: rgba(26,34,66,0.92);
+            --border: rgba(45,212,191,0.28); --border2: rgba(139,147,184,0.26);
+            --text: #eef2ff; --muted: #8b93b8;
+            --gold: #fbbf24; --teal: #2dd4bf; --pink: #f472b6; --down: #f87171; --up: #34d399;
+        }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 26px 16px 48px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 60% 45% at 50% -5%, rgba(45,212,191,0.13) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 40% at 10% 100%, rgba(251,191,36,0.09) 0%, transparent 65%),
+                radial-gradient(ellipse 50% 40% at 92% 100%, rgba(244,114,182,0.08) 0%, transparent 65%);
+        }
+        body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
+
+        h1.logo {
+            font-family: 'Orbitron', sans-serif; font-weight: 900; letter-spacing: 2px;
+            font-size: clamp(1.5rem, 6.5vw, 2.3rem); text-align: center; color: var(--teal);
+            text-shadow: 0 0 26px rgba(45,212,191,.45);
+        }
+        h1.logo b { color: var(--gold); text-shadow: 0 0 26px rgba(251,191,36,.45); }
+        .sub { color: var(--muted); font-size: .68rem; letter-spacing: 2.5px; text-transform: uppercase; margin: 7px 0 22px; text-align: center; }
+
+        #app { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 13px; }
+        body.viewer-mode #app { max-width: none; height: 100dvh; display: block; }
+
+        .card {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 16px;
+            padding: 18px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 12px 34px rgba(0,0,0,.5);
+        }
+        .card.highlight { border-color: var(--gold); box-shadow: 0 0 26px rgba(251,191,36,.14), 0 12px 34px rgba(0,0,0,.5); }
+        .slbl { font-size: .64rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 11px; }
+
+        .fg { margin-bottom: 12px; }
+        .fg label { display: block; font-size: .64rem; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+        input[type=text] {
+            width: 100%; padding: 12px 14px; font-family: inherit; font-size: 1rem; font-weight: 700;
+            border: 2px solid var(--border2); border-radius: 11px; background: rgba(7,11,26,.7); color: var(--text);
+            outline: none;
+        }
+        input[type=text]:focus { border-color: var(--teal); }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            font-family: inherit; font-weight: 900; font-size: .92rem; letter-spacing: .5px;
+            padding: 13px 18px; border: none; border-radius: 13px; cursor: pointer;
+            transition: filter .12s, opacity .12s, box-shadow .12s; user-select: none; -webkit-user-select: none;
+            color: var(--text);
+        }
+        .btn:active { filter: brightness(1.2); }
+        .btn-p { background: linear-gradient(180deg, #fcd34d, #f59e0b); color: #2a1700; box-shadow: 0 5px 0 #92600a, 0 10px 22px rgba(251,191,36,.3); }
+        .btn-p:active { box-shadow: 0 2px 0 #92600a; }
+        .btn-t { background: linear-gradient(180deg, #5eead4, #14b8a6); color: #032620; box-shadow: 0 5px 0 #0b6b60, 0 10px 22px rgba(45,212,191,.3); }
+        .btn-t:active { box-shadow: 0 2px 0 #0b6b60; }
+        .btn-g { background: rgba(139,147,184,.12); box-shadow: inset 0 0 0 2px var(--border2); }
+        .btn-full { width: 100%; }
+        .btn-sm { padding: 8px 13px; font-size: .74rem; border-radius: 10px; }
+        .btn:disabled { opacity: .4; cursor: default; }
+
+        .err {
+            background: rgba(248,113,113,.12); border: 1px solid rgba(248,113,113,.5); color: #fca5a5;
+            padding: 11px 14px; border-radius: 12px; font-size: .8rem; font-weight: 700; text-align: center;
+        }
+        hr { border: none; border-top: 1px dashed var(--border2); margin: 13px 0; }
+
+        .connecting { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 46px 0; color: var(--muted); font-weight: 700; }
+        .spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid rgba(45,212,191,.15); border-top-color: var(--teal); animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .avrow { display: flex; flex-wrap: wrap; gap: 7px; }
+        .av {
+            width: 42px; height: 42px; border-radius: 12px; font-size: 1.35rem; display: flex; align-items: center; justify-content: center;
+            background: rgba(7,11,26,.7); border: 2px solid var(--border2); cursor: pointer;
+        }
+        .av.sel { border-color: var(--gold); background: rgba(251,191,36,.12); box-shadow: 0 4px 12px rgba(251,191,36,.3); }
+
+        .player-row { display: flex; align-items: center; gap: 11px; padding: 8px 4px; border-bottom: 1px dashed var(--border2); font-weight: 800; font-size: .92rem; }
+        .player-row:last-child { border-bottom: none; }
+        .pav { width: 36px; height: 36px; border-radius: 10px; background: rgba(7,11,26,.7); border: 1px solid var(--border2); font-size: 1.2rem; display: flex; align-items: center; justify-content: center; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up); box-shadow: 0 0 8px var(--up); margin-left: auto; }
+        .qr-wrap { width: min(210px, 58vw); margin: 6px auto 10px; border-radius: 13px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.4); }
+        .qr-wrap svg { display: block; width: 100%; height: auto; }
+        .room-code { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 2.2rem; letter-spacing: 11px; text-align: center; color: var(--gold); padding-left: 11px; text-shadow: 0 0 18px rgba(251,191,36,.4); }
+        .share-row { display: flex; gap: 8px; justify-content: center; margin: 10px 0 6px; }
+        .seg-row { display: flex; flex-wrap: wrap; gap: 7px; }
+
+        /* ── phone: guess (keypad) ── */
+        .q-card { text-align: center; }
+        .q-text { font-weight: 900; font-size: 1.18rem; line-height: 1.45; }
+        .q-unit { color: var(--teal); font-weight: 900; font-size: .8rem; letter-spacing: 1.5px; text-transform: uppercase; margin-top: 6px; }
+        .num-display {
+            font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 2.1rem; text-align: center;
+            background: rgba(7,11,26,.75); border: 2px solid var(--border); border-radius: 14px;
+            padding: 14px; min-height: 74px; color: var(--gold); letter-spacing: 2px;
+            font-variant-numeric: tabular-nums; overflow: hidden;
+        }
+        .num-display .ph { color: var(--muted); font-size: 1rem; font-family: 'Nunito', sans-serif; letter-spacing: 0; }
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+        .key {
+            font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.3rem; padding: 16px 0;
+            border: none; border-radius: 13px; cursor: pointer; color: var(--text);
+            background: var(--panel2); box-shadow: inset 0 0 0 1px var(--border2), 0 4px 0 rgba(0,0,0,.35);
+        }
+        .key:active { box-shadow: inset 0 0 0 1px var(--border2), 0 1px 0 rgba(0,0,0,.35); filter: brightness(1.3); }
+        .key.fn { font-size: 1rem; color: var(--muted); }
+        .locked-note { text-align: center; font-weight: 900; color: var(--gold); font-size: 1rem; padding: 8px 0 2px; }
+
+        /* ── phone: bet ── */
+        .chips-left { text-align: center; font-weight: 900; font-size: 1rem; }
+        .chips-left .coin { font-size: 1.5rem; vertical-align: middle; }
+        .slot-btn {
+            width: 100%; display: flex; align-items: center; gap: 10px; text-align: left;
+            background: var(--panel2); border: 2px solid var(--border2); border-radius: 13px;
+            padding: 11px 13px; cursor: pointer; font-family: inherit; color: var(--text);
+            margin-bottom: 8px;
+        }
+        .slot-btn:disabled { opacity: .5; cursor: default; }
+        .slot-btn .sv { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.15rem; color: var(--teal); min-width: 74px; }
+        .slot-btn.house .sv { color: var(--down); font-size: .8rem; }
+        .slot-btn .sa { flex: 1; font-size: .95rem; }
+        .slot-btn .schips { font-size: .95rem; letter-spacing: -2px; }
+        .slot-btn.mine { border-color: var(--gold); box-shadow: 0 0 14px rgba(251,191,36,.2); }
+
+        /* ── phone: payout ── */
+        .verdict { text-align: center; padding: 8px 0 4px; }
+        .verdict .vico { font-size: 3rem; }
+        .verdict .vt { font-weight: 900; font-size: 1.45rem; margin-top: 4px; }
+        .verdict .vans { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.9rem; color: var(--teal); margin-top: 4px; }
+        .verdict .vpts { font-size: 1.9rem; font-weight: 900; color: var(--gold); margin-top: 2px; }
+        .chip { display: inline-block; padding: 4px 12px; border-radius: 11px; background: rgba(251,191,36,.12); border: 1px solid rgba(251,191,36,.4); color: var(--gold); font-weight: 900; font-size: .76rem; margin: 3px; }
+        .chip.teal { background: rgba(45,212,191,.1); border-color: rgba(45,212,191,.4); color: var(--teal); }
+        .standings .sc { margin-left: auto; font-weight: 900; }
+        .standings .delta { color: var(--up); font-size: .74rem; font-weight: 900; margin-left: 7px; }
+
+        /* ═════════ TV ═════════ */
+        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 2.6vmin 3.2vmin; gap: 1.8vmin; }
+        .tv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 2vmin; }
+        .tv-logo { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 3vmin; letter-spacing: .35vmin; color: var(--teal); text-shadow: 0 0 24px rgba(45,212,191,.45); }
+        .tv-logo b { color: var(--gold); }
+        .tv-meta { font-size: 1.8vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .tv-main { flex: 1; display: flex; gap: 2.2vmin; min-height: 0; }
+        .tv-stage { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: 1.8vmin; }
+        .tv-rail { width: 28vmin; min-width: 230px; display: flex; flex-direction: column; gap: 1.2vmin; overflow: hidden; }
+        .rail-title { font-size: 1.6vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .rail-row {
+            display: flex; align-items: center; gap: 1.1vmin; background: var(--panel);
+            border: 1px solid var(--border2); border-radius: 1.5vmin; padding: 1.1vmin 1.4vmin;
+            font-weight: 800; font-size: 1.9vmin; position: relative;
+        }
+        .rail-row .rav { font-size: 2.4vmin; }
+        .rail-row .rname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rail-row .rsc { font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; font-family: 'Orbitron', sans-serif; font-size: 1.9vmin; }
+        .rail-row .rdelta { position: absolute; right: 1vmin; top: -1.2vmin; font-size: 1.5vmin; font-weight: 900; color: var(--up); text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+        .rail-row.locked::after { content: '✓'; color: var(--up); font-weight: 900; font-size: 1.9vmin; }
+
+        .tv-q {
+            background: var(--panel); border: 1px solid var(--border); border-radius: 2vmin;
+            padding: 3vmin 4vmin; text-align: center;
+        }
+        .tv-q .qq { font-weight: 900; font-size: 3.2vmin; line-height: 1.4; }
+        .tv-q .qu { color: var(--teal); font-weight: 900; font-size: 1.7vmin; letter-spacing: .35vmin; text-transform: uppercase; margin-top: 1.2vmin; }
+        .tv-counter { text-align: center; font-weight: 900; font-size: 2.2vmin; color: var(--gold); }
+        .tv-bigq { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 2.5vmin; }
+
+        /* TV board */
+        .board-wrap { flex: 1; display: flex; align-items: center; justify-content: center; gap: 1.4vmin; overflow-x: auto; padding: 1vmin 0; }
+        .slot-card {
+            flex: 1; min-width: 12vmin; max-width: 22vmin; background: var(--panel2);
+            border: 2px solid var(--border2); border-radius: 1.8vmin; padding: 1.8vmin 1.2vmin;
+            display: flex; flex-direction: column; align-items: center; gap: 1vmin; text-align: center;
+            transition: border-color .3s, box-shadow .3s;
+        }
+        .slot-card .sval { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 2.6vmin; color: var(--teal); }
+        .slot-card.house .sval { color: var(--down); font-size: 1.7vmin; }
+        .slot-card .sauth { font-size: 2.4vmin; min-height: 3vmin; }
+        .slot-card .schips { display: flex; flex-wrap: wrap; gap: .4vmin; justify-content: center; min-height: 3vmin; }
+        .slot-card .schips .bchip {
+            width: 2.6vmin; height: 2.6vmin; border-radius: 50%; font-size: 1.5vmin;
+            background: radial-gradient(circle at 35% 30%, #fde68a, #d97706); color: #2a1700;
+            display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.5);
+        }
+        .slot-card.winner { border-color: var(--gold); box-shadow: 0 0 34px rgba(251,191,36,.4); }
+        .slot-card.winner .sval { color: var(--gold); }
+        .tv-answer {
+            text-align: center; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 3.4vmin;
+            color: var(--gold); text-shadow: 0 0 24px rgba(251,191,36,.4);
+        }
+
+        /* TV lobby */
+        .tv-lobby { flex: 1; display: flex; gap: 4vmin; align-items: center; min-height: 0; }
+        .tv-lobby .qr-side { background: #101830; border: 1px solid var(--border); border-radius: 2.2vmin; padding: 3.2vmin; text-align: center; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+        .tv-lobby .qr-side .qr-wrap { width: 32vmin; margin: 1.4vmin auto; }
+        .tv-lobby .qr-side .room-code { font-size: 4.6vmin; letter-spacing: 1.9vmin; padding-left: 1.9vmin; }
+        .tv-lobby .join-hint { font-size: 1.7vmin; font-weight: 700; color: var(--muted); }
+        .tv-players { flex: 1; display: flex; flex-direction: column; gap: 1.5vmin; min-width: 0; }
+        .tv-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(19vmin, 1fr)); gap: 1.5vmin; }
+        .tv-pcard {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 1.7vmin;
+            padding: 1.6vmin; text-align: center; font-weight: 900; font-size: 1.9vmin; animation: popIn .35s ease both;
+        }
+        .tv-pcard .pav-big { font-size: 4vmin; }
+        @keyframes popIn { from { opacity: 0; } to { opacity: 1; } }
+        .tv-waiting { color: var(--muted); font-weight: 800; font-size: 1.9vmin; }
+
+        /* podium */
+        .podium-wrap { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2.4vmin; padding-bottom: 1vmin; }
+        .pod { text-align: center; font-weight: 900; animation: popIn .5s ease both; }
+        .pod .pav-big { font-size: 4.6vmin; }
+        .pod .pname { font-size: 2.3vmin; margin-bottom: .8vmin; }
+        .pod .pscore { font-size: 1.9vmin; color: var(--gold); margin-bottom: .8vmin; font-family: 'Orbitron', sans-serif; }
+        .pod .block { border-radius: 1.5vmin 1.5vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.3vmin; font-size: 3.2vmin; width: 17vmin; }
+        .pod.p1 .block { height: 21vmin; background: linear-gradient(180deg, #fcd34d, #92600a); }
+        .pod.p2 .block { height: 14vmin; background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
+        .pod.p3 .block { height: 9.5vmin; background: linear-gradient(180deg, #e8a06a, #9c5a33); }
+        .awards-row { display: flex; gap: 1.5vmin; justify-content: center; flex-wrap: wrap; padding-bottom: 2vmin; }
+        .award { background: var(--panel); border: 1px solid var(--border); border-radius: 1.5vmin; padding: 1.3vmin 2vmin; font-weight: 800; font-size: 1.8vmin; text-align: center; }
+        .award .aw-t { color: var(--gold); font-weight: 900; }
+
+        #confetti-cv { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <canvas id="confetti-cv"></canvas>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════
+// QUESTIONS (~50, original wording, verifiable)
+// ═══════════════════════════════════════════
+const QUESTIONS = [
+    { q: 'How many bones are in the adult human body?', a: 206, unit: 'bones' },
+    { q: 'How tall is the Eiffel Tower, including its antennas?', a: 330, unit: 'metres' },
+    { q: 'In what year was the very first text message sent?', a: 1992, unit: 'year' },
+    { q: 'How many keys does a standard piano have?', a: 88, unit: 'keys' },
+    { q: 'How long is the Great Wall of China, all branches included?', a: 21196, unit: 'km' },
+    { q: 'How tall is Mount Everest?', a: 8849, unit: 'metres' },
+    { q: 'What is the fastest speed ever recorded for a cheetah?', a: 104, unit: 'km/h' },
+    { q: 'How far away is the Moon from Earth, on average?', a: 384400, unit: 'km' },
+    { q: 'How many times does the average human heart beat in one day?', a: 100000, unit: 'beats' },
+    { q: 'How many plays did William Shakespeare write?', a: 37, unit: 'plays' },
+    { q: 'How long is an Olympic swimming pool?', a: 50, unit: 'metres' },
+    { q: 'How long is a marathon, to the nearest whole metre?', a: 42195, unit: 'metres' },
+    { q: 'In what year did humans first walk on the Moon?', a: 1969, unit: 'year' },
+    { q: 'How many teeth does an adult human have, wisdom teeth included?', a: 32, unit: 'teeth' },
+    { q: 'How many days does it take Earth to orbit the Sun, to the nearest day?', a: 365, unit: 'days' },
+    { q: 'In what year did the Titanic sink?', a: 1912, unit: 'year' },
+    { q: 'How tall is the Burj Khalifa, the world\'s tallest building?', a: 828, unit: 'metres' },
+    { q: 'How much can a blue whale weigh, in tonnes?', a: 150, unit: 'tonnes' },
+    { q: 'How fast does sound travel through air?', a: 343, unit: 'metres per second' },
+    { q: 'How many bones does a shark have?', a: 0, unit: 'bones (it\'s all cartilage!)' },
+    { q: 'In what year was the World Wide Web invented?', a: 1989, unit: 'year' },
+    { q: 'Around what year did Leonardo da Vinci start painting the Mona Lisa?', a: 1503, unit: 'year' },
+    { q: 'How many legs does a spider have?', a: 8, unit: 'legs' },
+    { q: 'How many legs does a lobster have?', a: 10, unit: 'legs' },
+    { q: 'How many hearts does an octopus have?', a: 3, unit: 'hearts' },
+    { q: 'How many minutes are there in a day?', a: 1440, unit: 'minutes' },
+    { q: 'How tall is the London Eye?', a: 135, unit: 'metres' },
+    { q: 'In what year was LEGO founded?', a: 1932, unit: 'year' },
+    { q: 'How hot is the surface of Venus, the hottest planet?', a: 465, unit: '°C' },
+    { q: 'Roughly how many taste buds does a human tongue have?', a: 10000, unit: 'taste buds' },
+    { q: 'How long is the Amazon River?', a: 6400, unit: 'km' },
+    { q: 'How much does Big Ben (the bell itself) weigh, to the nearest tonne?', a: 14, unit: 'tonnes' },
+    { q: 'In what year did the first iPhone go on sale?', a: 2007, unit: 'year' },
+    { q: 'How many strings does a violin have?', a: 4, unit: 'strings' },
+    { q: 'How many cards are in a standard deck, jokers not included?', a: 52, unit: 'cards' },
+    { q: 'How many countries are there in the world, by UN count?', a: 195, unit: 'countries' },
+    { q: 'In what year did the Berlin Wall come down?', a: 1989, unit: 'year' },
+    { q: 'How old was the oldest person ever verified to have lived?', a: 122, unit: 'years old' },
+    { q: 'How many neck vertebrae does a giraffe have?', a: 7, unit: 'vertebrae (same as you!)' },
+    { q: 'How tall is the Statue of Liberty, from the ground to the torch?', a: 93, unit: 'metres' },
+    { q: 'At what temperature does gold melt?', a: 1064, unit: '°C' },
+    { q: 'In what year were the first modern Olympic Games held?', a: 1896, unit: 'year' },
+    { q: 'What is the wingspan of a Boeing 747, to the nearest metre?', a: 69, unit: 'metres' },
+    { q: 'How deep is the deepest known point of the ocean?', a: 10935, unit: 'metres' },
+    { q: 'How many stripes are on the flag of the United States?', a: 13, unit: 'stripes' },
+    { q: 'In what year did Mickey Mouse first appear on screen?', a: 1928, unit: 'year' },
+    { q: 'How long is a cricket pitch, to the nearest metre?', a: 20, unit: 'metres' },
+    { q: 'How many squares are on a chessboard?', a: 64, unit: 'squares' },
+    { q: 'In what year did the Sydney Opera House open?', a: 1973, unit: 'year' },
+    { q: 'How fast does light travel, in kilometres per second?', a: 299792, unit: 'km per second' },
+];
+
+// ═══════════════════════════════════════════
+// CONSTANTS & HELPERS
+// ═══════════════════════════════════════════
+const PFX = 'BESTGUESS-';
+const MAX_PLAYERS = 12;
+const CHIPS_PER_ROUND = 2;
+const AVATARS = ['🦊', '🐼', '🦁', '🐸', '🐙', '🦄', '🐝', '🐶', '🐨', '🐯', '🐢', '🦉'];
+
+function $id(id) { return document.getElementById(id); }
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
+function fmt(n) { return Number(n).toLocaleString('en-GB'); }
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// The one rule of the game, kept pure so tests can hit it directly:
+// winning slot = closest guess NOT over the answer; if every guess is over, the house slot (0) wins.
+function winningSlot(slots, answer) {
+    let win = 0;
+    for (let i = 1; i < slots.length; i++) {
+        if (slots[i].value <= answer) win = i;   // slots are sorted ascending
+    }
+    return win;
+}
+
+// ── QR code (themed SVG) ──
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+        let rects = '';
+        for (let r = 0; r < n; r++)
+            for (let c = 0; c < n; c++)
+                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+            `<rect width="${size}" height="${size}" fill="#f0fdfa"/>` +
+            `<g fill="#101830">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+
+// ── Confetti ──
+let _cf = { parts: [], raf: 0, running: false, until: 0 };
+function startConfetti(ms) {
+    if (REDUCED) return;
+    const cv = $id('confetti-cv'), ctx = cv.getContext('2d');
+    cv.width = innerWidth; cv.height = innerHeight;
+    _cf.until = performance.now() + (ms || 2600);
+    const cols = ['#fbbf24', '#2dd4bf', '#f472b6', '#34d399', '#a78bfa', '#eef2ff'];
+    for (let i = 0; i < 130; i++) {
+        _cf.parts.push({
+            x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5,
+            vx: (Math.random() - 0.5) * 2.4, vy: 2 + Math.random() * 3.6,
+            rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.25,
+            w: 6 + Math.random() * 7, h: 4 + Math.random() * 5,
+            col: cols[Math.floor(Math.random() * cols.length)],
+        });
+    }
+    if (_cf.running) return;
+    _cf.running = true;
+    (function frame(t) {
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        _cf.parts = _cf.parts.filter(p => p.y < cv.height + 30);
+        for (const p of _cf.parts) {
+            p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+            ctx.fillStyle = p.col; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            ctx.restore();
+        }
+        if (t < _cf.until || _cf.parts.length) _cf.raf = requestAnimationFrame(frame);
+        else { _cf.running = false; ctx.clearRect(0, 0, cv.width, cv.height); }
+    })(performance.now());
+}
+
+// ── Synth sounds ──
+let _ac = null;
+function ac() { if (!_ac) { try { _ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return _ac; }
+function tone(freq, dur, type, gain, when) {
+    const a = ac(); if (!a) return;
+    try {
+        const t0 = a.currentTime + (when || 0);
+        const o = a.createOscillator(), g = a.createGain();
+        o.type = type || 'triangle'; o.frequency.value = freq;
+        g.gain.setValueAtTime(gain || 0.07, t0);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        o.connect(g); g.connect(a.destination);
+        o.start(t0); o.stop(t0 + dur);
+    } catch (e) {}
+}
+function sKey() { tone(520, 0.05, 'square', 0.04); }
+function sLock() { tone(660, 0.12); }
+function sChip() { tone(880, 0.07, 'sine', 0.06); tone(1320, 0.1, 'sine', 0.05, 0.05); }
+function sSweep() { [440, 550, 660, 880].forEach((f, i) => tone(f, 0.14, 'sine', 0.05, i * 0.09)); }
+function sWinTone() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.3, 'triangle', 0.06, i * 0.13)); }
+function sLose() { tone(196, 0.3, 'sawtooth', 0.04); }
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let peer = null, myId = '', myName = '', myAvatar = '', isHost = false, isTvHost = false, isViewer = false, roomCode = '';
+let hostConn = null, guestConns = {}, viewerConns = {};
+let ui = 'home';   // home|creating|connecting|lobby_h|lobby_g|guess|bet|payout|podium|viewer
+let uiErr = '';
+let fName = localStorage.getItem('bg-name') || '';
+let fAvatar = localStorage.getItem('bg-avatar') || '';
+let fCode = '', fVCode = '';
+let D = null, vD = null;
+
+// phone-local input state
+let numEntry = '';
+
+// Host authoritative state
+let H = {
+    phase: 'lobby',          // lobby|guess|bet|payout|podium
+    players: [],             // [{id,name,avatar,score,guess,bets:[],lastDelta,oracle,smart}]
+    settings: { qCount: 7 },
+    questions: [], qIndex: -1,
+    cur: null,               // {qid,q,a,unit}
+    slots: null,             // built after guess phase
+    payout: null,            // cached reveal
+    lastPodium: null,
+};
+let _phaseTimer = null;
+
+// ═══════════════════════════════════════════
+// NETWORK
+// ═══════════════════════════════════════════
+function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('send err', e); } }
+function broadcastViewers(msg) { Object.values(viewerConns).forEach(c => send(c, msg)); }
+function connectedPlayers() {
+    return H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+}
+
+function hostAddPlayer(id, name, avatar) {
+    if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
+    const taken = new Set(H.players.map(p => p.avatar));
+    const av = avatar && !taken.has(avatar) ? avatar : (AVATARS.find(a => !taken.has(a)) || '🙂');
+    H.players.push({ id, name, avatar: av, score: 0, guess: null, bets: [], lastDelta: 0, oracle: 0, smart: 0 });
+}
+
+function lobbyMsg() {
+    return {
+        type: 'lobby', roomCode,
+        players: H.players.map(p => ({ name: p.name, avatar: p.avatar })),
+        settings: { ...H.settings },
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+function broadcastLobby() {
+    H.players.forEach(p => { if (p.id !== myId && guestConns[p.id]) send(guestConns[p.id], lobbyMsg()); });
+    broadcastViewers({ ...lobbyMsg(), type: 'viewer_lobby' });
+    hostSyncSelf(lobbyMsg());
+}
+
+function railPlayers(lockedKey) {
+    return H.players
+        .map(p => ({
+            name: p.name, avatar: p.avatar, score: p.score, delta: p.lastDelta,
+            locked: lockedKey === 'guess' ? p.guess !== null : (lockedKey === 'bet' ? p.bets.length >= CHIPS_PER_ROUND : false),
+        }))
+        .sort((a, b) => b.score - a.score);
+}
+function standings() {
+    return H.players.slice()
+        .sort((a, b) => b.score - a.score)
+        .map(p => ({ name: p.name, avatar: p.avatar, score: p.score, delta: p.lastDelta, oracle: p.oracle, smart: p.smart }));
+}
+function caption() { return { tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null }; }
+function progress() { return { num: H.qIndex + 1, total: H.questions.length }; }
+
+function guessMsgFor(p) {
+    return {
+        type: 'guess', qid: H.cur.qid, ...progress(), ...caption(),
+        q: H.cur.q, unit: H.cur.unit,
+        lockedCount: H.players.filter(x => x.guess !== null).length,
+        playerCount: connectedPlayers().length,
+        myGuess: p ? p.guess : null,
+    };
+}
+function slotsPayload() {
+    return H.slots.map(s => ({
+        value: s.value,
+        authors: s.authors.map(a => ({ name: a.name, avatar: a.avatar })),
+        chips: s.chips.map(c => ({ name: c.name, avatar: c.avatar })),
+    }));
+}
+function boardMsgFor(p) {
+    return {
+        type: 'board', qid: H.cur.qid, ...progress(), ...caption(),
+        q: H.cur.q, unit: H.cur.unit,
+        slots: slotsPayload(),
+        myBets: p ? p.bets.slice() : [],
+        chipsLeft: p ? CHIPS_PER_ROUND - p.bets.length : 0,
+        placedCount: H.players.filter(x => x.bets.length >= CHIPS_PER_ROUND).length,
+        playerCount: connectedPlayers().length,
+    };
+}
+function payoutMsgFor(p) {
+    return {
+        type: 'payout', qid: H.cur.qid, ...progress(), ...caption(),
+        ...H.payout,
+        my: p ? {
+            delta: p.lastDelta,
+            authorWin: H.payout.winnerAuthors.includes(p.name),
+            chipWins: p.bets.filter(b => b === H.payout.winner).length,
+            guess: p.guess,
+        } : null,
+        standings: standings(),
+        isLast: H.qIndex >= H.questions.length - 1,
+    };
+}
+function podiumMsg() { return { type: 'podium', ...caption(), standings: standings(), awards: H.lastPodium?.awards || [] }; }
+
+function phaseSnapshotFor(p) {
+    if (H.phase === 'guess') return guessMsgFor(p);
+    if (H.phase === 'bet') return boardMsgFor(p);
+    if (H.phase === 'payout') return payoutMsgFor(p);
+    if (H.phase === 'podium') return podiumMsg();
+    return lobbyMsg();
+}
+function viewerSnapshot() {
+    if (H.phase === 'guess') return { ...guessMsgFor(null), type: 'viewer_guess', players: railPlayers('guess') };
+    if (H.phase === 'bet') return { ...boardMsgFor(null), type: 'viewer_board', players: railPlayers('bet') };
+    if (H.phase === 'payout') return { ...payoutMsgFor(null), type: 'viewer_payout', players: railPlayers() };
+    if (H.phase === 'podium') return { ...podiumMsg(), type: 'viewer_podium' };
+    return { ...lobbyMsg(), type: 'viewer_lobby' };
+}
+function broadcastPhase() {
+    H.players.forEach(p => {
+        if (p.id === myId) return;
+        const conn = guestConns[p.id];
+        if (conn) send(conn, phaseSnapshotFor(p));
+    });
+    broadcastViewers(viewerSnapshot());
+    hostSyncSelf(isTvHost ? null : phaseSnapshotFor(H.players.find(p => p.id === myId)));
+}
+
+// ── Host: incoming connections ──
+function setupGuestConn(conn) {
+    conn.on('open', () => { conn._role = null; });
+
+    conn.on('data', msg => {
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer';
+            viewerConns[conn.peer] = conn;
+            send(conn, viewerSnapshot());
+            return;
+        }
+        if (conn._role === null) {
+            conn._role = 'player';
+            guestConns[conn.peer] = conn;
+        }
+        const player = H.players.find(p => p.id === conn.peer);
+        switch (msg.type) {
+            case 'join': {
+                const name = String(msg.name || 'Player').slice(0, 16);
+                const zombie = H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
+                if (zombie) zombie.id = conn.peer;
+                else hostAddPlayer(conn.peer, name, msg.avatar);
+                const p2 = H.players.find(p => p.id === conn.peer);
+                if (!p2) { send(conn, lobbyMsg()); break; }
+                if (H.phase === 'lobby') broadcastLobby();
+                else { send(conn, phaseSnapshotFor(p2)); broadcastViewers(viewerSnapshot()); if (isTvHost) tvHostSync(); }
+                break;
+            }
+            case 'guess':      if (player) hostGuess(player, msg.qid, msg.value); break;
+            case 'bet':        if (player) hostBet(player, msg.qid, msg.slot); break;
+            case 'clear_bets': if (player) hostClearBets(player, msg.qid); break;
+            case 'ctl': {
+                if (!isTvHost || !player || player.id !== H.players[0]?.id) break;
+                hostCtl(msg.action, msg);
+                break;
+            }
+        }
+    });
+
+    conn.on('close', () => {
+        delete guestConns[conn.peer];
+        delete viewerConns[conn.peer];
+        if (H.phase === 'lobby') {
+            const pi = H.players.findIndex(p => p.id === conn.peer);
+            if (pi >= 0) { H.players.splice(pi, 1); broadcastLobby(); }
+        } else if (H.phase === 'guess') maybeCloseGuessing();
+        else if (H.phase === 'bet') maybeCloseBetting();
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+function hostCtl(action, msg) {
+    if (action === 'start' && H.phase === 'lobby') hostStartGame();
+    else if (action === 'close_guess' && H.phase === 'guess') closeGuessing();
+    else if (action === 'close_bets' && H.phase === 'bet') closeBetting();
+    else if (action === 'next' && H.phase === 'payout') nextQuestion();
+    else if (action === 'again' && H.phase === 'podium') hostNewGame();
+    else if (action === 'set' && H.phase === 'lobby') {
+        if ([5, 7, 10].includes(msg.qCount)) H.settings.qCount = msg.qCount;
+        broadcastLobby();
+    }
+}
+function guestCtl(action, extra) {
+    if (isHost && !isTvHost) { hostCtl(action, extra || {}); return; }
+    if (hostConn) send(hostConn, { type: 'ctl', action, ...(extra || {}) });
+}
+
+// ── Room creation / joining (house pattern) ──
+function makeRoom(onOpen) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    roomCode = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    peer = new Peer(PFX + roomCode);
+    peer.on('open', id => { myId = id; isHost = true; onOpen(); });
+    peer.on('connection', conn => setupGuestConn(conn));
+    peer.on('error', e => {
+        uiErr = 'Connection error: ' + e.message;
+        isHost = false; isTvHost = false;
+        document.body.classList.remove('viewer-mode');
+        ui = 'home'; render();
+    });
+}
+
+function hostGame(name) {
+    myName = name.trim().slice(0, 16) || 'Host';
+    myAvatar = fAvatar || AVATARS[0];
+    localStorage.setItem('bg-name', myName);
+    localStorage.setItem('bg-avatar', myAvatar);
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        hostAddPlayer(myId, myName, myAvatar);
+        ui = 'lobby_h';
+        render();
+    });
+}
+
+function hostOnTV() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        isTvHost = true;
+        document.body.classList.add('viewer-mode');
+        tvHostSync();
+        render();
+    });
+}
+
+function joinGame(code, name) {
+    myName = name.trim().slice(0, 16) || 'Player';
+    myAvatar = fAvatar || AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    localStorage.setItem('bg-name', myName);
+    localStorage.setItem('bg-avatar', myAvatar);
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        isHost = false;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join', name: myName, avatar: myAvatar }));
+        hostConn.on('data', msg => applyMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the game.'; ui = 'home'; D = null; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        ui = 'home'; render();
+    });
+}
+
+function joinAsViewer(code, _attempt) {
+    const attempt = _attempt || 1;
+    isViewer = true;
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join_viewer' }));
+        hostConn.on('data', msg => applyViewerMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the game.'; isViewer = false; vD = null; document.body.classList.remove('viewer-mode'); ui = 'home'; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; isViewer = false; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        if (attempt < 2) {
+            try { peer.destroy(); } catch (_) {}
+            peer = null;
+            setTimeout(() => joinAsViewer(code, 2), 600);
+            return;
+        }
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        isViewer = false; ui = 'home'; render();
+    });
+}
+
+function tvHostSync() {
+    if (!isTvHost) return;
+    applyViewerMsg(viewerSnapshot());
+}
+function hostSyncSelf(msg) {
+    if (isTvHost) { tvHostSync(); return; }
+    if (isHost && msg) applyMsg(msg);
+}
+
+// ═══════════════════════════════════════════
+// HOST GAME FLOW
+// ═══════════════════════════════════════════
+function hostStartGame() {
+    if (!connectedPlayers().length) return;
+    clearTimeout(_phaseTimer);
+    H.questions = shuffle(QUESTIONS).slice(0, H.settings.qCount).map((q, i) => ({ qid: 'q' + i, ...q }));
+    H.qIndex = -1;
+    H.players.forEach(p => { p.score = 0; p.lastDelta = 0; p.oracle = 0; p.smart = 0; });
+    nextQuestion();
+}
+
+function nextQuestion() {
+    clearTimeout(_phaseTimer);
+    H.qIndex += 1;
+    if (H.qIndex >= H.questions.length) { showPodium(); return; }
+    H.cur = H.questions[H.qIndex];
+    H.slots = null; H.payout = null;
+    H.players.forEach(p => { p.guess = null; p.bets = []; p.lastDelta = 0; });
+    H.phase = 'guess';
+    broadcastPhase();
+}
+
+function hostGuess(player, qid, value) {
+    if (H.phase !== 'guess' || !H.cur || qid !== H.cur.qid) return;
+    if (player.guess !== null) return;
+    const v = Math.floor(Number(value));
+    if (!Number.isFinite(v) || v < 0 || v > 1e12) return;
+    player.guess = v;
+    broadcastPhase();
+    maybeCloseGuessing();
+}
+
+function maybeCloseGuessing() {
+    if (H.phase !== 'guess') return;
+    const active = connectedPlayers();
+    if (active.length && active.every(p => p.guess !== null)) {
+        clearTimeout(_phaseTimer);
+        _phaseTimer = setTimeout(closeGuessing, 600);
+    }
+}
+
+function closeGuessing() {
+    if (H.phase !== 'guess') return;
+    clearTimeout(_phaseTimer);
+    const guessers = H.players.filter(p => p.guess !== null);
+    if (!guessers.length) return;    // nothing to build a board from yet
+    // build slots: house slot first, then unique guesses ascending (equal guesses merge)
+    const byValue = new Map();
+    guessers.forEach(p => {
+        if (!byValue.has(p.guess)) byValue.set(p.guess, []);
+        byValue.get(p.guess).push(p);
+    });
+    H.slots = [{ value: null, authors: [], chips: [] }]
+        .concat([...byValue.keys()].sort((a, b) => a - b).map(v => ({
+            value: v, authors: byValue.get(v), chips: [],
+        })));
+    H.phase = 'bet';
+    broadcastPhase();
+}
+
+function hostBet(player, qid, slot) {
+    if (H.phase !== 'bet' || !H.cur || qid !== H.cur.qid) return;
+    if (!Number.isInteger(slot) || slot < 0 || slot >= H.slots.length) return;
+    if (player.bets.length >= CHIPS_PER_ROUND) return;
+    player.bets.push(slot);
+    H.slots[slot].chips.push(player);
+    broadcastPhase();
+    maybeCloseBetting();
+}
+
+function hostClearBets(player, qid) {
+    if (H.phase !== 'bet' || !H.cur || qid !== H.cur.qid || !player.bets.length) return;
+    H.slots.forEach(s => { s.chips = s.chips.filter(c => c !== player); });
+    player.bets = [];
+    broadcastPhase();
+}
+
+function maybeCloseBetting() {
+    if (H.phase !== 'bet') return;
+    const active = connectedPlayers();
+    if (active.length && active.every(p => p.bets.length >= CHIPS_PER_ROUND)) {
+        clearTimeout(_phaseTimer);
+        _phaseTimer = setTimeout(closeBetting, 700);
+    }
+}
+
+function closeBetting() {
+    if (H.phase !== 'bet') return;
+    clearTimeout(_phaseTimer);
+    const answer = H.cur.a;
+    const winner = winningSlot(H.slots, answer);
+    const winSlot = H.slots[winner];
+    const winnerAuthors = winSlot.authors.map(a => a.name);
+    H.players.forEach(p => {
+        let delta = 0;
+        if (winnerAuthors.includes(p.name)) { delta += 100; p.oracle += 1; }
+        const chipWins = p.bets.filter(b => b === winner).length;
+        if (chipWins) { delta += 50 * chipWins; p.smart += chipWins; }
+        p.lastDelta = delta;
+        p.score += delta;
+    });
+    H.payout = {
+        answer, unit: H.cur.unit, q: H.cur.q,
+        winner, winnerAuthors,
+        exact: winSlot.value === answer,
+        slots: slotsPayload(),
+    };
+    H.phase = 'payout';
+    broadcastPhase();
+}
+
+function showPodium() {
+    clearTimeout(_phaseTimer);
+    H.phase = 'podium';
+    const awards = [];
+    const oracle = H.players.filter(p => p.oracle > 0).sort((a, b) => b.oracle - a.oracle)[0];
+    if (oracle) awards.push({ emoji: '🔮', title: 'Oracle', name: oracle.name, detail: oracle.oracle + '× best guess' });
+    const smart = H.players.filter(p => p.smart > 0).sort((a, b) => b.smart - a.smart)[0];
+    if (smart) awards.push({ emoji: '💰', title: 'Smart Money', name: smart.name, detail: smart.smart + ' winning chip' + (smart.smart === 1 ? '' : 's') });
+    H.lastPodium = { awards };
+    broadcastPhase();
+}
+
+function hostNewGame() {
+    clearTimeout(_phaseTimer);
+    H.phase = 'lobby';
+    H.questions = []; H.qIndex = -1; H.cur = null; H.slots = null; H.payout = null; H.lastPodium = null;
+    H.players.forEach(p => { p.score = 0; p.guess = null; p.bets = []; p.lastDelta = 0; p.oracle = 0; p.smart = 0; });
+    H.players = H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+    broadcastLobby();
+    if (isHost && !isTvHost) { ui = 'lobby_h'; render(); }
+}
+
+function hostSet(patch) {
+    Object.assign(H.settings, patch);
+    broadcastLobby();
+    if (ui === 'lobby_h') render();
+}
+
+// ═══════════════════════════════════════════
+// CLIENT (phone) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+function applyMsg(msg) {
+    switch (msg.type) {
+        case 'lobby':
+            D = msg;
+            ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g';
+            render();
+            break;
+        case 'guess': {
+            const fresh = !D || D.type !== 'guess' || D.qid !== msg.qid;
+            D = msg;
+            if (fresh) { numEntry = ''; ui = 'guess'; render(); }
+            else if (ui === 'guess') patchGuess(msg);
+            else { ui = 'guess'; render(); }
+            break;
+        }
+        case 'board': {
+            const fresh = !D || D.type !== 'board' || D.qid !== msg.qid;
+            D = msg;
+            if (fresh) { ui = 'bet'; render(); sSweep(); }
+            else if (ui === 'bet') patchBet(msg);
+            else { ui = 'bet'; render(); }
+            break;
+        }
+        case 'payout':
+            D = msg;
+            ui = 'payout';
+            render();
+            if (msg.my && msg.my.delta > 0) {
+                sWinTone();
+                if (msg.my.delta >= 150) startConfetti(2400);
+                try { navigator.vibrate && navigator.vibrate([80, 40, 160]); } catch (e) {}
+            } else sLose();
+            break;
+        case 'podium':
+            D = msg;
+            ui = 'podium';
+            render();
+            startConfetti(3600);
+            break;
+    }
+}
+
+function patchGuess(msg) {
+    const el = $id('g-locked');
+    if (el) el.textContent = `🔒 ${msg.lockedCount} of ${msg.playerCount} locked in`;
+    // if my lock was acked (myGuess set) and I still show the keypad, re-render to the waiting state
+    if (msg.myGuess !== null && $id('keypad')) render();
+}
+
+function patchBet(msg) {
+    msg.slots.forEach((s, i) => {
+        const chips = $id('slot-chips-' + i);
+        if (chips) chips.innerHTML = s.chips.map(c => `<span>${esc(c.avatar)}</span>`).join('');
+    });
+    const left = $id('chips-left');
+    if (left) left.innerHTML = chipsLeftHTML(msg);
+    const cnt = $id('b-placed');
+    if (cnt) cnt.textContent = `${msg.placedCount} of ${msg.playerCount} all-in`;
+    document.querySelectorAll('.slot-btn').forEach((el, i) => {
+        el.classList.toggle('mine', msg.myBets.includes(i));
+        if (msg.chipsLeft <= 0) el.setAttribute('disabled', ''); else el.removeAttribute('disabled');
+    });
+}
+
+// ── keypad ──
+function keyTap(k) {
+    if (!D || ui !== 'guess' || D.myGuess !== null) return;
+    sKey();
+    if (k === 'back') numEntry = numEntry.slice(0, -1);
+    else if (k === 'clear') numEntry = '';
+    else if (numEntry.length < 9) {
+        if (!(numEntry === '' && k === '0' && false)) numEntry += k;   // leading zeros allowed, parsed away
+    }
+    const disp = $id('num-display');
+    if (disp) disp.innerHTML = numEntry ? esc(fmt(Number(numEntry))) : '<span class="ph">type your guess…</span>';
+    const lock = $id('btn-lock');
+    if (lock) { if (numEntry === '') lock.setAttribute('disabled', ''); else lock.removeAttribute('disabled'); }
+}
+
+function lockGuess() {
+    if (numEntry === '' || !D) return;
+    const value = Number(numEntry);
+    sLock();
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostGuess(me, D.qid, value);
+    } else {
+        send(hostConn, { type: 'guess', qid: D.qid, value });
+        D.myGuess = value;   // optimistic; host snapshot confirms
+        render();
+    }
+}
+
+function placeChip(slot) {
+    if (!D || ui !== 'bet' || D.chipsLeft <= 0) return;
+    sChip();
+    try { navigator.vibrate && navigator.vibrate(30); } catch (e) {}
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostBet(me, D.qid, slot);
+    } else send(hostConn, { type: 'bet', qid: D.qid, slot });
+}
+
+function clearChips() {
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostClearBets(me, D.qid);
+    } else send(hostConn, { type: 'clear_bets', qid: D.qid });
+}
+
+// ═══════════════════════════════════════════
+// VIEWER (TV) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+function applyViewerMsg(msg) {
+    document.body.classList.add('viewer-mode');
+    ui = 'viewer';
+    const prev = vD;
+    vD = msg;
+    switch (msg.type) {
+        case 'viewer_lobby': render(); break;
+        case 'viewer_guess': {
+            const fresh = !prev || prev.type !== 'viewer_guess' || prev.qid !== msg.qid;
+            if (fresh) render();
+            else {
+                const el = $id('v-locked');
+                if (el) el.textContent = `🔒 ${msg.lockedCount} of ${msg.playerCount} locked in`;
+                const rail = $id('v-rail');
+                if (rail) rail.innerHTML = railRowsHTML(msg.players, true);
+            }
+            break;
+        }
+        case 'viewer_board': {
+            const fresh = !prev || prev.type !== 'viewer_board' || prev.qid !== msg.qid;
+            if (fresh) { render(); sSweep(); }
+            else {
+                msg.slots.forEach((s, i) => {
+                    const chips = $id('vslot-chips-' + i);
+                    if (chips) chips.innerHTML = s.chips.map(c => `<span class="bchip">${esc(c.avatar)}</span>`).join('');
+                });
+                const cnt = $id('v-placed');
+                if (cnt) cnt.textContent = `💰 ${msg.placedCount} of ${msg.playerCount} all-in`;
+                const rail = $id('v-rail');
+                if (rail) rail.innerHTML = railRowsHTML(msg.players, true);
+            }
+            break;
+        }
+        case 'viewer_payout':
+            render();
+            sSweep();
+            if (msg.exact) startConfetti(2600);
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                const w = $id('vslot-' + msg.winner);
+                if (w) w.classList.add('winner');
+            }));
+            break;
+        case 'viewer_podium':
+            render(); sWinTone(); startConfetti(5200);
+            break;
+    }
+}
+
+// ═══════════════════════════════════════════
+// RENDER — shared bits
+// ═══════════════════════════════════════════
+function hdrHTML(sub) {
+    return `<h1 class="logo">💰 BEST <b>GUESS</b></h1><div class="sub">${esc(sub || 'guess big · bet smart · nobody needs to know anything')}</div>`;
+}
+function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+function isCaptain() { return !!(D && D.tvHost && D.captain && D.captain === myName); }
+function canDrive() { return (isHost && !isTvHost) || isCaptain(); }
+
+function avatarPickerHTML() {
+    return `<div class="fg"><label>Pick your face</label><div class="avrow">${
+        AVATARS.map(a => `<div class="av${fAvatar === a ? ' sel' : ''}" onclick="fAvatar='${a}';localStorage.setItem('bg-avatar','${a}');render()">${a}</div>`).join('')
+    }</div></div>`;
+}
+
+function railRowsHTML(players, showLocked) {
+    return (players || []).map(p => `
+        <div class="rail-row${showLocked && p.locked ? ' locked' : ''}">
+            <span class="rav">${esc(p.avatar)}</span>
+            <span class="rname">${esc(p.name)}</span>
+            <span class="rsc">${p.score}</span>
+            ${!showLocked && p.delta ? `<span class="rdelta">+${p.delta}</span>` : ''}
+        </div>`).join('');
+}
+
+function standingsHTML(st) {
+    const medals = ['🥇', '🥈', '🥉'];
+    return `<div class="card standings"><div class="slbl">Scores</div>${
+        st.map((p, i) => `
+        <div class="player-row">
+            <span style="width:22px;text-align:center">${medals[i] || (i + 1)}</span>
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--teal)">(you)</span>' : ''}</div>
+            <div class="sc">${p.score}${p.delta ? `<span class="delta">+${p.delta}</span>` : ''}</div>
+        </div>`).join('')
+    }</div>`;
+}
+
+function settingsSegsHTML(settings, expr) {
+    const seg = (opts, curV, key) => `<div class="seg-row">${opts.map(o =>
+        `<button class="btn btn-sm ${curV === o.v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{${key}:${o.j}}`)}">${o.l}</button>`).join('')}</div>`;
+    return `<div class="fg"><label>Questions per game</label>${seg(
+        [5, 7, 10].map(v => ({ v, j: v, l: v })), settings.qCount, 'qCount')}</div>`;
+}
+
+function slotLabel(s) { return s.value === null ? 'ALL TOO HIGH 📉' : fmt(s.value); }
+
+// ═══════════════════════════════════════════
+// RENDER — phone screens
+// ═══════════════════════════════════════════
+function render() {
+    const app = $id('app');
+    if (isTvHost || isViewer) ui = 'viewer';
+    let html = '';
+    switch (ui) {
+        case 'home':       html = renderHome(); break;
+        case 'creating':   html = renderSpinner('Setting up the studio…'); break;
+        case 'connecting': html = renderSpinner('Joining the game…'); break;
+        case 'lobby_h':    html = renderLobbyH(); break;
+        case 'lobby_g':    html = renderLobbyG(); break;
+        case 'guess':      html = renderGuess(); break;
+        case 'bet':        html = renderBet(); break;
+        case 'payout':     html = renderPayout(); break;
+        case 'podium':     html = renderPodium(); break;
+        case 'viewer':     html = renderViewer(); break;
+        default:           html = renderHome();
+    }
+    app.innerHTML = html;
+}
+
+function renderSpinner(msg) {
+    return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`;
+}
+
+function renderHome() {
+    const fromQR = !!fCode;
+    const youCard = `
+    <div class="card">
+        <div class="slbl">Who are you?</div>
+        <div class="fg">
+            <label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
+                ${fromQR ? 'autofocus' : ''} oninput="fName=this.value">
+        </div>
+        ${avatarPickerHTML()}
+    </div>`;
+    const joinCard = `
+    <div class="card${fromQR ? ' highlight' : ''}">
+        <div class="slbl">Join a Game</div>
+        <div class="fg">
+            <label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fCode)}"
+                oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
+        </div>
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">
+            📱 Join with your phone
+        </button>
+    </div>`;
+    const hostCard = `
+    <div class="card">
+        <div class="slbl">Start a Game</div>
+        <button class="btn btn-p btn-full"
+            onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
+            💰 Host on this phone
+        </button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin-top:8px">
+            2–12 players — put a TV up with the room code for the betting board
+        </div>
+    </div>`;
+    const tvCard = `
+    <div class="card">
+        <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-t btn-full" onclick="hostOnTV()">📺 Create the game on this screen</button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin:6px 0 10px">
+            Shows a big QR code — the first phone to join becomes 👑 Captain
+        </div>
+        <hr>
+        <div class="fg">
+            <label>…or show an existing game</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')joinAsViewer(fVCode)">
+        </div>
+        <button class="btn btn-g btn-full"
+            onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code.';render()}">
+            📺 Open the board
+        </button>
+    </div>`;
+    return `
+    ${hdrHTML('2–12 players · guess, then bet on the best guess')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+}
+
+function renderLobbyH() {
+    const pList = H.players.map((p, i) =>
+        `<div class="player-row">
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1">${esc(p.name)}${i === 0 ? ' <span style="color:var(--muted)">(you — host)</span>' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    return `
+    ${hdrHTML('Host Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card highlight">
+        <div class="slbl">Scan to join — or share the code</div>
+        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        <div class="room-code">${esc(roomCode)}</div>
+        <div class="share-row">
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.share&&navigator.share({title:'Join Best Guess',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
+        </div>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center">Put the betting board on a TV with code <b style="color:var(--gold)">${esc(roomCode)}</b></div>
+    </div>
+    <div class="card">
+        <div class="slbl">Players (${H.players.length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    <div class="card">
+        <div class="slbl">Settings</div>
+        ${settingsSegsHTML(H.settings, patch => `hostSet(${patch})`)}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.08rem;padding:16px" onclick="hostStartGame()">💰 Start the game</button>`;
+}
+
+function renderLobbyG() {
+    const cap = isCaptain();
+    const pList = (D.players || []).map(p =>
+        `<div class="player-row">
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--muted)">(you)</span>' : ''}${D.tvHost && p.name === D.captain ? ' 👑' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    const s = D.settings || {};
+    return `
+    ${hdrHTML(cap ? '👑 You are the Captain' : 'Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card">
+        <div class="slbl">Room ${esc(D.roomCode || '')} — Players (${(D.players || []).length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    ${cap ? `
+    <div class="card highlight">
+        <div class="slbl">👑 Captain's Settings</div>
+        ${settingsSegsHTML(s, patch => `guestCtl('set',${patch})`)}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.08rem;padding:16px" onclick="guestCtl('start')">💰 Start the game</button>`
+    : `
+    <div class="card">
+        <div class="slbl">Settings</div>
+        <div style="font-weight:800;font-size:.85rem">❓ ${s.qCount} questions · 🪙 2 chips per round</div>
+        <div style="color:var(--muted);font-size:.72rem;font-weight:700;margin-top:8px">
+            Waiting for ${D.tvHost ? `👑 ${esc(D.captain || 'the captain')}` : 'the host'} to start…
+        </div>
+    </div>`}`;
+}
+
+function renderGuess() {
+    const locked = D.myGuess !== null;
+    const driveBtn = canDrive() && D.lockedCount > 0 && D.lockedCount < D.playerCount
+        ? `<button class="btn btn-g btn-full btn-sm" onclick="guestCtl('close_guess')">⏭ Close guessing (${D.playerCount - D.lockedCount} still thinking)</button>` : '';
+    const body = locked ? `
+    <div class="card verdict">
+        <div class="vico">🔒</div>
+        <div class="vt">Locked in: ${fmt(D.myGuess)}</div>
+        <div class="locked-note" id="g-locked">🔒 ${D.lockedCount} of ${D.playerCount} locked in</div>
+        <div style="color:var(--muted);font-size:.75rem;font-weight:700">The betting board opens when everyone's in…</div>
+    </div>` : `
+    <div class="num-display" id="num-display">${numEntry ? esc(fmt(Number(numEntry))) : '<span class="ph">type your guess…</span>'}</div>
+    <div class="keypad" id="keypad">
+        ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(k => `<button class="key" onclick="keyTap('${k}')">${k}</button>`).join('')}
+        <button class="key fn" onclick="keyTap('clear')">C</button>
+        <button class="key" onclick="keyTap('0')">0</button>
+        <button class="key fn" onclick="keyTap('back')">⌫</button>
+    </div>
+    <button class="btn btn-p btn-full" id="btn-lock" style="font-size:1.05rem;padding:15px" ${numEntry ? '' : 'disabled'} onclick="lockGuess()">🔒 Lock it in</button>
+    <div class="locked-note" id="g-locked" style="color:var(--muted)">🔒 ${D.lockedCount} of ${D.playerCount} locked in</div>`;
+    return `
+    <div class="card q-card">
+        <div class="slbl">Question ${D.num} of ${D.total}</div>
+        <div class="q-text">${esc(D.q)}</div>
+        <div class="q-unit">answer in ${esc(D.unit)}</div>
+    </div>
+    ${body}
+    ${driveBtn}`;
+}
+
+function chipsLeftHTML(msg) {
+    const coins = Array.from({ length: CHIPS_PER_ROUND }, (_, i) =>
+        `<span class="coin" style="${i < msg.chipsLeft ? '' : 'opacity:.25;filter:grayscale(1)'}">🪙</span>`).join(' ');
+    return msg.chipsLeft > 0
+        ? `${coins} &nbsp;Place your ${msg.chipsLeft === CHIPS_PER_ROUND ? 'two chips' : 'last chip'}!`
+        : `${coins} &nbsp;All in — waiting for the table…`;
+}
+
+function renderBet() {
+    const slots = D.slots.map((s, i) => {
+        const mine = D.myBets.includes(i);
+        return `<button class="slot-btn${s.value === null ? ' house' : ''}${mine ? ' mine' : ''}"
+            ${D.chipsLeft <= 0 ? 'disabled' : ''} onclick="placeChip(${i})">
+            <span class="sv">${slotLabel(s)}</span>
+            <span class="sa">${s.authors.map(a => esc(a.avatar)).join(' ') || (s.value === null ? 'if every guess is over' : '')}</span>
+            <span class="schips" id="slot-chips-${i}">${s.chips.map(c => `<span>${esc(c.avatar)}</span>`).join('')}</span>
+        </button>`;
+    }).join('');
+    const driveBtn = canDrive() && D.placedCount > 0 && D.placedCount < D.playerCount
+        ? `<button class="btn btn-g btn-full btn-sm" onclick="guestCtl('close_bets')">⏭ Close betting</button>` : '';
+    return `
+    <div class="card q-card">
+        <div class="slbl">Place your bets — ${esc(D.q)}</div>
+        <div class="chips-left" id="chips-left">${chipsLeftHTML(D)}</div>
+    </div>
+    <div>${slots}</div>
+    ${D.myBets.length ? `<button class="btn btn-g btn-full btn-sm" onclick="clearChips()">↩️ Take my chips back</button>` : ''}
+    <div style="text-align:center;color:var(--muted);font-size:.72rem;font-weight:800" id="b-placed">${D.placedCount} of ${D.playerCount} all-in</div>
+    ${driveBtn}`;
+}
+
+function renderPayout() {
+    const my = D.my || {};
+    const win = my.delta > 0;
+    const slots = D.slots.map((s, i) => {
+        const isWin = i === D.winner;
+        return `<button class="slot-btn${s.value === null ? ' house' : ''}" style="cursor:default;${isWin ? 'border-color:var(--gold);box-shadow:0 0 18px rgba(251,191,36,.3)' : 'opacity:.55'}">
+            <span class="sv">${slotLabel(s)}${isWin ? ' ✓' : ''}</span>
+            <span class="sa">${s.authors.map(a => esc(a.avatar)).join(' ')}</span>
+            <span class="schips">${s.chips.map(c => `<span>${esc(c.avatar)}</span>`).join('')}</span>
+        </button>`;
+    }).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.02rem;padding:15px" onclick="guestCtl('next')">${D.isLast ? '🏆 See the podium' : '➡️ Next question'}</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.72rem;font-weight:800">${D.tvHost ? `👑 ${esc(D.captain || '')} taps next` : 'The host taps next'}…</div>`;
+    return `
+    <div class="card verdict">
+        <div class="vico">${win ? '🎉' : '💸'}</div>
+        <div class="vt">${win ? 'You cashed in!' : 'The house thanks you'}</div>
+        <div class="vans">${fmt(D.answer)} ${esc(D.unit)}</div>
+        ${win ? `<div class="vpts">+${my.delta}</div>` : ''}
+        <div>
+            ${my.authorWin ? `<span class="chip teal">🔮 Best guess +100</span>` : ''}
+            ${my.chipWins ? `<span class="chip">🪙 ${my.chipWins} winning chip${my.chipWins > 1 ? 's' : ''} +${my.chipWins * 50}</span>` : ''}
+            ${D.exact && my.authorWin ? `<span class="chip teal">🎯 EXACT!</span>` : ''}
+        </div>
+    </div>
+    <div>${slots}</div>
+    ${standingsHTML(D.standings || [])}
+    ${driveBtn}`;
+}
+
+function renderPodium() {
+    const st = D.standings || [];
+    const awards = (D.awards || []).map(a =>
+        `<span class="chip">${a.emoji} ${esc(a.title)}: ${esc(a.name)} (${esc(a.detail)})</span>`).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.02rem;padding:15px" onclick="guestCtl('again')">🔁 Play again</button>` : '';
+    return `
+    ${hdrHTML('Cash out!')}
+    <div class="card verdict highlight">
+        <div class="vico">🏆</div>
+        <div class="vt">${esc(st[0]?.name || '')} wins!</div>
+        <div style="margin-top:8px">${awards}</div>
+    </div>
+    ${standingsHTML(st)}
+    ${driveBtn}`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — TV screens
+// ═══════════════════════════════════════════
+function tvShell(inner, meta) {
+    return `<div class="tv">
+        <div class="tv-top">
+            <div class="tv-logo">💰 BEST <b>GUESS</b></div>
+            <div class="tv-meta">${esc(meta || ('Room ' + (vD.roomCode || roomCode || '')))}</div>
+        </div>
+        ${inner}
+    </div>`;
+}
+
+function renderViewer() {
+    if (!vD) return renderSpinner('Waiting for the game…');
+    switch (vD.type) {
+        case 'viewer_lobby':  return renderViewerLobby();
+        case 'viewer_guess':  return renderViewerGuess();
+        case 'viewer_board':  return renderViewerBoard();
+        case 'viewer_payout': return renderViewerPayout();
+        case 'viewer_podium': return renderViewerPodium();
+        default:              return renderSpinner('Waiting for the game…');
+    }
+}
+
+function renderViewerLobby() {
+    const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
+    const players = vD.players || [];
+    const cards = players.map(p =>
+        `<div class="tv-pcard"><div class="pav-big">${esc(p.avatar)}</div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
+    const s = vD.settings || {};
+    return tvShell(`
+    <div class="tv-lobby">
+        <div class="qr-side">
+            <div class="slbl">Scan with your phone to join</div>
+            <div class="qr-wrap">${qrSVG(url)}</div>
+            <div class="room-code">${esc(vD.roomCode || '')}</div>
+            <div class="join-hint">${location.host}${location.pathname}</div>
+        </div>
+        <div class="tv-players">
+            <div class="tv-meta">Players — ${players.length}/${MAX_PLAYERS}</div>
+            <div class="tv-player-grid">${cards}</div>
+            <div class="tv-waiting">${players.length === 0
+                ? 'Waiting for the first phone… they become 👑 Captain'
+                : (vD.tvHost ? `Waiting for 👑 ${esc(vD.captain || '')} to start` : 'Waiting for the host to start') + ` · ${s.qCount} questions · 🪙 2 chips each`}</div>
+        </div>
+    </div>`, 'Lobby');
+}
+
+function renderViewerGuess() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-bigq">
+                <div class="tv-q">
+                    <div class="qq">${esc(vD.q)}</div>
+                    <div class="qu">answer in ${esc(vD.unit)}</div>
+                </div>
+                <div class="tv-counter" id="v-locked">🔒 ${vD.lockedCount} of ${vD.playerCount} locked in</div>
+            </div>
+        </div>
+        <div class="tv-rail" id="v-rail">
+            <div class="rail-title">Scores</div>
+            ${railRowsHTML(vD.players, true)}
+        </div>
+    </div>`, `Question ${vD.num} of ${vD.total}`);
+}
+
+function tvSlotsHTML(msg, winner) {
+    return msg.slots.map((s, i) => `
+        <div class="slot-card${s.value === null ? ' house' : ''}${winner === i ? ' winner' : ''}" id="vslot-${i}">
+            <div class="sauth">${s.authors.map(a => esc(a.avatar)).join(' ')}</div>
+            <div class="sval">${slotLabel(s)}${msg.exact && winner === i ? ' 🎯' : ''}</div>
+            <div class="schips" id="vslot-chips-${i}">${s.chips.map(c => `<span class="bchip">${esc(c.avatar)}</span>`).join('')}</div>
+        </div>`).join('');
+}
+
+function renderViewerBoard() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-q" style="padding:2vmin 3vmin">
+                <div class="qq" style="font-size:2.4vmin">${esc(vD.q)}</div>
+                <div class="qu">place your bets — 🪙 2 chips each</div>
+            </div>
+            <div class="board-wrap">${tvSlotsHTML(vD, -1)}</div>
+            <div class="tv-counter" id="v-placed">💰 ${vD.placedCount} of ${vD.playerCount} all-in</div>
+        </div>
+        <div class="tv-rail" id="v-rail">
+            <div class="rail-title">Scores</div>
+            ${railRowsHTML(vD.players, true)}
+        </div>
+    </div>`, `Question ${vD.num} of ${vD.total}`);
+}
+
+function renderViewerPayout() {
+    const hint = vD.tvHost
+        ? `👑 ${esc(vD.captain || 'Captain')}: tap ${vD.isLast ? '“See the podium”' : '“Next question”'} on your phone`
+        : `Host: tap ${vD.isLast ? '“See the podium”' : '“Next question”'} on your phone`;
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-answer">THE ANSWER: ${fmt(vD.answer)} ${esc(vD.unit)}${vD.exact ? ' — 🎯 EXACT HIT!' : ''}</div>
+            <div class="board-wrap">${tvSlotsHTML(vD, vD.winner)}</div>
+            <div class="tv-counter" style="color:var(--muted)">${vD.winner === 0 ? 'Everyone guessed too high — the house wins!' : `Best guess +100 · winning chips +50 each`}</div>
+            <div style="text-align:center;color:var(--muted);font-weight:800;font-size:1.8vmin">${hint}</div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">Scores</div>
+            ${railRowsHTML(vD.players)}
+        </div>
+    </div>`, `Question ${vD.num} of ${vD.total}`);
+}
+
+function renderViewerPodium() {
+    const st = vD.standings || [];
+    const podOrder = [st[1], st[0], st[2]].filter(Boolean);
+    const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
+    const medal = { p1: '🥇', p2: '🥈', p3: '🥉' };
+    const pods = podOrder.map((p, i) => `
+        <div class="pod ${cls[i]}" style="animation-delay:${i * 0.18}s">
+            <div class="pav-big">${esc(p.avatar)}</div>
+            <div class="pname">${esc(p.name)}</div>
+            <div class="pscore">${p.score} pts</div>
+            <div class="block">${medal[cls[i]]}</div>
+        </div>`).join('');
+    const awards = (vD.awards || []).map(a =>
+        `<div class="award">${a.emoji} <span class="aw-t">${esc(a.title)}</span><br>${esc(a.name)} — ${esc(a.detail)}</div>`).join('');
+    const rest = st.slice(3).map((p, i) =>
+        `<div class="rail-row"><span>${i + 4}.</span><span class="rav">${esc(p.avatar)}</span><span class="rname">${esc(p.name)}</span><span class="rsc">${p.score}</span></div>`).join('');
+    const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: “Play again” is on your phone` : 'Host: “Play again” is on your phone';
+    return tvShell(`
+    <div class="tv-main" style="flex-direction:column">
+        <div class="podium-wrap">${pods}</div>
+        <div class="awards-row">${awards}</div>
+        ${rest ? `<div style="display:flex;gap:1.4vmin;justify-content:center;flex-wrap:wrap">${rest}</div>` : ''}
+        <div class="tv-waiting" style="text-align:center;padding-bottom:1.5vmin">${hint}</div>
+    </div>`, '🏆 Final scores');
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+window.addEventListener('resize', () => {
+    const cv = $id('confetti-cv');
+    if (cv && _cf.running) { cv.width = innerWidth; cv.height = innerHeight; }
+});
+
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
+    if (!fAvatar) fAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    render();
+})();
+</script>
+</body>
+</html>

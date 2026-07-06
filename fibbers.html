@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Fibbers! — bluff trivia</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23120a1c' width='100' height='100' rx='20'/><text x='50' y='68' font-size='52' text-anchor='middle'>🤥</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,900&family=Nunito:wght@500;700;800;900&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #120a1c; --panel: rgba(43,26,66,0.75); --panel2: rgba(58,36,88,0.85);
+            --border: rgba(255,200,87,0.25); --border2: rgba(160,130,200,0.28);
+            --text: #f3ecfb; --muted: #a08fc4;
+            --gold: #ffc857; --pink: #ff5d8f; --good: #4ade80; --bad: #f87171;
+            --paper: #f6efdf; --ink: #2b2140; --ink-soft: #6f6488;
+        }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 26px 16px 48px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 70% 45% at 50% -5%, rgba(255,93,143,0.14) 0%, transparent 60%),
+                radial-gradient(ellipse 55% 45% at 8% 100%, rgba(255,200,87,0.10) 0%, transparent 65%),
+                radial-gradient(ellipse 55% 45% at 92% 100%, rgba(120,80,220,0.12) 0%, transparent 65%);
+        }
+        body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
+
+        h1.logo {
+            font-family: 'Fraunces', serif; font-weight: 900; letter-spacing: 1px;
+            font-size: clamp(1.7rem, 7vw, 2.6rem); text-align: center; color: var(--gold);
+            text-shadow: 0 2px 0 rgba(0,0,0,.4), 0 0 34px rgba(255,200,87,.35);
+        }
+        h1.logo .nose { color: var(--pink); }
+        .sub { color: var(--muted); font-size: .7rem; letter-spacing: 2.5px; text-transform: uppercase; margin: 7px 0 22px; text-align: center; }
+
+        #app { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 13px; }
+        body.viewer-mode #app { max-width: none; height: 100dvh; display: block; }
+
+        .card {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 17px;
+            padding: 18px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 12px 34px rgba(0,0,0,.5);
+        }
+        .card.highlight { border-color: var(--gold); box-shadow: 0 0 26px rgba(255,200,87,.16), 0 12px 34px rgba(0,0,0,.5); }
+        .slbl { font-size: .66rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 11px; }
+
+        .fg { margin-bottom: 12px; }
+        .fg label { display: block; font-size: .66rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+        input[type=text] {
+            width: 100%; padding: 12px 14px; font-family: inherit; font-size: 1rem; font-weight: 700;
+            border: 2px solid var(--border2); border-radius: 12px; background: rgba(18,10,28,.7); color: var(--text);
+            outline: none;
+        }
+        input[type=text]:focus { border-color: var(--pink); }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            font-family: inherit; font-weight: 900; font-size: .93rem; letter-spacing: .5px;
+            padding: 13px 18px; border: none; border-radius: 13px; cursor: pointer;
+            transition: filter .12s, opacity .12s; user-select: none; -webkit-user-select: none;
+            color: var(--text);
+        }
+        .btn:active { filter: brightness(1.15); }
+        .btn-p { background: linear-gradient(180deg, #ffd97a, #f5a623); color: #3a2400; box-shadow: 0 5px 0 #96601a, 0 10px 22px rgba(255,200,87,.3); }
+        .btn-k { background: linear-gradient(180deg, #ff7ba6, #ef3e72); color: #fff; box-shadow: 0 5px 0 #8f1f43, 0 10px 22px rgba(255,93,143,.35); }
+        .btn-g { background: rgba(160,130,200,.14); box-shadow: inset 0 0 0 2px var(--border2); }
+        .btn-full { width: 100%; }
+        .btn-sm { padding: 8px 13px; font-size: .76rem; border-radius: 11px; }
+        .btn:disabled { opacity: .4; cursor: default; }
+
+        .err {
+            background: rgba(248,113,113,.13); border: 1px solid rgba(248,113,113,.5); color: #fda4af;
+            padding: 11px 14px; border-radius: 12px; font-size: .8rem; font-weight: 700; text-align: center;
+        }
+        hr { border: none; border-top: 1px dashed var(--border2); margin: 13px 0; }
+
+        .connecting { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 46px 0; color: var(--muted); font-weight: 700; }
+        .spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid rgba(255,200,87,.15); border-top-color: var(--gold); animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .avrow { display: flex; flex-wrap: wrap; gap: 7px; }
+        .av {
+            width: 42px; height: 42px; border-radius: 12px; font-size: 1.35rem; display: flex; align-items: center; justify-content: center;
+            background: rgba(18,10,28,.7); border: 2px solid var(--border2); cursor: pointer;
+        }
+        .av.sel { border-color: var(--pink); background: rgba(255,93,143,.18); box-shadow: 0 4px 12px rgba(255,93,143,.35); }
+
+        .player-row { display: flex; align-items: center; gap: 11px; padding: 8px 4px; border-bottom: 1px dashed var(--border2); font-weight: 800; font-size: .92rem; }
+        .player-row:last-child { border-bottom: none; }
+        .pav { width: 38px; height: 38px; border-radius: 11px; background: rgba(18,10,28,.7); border: 2px solid var(--border2); font-size: 1.25rem; display: flex; align-items: center; justify-content: center; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 8px var(--good); margin-left: auto; }
+        .qr-wrap { width: min(210px, 58vw); margin: 6px auto 10px; border-radius: 13px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.4); }
+        .qr-wrap svg { display: block; width: 100%; height: auto; }
+        .room-code { font-family: 'Fraunces', serif; font-weight: 900; font-size: 2.3rem; letter-spacing: 12px; text-align: center; color: var(--gold); padding-left: 12px; }
+        .share-row { display: flex; gap: 8px; justify-content: center; margin: 10px 0 6px; }
+        .seg-row { display: flex; flex-wrap: wrap; gap: 7px; }
+
+        /* question + countdown */
+        .q-meta { display: flex; justify-content: space-between; align-items: center; font-size: .72rem; font-weight: 800; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+        .timebar-wrap { height: 10px; border-radius: 6px; background: rgba(255,255,255,.08); overflow: hidden; }
+        .timebar { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--gold), var(--pink)); transition: width .2s linear; }
+        .q-prompt { font-family: 'Fraunces', serif; font-weight: 900; font-size: 1.28rem; line-height: 1.45; }
+        .q-prompt .blank { color: var(--pink); border-bottom: 3px dotted var(--pink); }
+
+        /* lie input */
+        .lie-note { text-align: center; font-weight: 900; color: var(--gold); padding: 6px 0; }
+        .truth-banner {
+            background: rgba(74,222,128,.13); border: 1px solid rgba(74,222,128,.5); color: #86efac;
+            border-radius: 13px; padding: 12px; font-weight: 900; text-align: center;
+        }
+
+        /* answer wall (phone) */
+        .wall { display: flex; flex-direction: column; gap: 9px; }
+        .wall-card {
+            border: none; border-radius: 13px; padding: 13px 14px; text-align: left; cursor: pointer;
+            background: var(--paper); color: var(--ink); font-family: 'JetBrains Mono', monospace;
+            font-weight: 700; font-size: .92rem; line-height: 1.35;
+            box-shadow: 0 4px 0 rgba(0,0,0,.35), 0 8px 16px rgba(0,0,0,.35);
+            display: flex; gap: 10px; align-items: baseline;
+            transition: opacity .2s, outline .1s;
+        }
+        .wall-card .let { font-family: 'Nunito', sans-serif; font-weight: 900; font-size: .72rem; color: var(--ink-soft); letter-spacing: 1px; }
+        .wall-card.mine { opacity: .45; cursor: default; }
+        .wall-card.mine::after { content: 'your lie 🤥'; margin-left: auto; font-family: 'Nunito', sans-serif; font-size: .66rem; font-weight: 900; color: var(--pink); }
+        .wall-card.picked { outline: 4px solid var(--pink); outline-offset: 2px; }
+        .wall-card.truth-card { outline: 4px solid var(--good); outline-offset: 2px; }
+        .wall-card.wrongpick { outline: 4px solid var(--bad); outline-offset: 2px; }
+        .wall-card.faded { opacity: .35; }
+
+        /* reveal (phone) */
+        .verdict { text-align: center; padding: 8px 0 4px; }
+        .verdict .vico { font-size: 3rem; }
+        .verdict .vt { font-family: 'Fraunces', serif; font-weight: 900; font-size: 1.5rem; margin-top: 4px; }
+        .verdict .vpts { font-size: 2rem; font-weight: 900; color: var(--gold); margin-top: 2px; }
+        .chip { display: inline-block; padding: 4px 12px; border-radius: 12px; background: rgba(255,200,87,.13); border: 1px solid var(--border); color: var(--gold); font-weight: 900; font-size: .76rem; margin: 3px; }
+        .chip.pk { background: rgba(255,93,143,.13); border-color: rgba(255,93,143,.45); color: var(--pink); }
+        .chip.gd { background: rgba(74,222,128,.13); border-color: rgba(74,222,128,.45); color: #86efac; }
+        .standings .sc { margin-left: auto; font-weight: 900; }
+        .standings .delta { color: var(--good); font-size: .75rem; font-weight: 900; margin-left: 7px; }
+
+        /* ═════════ TV ═════════ */
+        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 2.8vmin 3.4vmin; gap: 2vmin; }
+        .tv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 2vmin; }
+        .tv-logo { font-family: 'Fraunces', serif; font-weight: 900; font-size: 3.3vmin; color: var(--gold); text-shadow: 0 0 24px rgba(255,200,87,.4); }
+        .tv-meta { font-size: 1.8vmin; font-weight: 900; letter-spacing: .35vmin; text-transform: uppercase; color: var(--muted); }
+        .tv-main { flex: 1; display: flex; gap: 2.4vmin; min-height: 0; }
+        .tv-stage { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: 1.6vmin; }
+        .tv-rail { width: 29vmin; min-width: 230px; display: flex; flex-direction: column; gap: 1.3vmin; overflow: hidden; }
+        .rail-title { font-size: 1.6vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .rail-row {
+            display: flex; align-items: center; gap: 1.1vmin; background: var(--panel);
+            border: 1px solid var(--border2); border-radius: 1.5vmin; padding: 1.1vmin 1.4vmin;
+            font-weight: 800; font-size: 1.95vmin; position: relative;
+        }
+        .rail-row .rav { font-size: 2.5vmin; }
+        .rail-row .rname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rail-row .rsc { font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; }
+        .rail-row .rdelta { position: absolute; right: 1vmin; top: -1.2vmin; font-size: 1.6vmin; font-weight: 900; color: #86efac; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+        .rail-row.done::after { content: '✓'; color: var(--good); font-weight: 900; font-size: 1.9vmin; }
+
+        .tv-qcard {
+            background: var(--panel); border: 1px solid var(--border); border-radius: 2.2vmin;
+            padding: 3.2vmin 4vmin; box-shadow: 0 16px 50px rgba(0,0,0,.5);
+        }
+        .tv-qcard .kicker { font-size: 1.6vmin; font-weight: 900; letter-spacing: .4vmin; text-transform: uppercase; color: var(--pink); margin-bottom: 1.2vmin; }
+        .tv-qcard .q { font-family: 'Fraunces', serif; font-weight: 900; font-size: 3.6vmin; line-height: 1.4; }
+        .tv-qcard .q .blank { color: var(--pink); border-bottom: .5vmin dotted var(--pink); }
+        .tv-counter { text-align: center; font-size: 2.2vmin; font-weight: 900; color: var(--gold); }
+        .tv-timebar-wrap { flex: 0 0 auto; height: 1.5vmin; border-radius: .8vmin; background: rgba(255,255,255,.08); overflow: hidden; }
+        .tv-timebar { height: 100%; background: linear-gradient(90deg, var(--gold), var(--pink)); border-radius: .8vmin; transition: width .2s linear; }
+
+        .tv-wall { flex: 1; display: grid; gap: 1.5vmin; grid-template-columns: repeat(auto-fit, minmax(26vmin, 1fr)); align-content: center; overflow: auto; }
+        .tv-lie {
+            background: var(--paper); color: var(--ink); border-radius: 1.5vmin; padding: 1.8vmin 2vmin;
+            font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 1.95vmin; line-height: 1.35;
+            box-shadow: 0 8px 22px rgba(0,0,0,.4); position: relative; min-height: 8vmin;
+        }
+        .tv-lie .let { font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 1.3vmin; letter-spacing: .3vmin; color: var(--ink-soft); display: block; margin-bottom: .6vmin; }
+        .tv-lie.hidden-card { visibility: hidden; }
+        .tv-lie.flip { animation: flipIn .5s ease both; }
+        @keyframes flipIn { from { opacity: 0; transform: rotateX(80deg); } to { opacity: 1; transform: none; } }
+        .tv-lie.is-truth { outline: .55vmin solid var(--good); outline-offset: .3vmin; box-shadow: 0 0 34px rgba(74,222,128,.4); }
+        .tv-lie .authors { position: absolute; top: -1.6vmin; right: 1vmin; font-size: 2.4vmin; }
+        .tv-lie .fooled { margin-top: 1vmin; font-size: 2.2vmin; min-height: 2.6vmin; }
+        .tv-lie .tag { font-family: 'Nunito', sans-serif; font-size: 1.2vmin; font-weight: 900; letter-spacing: .2vmin; text-transform: uppercase; color: var(--ink-soft); }
+        .tv-lie .tag.truth { color: #15803d; }
+
+        /* TV lobby */
+        .tv-lobby { flex: 1; display: flex; gap: 4vmin; align-items: center; min-height: 0; }
+        .tv-lobby .qr-side { background: var(--paper); color: var(--ink); border-radius: 2.4vmin; padding: 3.2vmin; text-align: center; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+        .tv-lobby .qr-side .slbl { color: var(--ink-soft); }
+        .tv-lobby .qr-side .qr-wrap { width: 32vmin; margin: 1.4vmin auto; }
+        .tv-lobby .qr-side .room-code { color: var(--ink); font-size: 4.6vmin; letter-spacing: 1.9vmin; padding-left: 1.9vmin; }
+        .tv-lobby .join-hint { font-size: 1.7vmin; font-weight: 800; color: var(--ink-soft); }
+        .tv-players { flex: 1; display: flex; flex-direction: column; gap: 1.5vmin; min-width: 0; }
+        .tv-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20vmin, 1fr)); gap: 1.5vmin; }
+        .tv-pcard {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 1.7vmin;
+            padding: 1.7vmin; text-align: center; font-weight: 900; font-size: 2vmin; animation: popIn .35s ease both;
+        }
+        .tv-pcard .pav-big { font-size: 4.2vmin; }
+        @keyframes popIn { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+        .tv-waiting { color: var(--muted); font-weight: 800; font-size: 1.9vmin; }
+
+        /* podium */
+        .podium-wrap { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2.4vmin; padding-bottom: 1.5vmin; }
+        .pod { text-align: center; font-weight: 900; animation: popIn .5s ease both; }
+        .pod .pav-big { font-size: 4.8vmin; }
+        .pod .pname { font-size: 2.3vmin; margin-bottom: .8vmin; }
+        .pod .pscore { font-size: 1.9vmin; color: var(--gold); margin-bottom: .8vmin; }
+        .pod .block { border-radius: 1.5vmin 1.5vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.3vmin; font-size: 3.2vmin; width: 17vmin; }
+        .pod.p1 .block { height: 21vmin; background: linear-gradient(180deg, #ffd97a, #96601a); }
+        .pod.p2 .block { height: 14vmin; background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
+        .pod.p3 .block { height: 9.5vmin; background: linear-gradient(180deg, #e8a06a, #9c5a33); }
+        .awards-row { display: flex; gap: 1.5vmin; justify-content: center; flex-wrap: wrap; padding-bottom: 1.5vmin; }
+        .award { background: var(--panel); border: 1px solid var(--border); border-radius: 1.5vmin; padding: 1.3vmin 2vmin; font-weight: 800; font-size: 1.8vmin; text-align: center; }
+        .award .aw-t { color: var(--gold); font-weight: 900; }
+
+        #confetti-cv { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <canvas id="confetti-cv"></canvas>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════
+// QUESTIONS — weird but true; answers 2–6 words
+// ═══════════════════════════════════════════
+const QUESTIONS = [
+    { q: 'In Switzerland it is illegal to own just one ___.', a: 'guinea pig' },
+    { q: 'The national animal of Scotland is the ___.', a: 'unicorn' },
+    { q: 'From 1997 to 2017, the town of Talkeetna, Alaska had an honorary mayor who was a ___.', a: 'cat named Stubbs' },
+    { q: 'A group of flamingos is called a ___.', a: 'flamboyance' },
+    { q: 'Botanically speaking, bananas are classified as ___.', a: 'berries' },
+    { q: 'In summer heat, the Eiffel Tower gets about 15 cm ___.', a: 'taller' },
+    { q: "'Dreamt' is the only common English word ending in the letters ___.", a: 'mt' },
+    { q: 'Astronauts on the space station see about 16 ___ every single day.', a: 'sunrises' },
+    { q: 'The wood frog survives winter by letting its body ___.', a: 'freeze solid' },
+    { q: 'Victorians sent anonymous "vinegar valentines" to people they ___.', a: 'disliked' },
+    { q: 'Sea otters hold hands while sleeping so they don\'t ___.', a: 'drift apart' },
+    { q: 'Researchers found the Scots language has 421 words for ___.', a: 'snow' },
+    { q: 'The dot over the letters i and j is called a ___.', a: 'tittle' },
+    { q: 'Studies show cows have best friends and get stressed when ___.', a: 'they are separated' },
+    { q: 'The shortest war in history, between Britain and Zanzibar, lasted about ___.', a: '38 minutes' },
+    { q: 'At Japanese "naki-zumo" festivals, sumo wrestlers compete to make babies ___.', a: 'cry first' },
+    { q: 'A "jiffy" is a real scientific unit of ___.', a: 'time' },
+    { q: 'Wombat droppings are famously shaped like ___.', a: 'cubes' },
+    { q: 'The inventor of the Pringles can had his ashes buried in ___.', a: 'a Pringles can' },
+    { q: 'Honey found in ancient Egyptian tombs was still perfectly ___.', a: 'edible' },
+    { q: 'An old French law made it illegal to name a pig ___.', a: 'Napoleon' },
+    { q: 'An average cumulus cloud weighs about as much as 100 ___.', a: 'elephants' },
+    { q: 'Oxford University is older than the ___ Empire.', a: 'Aztec' },
+    { q: 'The King of Hearts is the only king in a card deck without a ___.', a: 'moustache' },
+    { q: 'A snail can sleep for up to three ___.', a: 'years' },
+    { q: "'Hippopotomonstrosesquippedaliophobia' is the fear of ___.", a: 'long words' },
+    { q: '"Kaninhoppning" is a Swedish sport in which rabbits ___.', a: 'jump over fences' },
+    { q: 'NASA seismometers left on the Moon discovered that it has ___.', a: 'moonquakes' },
+    { q: 'In the 1830s, ketchup was sold in America as ___.', a: 'medicine' },
+    { q: 'A bolt of lightning is about five times hotter than ___.', a: 'the surface of the sun' },
+    { q: 'Studies have shown honeybees can be trained to recognise human ___.', a: 'faces' },
+    { q: 'In the world\'s quietest room, in Minnesota, you can hear your own ___.', a: 'heartbeat' },
+    { q: 'Turkmenistan has an official public holiday celebrating the ___.', a: 'melon' },
+    { q: 'Wealthy Romans bought the sweat of famous gladiators to use as ___.', a: 'face cream' },
+    { q: 'The first item ever sold on eBay was a broken ___.', a: 'laser pointer' },
+    { q: 'Cats are missing the taste receptors to taste anything ___.', a: 'sweet' },
+    { q: 'The basketball court above the US Supreme Court is nicknamed ___.', a: 'the highest court in the land' },
+    { q: 'Scientists taught pigeons to tell apart paintings by Monet and ___.', a: 'Picasso' },
+    { q: 'In 1932, the Australian army lost a military operation against ___.', a: 'emus' },
+    { q: 'Every year the Netherlands sends Canada 20,000 tulip bulbs to say ___.', a: 'thank you' },
+    { q: 'In medieval timekeeping, a "moment" was exactly ___.', a: '90 seconds' },
+    { q: 'Hawaiian pizza was invented in ___.', a: 'Canada' },
+    { q: 'The tiny pocket inside jeans pockets was designed to hold ___.', a: 'pocket watches' },
+    { q: "An ostrich's eye is bigger than its ___.", a: 'brain' },
+    { q: "In zero gravity, astronauts' tears don't fall — they ___.", a: 'ball up on your face' },
+];
+
+// ═══════════════════════════════════════════
+// CONSTANTS & HELPERS
+// ═══════════════════════════════════════════
+const PFX = 'FIBBERS-';
+const MAX_PLAYERS = 12, MIN_PLAYERS = 2;
+const AVATARS = ['🦊', '🐼', '🦁', '🐸', '🐙', '🦄', '🐝', '🐶', '🐨', '🐯', '🐢', '🦉'];
+const LETTERS = 'ABCDEFGHIJKLM'.split('');
+const LIE_SECS = 45, VOTE_SECS = 30;
+
+function $id(id) { return document.getElementById(id); }
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function norm(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim(); }
+function blankify(q) { return esc(q).replace('___', '<span class="blank">______</span>'); }
+
+// ── QR code ──
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+        let rects = '';
+        for (let r = 0; r < n; r++)
+            for (let c = 0; c < n; c++)
+                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+            `<rect width="${size}" height="${size}" fill="#fdf8ec"/>` +
+            `<g fill="#2b2140">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+
+// ── Confetti ──
+let _cf = { parts: [], raf: 0, running: false, until: 0 };
+function startConfetti(ms) {
+    if (REDUCED) return;
+    const cv = $id('confetti-cv'), ctx = cv.getContext('2d');
+    cv.width = innerWidth; cv.height = innerHeight;
+    _cf.until = performance.now() + (ms || 2600);
+    const cols = ['#ffc857', '#ff5d8f', '#4ade80', '#a78bfa', '#f6efdf'];
+    for (let i = 0; i < 130; i++) {
+        _cf.parts.push({
+            x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5,
+            vx: (Math.random() - 0.5) * 2.4, vy: 2 + Math.random() * 3.6,
+            rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.25,
+            w: 6 + Math.random() * 7, h: 4 + Math.random() * 5,
+            col: cols[Math.floor(Math.random() * cols.length)],
+        });
+    }
+    if (_cf.running) return;
+    _cf.running = true;
+    (function frame(t) {
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        _cf.parts = _cf.parts.filter(p => p.y < cv.height + 30);
+        for (const p of _cf.parts) {
+            p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+            ctx.fillStyle = p.col; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            ctx.restore();
+        }
+        if (t < _cf.until || _cf.parts.length) _cf.raf = requestAnimationFrame(frame);
+        else { _cf.running = false; ctx.clearRect(0, 0, cv.width, cv.height); }
+    })(performance.now());
+}
+
+// ── Synth sounds ──
+let _ac = null;
+function ac() { if (!_ac) { try { _ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return _ac; }
+function tone(freq, dur, type, gain, when) {
+    const a = ac(); if (!a) return;
+    try {
+        const t0 = a.currentTime + (when || 0);
+        const o = a.createOscillator(), g = a.createGain();
+        o.type = type || 'triangle'; o.frequency.value = freq;
+        g.gain.setValueAtTime(gain || 0.07, t0);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        o.connect(g); g.connect(a.destination);
+        o.start(t0); o.stop(t0 + dur);
+    } catch (e) {}
+}
+function sLock() { tone(660, 0.12); }
+function sFlip() { tone(440, 0.08, 'square', 0.04); tone(660, 0.1, 'square', 0.04, 0.06); }
+function sTruth() { [523, 659, 784].forEach((f, i) => tone(f, 0.22, 'triangle', 0.06, i * 0.1)); }
+function sFool() { tone(392, 0.12); tone(494, 0.16, 'triangle', 0.06, 0.09); }
+function sWrong() { tone(196, 0.3, 'sawtooth', 0.05); }
+function sWin() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.3, 'triangle', 0.06, i * 0.13)); }
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let peer = null, myId = '', myName = '', myAvatar = '', isHost = false, isTvHost = false, isViewer = false, roomCode = '';
+let hostConn = null, guestConns = {}, viewerConns = {};
+let ui = 'home';   // home|creating|connecting|lobby_h|lobby_g|lie|vote|reveal|podium|viewer
+let uiErr = '';
+let fName = localStorage.getItem('fib-name') || '';
+let fAvatar = localStorage.getItem('fib-avatar') || '';
+let fCode = '', fVCode = '';
+let D = null, vD = null;
+
+// phone-local
+let myLieText = '', lieLocked = false, foundTruth = false;
+let myVote = null, voteLocked = false;
+let qEndsAt = 0, _clientTick = null;
+let _theatreTimer = null;
+
+// Host authoritative state
+let H = {
+    phase: 'lobby',            // lobby|lie|vote|reveal|podium
+    players: [],               // [{id,name,avatar,score,fools,truths,lastDelta,_lie,_lieDone,_truthBonus,_vote}]
+    settings: { qCount: 8 },
+    questions: [], qIndex: -1,
+    cur: null,                 // {qid, q, a}
+    cards: [],                 // [{key,text,authors:[ids],isTruth,votes:[ids]}]
+    lastReveal: null, lastPodium: null,
+};
+let _phaseTimeout = null;
+
+// ═══════════════════════════════════════════
+// NETWORK
+// ═══════════════════════════════════════════
+function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('send err', e); } }
+function broadcastViewers(msg) { Object.values(viewerConns).forEach(c => send(c, msg)); }
+function broadcastPlayers(fn) {
+    H.players.forEach(p => {
+        if (p.id === myId) return;
+        const c = guestConns[p.id];
+        if (c) send(c, typeof fn === 'function' ? fn(p) : fn);
+    });
+}
+function connectedPlayers() {
+    return H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+}
+
+function hostAddPlayer(id, name, avatar) {
+    if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
+    const taken = new Set(H.players.map(p => p.avatar));
+    const av = avatar && !taken.has(avatar) ? avatar : (AVATARS.find(a => !taken.has(a)) || '🙂');
+    H.players.push({ id, name, avatar: av, score: 0, fools: 0, truths: 0, lastDelta: 0, _lie: null, _lieDone: false, _truthBonus: false, _vote: null });
+}
+
+function lobbyMsg() {
+    return {
+        type: 'lobby', roomCode,
+        players: H.players.map(p => ({ name: p.name, avatar: p.avatar })),
+        settings: { ...H.settings },
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+function broadcastLobby() {
+    broadcastPlayers(lobbyMsg());
+    broadcastViewers({ ...lobbyMsg(), type: 'viewer_lobby' });
+    hostSyncSelf(lobbyMsg());
+}
+
+function railPlayers(doneFlag) {
+    return H.players
+        .map(p => ({
+            name: p.name, avatar: p.avatar, score: p.score, delta: p.lastDelta,
+            done: doneFlag === 'lie' ? p._lieDone : doneFlag === 'vote' ? p._vote !== null : false,
+        }))
+        .sort((a, b) => b.score - a.score);
+}
+function standings() {
+    return H.players.slice().sort((a, b) => b.score - a.score)
+        .map(p => ({ name: p.name, avatar: p.avatar, score: p.score, delta: p.lastDelta, fools: p.fools, truths: p.truths }));
+}
+function progress() { return { num: H.qIndex + 1, total: H.questions.length }; }
+function capt() { return { tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null }; }
+
+function lieMsg() { return { type: 'lie_phase', qid: H.cur.qid, ...progress(), q: H.cur.q, seconds: LIE_SECS, ...capt() }; }
+function viewerLieMsg() {
+    return { ...lieMsg(), type: 'viewer_lie', submitted: H.players.filter(p => p._lieDone).length, playerCount: connectedPlayers().length, players: railPlayers('lie') };
+}
+function voteMsgFor(p) {
+    const mine = H.cards.find(c => !c.isTruth && p && c.authors.includes(p.id));
+    return {
+        type: 'vote_phase', qid: H.cur.qid, ...progress(), q: H.cur.q,
+        cards: H.cards.map(c => ({ key: c.key, text: c.text })),
+        myKey: mine ? mine.key : -1, seconds: VOTE_SECS, ...capt(),
+    };
+}
+function viewerVoteMsg() {
+    return {
+        ...voteMsgFor(null), type: 'viewer_vote',
+        voted: H.players.filter(p => p._vote !== null).length, playerCount: connectedPlayers().length,
+        players: railPlayers('vote'),
+    };
+}
+
+function phaseSnapshotFor(p) {
+    if (H.phase === 'lie') return lieMsg();
+    if (H.phase === 'vote') return voteMsgFor(p);
+    if (H.phase === 'reveal') return H.lastRevealFor ? H.lastRevealFor(p) : lobbyMsg();
+    if (H.phase === 'podium') return { ...(H.lastPodium || {}), type: 'podium' };
+    return lobbyMsg();
+}
+function viewerSnapshot() {
+    if (H.phase === 'lie') return viewerLieMsg();
+    if (H.phase === 'vote') return viewerVoteMsg();
+    if (H.phase === 'reveal') return H.lastReveal || viewerVoteMsg();
+    if (H.phase === 'podium') return H.lastPodium;
+    return { ...lobbyMsg(), type: 'viewer_lobby' };
+}
+
+// ── Host: incoming connections ──
+function setupGuestConn(conn) {
+    conn.on('open', () => { conn._role = null; });
+
+    conn.on('data', msg => {
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer';
+            viewerConns[conn.peer] = conn;
+            send(conn, viewerSnapshot());
+            return;
+        }
+        if (conn._role === null) {
+            conn._role = 'player';
+            guestConns[conn.peer] = conn;
+        }
+        const player = H.players.find(p => p.id === conn.peer);
+        switch (msg.type) {
+            case 'join': {
+                const name = String(msg.name || 'Player').slice(0, 16);
+                const zombie = H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
+                if (zombie) zombie.id = conn.peer;
+                else hostAddPlayer(conn.peer, name, msg.avatar);
+                const p2 = H.players.find(p => p.id === conn.peer);
+                if (!p2) { send(conn, lobbyMsg()); break; }
+                if (H.phase === 'lobby') broadcastLobby();
+                else { send(conn, phaseSnapshotFor(p2)); broadcastViewers(viewerSnapshot()); if (isTvHost) tvHostSync(); }
+                break;
+            }
+            case 'lie':  if (player) hostLie(player, msg.qid, msg.text, conn); break;
+            case 'vote': if (player) hostVote(player, msg.qid, msg.key, conn); break;
+            case 'ctl': {
+                if (!isTvHost || !player || player.id !== H.players[0]?.id) break;
+                hostCtl(msg.action, msg);
+                break;
+            }
+        }
+    });
+
+    conn.on('close', () => {
+        delete guestConns[conn.peer];
+        delete viewerConns[conn.peer];
+        if (H.phase === 'lobby') {
+            const pi = H.players.findIndex(p => p.id === conn.peer);
+            if (pi >= 0) { H.players.splice(pi, 1); broadcastLobby(); }
+        } else if (H.phase === 'lie') maybeEndLie();
+        else if (H.phase === 'vote') maybeEndVote();
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+function hostCtl(action, msg) {
+    if (action === 'start' && H.phase === 'lobby') hostStartGame();
+    else if (action === 'next' && H.phase === 'reveal') nextQuestion();
+    else if (action === 'again' && H.phase === 'podium') hostNewGame();
+    else if (action === 'set' && H.phase === 'lobby') {
+        if ([5, 8, 10].includes(msg.qCount)) H.settings.qCount = msg.qCount;
+        broadcastLobby();
+    }
+}
+function guestCtl(action, extra) {
+    if (isHost && !isTvHost) { hostCtl(action, extra || {}); return; }
+    if (hostConn) send(hostConn, { type: 'ctl', action, ...(extra || {}) });
+}
+
+// ── Create a room ──
+function makeRoom(onOpen) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    roomCode = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    peer = new Peer(PFX + roomCode);
+    peer.on('open', id => { myId = id; isHost = true; onOpen(); });
+    peer.on('connection', conn => setupGuestConn(conn));
+    peer.on('error', e => {
+        uiErr = 'Connection error: ' + e.message;
+        isHost = false; isTvHost = false;
+        document.body.classList.remove('viewer-mode');
+        ui = 'home'; render();
+    });
+}
+
+function hostGame(name) {
+    myName = name.trim().slice(0, 16) || 'Host';
+    myAvatar = fAvatar || AVATARS[0];
+    localStorage.setItem('fib-name', myName);
+    localStorage.setItem('fib-avatar', myAvatar);
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        hostAddPlayer(myId, myName, myAvatar);
+        ui = 'lobby_h';
+        render();
+    });
+}
+
+function hostOnTV() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        isTvHost = true;
+        document.body.classList.add('viewer-mode');
+        tvHostSync();
+        render();
+    });
+}
+
+function joinGame(code, name) {
+    myName = name.trim().slice(0, 16) || 'Player';
+    myAvatar = fAvatar || AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    localStorage.setItem('fib-name', myName);
+    localStorage.setItem('fib-avatar', myAvatar);
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        isHost = false;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join', name: myName, avatar: myAvatar }));
+        hostConn.on('data', msg => applyMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the game.'; ui = 'home'; D = null; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        ui = 'home'; render();
+    });
+}
+
+function joinAsViewer(code, _attempt) {
+    const attempt = _attempt || 1;
+    isViewer = true;
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join_viewer' }));
+        hostConn.on('data', msg => applyViewerMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the game.'; isViewer = false; vD = null; document.body.classList.remove('viewer-mode'); ui = 'home'; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; isViewer = false; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        if (attempt < 2) {
+            try { peer.destroy(); } catch (_) {}
+            peer = null;
+            setTimeout(() => joinAsViewer(code, 2), 600);
+            return;
+        }
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        isViewer = false; ui = 'home'; render();
+    });
+}
+
+function tvHostSync() {
+    if (!isTvHost) return;
+    applyViewerMsg(viewerSnapshot());
+}
+function hostSyncSelf(msg) {
+    if (isTvHost) { tvHostSync(); return; }
+    if (isHost && msg) applyMsg(msg);
+}
+
+// ═══════════════════════════════════════════
+// HOST GAME FLOW
+// ═══════════════════════════════════════════
+function clearHostTimers() { clearTimeout(_phaseTimeout); }
+
+function hostStartGame() {
+    if (connectedPlayers().length < MIN_PLAYERS) { uiErr = 'Need at least ' + MIN_PLAYERS + ' players.'; if (ui === 'lobby_h') render(); return; }
+    clearHostTimers();
+    H.questions = shuffle(QUESTIONS).slice(0, H.settings.qCount).map((q, i) => ({ qid: 'q' + i, q: q.q, a: q.a }));
+    H.qIndex = -1;
+    H.players.forEach(p => { p.score = 0; p.fools = 0; p.truths = 0; p.lastDelta = 0; });
+    nextQuestion();
+}
+
+function nextQuestion() {
+    clearHostTimers();
+    H.qIndex += 1;
+    if (H.qIndex >= H.questions.length) { showPodium(); return; }
+    H.cur = H.questions[H.qIndex];
+    H.cards = [];
+    H.players.forEach(p => { p._lie = null; p._lieDone = false; p._truthBonus = false; p._vote = null; p.lastDelta = 0; });
+    H.phase = 'lie';
+    broadcastPlayers(lieMsg());
+    broadcastViewers(viewerLieMsg());
+    hostSyncSelf(lieMsg());
+    _phaseTimeout = setTimeout(startVote, LIE_SECS * 1000 + 800);
+}
+
+function hostLie(player, qid, text, conn) {
+    if (H.phase !== 'lie' || !H.cur || qid !== H.cur.qid || player._lieDone) return;
+    const t = String(text || '').trim().slice(0, 60);
+    if (!t) return;
+    if (norm(t) === norm(H.cur.a)) {
+        // they guessed the actual truth
+        if (!player._truthBonus) {
+            player._truthBonus = true;
+            if (conn) send(conn, { type: 'lie_ack', status: 'truth' });
+            else if (player.id === myId) applyMsg({ type: 'lie_ack', status: 'truth' });
+            return; // still owes us a lie
+        }
+        // matched truth twice — lock them in with no lie
+        player._lieDone = true;
+    } else {
+        player._lie = t;
+        player._lieDone = true;
+    }
+    if (conn) send(conn, { type: 'lie_ack', status: 'ok' });
+    else if (player.id === myId) applyMsg({ type: 'lie_ack', status: 'ok' });
+    broadcastViewers(viewerLieMsg());
+    if (isTvHost) tvHostSync();
+    maybeEndLie();
+}
+
+function maybeEndLie() {
+    if (H.phase !== 'lie') return;
+    const active = connectedPlayers();
+    if (active.length && active.every(p => p._lieDone)) {
+        clearHostTimers();
+        _phaseTimeout = setTimeout(startVote, 700);
+    }
+}
+
+function startVote() {
+    if (H.phase !== 'lie') return;
+    clearHostTimers();
+    // build the answer wall: merge duplicate lies, add the truth, shuffle
+    const byNorm = {};
+    H.players.forEach(p => {
+        if (!p._lie) return;
+        const k = norm(p._lie);
+        if (!byNorm[k]) byNorm[k] = { text: p._lie, authors: [] };
+        byNorm[k].authors.push(p.id);
+    });
+    const cards = Object.values(byNorm).map(c => ({ ...c, isTruth: false, votes: [] }));
+    cards.push({ text: H.cur.a, authors: [], isTruth: true, votes: [] });
+    H.cards = shuffle(cards).map((c, i) => ({ ...c, key: i }));
+    H.phase = 'vote';
+    broadcastPlayers(p => voteMsgFor(p));
+    broadcastViewers(viewerVoteMsg());
+    hostSyncSelf(isTvHost ? null : voteMsgFor(H.players.find(p => p.id === myId)));
+    _phaseTimeout = setTimeout(endVote, VOTE_SECS * 1000 + 800);
+}
+
+function hostVote(player, qid, key, conn) {
+    if (H.phase !== 'vote' || !H.cur || qid !== H.cur.qid || player._vote !== null) return;
+    const card = H.cards.find(c => c.key === key);
+    if (!card || card.authors.includes(player.id)) return;   // no self-votes
+    player._vote = key;
+    card.votes.push(player.id);
+    if (conn) send(conn, { type: 'vote_ack', key });
+    else if (player.id === myId) applyMsg({ type: 'vote_ack', key });
+    broadcastViewers(viewerVoteMsg());
+    if (isTvHost) tvHostSync();
+    maybeEndVote();
+}
+
+function maybeEndVote() {
+    if (H.phase !== 'vote') return;
+    const active = connectedPlayers();
+    if (active.length && active.every(p => p._vote !== null)) {
+        clearHostTimers();
+        _phaseTimeout = setTimeout(endVote, 700);
+    }
+}
+
+function endVote() {
+    if (H.phase !== 'vote') return;
+    clearHostTimers();
+    H.phase = 'reveal';
+    const byId = id => H.players.find(p => p.id === id);
+    const truthCard = H.cards.find(c => c.isTruth);
+
+    H.players.forEach(p => {
+        let delta = 0;
+        if (p._vote !== null && p._vote === truthCard.key) { delta += 100; p.truths += 1; }
+        if (p._truthBonus) { delta += 50; p.truths += 1; }
+        p._delta0 = delta;
+    });
+    H.cards.forEach(c => {
+        if (c.isTruth || !c.votes.length) return;
+        const share = Math.max(10, Math.round(60 * c.votes.length / c.authors.length / 10) * 10);
+        c.authors.forEach(id => {
+            const p = byId(id);
+            if (p) { p._delta0 += share; p.fools += c.votes.length; }
+        });
+    });
+    H.players.forEach(p => { p.lastDelta = p._delta0 || 0; p.score += p.lastDelta; delete p._delta0; });
+
+    const isLast = H.qIndex >= H.questions.length - 1;
+    const fullCards = () => {
+        // theatre order: least-voted lies first, truth always last
+        const lies = H.cards.filter(c => !c.isTruth).sort((a, b) => a.votes.length - b.votes.length);
+        return [...lies, truthCard].map(c => ({
+            key: c.key, text: c.text, isTruth: c.isTruth,
+            authors: c.authors.map(id => ({ name: byId(id)?.name, avatar: byId(id)?.avatar })),
+            votes: c.votes.map(id => ({ name: byId(id)?.name, avatar: byId(id)?.avatar })),
+        }));
+    };
+
+    H.lastRevealFor = (p) => ({
+        type: 'reveal', qid: H.cur.qid, ...progress(), q: H.cur.q, truth: H.cur.a,
+        cards: fullCards(), truthKey: truthCard.key,
+        my: p ? {
+            voted: p._vote, votedTruth: p._vote === truthCard.key,
+            fooledBy: p._vote !== null && p._vote !== truthCard.key
+                ? (H.cards.find(c => c.key === p._vote)?.authors || []).map(id => byId(id)?.name).join(' & ')
+                : null,
+            myFools: (H.cards.find(c => !c.isTruth && c.authors.includes(p.id))?.votes || []).map(id => ({ name: byId(id)?.name, avatar: byId(id)?.avatar })),
+            truthBonus: p._truthBonus, delta: p.lastDelta,
+        } : null,
+        standings: standings(), isLast, ...capt(),
+    });
+    H.lastReveal = { ...H.lastRevealFor(null), type: 'viewer_reveal', players: railPlayers() };
+
+    broadcastPlayers(p => H.lastRevealFor(p));
+    broadcastViewers(H.lastReveal);
+    hostSyncSelf(isTvHost ? null : H.lastRevealFor(H.players.find(p => p.id === myId)));
+}
+
+function showPodium() {
+    clearHostTimers();
+    H.phase = 'podium';
+    const most = k => H.players.filter(p => p[k] > 0).sort((a, b) => b[k] - a[k])[0];
+    const awards = [];
+    const st1 = most('fools');
+    if (st1) awards.push({ emoji: '🤥', title: 'Silver Tongue', name: st1.name, detail: st1.fools + ' fooled' });
+    const st2 = most('truths');
+    if (st2) awards.push({ emoji: '🕵️', title: 'Truth Hound', name: st2.name, detail: st2.truths + '× found the truth' });
+    const msg = { type: 'podium', standings: standings(), awards, ...capt() };
+    H.lastPodium = { ...msg, type: 'viewer_podium' };
+    broadcastPlayers(msg);
+    broadcastViewers(H.lastPodium);
+    hostSyncSelf(msg);
+}
+
+function hostNewGame() {
+    clearHostTimers();
+    H.phase = 'lobby';
+    H.questions = []; H.qIndex = -1; H.cur = null; H.cards = [];
+    H.players.forEach(p => { p.score = 0; p.fools = 0; p.truths = 0; p.lastDelta = 0; p._lie = null; p._lieDone = false; p._truthBonus = false; p._vote = null; });
+    H.players = H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+    broadcastLobby();
+    if (isHost && !isTvHost) { ui = 'lobby_h'; render(); }
+}
+
+function hostSet(patch) {
+    Object.assign(H.settings, patch);
+    broadcastLobby();
+    if (ui === 'lobby_h') render();
+}
+
+// ═══════════════════════════════════════════
+// CLIENT (phone) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+function stopClientTimers() { clearInterval(_clientTick); _clientTick = null; }
+
+function startCountdown(seconds) {
+    qEndsAt = Date.now() + seconds * 1000;
+    stopClientTimers();
+    _clientTick = setInterval(() => {
+        const left = Math.max(0, qEndsAt - Date.now());
+        const bar = $id('q-timebar'), num = $id('q-timenum');
+        if (bar) bar.style.width = (left / (seconds * 1000) * 100) + '%';
+        if (num) num.textContent = Math.ceil(left / 1000);
+        if (left <= 0) stopClientTimers();
+    }, 200);
+}
+
+function applyMsg(msg) {
+    switch (msg.type) {
+        case 'lobby':
+            D = msg;
+            stopClientTimers();
+            ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g';
+            render();
+            break;
+        case 'lie_phase':
+            D = msg;
+            myLieText = ''; lieLocked = false; foundTruth = false;
+            myVote = null; voteLocked = false;
+            ui = 'lie';
+            render();
+            startCountdown(msg.seconds);
+            break;
+        case 'lie_ack':
+            if (msg.status === 'truth') {
+                foundTruth = true; myLieText = '';
+                sTruth();
+                if (ui === 'lie') render();
+            } else {
+                lieLocked = true;
+                sLock();
+                if (ui === 'lie') render();
+            }
+            break;
+        case 'vote_phase':
+            D = msg;
+            myVote = null; voteLocked = false;
+            ui = 'vote';
+            render();
+            startCountdown(msg.seconds);
+            break;
+        case 'vote_ack':
+            voteLocked = true; myVote = msg.key;
+            sLock();
+            if (ui === 'vote') render();
+            break;
+        case 'reveal':
+            D = msg;
+            stopClientTimers();
+            ui = 'reveal';
+            render();
+            if (msg.my) {
+                if (msg.my.votedTruth) sTruth();
+                else if (msg.my.voted !== null) sWrong();
+                if (msg.my.myFools && msg.my.myFools.length) {
+                    sFool();
+                    try { navigator.vibrate && navigator.vibrate([70, 40, 70]); } catch (e) {}
+                }
+            }
+            break;
+        case 'podium':
+            D = msg;
+            stopClientTimers();
+            ui = 'podium';
+            render();
+            sWin(); startConfetti(3600);
+            break;
+    }
+}
+
+function submitLie() {
+    const t = myLieText.trim();
+    if (!t || lieLocked || ui !== 'lie') return;
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostLie(me, D.qid, t, null);
+    } else send(hostConn, { type: 'lie', qid: D.qid, text: t });
+}
+
+function castVote(key) {
+    if (voteLocked || ui !== 'vote' || key === D.myKey) return;
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostVote(me, D.qid, key, null);
+    } else send(hostConn, { type: 'vote', qid: D.qid, key });
+}
+
+// ═══════════════════════════════════════════
+// VIEWER (TV) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+let _vTick = null;
+function stopViewerTimers() { clearInterval(_vTick); _vTick = null; clearInterval(_theatreTimer); _theatreTimer = null; }
+
+function startViewerCountdown(seconds) {
+    const endsAt = Date.now() + seconds * 1000;
+    clearInterval(_vTick);
+    _vTick = setInterval(() => {
+        const left = Math.max(0, endsAt - Date.now());
+        const bar = $id('v-timebar');
+        if (bar) bar.style.width = (left / (seconds * 1000) * 100) + '%';
+        if (left <= 0) clearInterval(_vTick);
+    }, 200);
+}
+
+function applyViewerMsg(msg) {
+    document.body.classList.add('viewer-mode');
+    ui = 'viewer';
+    const prev = vD;
+    vD = msg;
+    switch (msg.type) {
+        case 'viewer_lobby':
+            stopViewerTimers(); render(); break;
+        case 'viewer_lie': {
+            const fresh = !prev || prev.type !== 'viewer_lie' || prev.qid !== msg.qid;
+            if (fresh) { stopViewerTimers(); render(); startViewerCountdown(msg.seconds); }
+            else patchViewerCounts(msg, 'lie');
+            break;
+        }
+        case 'viewer_vote': {
+            const fresh = !prev || prev.type !== 'viewer_vote' || prev.qid !== msg.qid;
+            if (fresh) { stopViewerTimers(); render(); startViewerCountdown(msg.seconds); sFlip(); }
+            else patchViewerCounts(msg, 'vote');
+            break;
+        }
+        case 'viewer_reveal': {
+            const fresh = !prev || prev.type !== 'viewer_reveal' || prev.qid !== msg.qid;
+            stopViewerTimers(); render();
+            if (fresh) runTheatre(msg);
+            else revealAllTheatre();
+            break;
+        }
+        case 'viewer_podium':
+            stopViewerTimers(); render(); startConfetti(5200); break;
+    }
+}
+
+function patchViewerCounts(msg, kind) {
+    const el = $id('v-counter');
+    if (el) el.textContent = kind === 'lie'
+        ? `🤥 ${msg.submitted} of ${msg.playerCount} lies in`
+        : `🗳️ ${msg.voted} of ${msg.playerCount} votes in`;
+    const rail = $id('v-rail');
+    if (rail) rail.innerHTML = railRowsHTML(msg.players, true);
+}
+
+// the reveal theatre: flip cards one by one, least-voted lies first, truth last
+function runTheatre(msg) {
+    if (REDUCED) { revealAllTheatre(); return; }
+    const cards = msg.cards;
+    let i = 0;
+    clearInterval(_theatreTimer);
+    const step = () => {
+        if (i >= cards.length) {
+            clearInterval(_theatreTimer);
+            const hint = $id('v-nexthint');
+            if (hint) hint.style.opacity = '1';
+            return;
+        }
+        const el = $id('tvlie-' + cards[i].key);
+        if (el) {
+            el.classList.remove('hidden-card');
+            el.classList.add('flip');
+            if (cards[i].isTruth) { sTruth(); startConfetti(1800); } else sFlip();
+        }
+        i++;
+    };
+    step();
+    _theatreTimer = setInterval(step, 2600);
+}
+function revealAllTheatre() {
+    document.querySelectorAll('.tv-lie').forEach(el => el.classList.remove('hidden-card'));
+    const hint = $id('v-nexthint');
+    if (hint) hint.style.opacity = '1';
+}
+
+// ═══════════════════════════════════════════
+// RENDER — shared bits
+// ═══════════════════════════════════════════
+function hdrHTML(sub) {
+    return `<h1 class="logo">🤥 FIBBERS<span class="nose">!</span></h1><div class="sub">${esc(sub || 'one truth · many lies · trust nobody')}</div>`;
+}
+function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+function isCaptain() { return !!(D && D.tvHost && D.captain && D.captain === myName); }
+function canDrive() { return (isHost && !isTvHost) || isCaptain(); }
+
+function avatarPickerHTML() {
+    return `<div class="fg"><label>Pick your face</label><div class="avrow">${
+        AVATARS.map(a => `<div class="av${fAvatar === a ? ' sel' : ''}" onclick="fAvatar='${a}';localStorage.setItem('fib-avatar','${a}');render()">${a}</div>`).join('')
+    }</div></div>`;
+}
+
+function railRowsHTML(players, showDone) {
+    return (players || []).map(p => `
+        <div class="rail-row${showDone && p.done ? ' done' : ''}">
+            <span class="rav">${esc(p.avatar)}</span>
+            <span class="rname">${esc(p.name)}</span>
+            <span class="rsc">${p.score}</span>
+            ${!showDone && p.delta ? `<span class="rdelta">+${p.delta}</span>` : ''}
+        </div>`).join('');
+}
+
+function standingsHTML(st) {
+    const medals = ['🥇', '🥈', '🥉'];
+    return `<div class="card standings"><div class="slbl">Scores</div>${
+        st.map((p, i) => `
+        <div class="player-row">
+            <span style="width:22px;text-align:center">${medals[i] || (i + 1)}</span>
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--pink)">(you)</span>' : ''}</div>
+            <div class="sc">${p.score}${p.delta ? `<span class="delta">+${p.delta}</span>` : ''}</div>
+        </div>`).join('')
+    }</div>`;
+}
+
+function metaBarHTML(label, secs) {
+    return `
+    <div class="q-meta"><span>${esc(label)}</span><span id="q-timenum">${secs}</span></div>
+    <div class="timebar-wrap"><div class="timebar" id="q-timebar" style="width:100%"></div></div>`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — phone screens
+// ═══════════════════════════════════════════
+function render() {
+    const app = $id('app');
+    if (isTvHost || isViewer) ui = 'viewer';
+    let html = '';
+    switch (ui) {
+        case 'home':       html = renderHome(); break;
+        case 'creating':   html = renderSpinner('Setting up the game…'); break;
+        case 'connecting': html = renderSpinner('Joining the game…'); break;
+        case 'lobby_h':    html = renderLobbyH(); break;
+        case 'lobby_g':    html = renderLobbyG(); break;
+        case 'lie':        html = renderLie(); break;
+        case 'vote':       html = renderVote(); break;
+        case 'reveal':     html = renderReveal(); break;
+        case 'podium':     html = renderPodium(); break;
+        case 'viewer':     html = renderViewer(); break;
+        default:           html = renderHome();
+    }
+    app.innerHTML = html;
+}
+
+function renderSpinner(msg) {
+    return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`;
+}
+
+function renderHome() {
+    const fromQR = !!fCode;
+    const youCard = `
+    <div class="card">
+        <div class="slbl">Who are you?</div>
+        <div class="fg">
+            <label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
+                ${fromQR ? 'autofocus' : ''} oninput="fName=this.value">
+        </div>
+        ${avatarPickerHTML()}
+    </div>`;
+    const joinCard = `
+    <div class="card${fromQR ? ' highlight' : ''}">
+        <div class="slbl">Join a Game</div>
+        <div class="fg">
+            <label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fCode)}"
+                oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
+        </div>
+        <button id="btn-join" class="btn ${fromQR ? 'btn-k' : 'btn-g'} btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">
+            📱 Join with your phone
+        </button>
+    </div>`;
+    const hostCard = `
+    <div class="card">
+        <div class="slbl">Start a Game</div>
+        <button class="btn btn-p btn-full"
+            onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
+            🤥 Host on this phone
+        </button>
+        <div style="font-size:.68rem;color:var(--muted);text-align:center;margin-top:8px">
+            2–12 players (best with 3+) — put a TV up with the room code
+        </div>
+    </div>`;
+    const tvCard = `
+    <div class="card">
+        <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-p btn-full" onclick="hostOnTV()">📺 Create the game on this screen</button>
+        <div style="font-size:.68rem;color:var(--muted);text-align:center;margin:6px 0 10px">
+            Shows a big QR code — the first phone to join becomes 👑 Captain
+        </div>
+        <hr>
+        <div class="fg">
+            <label>…or show an existing game</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')joinAsViewer(fVCode)">
+        </div>
+        <button class="btn btn-g btn-full"
+            onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code.';render()}">
+            📺 Open TV screen
+        </button>
+    </div>`;
+    return `
+    ${hdrHTML('write a lie · find the truth')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+}
+
+function settingsSegsHTML(settings, expr) {
+    const seg = (opts, curV, key) => `<div class="seg-row">${opts.map(o =>
+        `<button class="btn btn-sm ${curV === o.v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{${key}:${o.j}}`)}">${o.l}</button>`).join('')}</div>`;
+    return `<div class="fg"><label>Questions per game</label>${seg(
+        [5, 8, 10].map(v => ({ v, j: v, l: v })), settings.qCount, 'qCount')}</div>`;
+}
+
+function renderLobbyH() {
+    const pList = H.players.map((p, i) =>
+        `<div class="player-row">
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1">${esc(p.name)}${i === 0 ? ' <span style="color:var(--muted)">(you — host)</span>' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    return `
+    ${hdrHTML('Host Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card highlight">
+        <div class="slbl">Scan to join — or share the code</div>
+        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        <div class="room-code">${esc(roomCode)}</div>
+        <div class="share-row">
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.share&&navigator.share({title:'Join Fibbers!',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
+        </div>
+        <div style="font-size:.68rem;color:var(--muted);text-align:center">Put the TV screen up with code <b style="color:var(--gold)">${esc(roomCode)}</b></div>
+    </div>
+    <div class="card">
+        <div class="slbl">Players (${H.players.length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    <div class="card">
+        <div class="slbl">Settings</div>
+        ${settingsSegsHTML(H.settings, patch => `hostSet(${patch})`)}
+    </div>
+    <button class="btn btn-k btn-full" style="font-size:1.08rem;padding:16px" onclick="hostStartGame()">🤥 Start fibbing</button>`;
+}
+
+function renderLobbyG() {
+    const cap = isCaptain();
+    const pList = (D.players || []).map(p =>
+        `<div class="player-row">
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--muted)">(you)</span>' : ''}${D.tvHost && p.name === D.captain ? ' 👑' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    const s = D.settings || {};
+    return `
+    ${hdrHTML(cap ? '👑 You are the Captain' : 'Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card">
+        <div class="slbl">Room ${esc(D.roomCode || '')} — Players (${(D.players || []).length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    ${cap ? `
+    <div class="card highlight">
+        <div class="slbl">👑 Captain's Settings</div>
+        ${settingsSegsHTML(s, patch => `guestCtl('set',${patch})`)}
+    </div>
+    <button class="btn btn-k btn-full" style="font-size:1.08rem;padding:16px" onclick="guestCtl('start')">🤥 Start fibbing</button>`
+    : `
+    <div class="card">
+        <div class="slbl">Settings</div>
+        <div style="font-weight:800;font-size:.85rem">❓ ${s.qCount} questions</div>
+        <div style="color:var(--muted);font-size:.74rem;font-weight:700;margin-top:8px">
+            Waiting for ${D.tvHost ? `👑 ${esc(D.captain || 'the captain')}` : 'the host'} to start…
+        </div>
+    </div>`}`;
+}
+
+function renderLie() {
+    const inputZone = lieLocked
+        ? `<div class="lie-note">🤥 Lie locked in! Watch the TV…</div>`
+        : `
+        ${foundTruth ? `<div class="truth-banner">🕵️ That IS the truth! +50 — now write a lie to fool the others</div>` : ''}
+        <div class="fg" style="margin-top:${foundTruth ? '10px' : '0'}">
+            <label>${foundTruth ? 'Your decoy lie' : 'Write a convincing lie'}</label>
+            <input type="text" id="lie-input" maxlength="60" placeholder="something believable…" value="${esc(myLieText)}"
+                autofocus oninput="myLieText=this.value"
+                onkeydown="if(event.key==='Enter')submitLie()">
+        </div>
+        <button class="btn btn-k btn-full" onclick="submitLie()">🤥 Lock in my lie</button>`;
+    return `
+    ${metaBarHTML(`Question ${D.num} / ${D.total} — fib time`, D.seconds)}
+    <div class="card"><div class="q-prompt">${blankify(D.q)}</div></div>
+    <div class="card">${inputZone}</div>`;
+}
+
+function renderVote() {
+    const cards = (D.cards || []).map((c, i) => {
+        const cls = ['wall-card'];
+        if (c.key === D.myKey) cls.push('mine');
+        if (voteLocked) {
+            if (c.key === myVote) cls.push('picked');
+            else if (c.key !== D.myKey) cls.push('faded');
+        }
+        return `<button class="${cls.join(' ')}" ${c.key === D.myKey || voteLocked ? 'disabled' : ''}
+            onclick="castVote(${c.key})">
+            <span class="let">${LETTERS[i]}</span><span>${esc(c.text)}</span>
+        </button>`;
+    }).join('');
+    return `
+    ${metaBarHTML(`Question ${D.num} / ${D.total} — find the truth`, D.seconds)}
+    <div class="card"><div class="q-prompt">${blankify(D.q)}</div></div>
+    <div class="wall">${cards}</div>
+    ${voteLocked ? `<div class="lie-note">🗳️ Vote cast! Watch the TV…</div>` : ''}`;
+}
+
+function renderReveal() {
+    const my = D.my || {};
+    const ico = my.votedTruth ? '🕵️' : (my.voted !== null ? '🤦' : '😴');
+    const vt = my.votedTruth ? 'You found the truth!' : (my.voted !== null ? `Fooled by ${esc(my.fooledBy || 'a lie')}!` : 'No vote!');
+    const chips = [
+        my.votedTruth ? `<span class="chip gd">🕵️ Truth +100</span>` : '',
+        my.truthBonus ? `<span class="chip gd">🎯 Your lie WAS the truth +50</span>` : '',
+        my.myFools && my.myFools.length ? `<span class="chip pk">🤥 Fooled ${my.myFools.map(f => esc(f.avatar)).join('')} ${my.myFools.length > 1 ? '×' + my.myFools.length : ''}</span>` : '',
+    ].join('');
+    const cards = (D.cards || []).map(c => {
+        const cls = ['wall-card'];
+        if (c.isTruth) cls.push('truth-card');
+        else if (c.key === my.voted) cls.push('wrongpick');
+        else cls.push('faded');
+        const who = c.isTruth
+            ? `<span class="let" style="color:var(--good)">THE TRUTH</span>`
+            : `<span class="let">${c.authors.map(a => esc(a.avatar + ' ' + a.name)).join(' & ')} · fooled ${c.votes.length}</span>`;
+        return `<div class="${cls.join(' ')}" style="cursor:default"><div style="flex:1"><div>${esc(c.text)}</div>${who}</div></div>`;
+    }).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-k btn-full" style="font-size:1.02rem;padding:15px" onclick="guestCtl('next')">${D.isLast ? '🏆 See the podium' : '➡️ Next question'}</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.74rem;font-weight:800">${D.tvHost ? `👑 ${esc(D.captain || '')} taps next` : 'The host taps next'}…</div>`;
+    return `
+    <div class="card verdict">
+        <div class="vico">${ico}</div>
+        <div class="vt">${vt}</div>
+        ${my.delta ? `<div class="vpts">+${my.delta}</div>` : ''}
+        <div style="margin-top:6px">${chips}</div>
+    </div>
+    <div class="wall">${cards}</div>
+    ${standingsHTML(D.standings || [])}
+    ${driveBtn}`;
+}
+
+function renderPodium() {
+    const st = D.standings || [];
+    const awards = (D.awards || []).map(a =>
+        `<span class="chip">${a.emoji} ${esc(a.title)}: ${esc(a.name)} (${esc(a.detail)})</span>`).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.02rem;padding:15px" onclick="guestCtl('again')">🔁 Play again</button>` : '';
+    return `
+    ${hdrHTML('Game over!')}
+    <div class="card verdict highlight">
+        <div class="vico">🏆</div>
+        <div class="vt">${esc(st[0]?.name || '')} wins!</div>
+        <div style="margin-top:8px">${awards}</div>
+    </div>
+    ${standingsHTML(st)}
+    ${driveBtn}`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — TV screens
+// ═══════════════════════════════════════════
+function tvShell(inner, meta) {
+    return `<div class="tv">
+        <div class="tv-top">
+            <div class="tv-logo">🤥 FIBBERS!</div>
+            <div class="tv-meta">${esc(meta || ('Room ' + (vD.roomCode || roomCode || '')))}</div>
+        </div>
+        ${inner}
+    </div>`;
+}
+
+function renderViewer() {
+    if (!vD) return renderSpinner('Waiting for the game…');
+    switch (vD.type) {
+        case 'viewer_lobby':  return renderViewerLobby();
+        case 'viewer_lie':    return renderViewerLie();
+        case 'viewer_vote':   return renderViewerVote();
+        case 'viewer_reveal': return renderViewerReveal();
+        case 'viewer_podium': return renderViewerPodium();
+        default:              return renderSpinner('Waiting for the game…');
+    }
+}
+
+function renderViewerLobby() {
+    const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
+    const players = vD.players || [];
+    const cards = players.map(p =>
+        `<div class="tv-pcard"><div class="pav-big">${esc(p.avatar)}</div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
+    const s = vD.settings || {};
+    return tvShell(`
+    <div class="tv-lobby">
+        <div class="qr-side">
+            <div class="slbl">Scan with your phone to join</div>
+            <div class="qr-wrap">${qrSVG(url)}</div>
+            <div class="room-code">${esc(vD.roomCode || '')}</div>
+            <div class="join-hint">${location.host}${location.pathname}</div>
+        </div>
+        <div class="tv-players">
+            <div class="rail-title">Players — ${players.length}/${MAX_PLAYERS}</div>
+            <div class="tv-player-grid">${cards}</div>
+            <div class="tv-waiting">${players.length === 0
+                ? 'Waiting for the first phone… they become 👑 Captain'
+                : (players.length < MIN_PLAYERS ? 'Need at least ' + MIN_PLAYERS + ' players…' :
+                    `${vD.tvHost ? `Waiting for 👑 ${esc(vD.captain || '')}` : 'Waiting for the host'} to start · ❓ ${s.qCount} questions`)}</div>
+        </div>
+    </div>`, 'Lobby');
+}
+
+function renderViewerLie() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-qcard">
+                <div class="kicker">🤥 Everyone — write a convincing lie on your phone!</div>
+                <div class="q">${blankify(vD.q)}</div>
+            </div>
+            <div class="tv-counter" id="v-counter">🤥 ${vD.submitted} of ${vD.playerCount} lies in</div>
+            <div class="tv-timebar-wrap"><div class="tv-timebar" id="v-timebar" style="width:100%"></div></div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">Lies in</div>
+            <div id="v-rail" style="display:flex;flex-direction:column;gap:1.3vmin">${railRowsHTML(vD.players, true)}</div>
+        </div>
+    </div>`, `Question ${vD.num} of ${vD.total}`);
+}
+
+function renderViewerVote() {
+    const cards = (vD.cards || []).map((c, i) =>
+        `<div class="tv-lie"><span class="let">${LETTERS[i]}</span>${esc(c.text)}</div>`).join('');
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-qcard" style="padding:2.2vmin 3vmin">
+                <div class="kicker">🗳️ One of these is the truth — vote on your phone!</div>
+                <div class="q" style="font-size:2.6vmin">${blankify(vD.q)}</div>
+            </div>
+            <div class="tv-wall">${cards}</div>
+            <div class="tv-counter" id="v-counter">🗳️ ${vD.voted} of ${vD.playerCount} votes in</div>
+            <div class="tv-timebar-wrap"><div class="tv-timebar" id="v-timebar" style="width:100%"></div></div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">Votes in</div>
+            <div id="v-rail" style="display:flex;flex-direction:column;gap:1.3vmin">${railRowsHTML(vD.players, true)}</div>
+        </div>
+    </div>`, `Question ${vD.num} of ${vD.total}`);
+}
+
+function renderViewerReveal() {
+    // cards arrive in theatre order (least-voted lies → truth); render hidden, theatre flips them
+    const cards = (vD.cards || []).map(c => `
+        <div class="tv-lie hidden-card${c.isTruth ? ' is-truth' : ''}" id="tvlie-${c.key}">
+            ${c.authors.length ? `<span class="authors">${c.authors.map(a => esc(a.avatar)).join('')}</span>` : ''}
+            <span class="tag${c.isTruth ? ' truth' : ''}">${c.isTruth ? '✅ THE TRUTH' : 'a lie by ' + c.authors.map(a => esc(a.name)).join(' & ')}</span>
+            <div>${esc(c.text)}</div>
+            <div class="fooled">${c.votes.length ? (c.isTruth ? '🕵️ found by ' : '🤦 fooled ') + c.votes.map(v => esc(v.avatar)).join('') : ''}</div>
+        </div>`).join('');
+    const hint = vD.tvHost
+        ? `👑 ${esc(vD.captain || 'Captain')}: tap ${vD.isLast ? '“See the podium”' : '“Next question”'} on your phone`
+        : `Host: tap ${vD.isLast ? '“See the podium”' : '“Next question”'} on your phone`;
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-qcard" style="padding:2.2vmin 3vmin">
+                <div class="kicker">🎭 The reveal…</div>
+                <div class="q" style="font-size:2.6vmin">${blankify(vD.q)}</div>
+            </div>
+            <div class="tv-wall">${cards}</div>
+            <div class="tv-waiting" id="v-nexthint" style="text-align:center;opacity:0;transition:opacity .5s">${hint}</div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">Scores</div>
+            ${railRowsHTML(vD.players)}
+        </div>
+    </div>`, `Question ${vD.num} of ${vD.total}`);
+}
+
+function renderViewerPodium() {
+    const st = vD.standings || [];
+    const podOrder = [st[1], st[0], st[2]].filter(Boolean);
+    const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
+    const medal = { p1: '🥇', p2: '🥈', p3: '🥉' };
+    const pods = podOrder.map((p, i) => `
+        <div class="pod ${cls[i]}" style="animation-delay:${i * 0.18}s">
+            <div class="pav-big">${esc(p.avatar)}</div>
+            <div class="pname">${esc(p.name)}</div>
+            <div class="pscore">${p.score} pts</div>
+            <div class="block">${medal[cls[i]]}</div>
+        </div>`).join('');
+    const rest = st.slice(3).map((p, i) =>
+        `<div class="rail-row"><span>${i + 4}.</span><span class="rav">${esc(p.avatar)}</span><span class="rname">${esc(p.name)}</span><span class="rsc">${p.score}</span></div>`).join('');
+    const awards = (vD.awards || []).map(a =>
+        `<div class="award">${a.emoji} <span class="aw-t">${esc(a.title)}</span><br>${esc(a.name)} — ${esc(a.detail)}</div>`).join('');
+    const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: “Play again” is on your phone` : 'Host: “Play again” is on your phone';
+    return tvShell(`
+    <div class="tv-main" style="flex-direction:column">
+        <div class="podium-wrap">${pods}</div>
+        <div class="awards-row">${awards}</div>
+        ${rest ? `<div style="display:flex;gap:1.4vmin;justify-content:center;flex-wrap:wrap">${rest}</div>` : ''}
+        <div class="tv-waiting" style="text-align:center;padding-bottom:1.5vmin">${hint}</div>
+    </div>`, '🏆 Final scores');
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+window.addEventListener('resize', () => {
+    const cv = $id('confetti-cv');
+    if (cv && _cf.running) { cv.width = innerWidth; cv.height = innerHeight; }
+});
+
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
+    if (!fAvatar) fAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    render();
+})();
+</script>
+</body>
+</html>

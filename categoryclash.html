@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Category Clash</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230b0620' width='100' height='100' rx='20'/><text x='50' y='68' font-size='52' text-anchor='middle'>⚡</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0b0620; --panel: rgba(30,20,64,0.8); --panel2: rgba(42,28,88,0.9);
+            --border: rgba(255,225,77,0.25); --border2: rgba(148,132,206,0.3);
+            --text: #f1edff; --muted: #9484ce;
+            --letter: #ffe14d; --cyan: #22d3ee; --clash: #f472b6; --good: #4ade80; --bad: #f87171;
+        }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 26px 16px 48px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 65% 45% at 50% -5%, rgba(255,225,77,0.10) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 42% at 8% 100%, rgba(34,211,238,0.10) 0%, transparent 65%),
+                radial-gradient(ellipse 50% 42% at 95% 100%, rgba(244,114,182,0.09) 0%, transparent 65%);
+        }
+        body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
+
+        h1.logo {
+            font-family: 'Orbitron', sans-serif; font-weight: 900; letter-spacing: 2px;
+            font-size: clamp(1.5rem, 6.5vw, 2.3rem); text-align: center; color: var(--letter);
+            text-shadow: 0 0 26px rgba(255,225,77,.4);
+        }
+        h1.logo em { font-style: normal; color: var(--clash); text-shadow: 0 0 26px rgba(244,114,182,.5); }
+        .sub { color: var(--muted); font-size: .7rem; letter-spacing: 2.5px; text-transform: uppercase; margin: 7px 0 22px; text-align: center; }
+
+        #app { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 13px; }
+        body.viewer-mode #app { max-width: none; height: 100dvh; display: block; }
+
+        .card {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 16px;
+            padding: 18px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 12px 34px rgba(0,0,0,.5);
+        }
+        .card.highlight { border-color: var(--letter); box-shadow: 0 0 26px rgba(255,225,77,.13), 0 12px 34px rgba(0,0,0,.5); }
+        .slbl { font-size: .64rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 11px; }
+
+        .fg { margin-bottom: 12px; }
+        .fg label { display: block; font-size: .64rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+        input[type=text] {
+            width: 100%; padding: 12px 14px; font-family: inherit; font-size: 1rem; font-weight: 700;
+            border: 2px solid var(--border2); border-radius: 11px; background: rgba(11,6,32,.7); color: var(--text);
+            outline: none;
+        }
+        input[type=text]:focus { border-color: var(--letter); }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            font-family: inherit; font-weight: 900; font-size: .92rem; letter-spacing: .4px;
+            padding: 13px 18px; border: none; border-radius: 13px; cursor: pointer;
+            transition: opacity .12s, filter .12s; user-select: none; -webkit-user-select: none;
+            color: var(--text);
+        }
+        .btn:active { filter: brightness(1.25); }
+        .btn-p { background: linear-gradient(180deg, #ffe97a, #f5c518); color: #2e2300; box-shadow: 0 5px 0 #9a7a00, 0 10px 22px rgba(255,225,77,.28); }
+        .btn-c { background: linear-gradient(180deg, #67e8f9, #0891b2); color: #012a33; box-shadow: 0 5px 0 #065666, 0 10px 22px rgba(34,211,238,.28); }
+        .btn-g { background: rgba(148,132,206,.14); box-shadow: inset 0 0 0 2px var(--border2); }
+        .btn-full { width: 100%; }
+        .btn-sm { padding: 8px 13px; font-size: .74rem; border-radius: 10px; }
+        .btn:disabled { opacity: .4; cursor: default; }
+
+        .err {
+            background: rgba(248,113,113,.12); border: 1px solid rgba(248,113,113,.5); color: #fecaca;
+            padding: 11px 14px; border-radius: 12px; font-size: .8rem; font-weight: 700; text-align: center;
+        }
+        hr { border: none; border-top: 1px dashed var(--border2); margin: 13px 0; }
+
+        .connecting { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 46px 0; color: var(--muted); font-weight: 700; }
+        .spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid rgba(255,225,77,.15); border-top-color: var(--letter); animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .player-row { display: flex; align-items: center; gap: 11px; padding: 8px 4px; border-bottom: 1px dashed var(--border2); font-weight: 700; font-size: .92rem; }
+        .player-row:last-child { border-bottom: none; }
+        .pdot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 10px currentColor; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 8px var(--good); margin-left: auto; }
+        .qr-wrap { width: min(210px, 58vw); margin: 6px auto 10px; border-radius: 13px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.4); }
+        .qr-wrap svg { display: block; width: 100%; height: auto; }
+        .room-code { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 2.2rem; letter-spacing: 11px; text-align: center; color: var(--letter); padding-left: 11px; text-shadow: 0 0 18px rgba(255,225,77,.4); }
+        .share-row { display: flex; gap: 8px; justify-content: center; margin: 10px 0 6px; }
+        .seg-row { display: flex; flex-wrap: wrap; gap: 7px; }
+
+        /* ── phone: race ── */
+        .race-head { display: flex; align-items: center; gap: 12px; }
+        .letter-tile {
+            width: 64px; height: 64px; flex-shrink: 0; border-radius: 14px;
+            background: linear-gradient(180deg, #ffe97a, #f5c518); color: #2e2300;
+            font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 2.2rem;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 5px 0 #9a7a00, 0 0 26px rgba(255,225,77,.35);
+        }
+        .race-meta { flex: 1; }
+        .race-meta .r1 { font-weight: 900; font-size: .95rem; }
+        .race-meta .r2 { color: var(--muted); font-weight: 700; font-size: .72rem; }
+        .timebar-wrap { height: 10px; border-radius: 6px; background: rgba(255,255,255,.09); overflow: hidden; margin-top: 8px; }
+        .timebar { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--cyan), var(--letter)); transition: width .2s linear; }
+        .ans-list { display: flex; flex-direction: column; gap: 9px; }
+        .ans-item label { display: block; font-size: .66rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--cyan); margin-bottom: 3px; }
+        .ans-item input { padding: 10px 12px; font-size: .95rem; }
+        .ans-item input.filled { border-color: rgba(74,222,128,.5); }
+
+        /* ── phone/TV: judge ── */
+        .judge-cat { font-weight: 900; font-size: 1.1rem; }
+        .judge-cat small { display: block; color: var(--muted); font-size: .7rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 3px; }
+        .entry-row {
+            display: flex; align-items: center; gap: 10px; padding: 9px 4px;
+            border-bottom: 1px dashed var(--border2); font-weight: 700; font-size: .92rem;
+        }
+        .entry-row:last-child { border-bottom: none; }
+        .entry-row .ans { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .entry-row .ans.strike { text-decoration: line-through; color: var(--clash); }
+        .entry-row .ans.invalid { text-decoration: line-through; color: var(--muted); }
+        .entry-row .verdict { font-weight: 900; font-size: .74rem; white-space: nowrap; }
+        .entry-row .verdict.ok { color: var(--good); }
+        .entry-row .verdict.clash { color: var(--clash); }
+        .entry-row .verdict.bad { color: var(--muted); }
+        .vbtn { border: none; border-radius: 9px; padding: 6px 10px; font-family: inherit; font-weight: 900; font-size: .74rem; cursor: pointer; background: rgba(148,132,206,.16); color: var(--text); box-shadow: inset 0 0 0 2px var(--border2); }
+        .vbtn.on { background: rgba(248,113,113,.2); box-shadow: inset 0 0 0 2px rgba(248,113,113,.6); }
+        .chip { display: inline-block; padding: 4px 12px; border-radius: 11px; background: rgba(255,225,77,.1); border: 1px solid var(--border); color: var(--letter); font-weight: 900; font-size: .74rem; margin: 3px; }
+        .standings .sc { margin-left: auto; font-weight: 900; }
+        .standings .delta { color: var(--good); font-size: .72rem; font-weight: 900; margin-left: 7px; }
+
+        /* ═════════ TV ═════════ */
+        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 2.6vmin 3.2vmin; gap: 1.8vmin; }
+        .tv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 2vmin; }
+        .tv-logo { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 3vmin; letter-spacing: .3vmin; color: var(--letter); text-shadow: 0 0 24px rgba(255,225,77,.4); }
+        .tv-logo em { font-style: normal; color: var(--clash); }
+        .tv-meta { font-size: 1.8vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .tv-main { flex: 1; display: flex; gap: 2.4vmin; min-height: 0; }
+        .tv-rail { width: 30vmin; min-width: 240px; display: flex; flex-direction: column; gap: 1.3vmin; }
+        .rail-title { font-size: 1.6vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .rail-row {
+            display: flex; align-items: center; gap: 1.2vmin; background: var(--panel);
+            border: 1px solid var(--border2); border-radius: 1.5vmin; padding: 1.1vmin 1.5vmin;
+            font-weight: 800; font-size: 2vmin; position: relative;
+        }
+        .rail-row .rdot { width: 1.6vmin; height: 1.6vmin; border-radius: 50%; box-shadow: 0 0 10px currentColor; flex-shrink: 0; }
+        .rail-row .rname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rail-row .rsc { font-family: 'Orbitron', sans-serif; font-weight: 900; color: var(--letter); font-variant-numeric: tabular-nums; }
+        .rail-row .rdelta { position: absolute; right: 1vmin; top: -1.2vmin; font-size: 1.6vmin; font-weight: 900; color: var(--good); text-shadow: 0 2px 6px rgba(0,0,0,.6); animation: riseIn .5s ease both; }
+        @keyframes riseIn { from { opacity: 0; transform: translateY(1vmin); } to { opacity: 1; transform: none; } }
+
+        .tv-stage { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: 1.6vmin; }
+        .tv-race { flex: 1; display: flex; gap: 2.6vmin; min-height: 0; }
+        .tv-letter {
+            width: 26vmin; height: 26vmin; align-self: center; border-radius: 3vmin; flex-shrink: 0;
+            background: linear-gradient(180deg, #ffe97a, #f5c518); color: #2e2300;
+            font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 17vmin;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 1.4vmin 0 #9a7a00, 0 0 8vmin rgba(255,225,77,.35);
+            animation: popIn .5s ease both;
+        }
+        @keyframes popIn { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+        .tv-cats { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 1.1vmin; min-width: 0; }
+        .tv-cat {
+            display: flex; align-items: center; gap: 1.4vmin; background: var(--panel);
+            border: 1px solid var(--border2); border-radius: 1.4vmin; padding: 1.2vmin 1.8vmin;
+            font-weight: 800; font-size: 2.3vmin;
+        }
+        .tv-cat .n { font-family: 'Orbitron', sans-serif; color: var(--cyan); font-size: 1.9vmin; width: 2.6vmin; }
+        .tv-race-bottom { display: flex; align-items: center; gap: 2vmin; }
+        .tv-progress-chips { display: flex; gap: 1vmin; flex-wrap: wrap; flex: 1; }
+        .prog-chip {
+            display: flex; align-items: center; gap: .8vmin; background: var(--panel);
+            border: 1px solid var(--border2); border-radius: 1.2vmin; padding: .7vmin 1.3vmin;
+            font-weight: 800; font-size: 1.8vmin;
+        }
+        .prog-chip .rdot { width: 1.4vmin; height: 1.4vmin; border-radius: 50%; }
+        .prog-chip.done { border-color: rgba(74,222,128,.55); }
+        .tv-timebar-wrap { flex: 0 0 30vmin; height: 1.6vmin; border-radius: .9vmin; background: rgba(255,255,255,.1); overflow: hidden; }
+        .tv-timebar { height: 100%; background: linear-gradient(90deg, var(--cyan), var(--letter)); border-radius: .9vmin; transition: width .2s linear; }
+        .tv-timenum { font-family: 'Orbitron', sans-serif; font-size: 2.6vmin; font-weight: 900; width: 6vmin; text-align: right; font-variant-numeric: tabular-nums; }
+
+        .tv-judge { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+        .tv-judge-head { display: flex; align-items: center; gap: 2vmin; margin-bottom: 1.8vmin; }
+        .tv-judge-head .letter-mini {
+            width: 7vmin; height: 7vmin; border-radius: 1.4vmin; flex-shrink: 0;
+            background: linear-gradient(180deg, #ffe97a, #f5c518); color: #2e2300;
+            font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 4.4vmin;
+            display: flex; align-items: center; justify-content: center; box-shadow: 0 .5vmin 0 #9a7a00;
+        }
+        .tv-judge-head .cat { font-weight: 900; font-size: 3.4vmin; }
+        .tv-judge-head .cat small { display: block; font-size: 1.6vmin; color: var(--muted); letter-spacing: .3vmin; text-transform: uppercase; font-weight: 800; }
+        .tv-entries { flex: 1; display: flex; flex-direction: column; gap: 1.2vmin; justify-content: center; }
+        .tv-entry {
+            display: flex; align-items: center; gap: 1.6vmin; background: var(--panel);
+            border: 1px solid var(--border2); border-radius: 1.6vmin; padding: 1.5vmin 2vmin;
+            font-size: 2.5vmin; font-weight: 800; animation: riseIn .4s ease both;
+        }
+        .tv-entry .rdot { width: 1.7vmin; height: 1.7vmin; border-radius: 50%; box-shadow: 0 0 10px currentColor; flex-shrink: 0; }
+        .tv-entry .who { color: var(--muted); font-size: 1.8vmin; width: 14vmin; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
+        .tv-entry .ans { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tv-entry .ans.strike { text-decoration: line-through; color: var(--clash); }
+        .tv-entry .ans.invalid { text-decoration: line-through; color: var(--muted); }
+        .tv-entry .verdict { font-weight: 900; font-size: 2vmin; white-space: nowrap; }
+        .tv-entry .verdict.ok { color: var(--good); }
+        .tv-entry .verdict.clash { color: var(--clash); text-shadow: 0 0 14px rgba(244,114,182,.5); }
+        .tv-entry .verdict.bad { color: var(--muted); }
+        .tv-entry.zap { border-color: rgba(244,114,182,.6); }
+        .tv-nobody { text-align: center; color: var(--muted); font-weight: 800; font-size: 2.2vmin; }
+        .tv-hint { text-align: center; color: var(--muted); font-weight: 800; font-size: 1.8vmin; }
+
+        /* TV lobby */
+        .tv-lobby { flex: 1; display: flex; gap: 4vmin; align-items: center; min-height: 0; }
+        .tv-lobby .qr-side { background: #1a1040; border: 1px solid var(--border); border-radius: 2.2vmin; padding: 3.2vmin; text-align: center; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+        .tv-lobby .qr-side .qr-wrap { width: 32vmin; margin: 1.4vmin auto; }
+        .tv-lobby .qr-side .room-code { font-size: 4.6vmin; letter-spacing: 1.9vmin; padding-left: 1.9vmin; }
+        .tv-lobby .join-hint { font-size: 1.7vmin; font-weight: 700; color: var(--muted); }
+        .tv-players { flex: 1; display: flex; flex-direction: column; gap: 1.5vmin; min-width: 0; }
+        .tv-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20vmin, 1fr)); gap: 1.5vmin; }
+        .tv-pcard {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 1.7vmin;
+            padding: 1.7vmin; text-align: center; font-weight: 900; font-size: 2vmin; animation: popIn .35s ease both;
+        }
+        .tv-pcard .pdot { width: 2.2vmin; height: 2.2vmin; margin: 0 auto 1vmin; }
+        .tv-waiting { color: var(--muted); font-weight: 800; font-size: 1.9vmin; }
+
+        /* podium */
+        .podium-wrap { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2.4vmin; padding-bottom: 1vmin; }
+        .pod { text-align: center; font-weight: 900; animation: popIn .5s ease both; }
+        .pod .pname { font-size: 2.4vmin; margin-bottom: .8vmin; }
+        .pod .pscore { font-size: 2vmin; color: var(--letter); margin-bottom: .8vmin; font-family: 'Orbitron', sans-serif; }
+        .pod .block { border-radius: 1.5vmin 1.5vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.3vmin; font-size: 3.2vmin; width: 17vmin; }
+        .pod.p1 .block { height: 21vmin; background: linear-gradient(180deg, #ffe97a, #9a7a00); }
+        .pod.p2 .block { height: 14vmin; background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
+        .pod.p3 .block { height: 9.5vmin; background: linear-gradient(180deg, #e8a06a, #9c5a33); }
+        .awards-row { display: flex; gap: 1.5vmin; justify-content: center; flex-wrap: wrap; padding-bottom: 2vmin; }
+        .award { background: var(--panel); border: 1px solid var(--border); border-radius: 1.5vmin; padding: 1.3vmin 2vmin; font-weight: 800; font-size: 1.8vmin; text-align: center; }
+        .award .aw-t { color: var(--letter); font-weight: 900; }
+
+        #confetti-cv { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <canvas id="confetti-cv"></canvas>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════
+// CONTENT — category pool
+// ═══════════════════════════════════════════
+const CATEGORIES = [
+    'Animals', 'Things in the kitchen', 'Pizza toppings', "Boys' names", "Girls' names",
+    'Things that are cold', 'TV shows', 'Fruits', 'Vegetables', 'Countries',
+    'Cities', 'Things at the beach', 'Sports', 'Jobs', 'Things in a school bag',
+    'Cartoon characters', 'Superheroes', 'Things that fly', 'Ice cream flavours', 'Sandwich fillings',
+    'Things in the garden', 'Farm animals', 'Sea creatures', 'Birds', 'Names for a dog',
+    'Things that are round', 'Things that are green', 'Board games', 'Musical instruments', 'Famous people',
+    'Book characters', 'Movies', 'Things in the bathroom', 'Clothes', 'Types of weather',
+    'Hobbies', 'Desserts', 'Breakfast foods', 'Drinks', 'Snacks',
+    'Flowers', 'Trees', 'Insects', 'Things at a birthday party', 'Holiday destinations',
+    'Things in a park', 'Video games', 'Words a teacher says', 'Excuses for being late', 'Things you shout at football',
+    "Things in Dad's shed", 'Things Mum tells you to do', 'Pets', 'Zoo animals', 'Things that are sticky',
+    'Things you take camping', 'Silly superpowers', 'Things in the fridge', 'Christmas things', 'Things that make noise',
+    'Things you can ride', 'Halloween things', 'Things underground', 'Things that smell nice',
+];
+const LETTERS = 'ABCDEFGHIJKLMNOPRSTUVWY'.split('');   // no Q, X, Z
+const CATS_PER_ROUND = 8;
+
+// ═══════════════════════════════════════════
+// CONSTANTS & HELPERS
+// ═══════════════════════════════════════════
+const PFX = 'CATCLASH-';
+const MAX_PLAYERS = 12, MIN_PLAYERS = 2;
+const PLAYER_COLORS = ['#ffe14d', '#22d3ee', '#f472b6', '#4ade80', '#a78bfa', '#fb923c', '#f87171', '#38bdf8', '#facc15', '#34d399', '#e879f9', '#fda4af'];
+
+function $id(id) { return document.getElementById(id); }
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function normAns(s) {
+    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .toLowerCase().trim().replace(/^the\s+/, '').replace(/\s+/g, ' ');
+}
+
+// ── QR code (themed SVG) ──
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+        let rects = '';
+        for (let r = 0; r < n; r++)
+            for (let c = 0; c < n; c++)
+                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+            `<rect width="${size}" height="${size}" fill="#fffbe6"/>` +
+            `<g fill="#1a1040">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+
+// ── Confetti ──
+let _cf = { parts: [], raf: 0, running: false, until: 0 };
+function startConfetti(ms) {
+    if (REDUCED) return;
+    const cv = $id('confetti-cv'), ctx = cv.getContext('2d');
+    cv.width = innerWidth; cv.height = innerHeight;
+    _cf.until = performance.now() + (ms || 2600);
+    const cols = ['#ffe14d', '#22d3ee', '#f472b6', '#4ade80', '#a78bfa', '#f1edff'];
+    for (let i = 0; i < 130; i++) {
+        _cf.parts.push({
+            x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5,
+            vx: (Math.random() - 0.5) * 2.4, vy: 2 + Math.random() * 3.6,
+            rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.25,
+            w: 6 + Math.random() * 7, h: 4 + Math.random() * 5,
+            col: cols[Math.floor(Math.random() * cols.length)],
+        });
+    }
+    if (_cf.running) return;
+    _cf.running = true;
+    (function frame(t) {
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        _cf.parts = _cf.parts.filter(p => p.y < cv.height + 30);
+        for (const p of _cf.parts) {
+            p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+            ctx.fillStyle = p.col; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            ctx.restore();
+        }
+        if (t < _cf.until || _cf.parts.length) _cf.raf = requestAnimationFrame(frame);
+        else { _cf.running = false; ctx.clearRect(0, 0, cv.width, cv.height); }
+    })(performance.now());
+}
+
+// ── Synth sounds (no assets) ──
+let _ac = null;
+function ac() { if (!_ac) { try { _ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return _ac; }
+function tone(freq, dur, type, gain, when) {
+    const a = ac(); if (!a) return;
+    try {
+        const t0 = a.currentTime + (when || 0);
+        const o = a.createOscillator(), g = a.createGain();
+        o.type = type || 'triangle'; o.frequency.value = freq;
+        g.gain.setValueAtTime(gain || 0.07, t0);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        o.connect(g); g.connect(a.destination);
+        o.start(t0); o.stop(t0 + dur);
+    } catch (e) {}
+}
+function sGo() { tone(392, 0.1); tone(523, 0.1, 'triangle', 0.07, 0.09); tone(784, 0.25, 'triangle', 0.07, 0.18); }
+function sZap() { tone(220, 0.18, 'sawtooth', 0.05); tone(140, 0.25, 'sawtooth', 0.05, 0.08); }
+function sDing() { tone(880, 0.14); tone(1318, 0.22, 'triangle', 0.06, 0.1); }
+function sTick() { tone(660, 0.06, 'square', 0.035); }
+function sWin() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.3, 'triangle', 0.06, i * 0.13)); }
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let peer = null, myId = '', myName = '', isHost = false, isTvHost = false, isViewer = false, roomCode = '';
+let hostConn = null, guestConns = {}, viewerConns = {};
+let ui = 'home';   // home|creating|connecting|lobby_h|lobby_g|race|judge|podium|viewer
+let uiErr = '';
+let fName = localStorage.getItem('cc-name') || '';
+let fCode = '', fVCode = '';
+let D = null, vD = null;
+
+// phone-local race state
+let myAnswers = [];
+let myDone = false;
+let raceEndsAt = 0, raceTotal = 0;
+let _raceTick = null, _ansTimer = null;
+
+// Host authoritative state
+let H = {
+    phase: 'lobby',              // lobby|race|judge|podium
+    players: [],                 // [{id,name,color,score,answers:[8],done,uniques,clashes,lastDelta}]
+    settings: { rounds: 3, timerSecs: 90 },
+    round: 0,
+    usedLetters: [], usedCats: [],
+    cur: null,                   // {letter, categories:[8]}
+    judge: null,                 // {catIndex}
+    vetoSet: new Set(),          // `${catIndex}|${pid}`
+    winnerStats: null,
+};
+let _raceTimer = null, _vProgTimer = null;
+
+// ═══════════════════════════════════════════
+// NETWORK
+// ═══════════════════════════════════════════
+function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('send err', e); } }
+function broadcastViewers(msg) { Object.values(viewerConns).forEach(c => send(c, msg)); }
+function connectedPlayers() {
+    return H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+}
+
+function hostAddPlayer(id, name) {
+    if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
+    H.players.push({
+        id, name, color: PLAYER_COLORS[H.players.length % PLAYER_COLORS.length],
+        score: 0, answers: [], done: false, uniques: 0, clashes: 0, lastDelta: 0,
+    });
+}
+
+function lobbyMsg() {
+    return {
+        type: 'lobby', roomCode,
+        players: H.players.map(p => ({ name: p.name, color: p.color })),
+        settings: { ...H.settings },
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+function broadcastLobby() {
+    H.players.forEach(p => { if (p.id !== myId && guestConns[p.id]) send(guestConns[p.id], lobbyMsg()); });
+    broadcastViewers({ ...lobbyMsg(), type: 'viewer_lobby' });
+    hostSyncSelf(lobbyMsg());
+}
+
+function raceMsg() {
+    return {
+        type: 'race', round: H.round, rounds: H.settings.rounds,
+        letter: H.cur.letter, categories: H.cur.categories, seconds: H.settings.timerSecs,
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+function raceProgress() {
+    return H.players.map(p => ({
+        name: p.name, color: p.color, score: p.score,
+        filled: (p.answers || []).filter(a => a && a.trim()).length, done: !!p.done,
+    }));
+}
+function viewerRaceMsg() { return { ...raceMsg(), type: 'viewer_race', progress: raceProgress() }; }
+
+function judgeEntries() {
+    const cat = H.judge.catIndex;
+    const L = H.cur.letter.toLowerCase();
+    const raw = H.players
+        .map(p => ({ pid: p.id, name: p.name, color: p.color, ans: (p.answers[cat] || '').trim() }))
+        .filter(e => e.ans);
+    raw.forEach(e => {
+        e.norm = normAns(e.ans);
+        e.letterOk = e.norm.startsWith(L);
+        e.veto = H.vetoSet.has(cat + '|' + e.pid);
+    });
+    const counts = {};
+    raw.forEach(e => { if (e.letterOk && !e.veto) counts[e.norm] = (counts[e.norm] || 0) + 1; });
+    raw.forEach(e => {
+        e.clash = e.letterOk && !e.veto && counts[e.norm] > 1;
+        const words = e.norm.split(' ').filter(Boolean);
+        e.allit = words.length >= 2 && words.every(w => w.startsWith(L));
+        e.pts = (e.letterOk && !e.veto && !e.clash) ? (10 + (e.allit ? 5 : 0)) : 0;
+    });
+    return raw;
+}
+
+function judgeMsg() {
+    const cat = H.judge.catIndex;
+    return {
+        type: 'judge', round: H.round, rounds: H.settings.rounds,
+        letter: H.cur.letter, catIndex: cat, catTotal: CATS_PER_ROUND,
+        category: H.cur.categories[cat],
+        entries: judgeEntries().map(e => ({ pid: e.pid, name: e.name, color: e.color, ans: e.ans, letterOk: e.letterOk, veto: e.veto, clash: e.clash, allit: e.allit, pts: e.pts })),
+        players: H.players.map(p => ({ name: p.name, color: p.color, score: p.score, delta: p.lastDelta })),
+        isLastCat: cat === CATS_PER_ROUND - 1,
+        isLastRound: H.round >= H.settings.rounds,
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+
+function podiumMsg() {
+    const st = H.players.slice().sort((a, b) => b.score - a.score)
+        .map(p => ({ name: p.name, color: p.color, score: p.score }));
+    const most = k => H.players.slice().sort((x, y) => y[k] - x[k])[0];
+    const awards = [];
+    const w = most('uniques'), c = most('clashes');
+    if (w && w.uniques > 0) awards.push({ emoji: '🖋️', title: 'Wordsmith', name: w.name, detail: w.uniques + ' unique answers' });
+    if (c && c.clashes > 0) awards.push({ emoji: '💥', title: 'Clash Magnet', name: c.name, detail: c.clashes + ' duplicates' });
+    return {
+        type: 'podium', standings: st, awards, winner: st[0]?.name || '',
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+
+function phaseSnapshotFor() {
+    if (H.phase === 'race') return raceMsg();
+    if (H.phase === 'judge') return judgeMsg();
+    if (H.phase === 'podium') return podiumMsg();
+    return lobbyMsg();
+}
+function viewerSnapshot() {
+    if (H.phase === 'race') return viewerRaceMsg();
+    if (H.phase === 'judge') return { ...judgeMsg(), type: 'viewer_judge' };
+    if (H.phase === 'podium') return { ...podiumMsg(), type: 'viewer_podium' };
+    return { ...lobbyMsg(), type: 'viewer_lobby' };
+}
+
+// ── Host: incoming connections ──
+function setupGuestConn(conn) {
+    conn.on('open', () => { conn._role = null; });
+
+    conn.on('data', msg => {
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer';
+            viewerConns[conn.peer] = conn;
+            send(conn, viewerSnapshot());
+            return;
+        }
+        if (conn._role === null) {
+            conn._role = 'player';
+            guestConns[conn.peer] = conn;
+        }
+        const player = H.players.find(p => p.id === conn.peer);
+        switch (msg.type) {
+            case 'join': {
+                const name = String(msg.name || 'Player').slice(0, 16);
+                const zombie = H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
+                if (zombie) zombie.id = conn.peer;
+                else hostAddPlayer(conn.peer, name);
+                const p2 = H.players.find(p => p.id === conn.peer);
+                if (!p2) { send(conn, lobbyMsg()); break; }         // room full
+                if (H.phase === 'lobby') broadcastLobby();
+                else { send(conn, phaseSnapshotFor()); broadcastViewers(viewerSnapshot()); if (isTvHost) tvHostSync(); }
+                break;
+            }
+            case 'answers': if (player) hostReceiveAnswers(player, msg.answers, msg.round, false); break;
+            case 'done':    if (player) hostReceiveAnswers(player, msg.answers, msg.round, true); break;
+            case 'ctl': {
+                if (!isTvHost || !player || player.id !== H.players[0]?.id) break;
+                hostCtl(msg.action, msg);
+                break;
+            }
+        }
+    });
+
+    conn.on('close', () => {
+        delete guestConns[conn.peer];
+        delete viewerConns[conn.peer];
+        if (H.phase === 'lobby') {
+            const pi = H.players.findIndex(p => p.id === conn.peer);
+            if (pi >= 0) { H.players.splice(pi, 1); broadcastLobby(); }
+        } else if (H.phase === 'race') {
+            maybeEndRaceEarly();
+        }
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+function hostCtl(action, msg) {
+    if (action === 'start' && H.phase === 'lobby') hostStartGame();
+    else if (action === 'veto' && H.phase === 'judge') hostVeto(msg.pid);
+    else if (action === 'nextcat' && H.phase === 'judge') hostNextCategory();
+    else if (action === 'again' && H.phase === 'podium') hostNewGame();
+    else if (action === 'set' && H.phase === 'lobby') {
+        if ([2, 3, 5].includes(msg.rounds)) H.settings.rounds = msg.rounds;
+        if ([60, 90, 120].includes(msg.timerSecs)) H.settings.timerSecs = msg.timerSecs;
+        broadcastLobby();
+    }
+}
+function guestCtl(action, extra) {
+    if (isHost && !isTvHost) { hostCtl(action, extra || {}); return; }
+    if (hostConn) send(hostConn, { type: 'ctl', action, ...(extra || {}) });
+}
+
+// ── Create a room (phone host or TV host) ──
+function makeRoom(onOpen) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    roomCode = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    peer = new Peer(PFX + roomCode);
+    peer.on('open', id => { myId = id; isHost = true; onOpen(); });
+    peer.on('connection', conn => setupGuestConn(conn));
+    peer.on('error', e => {
+        uiErr = 'Connection error: ' + e.message;
+        isHost = false; isTvHost = false;
+        document.body.classList.remove('viewer-mode');
+        ui = 'home'; render();
+    });
+}
+
+function hostGame(name) {
+    myName = name.trim().slice(0, 16) || 'Host';
+    localStorage.setItem('cc-name', myName);
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        hostAddPlayer(myId, myName);
+        ui = 'lobby_h';
+        render();
+    });
+}
+
+function hostOnTV() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        isTvHost = true;
+        document.body.classList.add('viewer-mode');
+        tvHostSync();
+        render();
+    });
+}
+
+// ── Guest ──
+function joinGame(code, name) {
+    myName = name.trim().slice(0, 16) || 'Player';
+    localStorage.setItem('cc-name', myName);
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        isHost = false;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join', name: myName }));
+        hostConn.on('data', msg => applyMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the game.'; ui = 'home'; D = null; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        ui = 'home'; render();
+    });
+}
+
+// ── Viewer (TV joining a phone-hosted game) ──
+function joinAsViewer(code, _attempt) {
+    const attempt = _attempt || 1;
+    isViewer = true;
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join_viewer' }));
+        hostConn.on('data', msg => applyViewerMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the game.'; isViewer = false; vD = null; document.body.classList.remove('viewer-mode'); ui = 'home'; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; isViewer = false; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        if (attempt < 2) {
+            try { peer.destroy(); } catch (_) {}
+            peer = null;
+            setTimeout(() => joinAsViewer(code, 2), 600);
+            return;
+        }
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        isViewer = false; ui = 'home'; render();
+    });
+}
+
+// The TV-host mirrors authoritative state into its own viewer UI
+function tvHostSync() {
+    if (!isTvHost) return;
+    applyViewerMsg(viewerSnapshot());
+}
+// The phone-host applies its own broadcasts through the same client path as guests
+function hostSyncSelf(msg) {
+    if (isTvHost) { tvHostSync(); return; }
+    if (isHost && msg) applyMsg(msg);
+}
+
+// ═══════════════════════════════════════════
+// HOST GAME FLOW
+// ═══════════════════════════════════════════
+function hostStartGame() {
+    if (connectedPlayers().length < MIN_PLAYERS) { uiErr = 'Need at least ' + MIN_PLAYERS + ' players.'; if (ui === 'lobby_h') render(); return; }
+    H.round = 0;
+    H.usedLetters = []; H.usedCats = [];
+    H.players.forEach(p => { p.score = 0; p.uniques = 0; p.clashes = 0; p.lastDelta = 0; });
+    nextRound();
+}
+
+function nextRound() {
+    clearTimeout(_raceTimer);
+    H.round += 1;
+    if (H.round > H.settings.rounds) { showPodium(); return; }
+    const letterPool = LETTERS.filter(l => !H.usedLetters.includes(l));
+    H.cur = { letter: shuffle(letterPool)[0], categories: [] };
+    H.usedLetters.push(H.cur.letter);
+    let catPool = CATEGORIES.filter(c => !H.usedCats.includes(c));
+    if (catPool.length < CATS_PER_ROUND) { H.usedCats = []; catPool = CATEGORIES.slice(); }
+    H.cur.categories = shuffle(catPool).slice(0, CATS_PER_ROUND);
+    H.usedCats.push(...H.cur.categories);
+    H.players.forEach(p => { p.answers = Array(CATS_PER_ROUND).fill(''); p.done = false; p.lastDelta = 0; });
+    H.vetoSet = new Set();
+    H.judge = null;
+    H.phase = 'race';
+    broadcastPhase();
+    _raceTimer = setTimeout(endRace, H.settings.timerSecs * 1000 + 600);
+}
+
+function broadcastPhase() {
+    const msg = phaseSnapshotFor();
+    H.players.forEach(p => { if (p.id !== myId && guestConns[p.id]) send(guestConns[p.id], msg); });
+    broadcastViewers(viewerSnapshot());
+    hostSyncSelf(msg);
+}
+
+function hostReceiveAnswers(player, answers, round, done) {
+    if (H.phase !== 'race' || round !== H.round) return;
+    if (Array.isArray(answers))
+        player.answers = Array.from({ length: CATS_PER_ROUND }, (_, i) => String(answers[i] || '').slice(0, 48));
+    if (done) player.done = true;
+    throttledProgress();
+    if (done) maybeEndRaceEarly();
+}
+
+let _progPending = false;
+function throttledProgress() {
+    if (_progPending) return;
+    _progPending = true;
+    setTimeout(() => {
+        _progPending = false;
+        if (H.phase !== 'race') return;
+        broadcastViewers({ type: 'viewer_race', ...raceMsg(), progress: raceProgress() });
+        if (isTvHost) tvHostSync();
+    }, 500);
+}
+
+function maybeEndRaceEarly() {
+    if (H.phase !== 'race') return;
+    const active = connectedPlayers();
+    if (active.length && active.every(p => p.done)) setTimeout(endRace, 400);
+}
+
+function endRace() {
+    if (H.phase !== 'race') return;
+    clearTimeout(_raceTimer);
+    H.phase = 'judge';
+    H.judge = { catIndex: 0 };
+    H.players.forEach(p => { p.lastDelta = 0; });
+    broadcastPhase();
+}
+
+function hostVeto(pid) {
+    const key = H.judge.catIndex + '|' + pid;
+    if (H.vetoSet.has(key)) H.vetoSet.delete(key);
+    else H.vetoSet.add(key);
+    broadcastPhase();
+}
+
+function hostNextCategory() {
+    // commit the current category's points, then advance
+    const entries = judgeEntries();
+    H.players.forEach(p => { p.lastDelta = 0; });
+    entries.forEach(e => {
+        const p = H.players.find(q => q.id === e.pid);
+        if (!p) return;
+        p.score += e.pts;
+        p.lastDelta = e.pts;
+        if (e.pts > 0) p.uniques += 1;
+        if (e.clash) p.clashes += 1;
+    });
+    H.judge.catIndex += 1;
+    if (H.judge.catIndex >= CATS_PER_ROUND) {
+        if (H.round < H.settings.rounds) nextRound();
+        else showPodium();
+    } else broadcastPhase();
+}
+
+function showPodium() {
+    clearTimeout(_raceTimer);
+    H.phase = 'podium';
+    broadcastPhase();
+}
+
+function hostNewGame() {
+    clearTimeout(_raceTimer);
+    H.phase = 'lobby';
+    H.round = 0; H.cur = null; H.judge = null; H.vetoSet = new Set();
+    H.usedLetters = []; H.usedCats = [];
+    H.players.forEach(p => { p.score = 0; p.answers = []; p.done = false; p.uniques = 0; p.clashes = 0; p.lastDelta = 0; });
+    H.players = H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+    broadcastLobby();
+    if (isHost && !isTvHost) { ui = 'lobby_h'; render(); }
+}
+
+function hostSet(patch) {
+    Object.assign(H.settings, patch);
+    broadcastLobby();
+    if (ui === 'lobby_h') render();
+}
+
+// ═══════════════════════════════════════════
+// CLIENT (phone) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+function stopRaceTick() { clearInterval(_raceTick); _raceTick = null; }
+
+function applyMsg(msg) {
+    switch (msg.type) {
+        case 'lobby':
+            D = msg;
+            stopRaceTick();
+            ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g';
+            render();
+            break;
+        case 'race': {
+            const fresh = !D || D.type !== 'race' || D.round !== msg.round;
+            D = msg;
+            if (fresh) {
+                myAnswers = Array(CATS_PER_ROUND).fill('');
+                myDone = false;
+                raceTotal = msg.seconds * 1000;
+                raceEndsAt = Date.now() + raceTotal;
+                ui = 'race';
+                render();
+                sGo();
+                stopRaceTick();
+                _raceTick = setInterval(patchRaceTimer, 200);
+            }
+            break;
+        }
+        case 'judge': {
+            const prev = D;
+            D = msg;
+            stopRaceTick();
+            const newCat = !prev || prev.type !== 'judge' || prev.catIndex !== msg.catIndex || prev.round !== msg.round;
+            ui = 'judge';
+            render();
+            if (newCat) { if (msg.entries.some(e => e.clash)) sZap(); else if (msg.entries.some(e => e.pts > 0)) sDing(); }
+            break;
+        }
+        case 'podium':
+            D = msg;
+            stopRaceTick();
+            ui = 'podium';
+            render();
+            sWin(); startConfetti(3600);
+            break;
+    }
+}
+
+function patchRaceTimer() {
+    const left = Math.max(0, raceEndsAt - Date.now());
+    const bar = $id('race-timebar'), num = $id('race-timenum');
+    if (bar) bar.style.width = (left / raceTotal * 100) + '%';
+    if (num) {
+        const s = Math.ceil(left / 1000);
+        if (num.textContent !== String(s)) { num.textContent = s; if (s <= 5 && s > 0) sTick(); }
+    }
+    if (left <= 0) stopRaceTick();
+}
+
+// ── race inputs (local-first, debounced sync) ──
+function onAns(i, val) {
+    myAnswers[i] = val;
+    const el = document.querySelector(`#ans-${i}`);
+    if (el) el.classList.toggle('filled', !!val.trim());
+    clearTimeout(_ansTimer);
+    _ansTimer = setTimeout(() => flushAnswers(false), 500);
+}
+function flushAnswers(done) {
+    clearTimeout(_ansTimer);
+    if (!D || D.type !== 'race') return;
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostReceiveAnswers(me, myAnswers, D.round, done);
+    } else if (hostConn) {
+        send(hostConn, { type: done ? 'done' : 'answers', round: D.round, answers: myAnswers });
+    }
+}
+function tapDone() {
+    if (myDone) return;
+    myDone = true;
+    flushAnswers(true);
+    const btn = $id('done-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '✅ Waiting for the others…'; }
+    document.querySelectorAll('.ans-item input').forEach(el => { el.disabled = true; });
+}
+
+// ═══════════════════════════════════════════
+// VIEWER (TV) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+let _vTick = null, _vEndsAt = 0, _vTotal = 0;
+function stopViewerTick() { clearInterval(_vTick); _vTick = null; }
+
+function applyViewerMsg(msg) {
+    document.body.classList.add('viewer-mode');
+    ui = 'viewer';
+    const prev = vD;
+    vD = msg;
+    switch (msg.type) {
+        case 'viewer_lobby':
+            stopViewerTick(); render(); break;
+        case 'viewer_race': {
+            const fresh = !prev || prev.type !== 'viewer_race' || prev.round !== msg.round;
+            if (fresh) {
+                stopViewerTick();
+                render();
+                sGo();
+                _vTotal = msg.seconds * 1000;
+                _vEndsAt = Date.now() + _vTotal;
+                _vTick = setInterval(patchViewerTimer, 200);
+            } else {
+                const prog = $id('v-prog');
+                if (prog) prog.innerHTML = progChipsHTML(msg.progress);
+            }
+            break;
+        }
+        case 'viewer_judge': {
+            stopViewerTick();
+            const newCat = !prev || prev.type !== 'viewer_judge' || prev.catIndex !== msg.catIndex || prev.round !== msg.round;
+            render();
+            if (newCat) { if (msg.entries.some(e => e.clash)) sZap(); else if (msg.entries.some(e => e.pts > 0)) sDing(); }
+            break;
+        }
+        case 'viewer_podium':
+            stopViewerTick(); render(); sWin(); startConfetti(5200); break;
+    }
+}
+
+function patchViewerTimer() {
+    const left = Math.max(0, _vEndsAt - Date.now());
+    const bar = $id('v-timebar'), num = $id('v-timenum');
+    if (bar) bar.style.width = (left / _vTotal * 100) + '%';
+    if (num) num.textContent = Math.ceil(left / 1000);
+    if (left <= 0) stopViewerTick();
+}
+
+// ═══════════════════════════════════════════
+// RENDER — shared bits
+// ═══════════════════════════════════════════
+function hdrHTML(sub) {
+    return `<h1 class="logo">⚡ CATEGORY <em>CLASH</em></h1><div class="sub">${esc(sub || 'one letter · eight categories · duplicates clash')}</div>`;
+}
+function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+function isCaptain() { return !!(D && D.tvHost && D.captain && D.captain === myName); }
+function canDrive() { return (isHost && !isTvHost) || isCaptain(); }
+
+function settingsSegsHTML(settings, expr) {
+    const seg = (opts, curV, key) => `<div class="seg-row">${opts.map(o =>
+        `<button class="btn btn-sm ${curV === o.v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{${key}:${o.j}}`)}">${o.l}</button>`).join('')}</div>`;
+    return `
+        <div class="fg"><label>Rounds</label>${seg(
+            [2, 3, 5].map(v => ({ v, j: v, l: v })), settings.rounds, 'rounds')}</div>
+        <div class="fg"><label>Timer</label>${seg(
+            [60, 90, 120].map(v => ({ v, j: v, l: v + 's' })), settings.timerSecs, 'timerSecs')}</div>`;
+}
+
+function verdictOf(e, letter) {
+    if (e.veto) return { cls: 'bad', txt: '👎 vetoed', ansCls: 'invalid' };
+    if (!e.letterOk) return { cls: 'bad', txt: `✗ not “${letter}”`, ansCls: 'invalid' };
+    if (e.clash) return { cls: 'clash', txt: '💥 CLASH! 0', ansCls: 'strike' };
+    return { cls: 'ok', txt: e.allit ? '✨ +' + e.pts : '✓ +' + e.pts, ansCls: '' };
+}
+
+function standingsHTML(players, deltas) {
+    const medals = ['🥇', '🥈', '🥉'];
+    const st = players.slice().sort((a, b) => b.score - a.score);
+    return `<div class="card standings"><div class="slbl">Scores</div>${
+        st.map((p, i) => `
+        <div class="player-row">
+            <span style="width:22px;text-align:center">${medals[i] || (i + 1)}</span>
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--letter)">(you)</span>' : ''}</div>
+            <div class="sc">${p.score}${deltas && p.delta ? `<span class="delta">+${p.delta}</span>` : ''}</div>
+        </div>`).join('')
+    }</div>`;
+}
+
+function progChipsHTML(progress) {
+    return (progress || []).map(p => `
+        <div class="prog-chip${p.done ? ' done' : ''}">
+            <span class="rdot" style="background:${p.color}"></span>
+            ${esc(p.name)} <b>${p.filled}/${CATS_PER_ROUND}</b>${p.done ? ' ✅' : ''}
+        </div>`).join('');
+}
+
+// ═══════════════════════════════════════════
+// RENDER — phone screens
+// ═══════════════════════════════════════════
+function render() {
+    const app = $id('app');
+    if (isTvHost || isViewer) ui = 'viewer';
+    let html = '';
+    switch (ui) {
+        case 'home':       html = renderHome(); break;
+        case 'creating':   html = renderSpinner('Setting up the game…'); break;
+        case 'connecting': html = renderSpinner('Joining the game…'); break;
+        case 'lobby_h':    html = renderLobbyH(); break;
+        case 'lobby_g':    html = renderLobbyG(); break;
+        case 'race':       html = renderRace(); break;
+        case 'judge':      html = renderJudge(); break;
+        case 'podium':     html = renderPodium(); break;
+        case 'viewer':     html = renderViewer(); break;
+        default:           html = renderHome();
+    }
+    app.innerHTML = html;
+}
+
+function renderSpinner(msg) {
+    return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`;
+}
+
+function renderHome() {
+    const fromQR = !!fCode;
+    const youCard = `
+    <div class="card">
+        <div class="slbl">Who are you?</div>
+        <div class="fg">
+            <label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
+                ${fromQR ? 'autofocus' : ''} oninput="fName=this.value">
+        </div>
+    </div>`;
+    const joinCard = `
+    <div class="card${fromQR ? ' highlight' : ''}">
+        <div class="slbl">Join a Game</div>
+        <div class="fg">
+            <label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fCode)}"
+                oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
+        </div>
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">
+            📱 Join with your phone
+        </button>
+    </div>`;
+    const hostCard = `
+    <div class="card">
+        <div class="slbl">Start a Game</div>
+        <button class="btn btn-p btn-full"
+            onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
+            ⚡ Host on this phone
+        </button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin-top:8px">
+            2–12 players — put a TV up with the room code for the big reveal
+        </div>
+    </div>`;
+    const tvCard = `
+    <div class="card">
+        <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-c btn-full" onclick="hostOnTV()">📺 Create the game on this screen</button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin:6px 0 10px">
+            Shows a big QR code — the first phone to join becomes 👑 Captain
+        </div>
+        <hr>
+        <div class="fg">
+            <label>…or show an existing game</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')joinAsViewer(fVCode)">
+        </div>
+        <button class="btn btn-g btn-full"
+            onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code.';render()}">
+            📺 Open TV screen
+        </button>
+    </div>`;
+    return `
+    ${hdrHTML('type fast · think weird · avoid the clash')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+}
+
+function renderLobbyH() {
+    const pList = H.players.map((p, i) =>
+        `<div class="player-row">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1">${esc(p.name)}${i === 0 ? ' <span style="color:var(--muted)">(you — host)</span>' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    return `
+    ${hdrHTML('Host Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card highlight">
+        <div class="slbl">Scan to join — or share the code</div>
+        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        <div class="room-code">${esc(roomCode)}</div>
+        <div class="share-row">
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.share&&navigator.share({title:'Join Category Clash',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
+        </div>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center">Open the TV screen on a big display with code <b style="color:var(--letter)">${esc(roomCode)}</b></div>
+    </div>
+    <div class="card">
+        <div class="slbl">Players (${H.players.length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    <div class="card">
+        <div class="slbl">Settings</div>
+        ${settingsSegsHTML(H.settings, patch => `hostSet(${patch})`)}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.08rem;padding:16px" onclick="hostStartGame()">⚡ Start the game</button>`;
+}
+
+function renderLobbyG() {
+    const cap = isCaptain();
+    const pList = (D.players || []).map(p =>
+        `<div class="player-row">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--muted)">(you)</span>' : ''}${D.tvHost && p.name === D.captain ? ' 👑' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    const s = D.settings || {};
+    return `
+    ${hdrHTML(cap ? '👑 You are the Captain' : 'Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card">
+        <div class="slbl">Room ${esc(D.roomCode || '')} — Players (${(D.players || []).length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    ${cap ? `
+    <div class="card highlight">
+        <div class="slbl">👑 Captain's Settings</div>
+        ${settingsSegsHTML(s, patch => `guestCtl('set',${patch})`)}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.08rem;padding:16px" onclick="guestCtl('start')">⚡ Start the game</button>`
+    : `
+    <div class="card">
+        <div class="slbl">Settings</div>
+        <div style="font-weight:800;font-size:.85rem;line-height:1.9">
+            🔁 ${s.rounds} rounds · ⏱️ ${s.timerSecs}s per round
+        </div>
+        <div style="color:var(--muted);font-size:.72rem;font-weight:700;margin-top:8px">
+            Waiting for ${D.tvHost ? `👑 ${esc(D.captain || 'the captain')}` : 'the host'} to start…
+        </div>
+    </div>`}`;
+}
+
+function renderRace() {
+    const inputs = D.categories.map((c, i) => `
+        <div class="ans-item">
+            <label>${i + 1}. ${esc(c)}</label>
+            <input type="text" id="ans-${i}" maxlength="48" autocomplete="off" autocapitalize="off"
+                value="${esc(myAnswers[i] || '')}" ${myDone ? 'disabled' : ''}
+                oninput="onAns(${i},this.value)">
+        </div>`).join('');
+    return `
+    <div class="card">
+        <div class="race-head">
+            <div class="letter-tile">${esc(D.letter)}</div>
+            <div class="race-meta">
+                <div class="r1">Everything starts with “${esc(D.letter)}”</div>
+                <div class="r2">Round ${D.round} of ${D.rounds} · unique answers +10</div>
+            </div>
+            <div style="font-family:'Orbitron',sans-serif;font-weight:900;font-size:1.4rem" id="race-timenum">${D.seconds}</div>
+        </div>
+        <div class="timebar-wrap"><div class="timebar" id="race-timebar" style="width:100%"></div></div>
+    </div>
+    <div class="card"><div class="ans-list">${inputs}</div></div>
+    <button class="btn btn-p btn-full" id="done-btn" style="font-size:1.02rem;padding:15px" ${myDone ? 'disabled' : ''}
+        onclick="tapDone()">${myDone ? '✅ Waiting for the others…' : '🏁 DONE!'}</button>`;
+}
+
+function renderJudge() {
+    const drive = canDrive();
+    const rows = (D.entries || []).map(e => {
+        const v = verdictOf(e, D.letter);
+        return `
+        <div class="entry-row">
+            <span class="pdot" style="background:${e.color};color:${e.color}"></span>
+            <span style="color:var(--muted);font-size:.74rem;width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0">${esc(e.name)}</span>
+            <span class="ans ${v.ansCls}">${esc(e.ans)}</span>
+            <span class="verdict ${v.cls}">${v.txt}</span>
+            ${drive ? `<button class="vbtn${e.veto ? ' on' : ''}" onclick="guestCtl('veto',{pid:'${esc(e.pid)}'})">👎</button>` : ''}
+        </div>`;
+    }).join('');
+    const nextLabel = D.isLastCat ? (D.isLastRound ? '🏆 To the podium' : '➡️ Next round') : '➡️ Next category';
+    const driveBtn = drive
+        ? `<button class="btn btn-p btn-full" style="font-size:1rem;padding:14px" onclick="guestCtl('nextcat')">${nextLabel}</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.72rem;font-weight:800">${D.tvHost ? `👑 ${esc(D.captain || '')} judges the round` : 'The host judges the round'}…</div>`;
+    return `
+    <div class="card">
+        <div class="judge-cat">
+            <small>Judging · letter “${esc(D.letter)}” · category ${D.catIndex + 1} of ${D.catTotal}</small>
+            ${esc(D.category)}
+        </div>
+        <hr>
+        ${rows || '<div style="color:var(--muted);font-weight:700;text-align:center;padding:8px 0">Nobody had one! 🦗</div>'}
+    </div>
+    ${standingsHTML(D.players || [], true)}
+    ${driveBtn}`;
+}
+
+function renderPodium() {
+    const st = (D.standings || []);
+    const awards = (D.awards || []).map(a =>
+        `<span class="chip">${a.emoji} ${esc(a.title)}: ${esc(a.name)} (${esc(a.detail)})</span>`).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.02rem;padding:15px" onclick="guestCtl('again')">🔁 Play again</button>` : '';
+    return `
+    ${hdrHTML('Game over!')}
+    <div class="card highlight" style="text-align:center;padding:24px 14px">
+        <div style="font-size:3rem">🏆</div>
+        <div style="font-family:'Orbitron',sans-serif;font-weight:900;font-size:1.4rem;margin-top:6px">${esc(D.winner)} WINS!</div>
+        <div style="margin-top:10px">${awards}</div>
+    </div>
+    ${standingsHTML(st.map(p => ({ ...p })))}
+    ${driveBtn}`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — TV screens
+// ═══════════════════════════════════════════
+function tvShell(inner, meta) {
+    return `<div class="tv">
+        <div class="tv-top">
+            <div class="tv-logo">⚡ CATEGORY <em>CLASH</em></div>
+            <div class="tv-meta">${esc(meta || ('Room ' + (vD.roomCode || roomCode || '')))}</div>
+        </div>
+        ${inner}
+    </div>`;
+}
+
+function railHTML(players) {
+    const st = (players || []).slice().sort((a, b) => b.score - a.score);
+    return st.map(p => `
+        <div class="rail-row">
+            <span class="rdot" style="background:${p.color};color:${p.color}"></span>
+            <span class="rname">${esc(p.name)}</span>
+            <span class="rsc">${p.score}</span>
+            ${p.delta ? `<span class="rdelta">+${p.delta}</span>` : ''}
+        </div>`).join('');
+}
+
+function renderViewer() {
+    if (!vD) return renderSpinner('Waiting for the game…');
+    switch (vD.type) {
+        case 'viewer_lobby':  return renderViewerLobby();
+        case 'viewer_race':   return renderViewerRace();
+        case 'viewer_judge':  return renderViewerJudge();
+        case 'viewer_podium': return renderViewerPodium();
+        default:              return renderSpinner('Waiting for the game…');
+    }
+}
+
+function renderViewerLobby() {
+    const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
+    const players = vD.players || [];
+    const cards = players.map(p =>
+        `<div class="tv-pcard"><div class="pdot" style="background:${p.color};color:${p.color}"></div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
+    const s = vD.settings || {};
+    return tvShell(`
+    <div class="tv-lobby">
+        <div class="qr-side">
+            <div class="slbl">Scan with your phone to join</div>
+            <div class="qr-wrap">${qrSVG(url)}</div>
+            <div class="room-code">${esc(vD.roomCode || '')}</div>
+            <div class="join-hint">${location.host}${location.pathname}</div>
+        </div>
+        <div class="tv-players">
+            <div class="tv-meta">Players — ${players.length}/${MAX_PLAYERS}</div>
+            <div class="tv-player-grid">${cards}</div>
+            <div class="tv-waiting">${players.length === 0
+                ? 'Waiting for the first phone… they become 👑 Captain'
+                : (players.length < MIN_PLAYERS ? 'Need at least ' + MIN_PLAYERS + ' players…'
+                    : `${vD.tvHost ? `Waiting for 👑 ${esc(vD.captain || '')}` : 'Waiting for the host'} to start · 🔁 ${s.rounds} rounds · ⏱️ ${s.timerSecs}s`)}</div>
+        </div>
+    </div>`, 'Lobby');
+}
+
+function renderViewerRace() {
+    const cats = vD.categories.map((c, i) =>
+        `<div class="tv-cat"><span class="n">${i + 1}</span>${esc(c)}</div>`).join('');
+    return tvShell(`
+    <div class="tv-stage">
+        <div class="tv-race">
+            <div class="tv-letter">${esc(vD.letter)}</div>
+            <div class="tv-cats">${cats}</div>
+        </div>
+        <div class="tv-race-bottom">
+            <div class="tv-progress-chips" id="v-prog">${progChipsHTML(vD.progress)}</div>
+            <div class="tv-timebar-wrap"><div class="tv-timebar" id="v-timebar" style="width:100%"></div></div>
+            <div class="tv-timenum" id="v-timenum">${vD.seconds}</div>
+        </div>
+    </div>`, `Round ${vD.round} of ${vD.rounds}`);
+}
+
+function renderViewerJudge() {
+    const rows = (vD.entries || []).map(e => {
+        const v = verdictOf(e, vD.letter);
+        return `
+        <div class="tv-entry${e.clash ? ' zap' : ''}">
+            <span class="rdot" style="background:${e.color};color:${e.color}"></span>
+            <span class="who">${esc(e.name)}</span>
+            <span class="ans ${v.ansCls}">${esc(e.ans)}</span>
+            <span class="verdict ${v.cls}">${v.txt}</span>
+        </div>`;
+    }).join('');
+    const hint = vD.tvHost
+        ? `👑 ${esc(vD.captain || 'Captain')} judges on their phone — 👎 veto, then next category`
+        : 'The host judges on their phone — 👎 veto, then next category';
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-judge">
+                <div class="tv-judge-head">
+                    <div class="letter-mini">${esc(vD.letter)}</div>
+                    <div class="cat"><small>Category ${vD.catIndex + 1} of ${vD.catTotal}</small>${esc(vD.category)}</div>
+                </div>
+                <div class="tv-entries">${rows || '<div class="tv-nobody">Nobody had one! 🦗</div>'}</div>
+                <div class="tv-hint">${hint}</div>
+            </div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">Scores</div>
+            ${railHTML(vD.players)}
+        </div>
+    </div>`, `Round ${vD.round} of ${vD.rounds} · Judging`);
+}
+
+function renderViewerPodium() {
+    const st = vD.standings || [];
+    const podOrder = [st[1], st[0], st[2]].filter(Boolean);
+    const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
+    const medal = { p1: '🥇', p2: '🥈', p3: '🥉' };
+    const pods = podOrder.map((p, i) => `
+        <div class="pod ${cls[i]}" style="animation-delay:${i * 0.18}s">
+            <div class="pname"><span class="pdot" style="background:${p.color};color:${p.color};display:inline-block;vertical-align:middle;margin-right:.6vmin"></span>${esc(p.name)}</div>
+            <div class="pscore">${p.score} pts</div>
+            <div class="block">${medal[cls[i]]}</div>
+        </div>`).join('');
+    const rest = st.slice(3).map((p, i) =>
+        `<div class="rail-row"><span>${i + 4}.</span><span class="rdot" style="background:${p.color}"></span><span class="rname">${esc(p.name)}</span><span class="rsc">${p.score}</span></div>`).join('');
+    const awards = (vD.awards || []).map(a =>
+        `<div class="award">${a.emoji} <span class="aw-t">${esc(a.title)}</span><br>${esc(a.name)} — ${esc(a.detail)}</div>`).join('');
+    const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: “Play again” is on your phone` : 'Host: “Play again” is on your phone';
+    return tvShell(`
+    <div class="tv-main" style="flex-direction:column">
+        <div class="podium-wrap">${pods}</div>
+        <div class="awards-row">${awards}</div>
+        ${rest ? `<div style="display:flex;gap:1.4vmin;justify-content:center;flex-wrap:wrap">${rest}</div>` : ''}
+        <div class="tv-waiting" style="text-align:center;padding-bottom:1.6vmin">${hint}</div>
+    </div>`, '🏆 Final scores');
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+window.addEventListener('resize', () => {
+    const cv = $id('confetti-cv');
+    if (cv && _cf.running) { cv.width = innerWidth; cv.height = innerHeight; }
+});
+
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
+    render();
+})();
+</script>
+</body>
+</html>

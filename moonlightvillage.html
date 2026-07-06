@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Moonlight Village</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230b0d1f' width='100' height='100' rx='20'/><text x='50' y='68' font-size='52' text-anchor='middle'>🌙</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,900&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0b0d1f; --panel: rgba(26,29,58,0.8); --panel2: rgba(35,39,74,0.9);
+            --border: rgba(167,139,250,0.28); --border2: rgba(148,155,200,0.24);
+            --text: #e9eaf6; --muted: #8d93bd;
+            --moon: #f5e6b8; --violet: #a78bfa; --wolf: #ef4444; --heal: #4ade80; --vill: #fbbf24;
+            --dawn1: #ff9a56; --dawn2: #ffd39a;
+        }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 26px 16px 48px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -2; pointer-events: none;
+            background:
+                radial-gradient(ellipse 70% 50% at 50% -10%, rgba(167,139,250,0.14) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 40% at 10% 100%, rgba(96,105,180,0.12) 0%, transparent 65%),
+                radial-gradient(ellipse 50% 40% at 92% 100%, rgba(245,230,184,0.06) 0%, transparent 65%);
+        }
+        /* starfield */
+        body::after {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .8;
+            background-image:
+                radial-gradient(1.5px 1.5px at 12% 22%, #fff8 0%, transparent 100%),
+                radial-gradient(1px 1px at 32% 8%, #fff7 0%, transparent 100%),
+                radial-gradient(1.5px 1.5px at 55% 30%, #fff6 0%, transparent 100%),
+                radial-gradient(1px 1px at 72% 12%, #fff8 0%, transparent 100%),
+                radial-gradient(2px 2px at 88% 26%, #fff5 0%, transparent 100%),
+                radial-gradient(1px 1px at 20% 55%, #fff5 0%, transparent 100%),
+                radial-gradient(1.5px 1.5px at 44% 70%, #fff4 0%, transparent 100%),
+                radial-gradient(1px 1px at 66% 58%, #fff6 0%, transparent 100%),
+                radial-gradient(1.5px 1.5px at 92% 66%, #fff5 0%, transparent 100%),
+                radial-gradient(1px 1px at 8% 82%, #fff4 0%, transparent 100%);
+        }
+        body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
+
+        h1.logo {
+            font-family: 'Fraunces', serif; font-weight: 900; letter-spacing: 1px;
+            font-size: clamp(1.6rem, 7vw, 2.4rem); text-align: center; color: var(--moon);
+            text-shadow: 0 0 30px rgba(245,230,184,.4);
+        }
+        .sub { color: var(--muted); font-size: .7rem; letter-spacing: 2.5px; text-transform: uppercase; margin: 7px 0 22px; text-align: center; }
+
+        #app { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 13px; }
+        body.viewer-mode #app { max-width: none; height: 100dvh; display: block; }
+
+        .card {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 17px;
+            padding: 18px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 12px 34px rgba(0,0,0,.5);
+        }
+        .card.highlight { border-color: var(--violet); box-shadow: 0 0 26px rgba(167,139,250,.16), 0 12px 34px rgba(0,0,0,.5); }
+        .slbl { font-size: .64rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 11px; }
+
+        .fg { margin-bottom: 12px; }
+        .fg label { display: block; font-size: .64rem; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+        input[type=text] {
+            width: 100%; padding: 12px 14px; font-family: inherit; font-size: 1rem; font-weight: 700;
+            border: 2px solid var(--border2); border-radius: 11px; background: rgba(11,13,31,.7); color: var(--text);
+            outline: none;
+        }
+        input[type=text]:focus { border-color: var(--violet); }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            font-family: inherit; font-weight: 900; font-size: .92rem; letter-spacing: .4px;
+            padding: 13px 18px; border: none; border-radius: 13px; cursor: pointer;
+            transition: filter .12s, opacity .12s, box-shadow .12s; user-select: none; -webkit-user-select: none;
+            color: var(--text);
+        }
+        .btn:active { filter: brightness(1.15); }
+        .btn-p { background: linear-gradient(180deg, #c4b5fd, #8b5cf6); color: #1c1040; box-shadow: 0 5px 0 #5b3fa8, 0 10px 22px rgba(139,92,246,.35); }
+        .btn-p:active { box-shadow: 0 2px 0 #5b3fa8; }
+        .btn-moon { background: linear-gradient(180deg, #f9edc8, #e5c96b); color: #3a2c05; box-shadow: 0 5px 0 #9a832f, 0 10px 22px rgba(229,201,107,.3); }
+        .btn-moon:active { box-shadow: 0 2px 0 #9a832f; }
+        .btn-g { background: rgba(148,155,200,.12); box-shadow: inset 0 0 0 2px var(--border2); }
+        .btn-full { width: 100%; }
+        .btn-sm { padding: 8px 13px; font-size: .74rem; border-radius: 10px; }
+        .btn:disabled { opacity: .4; cursor: default; }
+
+        .err {
+            background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.5); color: #fca5a5;
+            padding: 11px 14px; border-radius: 12px; font-size: .8rem; font-weight: 700; text-align: center;
+        }
+        hr { border: none; border-top: 1px dashed var(--border2); margin: 13px 0; }
+
+        .connecting { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 46px 0; color: var(--muted); font-weight: 700; }
+        .spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid rgba(167,139,250,.2); border-top-color: var(--violet); animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .player-row { display: flex; align-items: center; gap: 11px; padding: 8px 4px; border-bottom: 1px dashed var(--border2); font-weight: 800; font-size: .92rem; }
+        .player-row:last-child { border-bottom: none; }
+        .pdot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 10px currentColor; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--heal); box-shadow: 0 0 8px var(--heal); margin-left: auto; }
+        .qr-wrap { width: min(210px, 58vw); margin: 6px auto 10px; border-radius: 13px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.4); }
+        .qr-wrap svg { display: block; width: 100%; height: auto; }
+        .room-code { font-family: 'Fraunces', serif; font-weight: 900; font-size: 2.2rem; letter-spacing: 11px; text-align: center; color: var(--moon); padding-left: 11px; text-shadow: 0 0 18px rgba(245,230,184,.35); }
+        .share-row { display: flex; gap: 8px; justify-content: center; margin: 10px 0 6px; }
+        .seg-row { display: flex; flex-wrap: wrap; gap: 7px; }
+
+        /* role card (hold to peek) */
+        .role-card {
+            border-radius: 18px; padding: 26px 16px; text-align: center; cursor: pointer;
+            background: linear-gradient(160deg, #232749, #151833); border: 2px dashed var(--border);
+            user-select: none; -webkit-user-select: none; touch-action: none; position: relative;
+        }
+        .role-card .hint { color: var(--muted); font-weight: 800; font-size: .82rem; }
+        .role-card .secret { opacity: 0; transition: opacity .12s; margin-top: 10px; }
+        .role-card.peeked .secret { opacity: 1; }
+        .role-card.peeked .hint { opacity: .35; }
+        .role-card .r-emoji { font-size: 3.2rem; }
+        .role-card .r-name { font-family: 'Fraunces', serif; font-weight: 900; font-size: 1.7rem; letter-spacing: 1px; margin-top: 4px; }
+        .role-card .r-desc { color: var(--muted); font-size: .8rem; font-weight: 700; margin-top: 6px; line-height: 1.5; }
+        .role-card .r-mates { margin-top: 8px; font-weight: 900; font-size: .9rem; }
+
+        /* night action pick list */
+        .pick-list { display: flex; flex-direction: column; gap: 9px; }
+        .pickbtn {
+            display: flex; align-items: center; gap: 11px; width: 100%;
+            padding: 14px; border: none; border-radius: 13px; cursor: pointer;
+            background: var(--panel2); color: var(--text); font-family: inherit; font-weight: 900; font-size: 1rem;
+            box-shadow: inset 0 0 0 2px var(--border2);
+        }
+        .pickbtn:active { box-shadow: inset 0 0 0 2px var(--violet); }
+        .pickbtn.picked { box-shadow: inset 0 0 0 3px var(--violet); background: rgba(139,92,246,.18); }
+        .pickbtn:disabled { opacity: .4; cursor: default; }
+
+        .scene { text-align: center; padding: 30px 12px; }
+        .scene .big { font-size: 3.6rem; }
+        .scene .t { font-family: 'Fraunces', serif; font-weight: 900; font-size: 1.45rem; margin-top: 10px; line-height: 1.35; }
+        .scene .s { color: var(--muted); font-weight: 700; font-size: .84rem; margin-top: 8px; line-height: 1.6; }
+        .scene.dawnbg { background: linear-gradient(170deg, rgba(255,154,86,.25), rgba(255,211,154,.08)); border-color: rgba(255,154,86,.4); }
+        .chip { display: inline-block; padding: 4px 12px; border-radius: 11px; background: rgba(167,139,250,.14); border: 1px solid var(--border); color: var(--violet); font-weight: 900; font-size: .74rem; margin: 3px; }
+        .chip.dead { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.4); color: #fca5a5; }
+        .chip.gold { background: rgba(245,230,184,.12); border-color: rgba(245,230,184,.4); color: var(--moon); }
+
+        .ghost-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .ghost-tile { background: var(--panel2); border-radius: 12px; padding: 10px; font-weight: 800; font-size: .8rem; text-align: center; border: 1px solid var(--border2); }
+        .ghost-tile.dead { opacity: .5; text-decoration: line-through; }
+
+        .timerbar-wrap { height: 10px; border-radius: 6px; background: rgba(255,255,255,.09); overflow: hidden; }
+        .timerbar { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--moon), var(--violet)); transition: width .25s linear; }
+
+        /* ═════════ TV ═════════ */
+        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 3vmin 3.4vmin; gap: 2vmin; position: relative; }
+        .tv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 2vmin; }
+        .tv-logo { font-family: 'Fraunces', serif; font-weight: 900; font-size: 3.2vmin; color: var(--moon); text-shadow: 0 0 26px rgba(245,230,184,.4); }
+        .tv-meta { font-size: 1.8vmin; font-weight: 900; letter-spacing: .35vmin; text-transform: uppercase; color: var(--muted); }
+        .tv-scene { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.2vmin; text-align: center; min-height: 0; position: relative; }
+        .tv-scene .moon-big { font-size: 13vmin; filter: drop-shadow(0 0 5vmin rgba(245,230,184,.45)); }
+        .tv-narrator { font-family: 'Fraunces', serif; font-weight: 900; font-size: 3.6vmin; line-height: 1.4; max-width: 78%; min-height: 2.6em; }
+        .tv-subline { color: var(--muted); font-weight: 800; font-size: 2vmin; }
+        .tv-scene.dawn-scene::before {
+            content: ''; position: fixed; inset: 0; z-index: -1;
+            background: linear-gradient(180deg, rgba(255,154,86,.28) 0%, rgba(255,211,154,.10) 45%, transparent 75%);
+        }
+        .tv-villagers { display: flex; gap: 1.4vmin; flex-wrap: wrap; justify-content: center; max-width: 84%; }
+        .tv-vchip {
+            display: flex; align-items: center; gap: 1vmin; background: var(--panel); border: 1px solid var(--border2);
+            border-radius: 1.4vmin; padding: 1.1vmin 1.7vmin; font-weight: 900; font-size: 2.1vmin;
+        }
+        .tv-vchip.dead { opacity: .45; }
+        .tv-vchip.dead .nm { text-decoration: line-through; }
+        .tv-vchip .role-tag { font-size: 1.5vmin; color: var(--muted); }
+        .tv-count { font-family: 'Fraunces', serif; font-weight: 900; font-size: 5vmin; color: var(--moon); }
+        .tv-timer-wrap { width: 56%; height: 1.5vmin; border-radius: .8vmin; background: rgba(255,255,255,.1); overflow: hidden; }
+        .tv-timer { height: 100%; background: linear-gradient(90deg, var(--moon), var(--violet)); border-radius: .8vmin; transition: width .25s linear; }
+        .tv-daynum { position: absolute; top: 0; right: 0; font-size: 1.8vmin; font-weight: 900; color: var(--muted); letter-spacing: .3vmin; }
+
+        /* TV lobby */
+        .tv-lobby { flex: 1; display: flex; gap: 4vmin; align-items: center; min-height: 0; }
+        .tv-lobby .qr-side { background: #171a36; border: 1px solid var(--border); border-radius: 2.2vmin; padding: 3.2vmin; text-align: center; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+        .tv-lobby .qr-side .qr-wrap { width: 32vmin; margin: 1.4vmin auto; }
+        .tv-lobby .qr-side .room-code { font-size: 4.6vmin; letter-spacing: 1.9vmin; padding-left: 1.9vmin; }
+        .tv-lobby .join-hint { font-size: 1.7vmin; font-weight: 700; color: var(--muted); }
+        .tv-players { flex: 1; display: flex; flex-direction: column; gap: 1.5vmin; min-width: 0; }
+        .tv-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20vmin, 1fr)); gap: 1.5vmin; }
+        .tv-pcard {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 1.7vmin;
+            padding: 1.7vmin; text-align: center; font-weight: 900; font-size: 2vmin; animation: popIn .35s ease both;
+        }
+        .tv-pcard .pdot { width: 2.2vmin; height: 2.2vmin; margin: 0 auto 1vmin; }
+        @keyframes popIn { from { opacity: 0; } to { opacity: 1; } }
+        .tv-waiting { color: var(--muted); font-weight: 800; font-size: 1.9vmin; }
+
+        /* TV finale */
+        .reveal-grid { display: flex; gap: 1.6vmin; flex-wrap: wrap; justify-content: center; max-width: 88%; }
+        .reveal-tile {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 1.8vmin;
+            padding: 1.8vmin 2.4vmin; font-weight: 900; font-size: 2.1vmin; text-align: center; animation: popIn .5s ease both;
+        }
+        .reveal-tile .re { font-size: 3.4vmin; }
+        .reveal-tile.dead { opacity: .55; }
+        .reveal-tile .rr { font-size: 1.6vmin; letter-spacing: .2vmin; text-transform: uppercase; }
+        .stats-row { display: flex; gap: 1.4vmin; flex-wrap: wrap; justify-content: center; color: var(--muted); font-weight: 800; font-size: 1.7vmin; }
+
+        #confetti-cv { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <canvas id="confetti-cv"></canvas>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════
+// CONSTANTS & HELPERS
+// ═══════════════════════════════════════════
+const PFX = 'MOONVILL-';
+const MAX_PLAYERS = 12, MIN_PLAYERS = 4;
+const PLAYER_COLORS = ['#f5e6b8', '#a78bfa', '#22d3ee', '#f472b6', '#4ade80', '#fb923c', '#f87171', '#38bdf8', '#facc15', '#34d399', '#e879f9', '#94a3b8'];
+const ROLES = {
+    wolf:     { name: 'Werewolf', emoji: '🐺', color: '#ef4444', desc: 'Each night, choose someone to take. By day, blend in. Win when the wolves equal the rest.' },
+    seer:     { name: 'Seer',     emoji: '🔮', color: '#a78bfa', desc: 'Each night, peek at one villager and learn whether they are a wolf. Guide the village — carefully.' },
+    healer:   { name: 'Healer',   emoji: '💊', color: '#4ade80', desc: 'Each night, watch over one person (even yourself). If the wolves strike them, they survive.' },
+    villager: { name: 'Villager', emoji: '🌾', color: '#fbbf24', desc: 'Sleep tight, then talk it out. Find the wolves before they find you.' },
+};
+
+function $id(id) { return document.getElementById(id); }
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ── QR code (themed SVG) ──
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+        let rects = '';
+        for (let r = 0; r < n; r++)
+            for (let c = 0; c < n; c++)
+                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+            `<rect width="${size}" height="${size}" fill="#fdf8ea"/>` +
+            `<g fill="#171a36">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+
+// ── Confetti ──
+let _cf = { parts: [], raf: 0, running: false, until: 0 };
+function startConfetti(ms) {
+    if (REDUCED) return;
+    const cv = $id('confetti-cv'), ctx = cv.getContext('2d');
+    cv.width = innerWidth; cv.height = innerHeight;
+    _cf.until = performance.now() + (ms || 2600);
+    const cols = ['#f5e6b8', '#a78bfa', '#4ade80', '#fbbf24', '#22d3ee', '#e9eaf6'];
+    for (let i = 0; i < 130; i++) {
+        _cf.parts.push({
+            x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5,
+            vx: (Math.random() - 0.5) * 2.4, vy: 2 + Math.random() * 3.6,
+            rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.25,
+            w: 6 + Math.random() * 7, h: 4 + Math.random() * 5,
+            col: cols[Math.floor(Math.random() * cols.length)],
+        });
+    }
+    if (_cf.running) return;
+    _cf.running = true;
+    (function frame(t) {
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        _cf.parts = _cf.parts.filter(p => p.y < cv.height + 30);
+        for (const p of _cf.parts) {
+            p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+            ctx.fillStyle = p.col; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            ctx.restore();
+        }
+        if (t < _cf.until || _cf.parts.length) _cf.raf = requestAnimationFrame(frame);
+        else { _cf.running = false; ctx.clearRect(0, 0, cv.width, cv.height); }
+    })(performance.now());
+}
+
+// ── Synth sounds (owl, howl, birds — approximations, no assets) ──
+let _ac = null;
+function ac() { if (!_ac) { try { _ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return _ac; }
+function tone(freq, dur, type, gain, when) {
+    const a = ac(); if (!a) return;
+    try {
+        const t0 = a.currentTime + (when || 0);
+        const o = a.createOscillator(), g = a.createGain();
+        o.type = type || 'sine'; o.frequency.value = freq;
+        g.gain.setValueAtTime(gain || 0.06, t0);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        o.connect(g); g.connect(a.destination);
+        o.start(t0); o.stop(t0 + dur);
+    } catch (e) {}
+}
+function sOwl() { tone(590, 0.28, 'sine', 0.06); tone(470, 0.4, 'sine', 0.06, 0.34); }
+function sHowl() {
+    const a = ac(); if (!a) return;
+    try {
+        const t = a.currentTime;
+        const o = a.createOscillator(), g = a.createGain();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(220, t);
+        o.frequency.linearRampToValueAtTime(540, t + 0.5);
+        o.frequency.linearRampToValueAtTime(320, t + 1.4);
+        g.gain.setValueAtTime(0.045, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
+        o.connect(g); g.connect(a.destination);
+        o.start(t); o.stop(t + 1.6);
+    } catch (e) {}
+}
+function sBirds() { [2300, 2700, 2450, 2950, 2600].forEach((f, i) => tone(f, 0.09, 'sine', 0.035, i * 0.13)); }
+function sVoteBell() { tone(520, 0.5, 'triangle', 0.06); tone(390, 0.6, 'triangle', 0.05, 0.1); }
+function sFanfare() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.3, 'triangle', 0.06, i * 0.13)); }
+function sTap() { tone(700, 0.08, 'triangle', 0.05); }
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let peer = null, myId = '', myName = '', isHost = false, isTvHost = false, isViewer = false, roomCode = '';
+let hostConn = null, guestConns = {}, viewerConns = {};
+let ui = 'home';
+let uiErr = '';
+let fName = localStorage.getItem('moon-name') || '';
+let fCode = '', fVCode = '';
+let D = null, vD = null;
+let _dayEndsAt = 0, _dayTotal = 1, _clientTick = null, _typeTimer = null;
+
+// Host authoritative state
+let H = {
+    phase: 'lobby',      // lobby|deal|night|dawn|day|vote|verdict|gameover
+    dayNum: 0,
+    players: [],         // [{id,name,color,role,alive,ready,vote}]
+    settings: { healer: true, daySecs: 90 },
+    night: null,         // {wolfVotes:{}, order:[], seerDone:false, healerPick:null, healerDone:false}
+    lastNight: null,     // {victim,role,saved}
+    lastBanish: null,    // {name,role,tie}
+    winner: null,        // 'village'|'wolves'
+    sessionStats: {},    // name -> {games,wolfWins,villageWins}
+};
+let _phaseTimer = null;
+
+function wolvesFor(n) { return n >= 10 ? 3 : n >= 7 ? 2 : 1; }
+function alivePlayers() { return H.players.filter(p => p.alive); }
+function aliveWolves() { return alivePlayers().filter(p => p.role === 'wolf'); }
+
+// ═══════════════════════════════════════════
+// NETWORK (same pattern as familytrivia/pit)
+// ═══════════════════════════════════════════
+function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('send err', e); } }
+function broadcastViewers(msg) { Object.values(viewerConns).forEach(c => send(c, msg)); }
+function connectedPlayers() {
+    return H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+}
+
+function hostAddPlayer(id, name) {
+    if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
+    H.players.push({
+        id, name, color: PLAYER_COLORS[H.players.length % PLAYER_COLORS.length],
+        role: null, alive: true, ready: false, vote: null,
+    });
+}
+
+function lobbyMsg() {
+    return {
+        type: 'lobby', roomCode,
+        players: H.players.map(p => ({ name: p.name, color: p.color })),
+        settings: { ...H.settings },
+        wolves: wolvesFor(Math.max(H.players.length, MIN_PLAYERS)),
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+function broadcastLobby() {
+    H.players.forEach(p => { if (p.id !== myId && guestConns[p.id]) send(guestConns[p.id], lobbyMsg()); });
+    broadcastViewers({ ...lobbyMsg(), type: 'viewer_lobby' });
+    hostSyncSelf(lobbyMsg());
+}
+
+function nightCounts() {
+    if (!H.night) return { in: 0, needed: 0 };
+    const wolves = aliveWolves();
+    const seer = alivePlayers().find(p => p.role === 'seer');
+    const healer = H.settings.healer ? alivePlayers().find(p => p.role === 'healer') : null;
+    let needed = wolves.length + (seer ? 1 : 0) + (healer ? 1 : 0);
+    let got = Object.keys(H.night.wolfVotes).length + (seer && H.night.seerDone ? 1 : 0) + (healer && H.night.healerDone ? 1 : 0);
+    return { in: got, needed };
+}
+
+function publicPlayers() {
+    // roles are public only for the dead, or for everyone at game over
+    return H.players.map(q => ({
+        name: q.name, color: q.color, alive: q.alive, ready: q.ready,
+        role: (!q.alive || H.phase === 'gameover') ? q.role : null,
+    }));
+}
+
+function stateFor(p) {
+    const nc = nightCounts();
+    const votesNeeded = alivePlayers().length;
+    const votesIn = alivePlayers().filter(q => q.vote).length;
+    return {
+        type: 'state',
+        phase: H.phase, dayNum: H.dayNum, roomCode,
+        settings: { ...H.settings },
+        me: p ? {
+            role: p.role, alive: p.alive, ready: p.ready, votedFor: p.vote,
+            mates: p.role === 'wolf' ? H.players.filter(q => q.role === 'wolf' && q.id !== p.id).map(q => q.name) : [],
+            nightDone: hasActed(p),
+            seer: p.role === 'seer' ? (p.seerSeen || []) : [],
+            reveal: !p.alive ? H.players.map(q => ({ name: q.name, role: q.role, alive: q.alive })) : null,
+        } : null,
+        players: publicPlayers(),
+        counts: {
+            ready: H.players.filter(q => q.ready).length, total: H.players.length,
+            actionsIn: nc.in, actionsNeeded: nc.needed,
+            votesIn, votesNeeded,
+        },
+        lastNight: H.lastNight, lastBanish: H.lastBanish, winner: H.winner,
+        stats: H.phase === 'gameover' ? H.sessionStats : null,
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+function viewerStateMsg() { return { ...stateFor(null), type: 'viewer_state', me: undefined }; }
+function broadcastState() {
+    H.players.forEach(p => {
+        if (p.id === myId) return;
+        const conn = guestConns[p.id];
+        if (conn) send(conn, stateFor(p));
+    });
+    broadcastViewers(viewerStateMsg());
+    hostSyncSelf(isTvHost ? null : stateFor(H.players.find(p => p.id === myId)));
+}
+
+function hasActed(p) {
+    if (!H.night || !p.alive) return true;
+    if (p.role === 'wolf') return !!H.night.wolfVotes[p.id];
+    if (p.role === 'seer') return H.night.seerDone;
+    if (p.role === 'healer' && H.settings.healer) return H.night.healerDone;
+    return true;
+}
+
+// ── Host: incoming connections ──
+function setupGuestConn(conn) {
+    conn.on('open', () => { conn._role = null; });
+
+    conn.on('data', msg => {
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer';
+            viewerConns[conn.peer] = conn;
+            send(conn, H.phase === 'lobby' ? { ...lobbyMsg(), type: 'viewer_lobby' } : viewerStateMsg());
+            return;
+        }
+        if (conn._role === null) {
+            conn._role = 'player';
+            guestConns[conn.peer] = conn;
+        }
+        const player = H.players.find(p => p.id === conn.peer);
+        switch (msg.type) {
+            case 'join': {
+                const name = String(msg.name || 'Villager').slice(0, 16);
+                const zombie = H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
+                if (zombie) zombie.id = conn.peer;
+                else if (H.phase === 'lobby') hostAddPlayer(conn.peer, name);
+                const p2 = H.players.find(p => p.id === conn.peer);
+                if (!p2) { send(conn, lobbyMsg()); break; }
+                if (H.phase === 'lobby') broadcastLobby();
+                else { send(conn, stateFor(p2)); broadcastViewers(viewerStateMsg()); if (isTvHost) tvHostSync(); }
+                break;
+            }
+            case 'role_ready':   if (player) hostRoleReady(player); break;
+            case 'night_action': if (player) hostNightAction(player, msg.pick); break;
+            case 'vote':         if (player) hostVote(player, msg.pick); break;
+            case 'ctl': {
+                if (!isTvHost || !player || player.id !== H.players[0]?.id) break;
+                hostCtl(msg.action, msg);
+                break;
+            }
+        }
+    });
+
+    conn.on('close', () => {
+        delete guestConns[conn.peer];
+        delete viewerConns[conn.peer];
+        if (H.phase === 'lobby') {
+            const pi = H.players.findIndex(p => p.id === conn.peer);
+            if (pi >= 0) { H.players.splice(pi, 1); broadcastLobby(); }
+        } else {
+            // mid-game disconnect: don't stall the night/vote on a vanished player
+            checkNightResolve();
+            checkVoteResolve();
+        }
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+function hostCtl(action, msg) {
+    if (action === 'start' && H.phase === 'lobby') hostStartGame();
+    else if (action === 'skipday' && H.phase === 'day') startVote();
+    else if (action === 'again' && H.phase === 'gameover') hostNewGame();
+    else if (action === 'set' && H.phase === 'lobby') {
+        if (typeof msg.healer === 'boolean') H.settings.healer = msg.healer;
+        if ([60, 90, 120].includes(msg.daySecs)) H.settings.daySecs = msg.daySecs;
+        broadcastLobby();
+    }
+}
+function guestCtl(action, extra) {
+    if (isHost && !isTvHost) { hostCtl(action, extra || {}); return; }
+    if (hostConn) send(hostConn, { type: 'ctl', action, ...(extra || {}) });
+}
+
+// ── Create a room (phone host or TV host) ──
+function makeRoom(onOpen) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    roomCode = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    peer = new Peer(PFX + roomCode);
+    peer.on('open', id => { myId = id; isHost = true; onOpen(); });
+    peer.on('connection', conn => setupGuestConn(conn));
+    peer.on('error', e => {
+        uiErr = 'Connection error: ' + e.message;
+        isHost = false; isTvHost = false;
+        document.body.classList.remove('viewer-mode');
+        ui = 'home'; render();
+    });
+}
+
+function hostGame(name) {
+    myName = name.trim().slice(0, 16) || 'Host';
+    localStorage.setItem('moon-name', myName);
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        hostAddPlayer(myId, myName);
+        ui = 'lobby_h';
+        render();
+    });
+}
+
+function hostOnTV() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        isTvHost = true;
+        document.body.classList.add('viewer-mode');
+        tvHostSync();
+        render();
+    });
+}
+
+// ── Guest ──
+function joinGame(code, name) {
+    myName = name.trim().slice(0, 16) || 'Villager';
+    localStorage.setItem('moon-name', myName);
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        isHost = false;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join', name: myName }));
+        hostConn.on('data', msg => applyMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the village.'; ui = 'home'; D = null; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        ui = 'home'; render();
+    });
+}
+
+// ── Viewer (TV joining a phone-hosted game) ──
+function joinAsViewer(code, _attempt) {
+    const attempt = _attempt || 1;
+    isViewer = true;
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join_viewer' }));
+        hostConn.on('data', msg => applyViewerMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the village.'; isViewer = false; vD = null; document.body.classList.remove('viewer-mode'); ui = 'home'; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; isViewer = false; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        if (attempt < 2) {
+            try { peer.destroy(); } catch (_) {}
+            peer = null;
+            setTimeout(() => joinAsViewer(code, 2), 600);
+            return;
+        }
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        isViewer = false; ui = 'home'; render();
+    });
+}
+
+function tvHostSync() {
+    if (!isTvHost) return;
+    applyViewerMsg(H.phase === 'lobby' ? { ...lobbyMsg(), type: 'viewer_lobby' } : viewerStateMsg());
+}
+function hostSyncSelf(msg) {
+    if (isTvHost) { tvHostSync(); return; }
+    if (isHost && msg) applyMsg(msg);
+}
+
+// ═══════════════════════════════════════════
+// HOST GAME FLOW
+// ═══════════════════════════════════════════
+function clearPhaseTimer() { clearTimeout(_phaseTimer); _phaseTimer = null; }
+
+function assignRoles() {
+    const n = H.players.length;
+    const roles = [];
+    for (let i = 0; i < wolvesFor(n); i++) roles.push('wolf');
+    roles.push('seer');
+    if (H.settings.healer && roles.length < n) roles.push('healer');
+    while (roles.length < n) roles.push('villager');
+    const dealt = shuffle(roles);
+    H.players.forEach((p, i) => {
+        p.role = dealt[i]; p.alive = true; p.ready = false; p.vote = null; p.seerSeen = [];
+    });
+}
+
+function hostStartGame() {
+    if (connectedPlayers().length < MIN_PLAYERS) {
+        uiErr = 'Need at least ' + MIN_PLAYERS + ' villagers.';
+        if (ui === 'lobby_h') render();
+        return;
+    }
+    clearPhaseTimer();
+    H.dayNum = 0; H.lastNight = null; H.lastBanish = null; H.winner = null;
+    assignRoles();
+    H.phase = 'deal';
+    broadcastState();
+}
+
+function hostRoleReady(p) {
+    if (H.phase !== 'deal' || p.ready) return;
+    p.ready = true;
+    if (H.players.every(q => q.ready)) startNight();
+    else broadcastState();
+}
+
+function startNight() {
+    clearPhaseTimer();
+    H.dayNum += 1;
+    H.lastNight = null; H.lastBanish = null;
+    H.night = { wolfVotes: {}, order: [], seerDone: false, healerPick: null, healerDone: false };
+    H.players.forEach(p => { p.vote = null; });
+    H.phase = 'night';
+    broadcastState();
+}
+
+function hostNightAction(p, pick) {
+    if (H.phase !== 'night' || !p.alive || !H.night) return;
+    const target = H.players.find(q => q.name === pick && q.alive);
+    if (p.role === 'wolf') {
+        if (!target || target.role === 'wolf' || H.night.wolfVotes[p.id]) return;
+        H.night.wolfVotes[p.id] = target.name;
+        H.night.order.push(target.name);
+    } else if (p.role === 'seer') {
+        if (!target || target.id === p.id || H.night.seerDone) return;
+        p.seerSeen = p.seerSeen || [];
+        p.seerSeen.push({ name: target.name, isWolf: target.role === 'wolf' });
+        H.night.seerDone = true;
+    } else if (p.role === 'healer' && H.settings.healer) {
+        if (!target || H.night.healerDone) return;
+        H.night.healerPick = target.name;
+        H.night.healerDone = true;
+    } else return;
+    checkNightResolve();
+    broadcastState();
+}
+
+function checkNightResolve() {
+    if (H.phase !== 'night' || !H.night) return;
+    // only wait for actors who are alive AND still connected
+    const pending = alivePlayers().filter(p =>
+        (p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]) && !hasActed(p));
+    if (pending.length) return;
+    if (!Object.keys(H.night.wolfVotes).length) return;  // a wolf must have voted
+    resolveNight();
+}
+
+function resolveNight() {
+    // majority victim; ties go to the earliest-cast vote among the tied
+    const tally = {};
+    Object.values(H.night.wolfVotes).forEach(n => { tally[n] = (tally[n] || 0) + 1; });
+    const max = Math.max(...Object.values(tally));
+    const tied = Object.keys(tally).filter(n => tally[n] === max);
+    const victimName = tied.length === 1 ? tied[0] : H.night.order.find(n => tied.includes(n));
+    const victim = H.players.find(p => p.name === victimName);
+    const saved = H.night.healerPick === victimName;
+    if (victim && !saved) victim.alive = false;
+    H.lastNight = { victim: victimName, role: victim ? victim.role : null, saved };
+    H.night = null;
+    H.phase = 'dawn';
+    checkWin();
+    broadcastState();
+    clearPhaseTimer();
+    _phaseTimer = setTimeout(() => {
+        if (H.winner) { showGameover(); return; }
+        startDay();
+    }, 7000);
+}
+
+function startDay() {
+    clearPhaseTimer();
+    H.phase = 'day';
+    broadcastState();
+    _phaseTimer = setTimeout(startVote, H.settings.daySecs * 1000);
+}
+
+function startVote() {
+    if (H.phase !== 'day') return;
+    clearPhaseTimer();
+    H.phase = 'vote';
+    H.players.forEach(p => { p.vote = null; });
+    broadcastState();
+}
+
+function hostVote(p, pick) {
+    if (H.phase !== 'vote' || !p.alive || p.vote) return;
+    const target = H.players.find(q => q.name === pick && q.alive && q.id !== p.id);
+    if (!target) return;
+    p.vote = target.name;
+    checkVoteResolve();
+    broadcastState();
+}
+
+function checkVoteResolve() {
+    if (H.phase !== 'vote') return;
+    const pending = alivePlayers().filter(p =>
+        (p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]) && !p.vote);
+    if (pending.length) return;
+    if (!alivePlayers().some(p => p.vote)) return;
+    resolveVote();
+}
+
+function resolveVote() {
+    const tally = {};
+    alivePlayers().forEach(p => { if (p.vote) tally[p.vote] = (tally[p.vote] || 0) + 1; });
+    const max = Math.max(...Object.values(tally));
+    const tied = Object.keys(tally).filter(n => tally[n] === max);
+    if (tied.length === 1) {
+        const banished = H.players.find(p => p.name === tied[0]);
+        banished.alive = false;
+        H.lastBanish = { name: banished.name, role: banished.role, tie: false };
+    } else {
+        H.lastBanish = { name: null, role: null, tie: true };
+    }
+    H.phase = 'verdict';
+    checkWin();
+    broadcastState();
+    clearPhaseTimer();
+    _phaseTimer = setTimeout(() => {
+        if (H.winner) { showGameover(); return; }
+        startNight();
+    }, 7000);
+}
+
+function checkWin() {
+    const wolves = aliveWolves().length;
+    const others = alivePlayers().length - wolves;
+    if (wolves === 0) H.winner = 'village';
+    else if (wolves >= others) H.winner = 'wolves';
+}
+
+function showGameover() {
+    clearPhaseTimer();
+    H.phase = 'gameover';
+    H.players.forEach(p => {
+        const s = H.sessionStats[p.name] = H.sessionStats[p.name] || { games: 0, wolfWins: 0, villageWins: 0 };
+        s.games += 1;
+        if (H.winner === 'wolves' && p.role === 'wolf') s.wolfWins += 1;
+        if (H.winner === 'village' && p.role !== 'wolf') s.villageWins += 1;
+    });
+    broadcastState();
+}
+
+function hostNewGame() {
+    clearPhaseTimer();
+    H.phase = 'lobby';
+    H.dayNum = 0; H.night = null; H.lastNight = null; H.lastBanish = null; H.winner = null;
+    H.players.forEach(p => { p.role = null; p.alive = true; p.ready = false; p.vote = null; p.seerSeen = []; });
+    H.players = H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+    broadcastLobby();
+    if (isHost && !isTvHost) { ui = 'lobby_h'; render(); }
+}
+
+function hostSet(patch) {
+    Object.assign(H.settings, patch);
+    broadcastLobby();
+    if (ui === 'lobby_h') render();
+}
+
+// ═══════════════════════════════════════════
+// CLIENT (phone) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+function stopClientTick() { clearInterval(_clientTick); _clientTick = null; }
+
+function applyMsg(msg) {
+    const prev = D;
+    switch (msg.type) {
+        case 'lobby':
+            D = msg;
+            stopClientTick();
+            ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g';
+            render();
+            break;
+        case 'state': {
+            D = msg;
+            const phaseChanged = !prev || prev.type !== 'state' || prev.phase !== msg.phase || prev.dayNum !== msg.dayNum
+                || (prev.me && msg.me && prev.me.role !== msg.me.role);   // re-deal reaches a phone mid-phase
+            if (msg.phase === 'day' && phaseChanged) {
+                _dayTotal = msg.settings.daySecs * 1000;
+                _dayEndsAt = Date.now() + _dayTotal;
+                stopClientTick();
+                _clientTick = setInterval(patchDayTimer, 250);
+            } else if (msg.phase !== 'day') stopClientTick();
+            ui = msg.phase === 'lobby' ? ((isHost && !isTvHost) ? 'lobby_h' : 'lobby_g') : msg.phase;
+            if (phaseChanged) {
+                render();
+                if (msg.phase === 'night') sOwl();
+                else if (msg.phase === 'dawn') { sBirds(); if (msg.lastNight && !msg.lastNight.saved) setTimeout(sHowl, 500); }
+                else if (msg.phase === 'vote') sVoteBell();
+                else if (msg.phase === 'gameover') {
+                    const iWon = msg.me && ((msg.winner === 'wolves') === (msg.me.role === 'wolf'));
+                    sFanfare();
+                    if (iWon) { startConfetti(3600); try { navigator.vibrate && navigator.vibrate([90, 40, 90, 40, 220]); } catch (e) {} }
+                }
+            } else patchState(msg);
+            break;
+        }
+    }
+}
+
+// mid-phase updates only touch counters — never re-render a phone mid-choice
+function patchState(msg) {
+    const rc = $id('ready-count');
+    if (rc) rc.textContent = `${msg.counts.ready} of ${msg.counts.total} ready`;
+    const na = $id('night-count');
+    if (na) na.textContent = `${msg.counts.actionsIn} of ${msg.counts.actionsNeeded}`;
+    const vc = $id('vote-count');
+    if (vc) vc.textContent = `${msg.counts.votesIn} of ${msg.counts.votesNeeded} votes in`;
+    // seer result arrives mid-night without a phase change
+    if (msg.phase === 'night' && msg.me && msg.me.role === 'seer' && msg.me.nightDone && !$id('seer-result')) render();
+    if (msg.phase === 'night' && msg.me && msg.me.nightDone && $id('pick-wrap') && !$id('night-waiting')) render();
+}
+
+function patchDayTimer() {
+    const left = Math.max(0, _dayEndsAt - Date.now());
+    const bar = $id('day-bar'), num = $id('day-num');
+    if (bar) bar.style.width = (left / _dayTotal * 100) + '%';
+    if (num) num.textContent = Math.ceil(left / 1000) + 's';
+    if (left <= 0) stopClientTick();
+}
+
+function sendReady() {
+    sTap();
+    if (isHost && !isTvHost) { const me = H.players.find(p => p.id === myId); if (me) hostRoleReady(me); }
+    else send(hostConn, { type: 'role_ready' });
+}
+function sendNightAction(name) {
+    sTap();
+    if (isHost && !isTvHost) { const me = H.players.find(p => p.id === myId); if (me) hostNightAction(me, name); }
+    else send(hostConn, { type: 'night_action', pick: name });
+}
+function sendVote(name) {
+    sTap();
+    if (isHost && !isTvHost) { const me = H.players.find(p => p.id === myId); if (me) hostVote(me, name); }
+    else send(hostConn, { type: 'vote', pick: name });
+}
+
+// ═══════════════════════════════════════════
+// VIEWER (TV) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+let _vTick = null, _vEndsAt = 0, _vTotal = 1;
+function stopViewerTimers() { clearInterval(_vTick); _vTick = null; clearInterval(_typeTimer); _typeTimer = null; }
+
+function applyViewerMsg(msg) {
+    document.body.classList.add('viewer-mode');
+    ui = 'viewer';
+    const prev = vD;
+    vD = msg;
+    if (msg.type === 'viewer_lobby') { stopViewerTimers(); render(); return; }
+    const phaseChanged = !prev || prev.type !== 'viewer_state' || prev.phase !== msg.phase || prev.dayNum !== msg.dayNum;
+    if (phaseChanged) {
+        stopViewerTimers();
+        render();
+        typewrite();
+        if (msg.phase === 'night') sOwl();
+        else if (msg.phase === 'dawn') { sBirds(); if (msg.lastNight && !msg.lastNight.saved) setTimeout(sHowl, 600); }
+        else if (msg.phase === 'vote') sVoteBell();
+        else if (msg.phase === 'gameover') { sFanfare(); startConfetti(5200); }
+        if (msg.phase === 'day') {
+            _vTotal = msg.settings.daySecs * 1000;
+            _vEndsAt = Date.now() + _vTotal;
+            _vTick = setInterval(() => {
+                const left = Math.max(0, _vEndsAt - Date.now());
+                const bar = $id('tv-day-bar'), num = $id('tv-day-num');
+                if (bar) bar.style.width = (left / _vTotal * 100) + '%';
+                if (num) num.textContent = Math.ceil(left / 1000);
+                if (left <= 0) clearInterval(_vTick);
+            }, 250);
+        }
+    } else {
+        const el = $id('tv-progress');
+        if (el) el.textContent = tvProgressText(msg);
+    }
+}
+
+function tvProgressText(msg) {
+    if (msg.phase === 'deal') return `${msg.counts.ready} of ${msg.counts.total} have seen their role`;
+    if (msg.phase === 'night') return `the night stirs… ${msg.counts.actionsIn} of ${msg.counts.actionsNeeded}`;
+    if (msg.phase === 'vote') return `${msg.counts.votesIn} of ${msg.counts.votesNeeded} votes cast`;
+    return '';
+}
+
+// typewriter for the TV narrator line
+function typewrite() {
+    const el = $id('tv-narrator');
+    if (!el) return;
+    const text = el.dataset.line || '';
+    if (REDUCED) { el.textContent = text; return; }
+    el.textContent = '';
+    let i = 0;
+    clearInterval(_typeTimer);
+    _typeTimer = setInterval(() => {
+        if (i >= text.length) { clearInterval(_typeTimer); return; }
+        el.textContent += text[i++];
+    }, 34);
+}
+
+// ═══════════════════════════════════════════
+// RENDER — shared bits
+// ═══════════════════════════════════════════
+function hdrHTML(sub) {
+    return `<h1 class="logo">🌙 Moonlight Village</h1><div class="sub">${esc(sub || 'the wolves are already inside')}</div>`;
+}
+function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+function isCaptain() { return !!(D && D.tvHost && D.captain && D.captain === myName); }
+function canDrive() { return (isHost && !isTvHost) || isCaptain(); }
+function roleChip(role) {
+    const r = ROLES[role];
+    return r ? `<span class="chip" style="color:${r.color};border-color:${r.color}55;background:${r.color}18">${r.emoji} ${r.name}</span>` : '';
+}
+
+function settingsSegsHTML(settings, expr) {
+    const seg = (opts, curV, key) => `<div class="seg-row">${opts.map(o =>
+        `<button class="btn btn-sm ${curV === o.v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{${key}:${o.j}}`)}">${o.l}</button>`).join('')}</div>`;
+    return `
+        <div class="fg"><label>💊 Healer role</label>${seg(
+            [{ v: true, j: 'true', l: 'On' }, { v: false, j: 'false', l: 'Off' }], settings.healer, 'healer')}</div>
+        <div class="fg"><label>☀️ Discussion time</label>${seg(
+            [60, 90, 120].map(v => ({ v, j: v, l: v + 's' })), settings.daySecs, 'daySecs')}</div>`;
+}
+
+function ghostHTML(me, phaseNote) {
+    const tiles = (me.reveal || []).map(p => {
+        const r = ROLES[p.role] || {};
+        return `<div class="ghost-tile${p.alive ? '' : ' dead'}" style="color:${r.color || 'inherit'}">${r.emoji || ''} ${esc(p.name)}<br><span style="font-size:.66rem">${r.name || ''}</span></div>`;
+    }).join('');
+    return `
+    <div class="card scene">
+        <div class="big">👻</div>
+        <div class="t">You're watching from beyond</div>
+        <div class="s">${esc(phaseNote)}<br><b>Keep what you see to yourself — no haunting hints!</b></div>
+    </div>
+    <div class="card"><div class="slbl">Everything you can see now</div><div class="ghost-grid">${tiles}</div></div>`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — phone screens
+// ═══════════════════════════════════════════
+function render() {
+    const app = $id('app');
+    if (isTvHost || isViewer) ui = 'viewer';
+    let html = '';
+    switch (ui) {
+        case 'home':       html = renderHome(); break;
+        case 'creating':   html = renderSpinner('Founding the village…'); break;
+        case 'connecting': html = renderSpinner('Walking to the village…'); break;
+        case 'lobby_h':    html = renderLobbyH(); break;
+        case 'lobby_g':    html = renderLobbyG(); break;
+        case 'deal':       html = renderDeal(); break;
+        case 'night':      html = renderNight(); break;
+        case 'dawn':       html = renderDawn(); break;
+        case 'day':        html = renderDay(); break;
+        case 'vote':       html = renderVote(); break;
+        case 'verdict':    html = renderVerdict(); break;
+        case 'gameover':   html = renderGameover(); break;
+        case 'viewer':     html = renderViewer(); break;
+        default:           html = renderHome();
+    }
+    app.innerHTML = html;
+    if (ui === 'viewer') typewrite();
+}
+
+function renderSpinner(msg) {
+    return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`;
+}
+
+function renderHome() {
+    const fromQR = !!fCode;
+    const youCard = `
+    <div class="card">
+        <div class="slbl">Who are you?</div>
+        <div class="fg">
+            <label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
+                ${fromQR ? 'autofocus' : ''} oninput="fName=this.value">
+        </div>
+    </div>`;
+    const joinCard = `
+    <div class="card${fromQR ? ' highlight' : ''}">
+        <div class="slbl">Join a Village</div>
+        <div class="fg">
+            <label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fCode)}"
+                oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
+        </div>
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">
+            📱 Join with your phone
+        </button>
+    </div>`;
+    const hostCard = `
+    <div class="card">
+        <div class="slbl">Found a Village</div>
+        <button class="btn btn-p btn-full"
+            onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
+            🌙 Host on this phone
+        </button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin-top:8px">
+            4–12 players — the TV is the narrator, your phone holds your secrets
+        </div>
+    </div>`;
+    const tvCard = `
+    <div class="card">
+        <div class="slbl">TV / Big Screen — the Narrator</div>
+        <button class="btn btn-moon btn-full" onclick="hostOnTV()">📺 Open the village on this screen</button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin:6px 0 10px">
+            Shows a big QR code — the first phone to join becomes 👑 Captain
+        </div>
+        <hr>
+        <div class="fg">
+            <label>…or narrate an existing village</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')joinAsViewer(fVCode)">
+        </div>
+        <button class="btn btn-g btn-full"
+            onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code.';render()}">
+            📺 Open narrator screen
+        </button>
+    </div>`;
+    return `
+    ${hdrHTML('secret roles on phones · the TV narrates')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+}
+
+function rolesPreviewHTML(count, settings) {
+    const w = wolvesFor(Math.max(count, MIN_PLAYERS));
+    return `<div class="seg-row">
+        <span class="chip" style="color:${ROLES.wolf.color}">🐺 ${w} ${w > 1 ? 'Wolves' : 'Wolf'}</span>
+        <span class="chip" style="color:${ROLES.seer.color}">🔮 1 Seer</span>
+        ${settings.healer ? `<span class="chip" style="color:${ROLES.healer.color}">💊 1 Healer</span>` : ''}
+        <span class="chip" style="color:${ROLES.villager.color}">🌾 Villagers</span>
+    </div>`;
+}
+
+function renderLobbyH() {
+    const pList = H.players.map((p, i) =>
+        `<div class="player-row">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1">${esc(p.name)}${i === 0 ? ' <span style="color:var(--muted)">(you — host)</span>' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    return `
+    ${hdrHTML('Host Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card highlight">
+        <div class="slbl">Scan to join — or share the code</div>
+        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        <div class="room-code">${esc(roomCode)}</div>
+        <div class="share-row">
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.share&&navigator.share({title:'Join Moonlight Village',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
+        </div>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center">Open the narrator on a TV with code <b style="color:var(--moon)">${esc(roomCode)}</b></div>
+    </div>
+    <div class="card">
+        <div class="slbl">Villagers (${H.players.length}/${MAX_PLAYERS}) — need ${MIN_PLAYERS}+</div>
+        ${pList}
+    </div>
+    <div class="card">
+        <div class="slbl">Tonight's roles</div>
+        ${rolesPreviewHTML(H.players.length, H.settings)}
+        <hr>
+        ${settingsSegsHTML(H.settings, patch => `hostSet(${patch})`)}
+    </div>
+    <button class="btn btn-moon btn-full" style="font-size:1.08rem;padding:16px" onclick="hostStartGame()">🌙 Deal the roles</button>`;
+}
+
+function renderLobbyG() {
+    const cap = isCaptain();
+    const pList = (D.players || []).map(p =>
+        `<div class="player-row">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--muted)">(you)</span>' : ''}${D.tvHost && p.name === D.captain ? ' 👑' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    const s = D.settings || {};
+    return `
+    ${hdrHTML(cap ? '👑 You are the Captain' : 'Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card">
+        <div class="slbl">Room ${esc(D.roomCode || '')} — Villagers (${(D.players || []).length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    <div class="card">
+        <div class="slbl">Tonight's roles</div>
+        ${rolesPreviewHTML((D.players || []).length, s)}
+    </div>
+    ${cap ? `
+    <div class="card highlight">
+        <div class="slbl">👑 Captain's Settings</div>
+        ${settingsSegsHTML(s, patch => `guestCtl('set',${patch})`)}
+    </div>
+    <button class="btn btn-moon btn-full" style="font-size:1.08rem;padding:16px" onclick="guestCtl('start')">🌙 Deal the roles</button>`
+    : `
+    <div class="card">
+        <div class="slbl">Waiting</div>
+        <div style="color:var(--muted);font-size:.75rem;font-weight:800">
+            ${D.tvHost ? `👑 ${esc(D.captain || 'The captain')}` : 'The host'} deals the roles when everyone's in…
+        </div>
+    </div>`}`;
+}
+
+function renderDeal() {
+    const me = D.me || {};
+    const r = ROLES[me.role] || {};
+    return `
+    ${hdrHTML('Shhh — your secret role')}
+    <div class="role-card" id="role-card"
+        onpointerdown="this.classList.add('peeked')"
+        onpointerup="this.classList.remove('peeked')"
+        onpointerleave="this.classList.remove('peeked')"
+        onpointercancel="this.classList.remove('peeked')">
+        <div class="hint">🎭 HOLD to peek at your role — make sure nobody's looking</div>
+        <div class="secret">
+            <div class="r-emoji">${r.emoji || ''}</div>
+            <div class="r-name" style="color:${r.color}">${esc(r.name || '')}</div>
+            <div class="r-desc">${esc(r.desc || '')}</div>
+            ${me.role === 'wolf' && me.mates && me.mates.length ? `<div class="r-mates" style="color:${ROLES.wolf.color}">Your pack: ${me.mates.map(esc).join(', ')}</div>` : ''}
+        </div>
+    </div>
+    ${me.ready
+        ? `<div class="card scene"><div class="big">🤐</div><div class="t">Role memorised</div><div class="s" id="ready-count">${D.counts.ready} of ${D.counts.total} ready</div></div>`
+        : `<button class="btn btn-p btn-full" style="font-size:1.02rem;padding:15px" onclick="sendReady()">✅ I've seen my role</button>
+           <div style="text-align:center;color:var(--muted);font-size:.72rem;font-weight:800" id="ready-count">${D.counts.ready} of ${D.counts.total} ready</div>`}`;
+}
+
+function pickListHTML(names, action) {
+    return `<div class="pick-list" id="pick-wrap">${names.map(p => `
+        <button class="pickbtn" onclick="${action}('${esc(p.name)}')">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>${esc(p.name)}${p.name === myName ? ' (you)' : ''}
+        </button>`).join('')}</div>`;
+}
+
+function renderNight() {
+    const me = D.me || {};
+    if (!me.alive) return ghostHTML(me, 'The village sleeps. The wolves are choosing…');
+    const alive = (D.players || []).filter(p => p.alive);
+    if (me.role === 'wolf' && !me.nightDone) {
+        const targets = alive.filter(p => p.name !== myName && !(me.mates || []).includes(p.name));
+        return `
+        <div class="card scene" style="border-color:${ROLES.wolf.color}55">
+            <div class="big">🐺</div>
+            <div class="t" style="color:${ROLES.wolf.color}">The hunt is on</div>
+            <div class="s">${me.mates && me.mates.length ? 'Your pack: <b>' + me.mates.map(esc).join(', ') + '</b>. Agree on a target.' : 'Choose tonight\'s target.'}</div>
+        </div>
+        ${pickListHTML(targets, 'sendNightAction')}`;
+    }
+    if (me.role === 'seer' && !me.nightDone) {
+        const targets = alive.filter(p => p.name !== myName);
+        return `
+        <div class="card scene" style="border-color:${ROLES.seer.color}55">
+            <div class="big">🔮</div>
+            <div class="t" style="color:${ROLES.seer.color}">Your vision stirs</div>
+            <div class="s">Peek at one villager — are they a wolf?</div>
+        </div>
+        ${pickListHTML(targets, 'sendNightAction')}`;
+    }
+    if (me.role === 'healer' && D.settings.healer && !me.nightDone) {
+        return `
+        <div class="card scene" style="border-color:${ROLES.healer.color}55">
+            <div class="big">💊</div>
+            <div class="t" style="color:${ROLES.healer.color}">Who will you watch over?</div>
+            <div class="s">If the wolves strike them tonight, they survive. You may protect yourself.</div>
+        </div>
+        ${pickListHTML(alive, 'sendNightAction')}`;
+    }
+    // acted, or a plain villager
+    const seerLast = me.role === 'seer' && (me.seer || [])[me.seer.length - 1];
+    return `
+    <div class="card scene" id="night-waiting">
+        <div class="big">${me.role === 'villager' ? '😴' : '🌙'}</div>
+        <div class="t">${me.role === 'villager' ? 'You\'re fast asleep' : 'Done for tonight'}</div>
+        ${seerLast ? `<div id="seer-result" style="margin-top:10px"><span class="chip" style="font-size:.95rem;color:${seerLast.isWolf ? ROLES.wolf.color : ROLES.villager.color}">${seerLast.isWolf ? '🐺 ' + esc(seerLast.name).toUpperCase() + ' IS A WOLF!' : '🌾 ' + esc(seerLast.name) + ' is not a wolf'}</span></div>` : ''}
+        <div class="s">${me.role === 'villager' ? 'Dream of warm bread. Definitely don\'t peek at your neighbours.' : 'Keep a straight face.'}<br>
+        <span id="night-count">${D.counts.actionsIn} of ${D.counts.actionsNeeded}</span> night actions in…</div>
+    </div>`;
+}
+
+function renderDawn() {
+    const me = D.me || {};
+    const ln = D.lastNight || {};
+    if (me.alive === false && ln.victim === myName && !ln.saved) {
+        return `
+        <div class="card scene" style="border-color:${ROLES.wolf.color}66">
+            <div class="big">💀</div>
+            <div class="t">The wolves came for you</div>
+            <div class="s">You're out — but the show's not over. You'll see <b>everything</b> from here. Keep it zipped!</div>
+        </div>`;
+    }
+    if (!me.alive) return ghostHTML(me, 'Dawn breaks over the village…');
+    return `
+    <div class="card scene dawnbg">
+        <div class="big">🌅</div>
+        <div class="t">${ln.saved ? 'Everyone survived the night!' : (ln.victim ? esc(ln.victim) + ' is gone' : 'A quiet night')}</div>
+        <div class="s">${ln.saved ? 'Someone was watched over while they slept…' : (ln.victim ? 'They were a ' + (ROLES[ln.role]?.name || '?') + ' ' + (ROLES[ln.role]?.emoji || '') : '')}<br>Eyes on the TV.</div>
+    </div>`;
+}
+
+function renderDay() {
+    const me = D.me || {};
+    if (!me.alive) return ghostHTML(me, 'The village argues below…');
+    return `
+    <div class="card scene">
+        <div class="big">☀️</div>
+        <div class="t">Talk it out!</div>
+        <div class="s">Who's acting strange? Who's too quiet? The vote is coming…</div>
+        <div style="margin:14px 0 6px" class="timerbar-wrap"><div class="timerbar" id="day-bar" style="width:100%"></div></div>
+        <div style="font-weight:900;color:var(--moon)" id="day-num">${D.settings.daySecs}s</div>
+    </div>
+    ${canDrive() ? `<button class="btn btn-p btn-full" onclick="guestCtl('skipday')">🗳️ Skip straight to the vote</button>` : ''}`;
+}
+
+function renderVote() {
+    const me = D.me || {};
+    if (!me.alive) return ghostHTML(me, 'The village is voting…');
+    if (me.votedFor) {
+        return `
+        <div class="card scene" id="vote-done">
+            <div class="big">🗳️</div>
+            <div class="t">You voted for ${esc(me.votedFor)}</div>
+            <div class="s"><span id="vote-count">${D.counts.votesIn} of ${D.counts.votesNeeded} votes in</span></div>
+        </div>`;
+    }
+    const targets = (D.players || []).filter(p => p.alive && p.name !== myName);
+    return `
+    <div class="card scene">
+        <div class="big">🗳️</div>
+        <div class="t">Who is the wolf?</div>
+        <div class="s" id="vote-count">${D.counts.votesIn} of ${D.counts.votesNeeded} votes in</div>
+    </div>
+    <div id="vote-wrap">${pickListHTML(targets, 'sendVote')}</div>`;
+}
+
+function renderVerdict() {
+    const me = D.me || {};
+    const lb = D.lastBanish || {};
+    if (!me.alive && lb.name !== myName) return ghostHTML(me, 'The verdict is in…');
+    if (lb.tie) {
+        return `<div class="card scene"><div class="big">🤷</div><div class="t">The village couldn't decide</div><div class="s">Nobody was banished. The night returns…</div></div>`;
+    }
+    const r = ROLES[lb.role] || {};
+    const wasMe = lb.name === myName;
+    return `
+    <div class="card scene" style="border-color:${r.color}55">
+        <div class="big">${r.emoji || '⚖️'}</div>
+        <div class="t">${wasMe ? 'You were banished!' : esc(lb.name || '') + ' is banished'}</div>
+        <div class="s">They were a <b style="color:${r.color}">${esc(r.name || '?')}</b>${lb.role === 'wolf' ? ' — got one!' : ' — oh no.'}</div>
+    </div>`;
+}
+
+function renderGameover() {
+    const me = D.me || {};
+    const iWon = me.role && ((D.winner === 'wolves') === (me.role === 'wolf'));
+    const tiles = (D.players || []).map(p => {
+        const r = ROLES[p.role] || {};
+        return `<div class="ghost-tile${p.alive ? '' : ' dead'}" style="color:${r.color}">${r.emoji} ${esc(p.name)}<br><span style="font-size:.66rem">${r.name}</span></div>`;
+    }).join('');
+    const st = D.stats && D.stats[myName];
+    return `
+    ${hdrHTML(D.winner === 'wolves' ? 'The wolves win' : 'The village wins')}
+    <div class="card scene" style="border-color:${iWon ? 'var(--heal)' : 'var(--wolf)'}55">
+        <div class="big">${D.winner === 'wolves' ? '🐺' : '🌻'}</div>
+        <div class="t">${iWon ? 'Your team wins!' : 'Your team fell'}</div>
+        <div class="s">You were a ${ROLES[me.role]?.name || '?'} ${ROLES[me.role]?.emoji || ''}</div>
+        ${st ? `<div class="s" style="margin-top:6px">Session: ${st.games} game${st.games === 1 ? '' : 's'} · 🐺 wins ${st.wolfWins} · 🌾 wins ${st.villageWins}</div>` : ''}
+    </div>
+    <div class="card"><div class="slbl">Everyone's roles</div><div class="ghost-grid">${tiles}</div></div>
+    ${canDrive() ? `<button class="btn btn-moon btn-full" style="font-size:1.02rem;padding:15px" onclick="guestCtl('again')">🔁 Play again (new roles)</button>` : ''}`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — TV screens
+// ═══════════════════════════════════════════
+function tvShell(inner, meta) {
+    return `<div class="tv">
+        <div class="tv-top">
+            <div class="tv-logo">🌙 Moonlight Village</div>
+            <div class="tv-meta">${esc(meta || ('Room ' + (vD.roomCode || roomCode || '')))}</div>
+        </div>
+        ${inner}
+    </div>`;
+}
+
+function tvVillagersHTML(showDeadRoles) {
+    return `<div class="tv-villagers">${(vD.players || []).map(p => {
+        const r = p.role ? ROLES[p.role] : null;
+        return `<div class="tv-vchip${p.alive ? '' : ' dead'}">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <span class="nm">${esc(p.name)}</span>
+            ${!p.alive && r && showDeadRoles !== false ? `<span class="role-tag">${r.emoji} ${r.name}</span>` : ''}
+        </div>`;
+    }).join('')}</div>`;
+}
+
+function tvScene(emoji, line, extra, cls, meta) {
+    return tvShell(`
+    <div class="tv-scene ${cls || ''}">
+        <div class="moon-big">${emoji}</div>
+        <div class="tv-narrator" id="tv-narrator" data-line="${esc(line)}"></div>
+        ${extra || ''}
+        ${tvVillagersHTML()}
+    </div>`, meta);
+}
+
+function renderViewer() {
+    if (!vD) return renderSpinner('Waiting for the village…');
+    if (vD.type === 'viewer_lobby') return renderViewerLobby();
+    switch (vD.phase) {
+        case 'deal':
+            return tvScene('🎭', 'The village gathers. Check your role — trust no one.',
+                `<div class="tv-subline" id="tv-progress">${tvProgressText(vD)}</div>`, '', 'Dealing roles');
+        case 'night':
+            return tvScene('🌙', `Night falls on Moonlight Village… the wolves are hungry.`,
+                `<div class="tv-subline" id="tv-progress">${tvProgressText(vD)}</div>`, '', `Night ${vD.dayNum}`);
+        case 'dawn': {
+            const ln = vD.lastNight || {};
+            const line = ln.saved
+                ? 'The sun rises… and everyone is still here! Someone was saved in the night. ✨'
+                : ln.victim
+                    ? `The sun rises… but ${ln.victim} does not. A ${ROLES[ln.role]?.name || '?'} has been lost. 💀`
+                    : 'The sun rises on a quiet village.';
+            return tvScene('🌅', line, '', 'dawn-scene', `Dawn ${vD.dayNum}`);
+        }
+        case 'day':
+            return tvScene('☀️', 'Daylight. Talk it out — who is lying?',
+                `<div class="tv-count" id="tv-day-num">${vD.settings.daySecs}</div>
+                 <div class="tv-timer-wrap"><div class="tv-timer" id="tv-day-bar" style="width:100%"></div></div>`,
+                'dawn-scene', `Day ${vD.dayNum}`);
+        case 'vote':
+            return tvScene('🗳️', 'The village votes. Choose carefully…',
+                `<div class="tv-subline" id="tv-progress">${tvProgressText(vD)}</div>`, '', `Day ${vD.dayNum}`);
+        case 'verdict': {
+            const lb = vD.lastBanish || {};
+            const line = lb.tie
+                ? 'The village could not decide. Nobody was banished tonight.'
+                : `${lb.name} is banished. They were… a ${ROLES[lb.role]?.name || '?'}! ${ROLES[lb.role]?.emoji || ''}`;
+            return tvScene(lb.tie ? '🤷' : (ROLES[lb.role]?.emoji || '⚖️'), line, '', '', `Day ${vD.dayNum}`);
+        }
+        case 'gameover': {
+            const line = vD.winner === 'wolves'
+                ? 'The wolves win. The village belongs to them now. 🐺'
+                : 'The last wolf is gone — the village is safe! 🌻';
+            const tiles = (vD.players || []).map((p, i) => {
+                const r = ROLES[p.role] || {};
+                return `<div class="reveal-tile${p.alive ? '' : ' dead'}" style="animation-delay:${i * 0.12}s">
+                    <div class="re">${r.emoji || ''}</div>${esc(p.name)}<div class="rr" style="color:${r.color}">${r.name || ''}</div>
+                </div>`;
+            }).join('');
+            const stats = vD.stats ? Object.entries(vD.stats).map(([n, s]) =>
+                `<span>${esc(n)}: 🐺${s.wolfWins} 🌾${s.villageWins}</span>`).join('') : '';
+            const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: “Play again” is on your phone` : 'Host: “Play again” is on your phone';
+            return tvShell(`
+            <div class="tv-scene ${vD.winner === 'village' ? 'dawn-scene' : ''}">
+                <div class="moon-big">${vD.winner === 'wolves' ? '🐺' : '🌻'}</div>
+                <div class="tv-narrator" id="tv-narrator" data-line="${esc(line)}"></div>
+                <div class="reveal-grid">${tiles}</div>
+                ${stats ? `<div class="stats-row">${stats}</div>` : ''}
+                <div class="tv-waiting">${hint}</div>
+            </div>`, vD.winner === 'wolves' ? '🐺 Wolves win' : '🌻 Village wins');
+        }
+    }
+    return renderSpinner('Waiting for the village…');
+}
+
+function renderViewerLobby() {
+    const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
+    const players = vD.players || [];
+    const cards = players.map(p =>
+        `<div class="tv-pcard"><div class="pdot" style="background:${p.color};color:${p.color}"></div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
+    const s = vD.settings || {};
+    return tvShell(`
+    <div class="tv-lobby">
+        <div class="qr-side">
+            <div class="slbl">Scan with your phone to join</div>
+            <div class="qr-wrap">${qrSVG(url)}</div>
+            <div class="room-code">${esc(vD.roomCode || '')}</div>
+            <div class="join-hint">${location.host}${location.pathname}</div>
+        </div>
+        <div class="tv-players">
+            <div class="tv-meta">Villagers — ${players.length}/${MAX_PLAYERS} (need ${MIN_PLAYERS}+)</div>
+            <div class="tv-player-grid">${cards}</div>
+            <div class="tv-waiting">${players.length === 0
+                ? 'Waiting for the first phone… they become 👑 Captain'
+                : (players.length < MIN_PLAYERS
+                    ? `Need ${MIN_PLAYERS - players.length} more to start…`
+                    : `${vD.tvHost ? `Waiting for 👑 ${esc(vD.captain || '')}` : 'Waiting for the host'} · 🐺×${vD.wolves} · 💊 ${s.healer ? 'on' : 'off'} · ☀️ ${s.daySecs}s`)}</div>
+        </div>
+    </div>`, 'Lobby');
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+window.addEventListener('resize', () => {
+    const cv = $id('confetti-cv');
+    if (cv && _cf.running) { cv.width = innerWidth; cv.height = innerHeight; }
+});
+
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
+    render();
+})();
+</script>
+</body>
+</html>

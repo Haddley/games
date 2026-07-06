@@ -1,0 +1,1426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Going, Going, GONE! — Auction House</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23150a1e' width='100' height='100' rx='20'/><text x='50' y='68' font-size='52' text-anchor='middle'>🔨</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #150a1e; --panel: rgba(45,26,64,0.72); --panel2: rgba(60,36,86,0.85);
+            --border: rgba(232,183,90,0.3); --border2: rgba(160,130,190,0.28);
+            --text: #f6eefb; --muted: #a893bd;
+            --gold: #e8b75a; --gold2: #f5d38a; --up: #4ade80; --down: #f87171; --plum: #b478e0;
+        }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 26px 16px 48px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 55% 42% at 50% 0%, rgba(232,183,90,0.16) 0%, transparent 62%),
+                radial-gradient(ellipse 45% 38% at 10% 100%, rgba(180,120,224,0.12) 0%, transparent 65%),
+                radial-gradient(ellipse 45% 38% at 92% 100%, rgba(232,183,90,0.08) 0%, transparent 65%);
+        }
+        body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
+
+        h1.logo {
+            font-family: 'Playfair Display', serif; font-weight: 900; letter-spacing: .5px;
+            font-size: clamp(1.45rem, 6.2vw, 2.2rem); text-align: center; color: var(--gold);
+            text-shadow: 0 2px 0 rgba(0,0,0,.4), 0 0 30px rgba(232,183,90,.4);
+        }
+        .sub { color: var(--muted); font-size: .68rem; letter-spacing: 2.5px; text-transform: uppercase; margin: 7px 0 22px; text-align: center; font-weight: 800; }
+
+        #app { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 13px; }
+        body.viewer-mode #app { max-width: none; height: 100dvh; display: block; }
+
+        .card {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 16px;
+            padding: 18px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 12px 34px rgba(0,0,0,.5);
+        }
+        .card.highlight { border-color: var(--gold); box-shadow: 0 0 26px rgba(232,183,90,.16), 0 12px 34px rgba(0,0,0,.5); }
+        .slbl { font-size: .64rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 11px; }
+
+        .fg { margin-bottom: 12px; }
+        .fg label { display: block; font-size: .64rem; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+        input[type=text] {
+            width: 100%; padding: 12px 14px; font-family: inherit; font-size: 1rem; font-weight: 700;
+            border: 2px solid var(--border2); border-radius: 11px; background: rgba(21,10,30,.7); color: var(--text);
+            outline: none;
+        }
+        input[type=text]:focus { border-color: var(--gold); }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            font-family: inherit; font-weight: 900; font-size: .92rem; letter-spacing: .4px;
+            padding: 13px 18px; border: none; border-radius: 13px; cursor: pointer;
+            transition: filter .12s, opacity .12s, box-shadow .12s; user-select: none; -webkit-user-select: none;
+            color: var(--text);
+        }
+        .btn:active { filter: brightness(1.15); }
+        .btn-p { background: linear-gradient(180deg, var(--gold2), #c99334); color: #2a1a05; box-shadow: 0 5px 0 #8a6220, 0 10px 22px rgba(232,183,90,.3); }
+        .btn-p:active { box-shadow: 0 2px 0 #8a6220; }
+        .btn-g { background: rgba(160,130,190,.14); box-shadow: inset 0 0 0 2px var(--border2); }
+        .btn-full { width: 100%; }
+        .btn-sm { padding: 8px 13px; font-size: .74rem; border-radius: 10px; }
+        .btn:disabled { opacity: .38; cursor: default; }
+
+        .err {
+            background: rgba(248,113,113,.12); border: 1px solid rgba(248,113,113,.5); color: #fda4af;
+            padding: 11px 14px; border-radius: 12px; font-size: .8rem; font-weight: 700; text-align: center;
+        }
+        hr { border: none; border-top: 1px dashed var(--border2); margin: 13px 0; }
+
+        .connecting { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 46px 0; color: var(--muted); font-weight: 700; }
+        .spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid rgba(232,183,90,.15); border-top-color: var(--gold); animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .player-row { display: flex; align-items: center; gap: 11px; padding: 8px 4px; border-bottom: 1px dashed var(--border2); font-weight: 800; font-size: .92rem; }
+        .player-row:last-child { border-bottom: none; }
+        .pdot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 10px currentColor; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up); box-shadow: 0 0 8px var(--up); margin-left: auto; }
+        .qr-wrap { width: min(210px, 58vw); margin: 6px auto 10px; border-radius: 13px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.4); }
+        .qr-wrap svg { display: block; width: 100%; height: auto; }
+        .room-code { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 2.3rem; letter-spacing: 11px; text-align: center; color: var(--gold); padding-left: 11px; text-shadow: 0 0 18px rgba(232,183,90,.4); }
+        .share-row { display: flex; gap: 8px; justify-content: center; margin: 10px 0 6px; }
+        .seg-row { display: flex; flex-wrap: wrap; gap: 7px; }
+
+        /* ── phone: lot & bidding ── */
+        .lot-card { text-align: center; padding: 22px 16px; }
+        .lot-card .lemoji { font-size: 3.4rem; }
+        .lot-card .lname { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 1.4rem; margin-top: 8px; }
+        .lot-card .ldesc { color: var(--muted); font-weight: 700; font-size: .85rem; margin-top: 6px; font-style: italic; }
+        .lot-kicker { font-size: .62rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold); margin-bottom: 6px; }
+        .price-big { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 3rem; color: var(--gold); text-shadow: 0 0 22px rgba(232,183,90,.35); font-variant-numeric: tabular-nums; }
+        .lead-banner {
+            border-radius: 13px; padding: 11px; font-weight: 900; text-align: center;
+            background: rgba(74,222,128,.12); border: 1px solid rgba(74,222,128,.45); color: #a7f3c9;
+        }
+        .lead-banner.other { background: rgba(160,130,190,.12); border-color: var(--border2); color: var(--muted); }
+        .bid-btns { display: flex; gap: 9px; }
+        .bid-btns .btn { flex: 1; font-size: 1.05rem; padding: 16px 8px; }
+        .gavel-wrap { height: 10px; border-radius: 6px; background: rgba(255,255,255,.09); overflow: hidden; }
+        .gavel-bar { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--gold), var(--down)); transition: width .1s linear; }
+        .coins-chip { display: inline-block; padding: 4px 12px; border-radius: 11px; background: rgba(232,183,90,.12); border: 1px solid var(--border); color: var(--gold); font-weight: 900; font-size: .8rem; }
+        .shelf { display: flex; flex-wrap: wrap; gap: 6px; }
+        .shelf .sh-item {
+            background: rgba(21,10,30,.6); border: 1px solid var(--border2); border-radius: 10px;
+            padding: 6px 10px; font-size: .72rem; font-weight: 800;
+        }
+        .shelf .sh-item .val { font-weight: 900; }
+        .shelf .sh-item .val.plus { color: var(--up); }
+        .shelf .sh-item .val.minus { color: var(--down); }
+
+        .sold-card { text-align: center; padding: 26px 16px; }
+        .sold-card .gavel { font-size: 3.6rem; display: inline-block; animation: bang .7s ease; }
+        @keyframes bang { 0% { transform: rotate(-38deg) translateY(-14px); } 55% { transform: rotate(8deg); } 75% { transform: rotate(-6deg); } 100% { transform: rotate(0); } }
+        .sold-card .st { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 1.6rem; margin-top: 6px; }
+        .chip { display: inline-block; padding: 4px 12px; border-radius: 11px; background: rgba(232,183,90,.12); border: 1px solid var(--border); color: var(--gold); font-weight: 900; font-size: .74rem; margin: 3px; }
+        .standings .sc { margin-left: auto; font-weight: 900; font-variant-numeric: tabular-nums; }
+
+        /* ═════════ TV ═════════ */
+        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 2.6vmin 3.2vmin; gap: 1.8vmin; }
+        .tv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 2vmin; }
+        .tv-logo { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 3.1vmin; color: var(--gold); text-shadow: 0 0 24px rgba(232,183,90,.4); }
+        .tv-meta { font-size: 1.8vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .tv-main { flex: 1; display: flex; gap: 2.4vmin; min-height: 0; }
+        .tv-stage { flex: 1.7; display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: 1.6vmin; }
+        .tv-rail { flex: 1; display: flex; flex-direction: column; gap: 1.2vmin; min-width: 0; overflow: hidden; }
+        .rail-title { font-size: 1.5vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .rail-row {
+            display: flex; align-items: center; gap: 1.2vmin; background: var(--panel);
+            border: 1px solid var(--border2); border-radius: 1.5vmin; padding: 1.2vmin 1.5vmin;
+            font-weight: 800; font-size: 2vmin;
+        }
+        .rail-row .rname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rail-row .rcoins { font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; }
+        .rail-row .rlots { color: var(--muted); font-size: 1.5vmin; }
+        .rail-row.leader { border-color: var(--gold); box-shadow: 0 0 18px rgba(232,183,90,.22); }
+
+        .tv-lot {
+            flex: 1; background: var(--panel); border: 1px solid var(--border); border-radius: 2.2vmin;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2vmin;
+            text-align: center; padding: 3vmin; position: relative; overflow: hidden;
+        }
+        .tv-lot::before {
+            content: ''; position: absolute; inset: -30%; pointer-events: none;
+            background: radial-gradient(ellipse 45% 38% at 50% 18%, rgba(232,183,90,.14) 0%, transparent 60%);
+        }
+        .tv-lot .lemoji { font-size: 9.5vmin; filter: drop-shadow(0 1vmin 2.4vmin rgba(0,0,0,.5)); }
+        .tv-lot .lname { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 4.2vmin; }
+        .tv-lot .ldesc { color: var(--muted); font-weight: 700; font-size: 2.1vmin; font-style: italic; max-width: 60vmin; }
+        .tv-lot .lkick { font-size: 1.7vmin; font-weight: 900; letter-spacing: .45vmin; text-transform: uppercase; color: var(--gold); }
+        .tv-price { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 7vmin; color: var(--gold); text-shadow: 0 0 30px rgba(232,183,90,.4); font-variant-numeric: tabular-nums; line-height: 1; }
+        .tv-leader { font-size: 2.3vmin; font-weight: 900; }
+        .tv-gavel-row { display: flex; align-items: center; gap: 2vmin; }
+        .tv-gavel-row .going { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 2.6vmin; color: var(--down); min-width: 22vmin; text-align: right; }
+        .tv-gavel-wrap { flex: 1; height: 1.6vmin; border-radius: .9vmin; background: rgba(255,255,255,.09); overflow: hidden; }
+        .tv-gavel-bar { height: 100%; background: linear-gradient(90deg, var(--gold), var(--down)); border-radius: .9vmin; transition: width .1s linear; }
+
+        .tv-sold {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 1.6vmin; text-align: center;
+        }
+        .tv-sold .gavel { font-size: 13vmin; animation: bang .8s ease; }
+        .tv-sold .who { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 5.4vmin; color: var(--gold); }
+        .tv-sold .sub2 { font-size: 2.4vmin; font-weight: 800; color: var(--muted); }
+
+        /* valuation */
+        .tv-val { flex: 1; display: flex; flex-direction: column; gap: 1.6vmin; min-height: 0; }
+        .val-card {
+            background: var(--panel); border: 1px solid var(--border); border-radius: 2vmin;
+            padding: 2.2vmin 3vmin; display: flex; align-items: center; gap: 2.2vmin; animation: valIn .5s ease both;
+        }
+        @keyframes valIn { from { opacity: 0; transform: translateY(2vmin); } to { opacity: 1; transform: none; } }
+        .val-card .vemoji { font-size: 4.6vmin; }
+        .val-card .vname { font-weight: 900; font-size: 2.4vmin; font-family: 'Playfair Display', serif; }
+        .val-card .vpaid { color: var(--muted); font-weight: 800; font-size: 1.8vmin; }
+        .val-card .vworth { margin-left: auto; text-align: right; font-weight: 900; font-size: 2.6vmin; font-variant-numeric: tabular-nums; }
+        .val-card .vworth .profit { font-size: 1.9vmin; display: block; }
+        .val-card .vworth .profit.plus { color: var(--up); }
+        .val-card .vworth .profit.minus { color: var(--down); }
+        .val-list { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 1.2vmin; justify-content: flex-end; }
+
+        /* TV lobby */
+        .tv-lobby { flex: 1; display: flex; gap: 4vmin; align-items: center; min-height: 0; }
+        .tv-lobby .qr-side { background: #241333; border: 1px solid var(--border); border-radius: 2.2vmin; padding: 3.2vmin; text-align: center; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+        .tv-lobby .qr-side .qr-wrap { width: 32vmin; margin: 1.4vmin auto; }
+        .tv-lobby .qr-side .room-code { font-size: 4.6vmin; letter-spacing: 1.9vmin; padding-left: 1.9vmin; }
+        .tv-lobby .join-hint { font-size: 1.7vmin; font-weight: 800; color: var(--muted); }
+        .tv-players { flex: 1; display: flex; flex-direction: column; gap: 1.5vmin; min-width: 0; }
+        .tv-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20vmin, 1fr)); gap: 1.5vmin; }
+        .tv-pcard {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 1.7vmin;
+            padding: 1.7vmin; text-align: center; font-weight: 900; font-size: 2vmin; animation: popIn .35s ease both;
+        }
+        .tv-pcard .pdot { width: 2.2vmin; height: 2.2vmin; margin: 0 auto 1vmin; }
+        @keyframes popIn { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+        .tv-waiting { color: var(--muted); font-weight: 800; font-size: 1.9vmin; }
+
+        /* podium */
+        .podium-wrap { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2.4vmin; padding-bottom: 1vmin; }
+        .pod { text-align: center; font-weight: 900; animation: popIn .5s ease both; }
+        .pod .pname { font-size: 2.4vmin; margin-bottom: .8vmin; }
+        .pod .pscore { font-size: 2vmin; color: var(--gold); margin-bottom: .8vmin; font-family: 'Playfair Display', serif; }
+        .pod .block { border-radius: 1.5vmin 1.5vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.3vmin; font-size: 3.2vmin; width: 17vmin; }
+        .pod.p1 .block { height: 21vmin; background: linear-gradient(180deg, var(--gold2), #8a6220); }
+        .pod.p2 .block { height: 14vmin; background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
+        .pod.p3 .block { height: 9.5vmin; background: linear-gradient(180deg, #e8a06a, #9c5a33); }
+        .awards-row { display: flex; gap: 1.5vmin; justify-content: center; flex-wrap: wrap; padding-bottom: 2vmin; }
+        .award { background: var(--panel); border: 1px solid var(--border); border-radius: 1.5vmin; padding: 1.3vmin 2vmin; font-weight: 800; font-size: 1.8vmin; text-align: center; }
+        .award .aw-t { color: var(--gold); font-weight: 900; }
+
+        #confetti-cv { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <canvas id="confetti-cv"></canvas>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════
+// CONSTANTS & CONTENT
+// ═══════════════════════════════════════════
+const PFX = 'GAVEL-';
+const MAX_PLAYERS = 10, MIN_PLAYERS = 2;
+const START_COINS = 1000;
+const RAISES = [10, 50, 100];
+const GAVEL_MS = 5000, INTRO_MS = 3500, SOLD_MS = 3200, PASSED_MS = 2500, REVEAL_MS = 2600;
+const PLAYER_COLORS = ['#e8b75a', '#22d3ee', '#f472b6', '#4ade80', '#b478e0', '#fb923c', '#f87171', '#38bdf8', '#a3e635', '#fcd34d'];
+
+const LOTS = [
+    // ── treasures (300–600) ──
+    { emoji: '🪿', name: 'The Slightly-Golden Goose', desc: 'Lays 9-carat eggs. She is trying her best.', value: 520 },
+    { emoji: '🗺️', name: 'Treasure Map (One Coffee Stain)', desc: 'The X is under the stain. Probably.', value: 430 },
+    { emoji: '🛋️', name: 'The Never-Lose-The-Remote Sofa', desc: 'Cushions legally required to surrender the remote.', value: 380 },
+    { emoji: '🕰️', name: 'Grandfather Clock', desc: 'Perfect time, six days a week. Hates Mondays.', value: 340 },
+    { emoji: '🐕', name: 'Robot Dog, Walks Itself', desc: 'Also walks you, if you look like you need it.', value: 560 },
+    { emoji: '🎻', name: 'Almost-Famous Violin', desc: 'Once played by someone famous\'s neighbour.', value: 310 },
+    { emoji: '🚀', name: 'Slightly Used Rocket', desc: 'One careful astronaut. Parking sensors fitted.', value: 600 },
+    { emoji: '🍯', name: 'Lifetime Supply of Artisan Honey', desc: 'Bees included. Bees non-negotiable.', value: 480 },
+    { emoji: '🖼️', name: 'Polite Haunted Painting', desc: 'Follows you with its eyes, but apologises.', value: 350 },
+    { emoji: '🏝️', name: 'Timeshare: Very Small Island', desc: 'Room for one deckchair. Sunset included.', value: 590 },
+    { emoji: '⛲', name: 'Wishing Well (Refurbished)', desc: '40% wish success rate — industry leading.', value: 540 },
+    { emoji: '🦜', name: 'Trilingual Parrot', desc: 'Fluent in three languages. All compliments.', value: 460 },
+    { emoji: '👑', name: 'Crown of a Very Minor Royal', desc: 'Fourteenth in line to a small duchy.', value: 410 },
+    { emoji: '🧥', name: 'Invisibility Cloak', desc: 'Visible on weekends and bank holidays.', value: 330 },
+    { emoji: '🚗', name: 'Vintage Car, Sings Opera', desc: 'The engine is a baritone. The horn is a soprano.', value: 500 },
+    { emoji: '📚', name: 'First Edition Nobody Finished', desc: 'Pristine after chapter three. Suspiciously pristine.', value: 300 },
+    { emoji: '🐄', name: 'The Pre-Whipped Cream Cow', desc: 'Moo-velous. Chills the bowl herself.', value: 570 },
+    // ── duds (10–80) ──
+    { emoji: '🍞', name: 'Haunted Toaster', desc: 'The ghost only does one side.', value: 40 },
+    { emoji: '☂️', name: 'Ventilated Umbrella', desc: 'For people who like to know it\'s raining.', value: 20 },
+    { emoji: '🧦', name: 'Sock. Singular. Left.', desc: 'A confident single sock with references.', value: 10 },
+    { emoji: '🪑', name: 'Five-Legged Chair', desc: 'The fifth leg does not help.', value: 30 },
+    { emoji: '🔮', name: 'Crystal Ball (Buffering)', desc: 'Your future is loading. 3%.', value: 60 },
+    { emoji: '🎺', name: 'Trumpet, One Previous Owner', desc: 'The previous owner was a toddler.', value: 25 },
+    { emoji: '🗿', name: 'Garden Gnome, Trust Issues', desc: 'Faces the wall. Won\'t say why.', value: 70 },
+    { emoji: '🖊️', name: 'The Apology Pen', desc: 'Only writes apologies. Deeply sincere ones.', value: 35 },
+    { emoji: '🧲', name: 'Reverse Fridge Magnet', desc: 'Repels fridges. Science can\'t explain it.', value: 15 },
+    { emoji: '🕯️', name: 'Scented Candle: “Wet Dog”', desc: 'Remarkably accurate.', value: 45 },
+    { emoji: '📻', name: 'Radio Between Two Stations', desc: 'Jazz AND the shipping forecast. Forever.', value: 50 },
+    { emoji: '🥄', name: 'Cursed Antique Spoon', desc: 'Allegedly cursed. Definitely bent.', value: 55 },
+    { emoji: '🧩', name: 'Jigsaw: 999 of 1000 Pieces', desc: 'The missing piece is sky.', value: 30 },
+    { emoji: '🚲', name: 'Exercise Bike / Coat Rack', desc: 'Excellent at one of these jobs.', value: 80 },
+    { emoji: '🐌', name: 'Retired Racing Snail', desc: 'Career best: second place. Field of two.', value: 20 },
+    { emoji: '🎩', name: 'Magician\'s Top Hat', desc: 'Rabbit not included. Hole included.', value: 65 },
+    { emoji: '🧯', name: 'Confetti Extinguisher', desc: 'Makes fires more festive.', value: 75 },
+    // ── mystery boxes (value 0–700, hint only) ──
+    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'It rattles when you shake it.', value: 700 },
+    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'Something inside is humming.', value: 60 },
+    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'Heavier than it looks.', value: 500 },
+    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'Smells faintly of victory.', value: 150 },
+    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'The previous owner winked.', value: 0 },
+    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'Ticks. Probably a clock.', value: 300 },
+];
+
+// ═══════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════
+function $id(id) { return document.getElementById(id); }
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+        let rects = '';
+        for (let r = 0; r < n; r++)
+            for (let c = 0; c < n; c++)
+                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+            `<rect width="${size}" height="${size}" fill="#fdf6ec"/>` +
+            `<g fill="#241333">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+
+// ── Confetti ──
+let _cf = { parts: [], raf: 0, running: false, until: 0 };
+function startConfetti(ms) {
+    if (REDUCED) return;
+    const cv = $id('confetti-cv'), ctx = cv.getContext('2d');
+    cv.width = innerWidth; cv.height = innerHeight;
+    _cf.until = performance.now() + (ms || 2600);
+    const cols = ['#e8b75a', '#b478e0', '#4ade80', '#22d3ee', '#f472b6', '#f6eefb'];
+    for (let i = 0; i < 130; i++) {
+        _cf.parts.push({
+            x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5,
+            vx: (Math.random() - 0.5) * 2.4, vy: 2 + Math.random() * 3.6,
+            rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.25,
+            w: 6 + Math.random() * 7, h: 4 + Math.random() * 5,
+            col: cols[Math.floor(Math.random() * cols.length)],
+        });
+    }
+    if (_cf.running) return;
+    _cf.running = true;
+    (function frame(t) {
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        _cf.parts = _cf.parts.filter(p => p.y < cv.height + 30);
+        for (const p of _cf.parts) {
+            p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+            ctx.fillStyle = p.col; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            ctx.restore();
+        }
+        if (t < _cf.until || _cf.parts.length) _cf.raf = requestAnimationFrame(frame);
+        else { _cf.running = false; ctx.clearRect(0, 0, cv.width, cv.height); }
+    })(performance.now());
+}
+
+// ── Synth sounds ──
+let _ac = null;
+function ac() { if (!_ac) { try { _ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return _ac; }
+function tone(freq, dur, type, gain, when) {
+    const a = ac(); if (!a) return;
+    try {
+        const t0 = a.currentTime + (when || 0);
+        const o = a.createOscillator(), g = a.createGain();
+        o.type = type || 'sine'; o.frequency.value = freq;
+        g.gain.setValueAtTime(gain || 0.07, t0);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        o.connect(g); g.connect(a.destination);
+        o.start(t0); o.stop(t0 + dur);
+    } catch (e) {}
+}
+function sBid() { tone(740, 0.08, 'triangle', 0.06); }
+function sKnock(when) { tone(150, 0.09, 'square', 0.09, when); tone(85, 0.16, 'sine', 0.1, when); }
+function sGone() { sKnock(0); sKnock(0.22); sKnock(0.44); }
+function sChaChing() { tone(1180, 0.09, 'square', 0.05); tone(1568, 0.22, 'square', 0.05, 0.09); tone(2093, 0.3, 'triangle', 0.05, 0.16); }
+function sTrombone() { [300, 260, 220, 175].forEach((f, i) => tone(f, 0.28, 'sawtooth', 0.045, i * 0.22)); }
+function sIntro() { tone(523, 0.14, 'triangle', 0.05); tone(659, 0.2, 'triangle', 0.05, 0.12); }
+function sWin() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.3, 'triangle', 0.06, i * 0.13)); }
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let peer = null, myId = '', myName = '', isHost = false, isTvHost = false, isViewer = false, roomCode = '';
+let hostConn = null, guestConns = {}, viewerConns = {};
+let ui = 'home';   // home|creating|connecting|lobby_h|lobby_g|lot|bidding|sold|valuation|podium|viewer
+let uiErr = '';
+let fName = localStorage.getItem('gavel-name') || '';
+let fCode = '', fVCode = '';
+let D = null, vD = null;
+let _localGavelEnd = 0, _gavelTickClient = null;
+
+// Host authoritative state
+let H = {
+    phase: 'lobby',              // lobby|lot_intro|bidding|sold|valuation|podium
+    players: [],                 // [{id,name,color,coins,lots:[{lotIdx,paid}]}]
+    settings: { lotCount: 8 },
+    lotOrder: [], lotIndex: -1,
+    bid: null,                   // {price, leaderId, endsAt}
+    soldInfo: null,              // {lotIdx, winner, color, price} | {passed:true, lotIdx}
+    reveals: [], revealIndex: -1,
+    standings: null, awards: null, winner: null,
+};
+let _lotTimer = null, _gavelTick = null, _revealTimer = null;
+function clearHostTimers() { clearTimeout(_lotTimer); clearInterval(_gavelTick); clearTimeout(_revealTimer); }
+
+// ═══════════════════════════════════════════
+// NETWORK
+// ═══════════════════════════════════════════
+function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('send err', e); } }
+function broadcastViewers(msg) { Object.values(viewerConns).forEach(c => send(c, msg)); }
+function connectedPlayers() {
+    return H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+}
+
+function hostAddPlayer(id, name) {
+    if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
+    H.players.push({
+        id, name, color: PLAYER_COLORS[H.players.length % PLAYER_COLORS.length],
+        coins: START_COINS, lots: [],
+    });
+}
+
+function lobbyMsg() {
+    return {
+        type: 'lobby', roomCode,
+        players: H.players.map(p => ({ name: p.name, color: p.color })),
+        settings: { ...H.settings },
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+function broadcastLobby() {
+    H.players.forEach(p => { if (p.id !== myId && guestConns[p.id]) send(guestConns[p.id], lobbyMsg()); });
+    broadcastViewers({ ...lobbyMsg(), type: 'viewer_lobby' });
+    hostSyncSelf(lobbyMsg());
+}
+
+function curLot() { return H.lotIndex >= 0 ? LOTS[H.lotOrder[H.lotIndex]] : null; }
+function lotView(lot) {
+    if (!lot) return null;
+    return { emoji: lot.emoji, name: lot.name, desc: lot.desc, mystery: !!lot.mystery };
+}
+
+function stateFor(p) {
+    const lot = curLot();
+    const leader = H.bid && H.bid.leaderId ? H.players.find(q => q.id === H.bid.leaderId) : null;
+    return {
+        type: 'state',
+        phase: H.phase, roomCode,
+        lotNum: H.lotIndex + 1, lotTotal: H.lotOrder.length,
+        lot: lotView(lot),
+        bid: H.bid ? {
+            price: H.bid.price,
+            leader: leader ? leader.name : null,
+            leaderColor: leader ? leader.color : null,
+            youLead: !!(p && leader && leader.id === p.id),
+            endsIn: Math.max(0, H.bid.endsAt - Date.now()),
+        } : null,
+        myCoins: p ? p.coins : 0,
+        myLots: p ? p.lots.map(l => ({ name: LOTS[l.lotIdx].name, emoji: LOTS[l.lotIdx].emoji, paid: l.paid, lotIdx: l.lotIdx })) : [],
+        soldInfo: H.soldInfo ? { ...H.soldInfo, lot: lotView(LOTS[H.soldInfo.lotIdx]) } : null,
+        reveals: H.phase === 'valuation' || H.phase === 'podium' ? H.reveals : null,
+        revealIndex: H.revealIndex,
+        standings: H.standings, awards: H.awards, winner: H.winner,
+        players: H.players.map(q => ({ name: q.name, color: q.color, coins: q.coins, lotCount: q.lots.length })),
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+function viewerStateMsg() { return { ...stateFor(null), type: 'viewer_state' }; }
+function broadcastState() {
+    H.players.forEach(p => {
+        if (p.id === myId) return;
+        const conn = guestConns[p.id];
+        if (conn) send(conn, stateFor(p));
+    });
+    broadcastViewers(viewerStateMsg());
+    hostSyncSelf(isTvHost ? null : stateFor(H.players.find(p => p.id === myId)));
+}
+
+// ── Host: incoming connections ──
+function setupGuestConn(conn) {
+    conn.on('open', () => { conn._role = null; });
+
+    conn.on('data', msg => {
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer';
+            viewerConns[conn.peer] = conn;
+            send(conn, H.phase === 'lobby' ? { ...lobbyMsg(), type: 'viewer_lobby' } : viewerStateMsg());
+            return;
+        }
+        if (conn._role === null) {
+            conn._role = 'player';
+            guestConns[conn.peer] = conn;
+        }
+        const player = H.players.find(p => p.id === conn.peer);
+        switch (msg.type) {
+            case 'join': {
+                const name = String(msg.name || 'Bidder').slice(0, 16);
+                const zombie = H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
+                if (zombie) zombie.id = conn.peer;
+                else hostAddPlayer(conn.peer, name);
+                const p2 = H.players.find(p => p.id === conn.peer);
+                if (!p2) { send(conn, lobbyMsg()); break; }
+                if (H.phase === 'lobby') broadcastLobby();
+                else { send(conn, stateFor(p2)); broadcastViewers(viewerStateMsg()); if (isTvHost) tvHostSync(); }
+                break;
+            }
+            case 'bid': if (player) hostBid(player, msg.raise); break;
+            case 'ctl': {
+                if (!isTvHost || !player || player.id !== H.players[0]?.id) break;
+                hostCtl(msg.action, msg);
+                break;
+            }
+        }
+    });
+
+    conn.on('close', () => {
+        delete guestConns[conn.peer];
+        delete viewerConns[conn.peer];
+        if (H.phase === 'lobby') {
+            const pi = H.players.findIndex(p => p.id === conn.peer);
+            if (pi >= 0) { H.players.splice(pi, 1); broadcastLobby(); }
+        }
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+function hostCtl(action, msg) {
+    if (action === 'start' && H.phase === 'lobby') hostStartAuction();
+    else if (action === 'again' && H.phase === 'podium') hostNewGame();
+    else if (action === 'set' && H.phase === 'lobby') {
+        if ([6, 8, 10].includes(msg.lotCount)) H.settings.lotCount = msg.lotCount;
+        broadcastLobby();
+    }
+}
+function guestCtl(action, extra) {
+    if (isHost && !isTvHost) { hostCtl(action, extra || {}); return; }
+    if (hostConn) send(hostConn, { type: 'ctl', action, ...(extra || {}) });
+}
+
+// ── Create a room ──
+function makeRoom(onOpen) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    roomCode = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    peer = new Peer(PFX + roomCode);
+    peer.on('open', id => { myId = id; isHost = true; onOpen(); });
+    peer.on('connection', conn => setupGuestConn(conn));
+    peer.on('error', e => {
+        uiErr = 'Connection error: ' + e.message;
+        isHost = false; isTvHost = false;
+        document.body.classList.remove('viewer-mode');
+        ui = 'home'; render();
+    });
+}
+
+function hostGame(name) {
+    myName = name.trim().slice(0, 16) || 'Host';
+    localStorage.setItem('gavel-name', myName);
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        hostAddPlayer(myId, myName);
+        ui = 'lobby_h';
+        render();
+    });
+}
+
+function hostOnTV() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        isTvHost = true;
+        document.body.classList.add('viewer-mode');
+        tvHostSync();
+        render();
+    });
+}
+
+function joinGame(code, name) {
+    myName = name.trim().slice(0, 16) || 'Bidder';
+    localStorage.setItem('gavel-name', myName);
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        isHost = false;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join', name: myName }));
+        hostConn.on('data', msg => applyMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the auction.'; ui = 'home'; D = null; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        ui = 'home'; render();
+    });
+}
+
+function joinAsViewer(code, _attempt) {
+    const attempt = _attempt || 1;
+    isViewer = true;
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join_viewer' }));
+        hostConn.on('data', msg => applyViewerMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the auction.'; isViewer = false; vD = null; document.body.classList.remove('viewer-mode'); ui = 'home'; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; isViewer = false; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        if (attempt < 2) {
+            try { peer.destroy(); } catch (_) {}
+            peer = null;
+            setTimeout(() => joinAsViewer(code, 2), 600);
+            return;
+        }
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        isViewer = false; ui = 'home'; render();
+    });
+}
+
+function tvHostSync() {
+    if (!isTvHost) return;
+    applyViewerMsg(H.phase === 'lobby' ? { ...lobbyMsg(), type: 'viewer_lobby' } : viewerStateMsg());
+}
+function hostSyncSelf(msg) {
+    if (isTvHost) { tvHostSync(); return; }
+    if (isHost && msg) applyMsg(msg);
+}
+
+// ═══════════════════════════════════════════
+// HOST AUCTION FLOW
+// ═══════════════════════════════════════════
+function buildLotOrder(count) {
+    const idx = LOTS.map((_, i) => i);
+    const treasures = shuffle(idx.filter(i => !LOTS[i].mystery && LOTS[i].value >= 300));
+    const duds = shuffle(idx.filter(i => !LOTS[i].mystery && LOTS[i].value < 300));
+    const mysteries = shuffle(idx.filter(i => LOTS[i].mystery));
+    const nT = Math.round(count * 0.4), nD = Math.round(count * 0.35);
+    const nM = Math.max(1, count - nT - nD);
+    return shuffle([...treasures.slice(0, nT), ...duds.slice(0, nD), ...mysteries.slice(0, nM)]).slice(0, count);
+}
+
+function hostStartAuction() {
+    if (connectedPlayers().length < MIN_PLAYERS) { uiErr = 'Need at least ' + MIN_PLAYERS + ' bidders.'; if (ui === 'lobby_h') render(); return; }
+    clearHostTimers();
+    H.lotOrder = buildLotOrder(H.settings.lotCount);
+    H.lotIndex = -1;
+    H.players.forEach(p => { p.coins = START_COINS; p.lots = []; });
+    H.reveals = []; H.revealIndex = -1;
+    H.standings = null; H.awards = null; H.winner = null;
+    startLot();
+}
+
+function startLot() {
+    clearHostTimers();
+    H.lotIndex += 1;
+    H.bid = null; H.soldInfo = null;
+    if (H.lotIndex >= H.lotOrder.length) { startValuation(); return; }
+    H.phase = 'lot_intro';
+    broadcastState();
+    _lotTimer = setTimeout(startBidding, INTRO_MS);
+}
+
+function startBidding() {
+    if (H.phase !== 'lot_intro') return;
+    H.phase = 'bidding';
+    H.bid = { price: 0, leaderId: null, endsAt: Date.now() + GAVEL_MS };
+    broadcastState();
+    clearInterval(_gavelTick);
+    _gavelTick = setInterval(checkGavel, 120);
+}
+
+function hostBid(player, raise) {
+    if (H.phase !== 'bidding' || !H.bid || !RAISES.includes(raise)) return;
+    if (H.bid.leaderId === player.id) return;               // can't outbid yourself
+    const newPrice = H.bid.price + raise;
+    if (player.coins < newPrice) return;                     // must be able to pay
+    H.bid.price = newPrice;
+    H.bid.leaderId = player.id;
+    H.bid.endsAt = Date.now() + GAVEL_MS;                    // gavel resets
+    broadcastState();
+}
+
+function checkGavel() {
+    if (H.phase !== 'bidding' || !H.bid) { clearInterval(_gavelTick); return; }
+    if (Date.now() < H.bid.endsAt) return;
+    clearInterval(_gavelTick);
+    const lotIdx = H.lotOrder[H.lotIndex];
+    const leader = H.bid.leaderId ? H.players.find(p => p.id === H.bid.leaderId) : null;
+    if (leader) {
+        leader.coins -= H.bid.price;
+        leader.lots.push({ lotIdx, paid: H.bid.price });
+        H.soldInfo = { lotIdx, winner: leader.name, color: leader.color, price: H.bid.price };
+    } else {
+        H.soldInfo = { lotIdx, passed: true };
+    }
+    H.phase = 'sold';
+    H.bid = null;
+    broadcastState();
+    _lotTimer = setTimeout(startLot, H.soldInfo.passed ? PASSED_MS : SOLD_MS);
+}
+
+function startValuation() {
+    clearHostTimers();
+    H.reveals = [];
+    H.lotOrder.forEach(lotIdx => {
+        const owner = H.players.find(p => p.lots.some(l => l.lotIdx === lotIdx));
+        if (!owner) return;
+        const entry = owner.lots.find(l => l.lotIdx === lotIdx);
+        const lot = LOTS[lotIdx];
+        H.reveals.push({
+            player: owner.name, color: owner.color,
+            lotName: lot.name, emoji: lot.emoji, mystery: !!lot.mystery,
+            paid: entry.paid, value: lot.value, profit: lot.value - entry.paid,
+        });
+    });
+    H.revealIndex = -1;
+    if (!H.reveals.length) { finishValuation(); return; }
+    H.phase = 'valuation';
+    broadcastState();
+    _revealTimer = setTimeout(revealStep, 1400);
+}
+
+function revealStep() {
+    H.revealIndex += 1;
+    if (H.revealIndex >= H.reveals.length) {
+        _revealTimer = setTimeout(finishValuation, 1600);
+        broadcastState();
+        return;
+    }
+    broadcastState();
+    _revealTimer = setTimeout(revealStep, REVEAL_MS);
+}
+
+function finishValuation() {
+    clearHostTimers();
+    const rows = H.players.map(p => {
+        const shelf = p.lots.reduce((s, l) => s + LOTS[l.lotIdx].value, 0);
+        return { name: p.name, color: p.color, coins: p.coins, shelf, net: p.coins + shelf, lots: p.lots.length };
+    }).sort((a, b) => b.net - a.net || b.coins - a.coins);
+    H.standings = rows;
+    H.winner = rows[0] ? rows[0].name : null;
+    const awards = [];
+    let eagle = null, mug = null;
+    H.reveals.forEach(r => {
+        if (r.profit > 0 && (!eagle || r.profit > eagle.profit)) eagle = r;
+        if (r.profit < 0 && (!mug || r.profit < mug.profit)) mug = r;
+    });
+    if (eagle) awards.push({ emoji: '🦅', title: 'Eagle Eye', name: eagle.player, detail: `+${eagle.profit} on ${eagle.lotName}` });
+    if (mug) awards.push({ emoji: '🫠', title: 'Mug of the Match', name: mug.player, detail: `${mug.profit} on ${mug.lotName}` });
+    const scrooge = H.players.slice().sort((a, b) => b.coins - a.coins)[0];
+    if (scrooge) awards.push({ emoji: '🪙', title: 'Scrooge', name: scrooge.name, detail: `${scrooge.coins} coins unspent` });
+    H.awards = awards;
+    H.phase = 'podium';
+    broadcastState();
+}
+
+function hostNewGame() {
+    clearHostTimers();
+    H.phase = 'lobby';
+    H.lotOrder = []; H.lotIndex = -1; H.bid = null; H.soldInfo = null;
+    H.reveals = []; H.revealIndex = -1; H.standings = null; H.awards = null; H.winner = null;
+    H.players.forEach(p => { p.coins = START_COINS; p.lots = []; });
+    H.players = H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+    broadcastLobby();
+    if (isHost && !isTvHost) { ui = 'lobby_h'; render(); }
+}
+
+function hostSet(patch) {
+    Object.assign(H.settings, patch);
+    broadcastLobby();
+    if (ui === 'lobby_h') render();
+}
+
+// ═══════════════════════════════════════════
+// CLIENT (phone) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+let _lastLotKey = '', _lastPrice = -1, _lastRevealIdx = -1;
+function stopClientTick() { clearInterval(_gavelTickClient); _gavelTickClient = null; }
+
+function applyMsg(msg) {
+    switch (msg.type) {
+        case 'lobby':
+            D = msg;
+            stopClientTick();
+            ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g';
+            render();
+            break;
+        case 'state': {
+            const prev = D;
+            D = msg;
+            const lotKey = msg.phase + '|' + msg.lotNum;
+            if (msg.phase === 'lot_intro') {
+                stopClientTick();
+                if (_lastLotKey !== lotKey) { _lastLotKey = lotKey; _lastPrice = -1; ui = 'lot'; render(); sIntro(); }
+                break;
+            }
+            if (msg.phase === 'bidding') {
+                if (ui !== 'bidding' || _lastLotKey !== lotKey) {
+                    _lastLotKey = lotKey;
+                    ui = 'bidding';
+                    render();
+                    startClientGavel(msg);
+                    _lastPrice = msg.bid ? msg.bid.price : 0;
+                } else {
+                    if (msg.bid && msg.bid.price !== _lastPrice) {
+                        _lastPrice = msg.bid.price;
+                        sBid();
+                        try { navigator.vibrate && navigator.vibrate(30); } catch (e) {}
+                    }
+                    patchBidding(msg);
+                    startClientGavel(msg);
+                }
+                break;
+            }
+            if (msg.phase === 'sold') {
+                stopClientTick();
+                if (_lastLotKey !== lotKey) { _lastLotKey = lotKey; ui = 'sold'; render(); sGone(); }
+                break;
+            }
+            if (msg.phase === 'valuation') {
+                stopClientTick();
+                ui = 'valuation';
+                render();
+                if (msg.revealIndex !== _lastRevealIdx && msg.revealIndex >= 0 && msg.revealIndex < (msg.reveals || []).length) {
+                    _lastRevealIdx = msg.revealIndex;
+                    const r = msg.reveals[msg.revealIndex];
+                    if (r.profit >= 0) sChaChing(); else sTrombone();
+                }
+                break;
+            }
+            if (msg.phase === 'podium') {
+                stopClientTick();
+                if (ui !== 'podium') { ui = 'podium'; render(); sWin(); startConfetti(3600); }
+                else render();
+                break;
+            }
+            render();
+            break;
+        }
+    }
+}
+
+function startClientGavel(msg) {
+    _localGavelEnd = Date.now() + (msg.bid ? msg.bid.endsIn : 0);
+    if (_gavelTickClient) return;
+    _gavelTickClient = setInterval(() => {
+        const left = Math.max(0, _localGavelEnd - Date.now());
+        const bar = $id('gavel-bar');
+        if (bar) bar.style.width = (left / GAVEL_MS * 100) + '%';
+        const gl = $id('going-lbl');
+        if (gl) gl.textContent = left === 0 ? '' : left < GAVEL_MS * 0.5 ? (left < GAVEL_MS * 0.25 ? 'going… GOING…' : 'going…') : '';
+    }, 100);
+}
+
+function sendBid(raise) {
+    if (!D || D.phase !== 'bidding' || !D.bid || D.bid.youLead) return;
+    if (D.myCoins < D.bid.price + raise) return;
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostBid(me, raise);
+    } else send(hostConn, { type: 'bid', raise });
+}
+
+function patchBidding(msg) {
+    const price = $id('p-price');
+    if (price) price.textContent = msg.bid.price;
+    const lb = $id('lead-banner');
+    if (lb) lb.innerHTML = leadBannerHTML(msg);
+    const bb = $id('bid-btns');
+    if (bb) bb.innerHTML = bidBtnsHTML(msg);
+    const mc = $id('my-coins');
+    if (mc) mc.textContent = msg.myCoins;
+}
+
+// ═══════════════════════════════════════════
+// VIEWER (TV) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+let _vLotKey = '', _vPrice = -1, _vRevealIdx = -1, _vGavelEnd = 0, _vGavelTick = null;
+function stopViewerTick() { clearInterval(_vGavelTick); _vGavelTick = null; }
+
+function applyViewerMsg(msg) {
+    document.body.classList.add('viewer-mode');
+    ui = 'viewer';
+    vD = msg;
+    if (msg.type === 'viewer_lobby') { stopViewerTick(); render(); return; }
+    const lotKey = msg.phase + '|' + msg.lotNum;
+    if (msg.phase === 'lot_intro') {
+        stopViewerTick();
+        if (_vLotKey !== lotKey) { _vLotKey = lotKey; _vPrice = -1; render(); sIntro(); }
+        return;
+    }
+    if (msg.phase === 'bidding') {
+        if (_vLotKey !== lotKey) {
+            _vLotKey = lotKey;
+            render();
+            _vPrice = msg.bid ? msg.bid.price : 0;
+        } else {
+            if (msg.bid && msg.bid.price !== _vPrice) { _vPrice = msg.bid.price; sBid(); }
+            patchViewerBidding(msg);
+        }
+        startViewerGavel(msg);
+        return;
+    }
+    if (msg.phase === 'sold') {
+        stopViewerTick();
+        if (_vLotKey !== lotKey) { _vLotKey = lotKey; render(); sGone(); }
+        return;
+    }
+    if (msg.phase === 'valuation') {
+        stopViewerTick();
+        render();
+        if (msg.revealIndex !== _vRevealIdx && msg.revealIndex >= 0 && msg.revealIndex < (msg.reveals || []).length) {
+            _vRevealIdx = msg.revealIndex;
+            const r = msg.reveals[msg.revealIndex];
+            if (r.profit >= 0) sChaChing(); else sTrombone();
+        }
+        return;
+    }
+    if (msg.phase === 'podium') {
+        stopViewerTick();
+        if (_vLotKey !== 'podium') { _vLotKey = 'podium'; render(); sWin(); startConfetti(5200); }
+        else render();
+        return;
+    }
+    render();
+}
+
+function startViewerGavel(msg) {
+    _vGavelEnd = Date.now() + (msg.bid ? msg.bid.endsIn : 0);
+    if (_vGavelTick) return;
+    _vGavelTick = setInterval(() => {
+        const left = Math.max(0, _vGavelEnd - Date.now());
+        const bar = $id('v-gavel-bar');
+        if (bar) bar.style.width = (left / GAVEL_MS * 100) + '%';
+        const gl = $id('v-going');
+        if (gl) gl.textContent = left === 0 ? '' : left < GAVEL_MS * 0.5 ? (left < GAVEL_MS * 0.25 ? 'going… GOING…' : 'going…') : '';
+    }, 100);
+}
+
+function patchViewerBidding(msg) {
+    const price = $id('v-price');
+    if (price) price.textContent = msg.bid.price === 0 ? 'Any bids?' : msg.bid.price;
+    const lead = $id('v-leader');
+    if (lead) lead.innerHTML = msg.bid.leader
+        ? `<span style="color:${msg.bid.leaderColor}">${esc(msg.bid.leader)}</span> holds the bid`
+        : 'Opening bid, anyone?';
+    const rail = $id('v-rail');
+    if (rail) rail.innerHTML = railRowsHTML(msg);
+}
+
+// ═══════════════════════════════════════════
+// RENDER — shared bits
+// ═══════════════════════════════════════════
+function hdrHTML(sub) {
+    return `<h1 class="logo">🔨 Going, Going, GONE!</h1><div class="sub">${esc(sub || 'bid big · regret bigger')}</div>`;
+}
+function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+function isCaptain() { return !!(D && D.tvHost && D.captain && D.captain === myName); }
+function canDrive() { return (isHost && !isTvHost) || isCaptain(); }
+
+function settingsSegsHTML(settings, expr) {
+    return `
+        <div class="fg"><label>Lots under the hammer</label><div class="seg-row">${[6, 8, 10].map(v =>
+            `<button class="btn btn-sm ${settings.lotCount === v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{lotCount:${v}}`)}">${v}</button>`).join('')}</div></div>`;
+}
+
+function leadBannerHTML(msg) {
+    if (!msg.bid) return '';
+    if (msg.bid.youLead) return `<div class="lead-banner">🏆 You're winning this lot!</div>`;
+    if (msg.bid.leader) return `<div class="lead-banner other"><span style="color:${msg.bid.leaderColor}">●</span> ${esc(msg.bid.leader)} holds the bid</div>`;
+    return `<div class="lead-banner other">No bids yet — be brave!</div>`;
+}
+
+function bidBtnsHTML(msg) {
+    if (!msg.bid || msg.bid.youLead) return '';
+    return RAISES.map(r => {
+        const afford = msg.myCoins >= msg.bid.price + r;
+        return `<button class="btn btn-p" ${afford ? '' : 'disabled'} onclick="sendBid(${r})">+${r}</button>`;
+    }).join('');
+}
+
+function shelfHTML(msg) {
+    if (!msg.myLots.length) return '<div style="color:var(--muted);font-size:.75rem;font-weight:700">Nothing yet — your shelf awaits.</div>';
+    const revealedVal = l => {
+        if (!msg.reveals) return null;
+        const ri = msg.reveals.findIndex(r => r.lotIdx === l.lotIdx);
+        return ri >= 0 && ri <= msg.revealIndex ? msg.reveals[ri] : null;
+    };
+    return `<div class="shelf">${msg.myLots.map(l => {
+        const r = revealedVal(l);
+        return `<span class="sh-item">${l.emoji} ${esc(l.name)} · paid ${l.paid}${
+            r ? ` → worth ${r.value} <span class="val ${r.profit >= 0 ? 'plus' : 'minus'}">(${r.profit >= 0 ? '+' : ''}${r.profit})</span>` : ''}</span>`;
+    }).join('')}</div>`;
+}
+
+function railRowsHTML(msg) {
+    return (msg.players || []).map(p => `
+        <div class="rail-row${msg.bid && msg.bid.leader === p.name ? ' leader' : ''}">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <span class="rname">${esc(p.name)}</span>
+            <span class="rlots">${p.lotCount} lot${p.lotCount === 1 ? '' : 's'}</span>
+            <span class="rcoins">🪙${p.coins}</span>
+        </div>`).join('');
+}
+
+function lotHeaderHTML(msg, small) {
+    const l = msg.lot;
+    if (!l) return '';
+    return `
+    <div class="card lot-card" ${small ? 'style="padding:14px 12px"' : ''}>
+        <div class="lot-kicker">Lot ${msg.lotNum} of ${msg.lotTotal}${l.mystery ? ' · ❓ mystery' : ''}</div>
+        <div class="lemoji" ${small ? 'style="font-size:2.1rem"' : ''}>${l.emoji}</div>
+        <div class="lname" ${small ? 'style="font-size:1.05rem"' : ''}>${esc(l.name)}</div>
+        <div class="ldesc">“${esc(l.desc)}”</div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — phone screens
+// ═══════════════════════════════════════════
+function render() {
+    const app = $id('app');
+    if (isTvHost || isViewer) ui = 'viewer';
+    let html = '';
+    switch (ui) {
+        case 'home':       html = renderHome(); break;
+        case 'creating':   html = renderSpinner('Opening the auction house…'); break;
+        case 'connecting': html = renderSpinner('Taking your seat…'); break;
+        case 'lobby_h':    html = renderLobbyH(); break;
+        case 'lobby_g':    html = renderLobbyG(); break;
+        case 'lot':        html = renderLotIntro(); break;
+        case 'bidding':    html = renderBidding(); break;
+        case 'sold':       html = renderSold(); break;
+        case 'valuation':  html = renderValuation(); break;
+        case 'podium':     html = renderPodium(); break;
+        case 'viewer':     html = renderViewer(); break;
+        default:           html = renderHome();
+    }
+    app.innerHTML = html;
+}
+
+function renderSpinner(msg) {
+    return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`;
+}
+
+function renderHome() {
+    const fromQR = !!fCode;
+    const youCard = `
+    <div class="card">
+        <div class="slbl">Who are you?</div>
+        <div class="fg">
+            <label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
+                ${fromQR ? 'autofocus' : ''} oninput="fName=this.value">
+        </div>
+    </div>`;
+    const joinCard = `
+    <div class="card${fromQR ? ' highlight' : ''}">
+        <div class="slbl">Join an Auction</div>
+        <div class="fg">
+            <label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fCode)}"
+                oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
+        </div>
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">
+            📱 Join with your phone
+        </button>
+    </div>`;
+    const hostCard = `
+    <div class="card">
+        <div class="slbl">Open an Auction</div>
+        <button class="btn btn-p btn-full"
+            onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
+            🔨 Host on this phone
+        </button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin-top:8px">
+            2–10 bidders · 1,000 coins each · values revealed at the end
+        </div>
+    </div>`;
+    const tvCard = `
+    <div class="card">
+        <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-p btn-full" onclick="hostOnTV()">📺 Open the auction on this screen</button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin:6px 0 10px">
+            Shows a big QR code — the first phone to join becomes 👑 Captain
+        </div>
+        <hr>
+        <div class="fg">
+            <label>…or show an existing auction</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')joinAsViewer(fVCode)">
+        </div>
+        <button class="btn btn-g btn-full"
+            onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code.';render()}">
+            📺 Open auction floor
+        </button>
+    </div>`;
+    return `
+    ${hdrHTML('the family auction house')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+}
+
+function renderLobbyH() {
+    const pList = H.players.map((p, i) =>
+        `<div class="player-row">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1">${esc(p.name)}${i === 0 ? ' <span style="color:var(--muted)">(you — host)</span>' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    return `
+    ${hdrHTML('Host Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card highlight">
+        <div class="slbl">Scan to join — or share the code</div>
+        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        <div class="room-code">${esc(roomCode)}</div>
+        <div class="share-row">
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.share&&navigator.share({title:'Join the auction!',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
+        </div>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center">Put the auction floor on a TV with code <b style="color:var(--gold)">${esc(roomCode)}</b></div>
+    </div>
+    <div class="card">
+        <div class="slbl">Bidders (${H.players.length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    <div class="card">
+        <div class="slbl">Settings</div>
+        ${settingsSegsHTML(H.settings, patch => `hostSet(${patch})`)}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.08rem;padding:16px" onclick="hostStartAuction()">🔨 Start the auction</button>`;
+}
+
+function renderLobbyG() {
+    const cap = isCaptain();
+    const pList = (D.players || []).map(p =>
+        `<div class="player-row">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--muted)">(you)</span>' : ''}${D.tvHost && p.name === D.captain ? ' 👑' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    const s = D.settings || {};
+    return `
+    ${hdrHTML(cap ? '👑 You are the Captain' : 'Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card">
+        <div class="slbl">Room ${esc(D.roomCode || '')} — Bidders (${(D.players || []).length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    ${cap ? `
+    <div class="card highlight">
+        <div class="slbl">👑 Captain's Settings</div>
+        ${settingsSegsHTML(s, patch => `guestCtl('set',${patch})`)}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.08rem;padding:16px" onclick="guestCtl('start')">🔨 Start the auction</button>`
+    : `
+    <div class="card">
+        <div class="slbl">Settings</div>
+        <div style="font-weight:800;font-size:.85rem">🔨 ${s.lotCount} lots · 🪙 1,000 coins each</div>
+        <div style="color:var(--muted);font-size:.72rem;font-weight:700;margin-top:8px">
+            Waiting for ${D.tvHost ? `👑 ${esc(D.captain || 'the captain')}` : 'the host'} to start…
+        </div>
+    </div>`}`;
+}
+
+function renderLotIntro() {
+    return `
+    ${lotHeaderHTML(D)}
+    <div class="card" style="text-align:center">
+        <div style="font-weight:900;color:var(--gold)">Bidding opens in a moment…</div>
+        <div style="margin-top:8px"><span class="coins-chip">🪙 <span id="my-coins">${D.myCoins}</span> coins</span></div>
+    </div>
+    <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>`;
+}
+
+function renderBidding() {
+    return `
+    ${lotHeaderHTML(D, true)}
+    <div class="card" style="text-align:center">
+        <div class="lot-kicker">Current price</div>
+        <div class="price-big" id="p-price">${D.bid.price}</div>
+        <div class="gavel-wrap" style="margin:10px 0 4px"><div class="gavel-bar" id="gavel-bar" style="width:100%"></div></div>
+        <div id="going-lbl" style="min-height:1.2em;font-weight:900;color:var(--down)"></div>
+    </div>
+    <div id="lead-banner">${leadBannerHTML(D)}</div>
+    <div class="bid-btns" id="bid-btns">${bidBtnsHTML(D)}</div>
+    <div style="text-align:center"><span class="coins-chip">🪙 <span id="my-coins">${D.myCoins}</span> coins left</span></div>
+    <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>`;
+}
+
+function renderSold() {
+    const s = D.soldInfo || {};
+    const mine = s.winner === myName;
+    const inner = s.passed
+        ? `<div class="gavel">🪶</div><div class="st">PASSED</div>
+           <div style="color:var(--muted);font-weight:700;margin-top:6px">Not a single bid for ${esc(s.lot ? s.lot.name : '')}. Brutal.</div>`
+        : `<div class="gavel">🔨</div><div class="st">${mine ? 'YOU WON IT!' : 'SOLD!'}</div>
+           <div style="font-weight:800;color:var(--gold);margin-top:6px">${esc(s.lot ? s.lot.emoji + ' ' + s.lot.name : '')}</div>
+           <div style="font-weight:900;font-size:1.3rem;margin-top:4px">${mine ? `You paid ${s.price}` : `${esc(s.winner)} pays ${s.price}`}</div>`;
+    return `
+    <div class="card sold-card${mine ? ' highlight' : ''}">${inner}</div>
+    <div style="text-align:center"><span class="coins-chip">🪙 ${D.myCoins} coins left</span></div>
+    <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>`;
+}
+
+function renderValuation() {
+    return `
+    ${hdrHTML('The Valuation')}
+    <div class="card" style="text-align:center">
+        <div style="font-size:2.6rem">🧐</div>
+        <div style="font-weight:900;font-size:1.15rem;margin-top:6px">The valuer is in — eyes on the TV!</div>
+        <div style="color:var(--muted);font-weight:700;font-size:.78rem;margin-top:6px">True values revealed one lot at a time…</div>
+    </div>
+    <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>
+    <div style="text-align:center"><span class="coins-chip">🪙 ${D.myCoins} coins left</span></div>`;
+}
+
+function renderPodium() {
+    const st = D.standings || [];
+    const winner = st[0];
+    const awards = (D.awards || []).map(a =>
+        `<span class="chip">${a.emoji} ${esc(a.title)}: ${esc(a.name)} (${esc(a.detail)})</span>`).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.02rem;padding:15px" onclick="guestCtl('again')">🔁 Play again</button>` : '';
+    const medals = ['🥇', '🥈', '🥉'];
+    return `
+    ${hdrHTML('Auction closed!')}
+    <div class="card sold-card highlight">
+        <div class="gavel">🏆</div>
+        <div class="st">${esc((winner?.name || '').toUpperCase())} WINS!</div>
+        <div style="color:var(--muted);font-weight:700;font-size:.78rem;margin-top:4px">net worth ${winner ? winner.net : 0} — coins + shelf value</div>
+        <div style="margin-top:10px">${awards}</div>
+    </div>
+    <div class="card standings"><div class="slbl">Net worth</div>${st.map((p, i) => `
+        <div class="player-row">
+            <span style="width:22px;text-align:center">${medals[i] || (i + 1)}</span>
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--gold)">(you)</span>' : ''}</div>
+            <div class="sc">${p.net} <span style="color:var(--muted);font-size:.7rem">(🪙${p.coins} + 🖼️${p.shelf})</span></div>
+        </div>`).join('')}
+    </div>
+    ${driveBtn}`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — TV screens
+// ═══════════════════════════════════════════
+function tvShell(inner, meta) {
+    return `<div class="tv">
+        <div class="tv-top">
+            <div class="tv-logo">🔨 GOING, GOING, GONE!</div>
+            <div class="tv-meta">${esc(meta || ('Room ' + (vD.roomCode || roomCode || '')))}</div>
+        </div>
+        ${inner}
+    </div>`;
+}
+
+function renderViewer() {
+    if (!vD) return renderSpinner('Waiting for the auction…');
+    if (vD.type === 'viewer_lobby') return renderViewerLobby();
+    if (vD.phase === 'lot_intro') return renderViewerLotIntro();
+    if (vD.phase === 'bidding') return renderViewerBidding();
+    if (vD.phase === 'sold') return renderViewerSold();
+    if (vD.phase === 'valuation') return renderViewerValuation();
+    if (vD.phase === 'podium') return renderViewerPodium();
+    return renderSpinner('Waiting for the auction…');
+}
+
+function renderViewerLobby() {
+    const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
+    const players = vD.players || [];
+    const cards = players.map(p =>
+        `<div class="tv-pcard"><div class="pdot" style="background:${p.color};color:${p.color}"></div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
+    const s = vD.settings || {};
+    return tvShell(`
+    <div class="tv-lobby">
+        <div class="qr-side">
+            <div class="slbl">Scan with your phone to join</div>
+            <div class="qr-wrap">${qrSVG(url)}</div>
+            <div class="room-code">${esc(vD.roomCode || '')}</div>
+            <div class="join-hint">${location.host}${location.pathname}</div>
+        </div>
+        <div class="tv-players">
+            <div class="tv-meta">Bidders — ${players.length}/${MAX_PLAYERS}</div>
+            <div class="tv-player-grid">${cards}</div>
+            <div class="tv-waiting">${players.length === 0
+                ? 'Waiting for the first phone… they become 👑 Captain'
+                : (players.length < MIN_PLAYERS ? 'Need at least ' + MIN_PLAYERS + ' bidders…' :
+                    (vD.tvHost ? `Waiting for 👑 ${esc(vD.captain || '')}` : 'Waiting for the host') + ` to start · 🔨 ${s.lotCount} lots · 🪙 1,000 coins each`)}</div>
+        </div>
+    </div>`, 'Lobby');
+}
+
+function tvLotCardHTML(msg, compact) {
+    const l = msg.lot;
+    return `
+    <div class="tv-lot" ${compact ? 'style="flex:0 0 auto;padding:2vmin 3vmin"' : ''}>
+        <div class="lkick">Lot ${msg.lotNum} of ${msg.lotTotal}${l.mystery ? ' · ❓ mystery box' : ''}</div>
+        <div class="lemoji" ${compact ? 'style="font-size:5.5vmin"' : ''}>${l.emoji}</div>
+        <div class="lname" ${compact ? 'style="font-size:3vmin"' : ''}>${esc(l.name)}</div>
+        <div class="ldesc">“${esc(l.desc)}”</div>
+        ${compact ? '' : '<div class="tv-waiting" style="margin-top:1.4vmin">bidding opens in a moment…</div>'}
+    </div>`;
+}
+
+function renderViewerLotIntro() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">${tvLotCardHTML(vD)}</div>
+        <div class="tv-rail"><div class="rail-title">Bidders</div><div id="v-rail" style="display:flex;flex-direction:column;gap:1.2vmin">${railRowsHTML(vD)}</div></div>
+    </div>`, `Lot ${vD.lotNum} of ${vD.lotTotal}`);
+}
+
+function renderViewerBidding() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            ${tvLotCardHTML(vD, true)}
+            <div class="tv-lot" style="flex:1;gap:1.6vmin">
+                <div class="lkick">Current price</div>
+                <div class="tv-price" id="v-price">${vD.bid.price === 0 ? 'Any bids?' : vD.bid.price}</div>
+                <div class="tv-leader" id="v-leader">${vD.bid.leader
+                    ? `<span style="color:${vD.bid.leaderColor}">${esc(vD.bid.leader)}</span> holds the bid`
+                    : 'Opening bid, anyone?'}</div>
+                <div class="tv-gavel-row" style="width:80%">
+                    <div class="tv-gavel-wrap"><div class="tv-gavel-bar" id="v-gavel-bar" style="width:100%"></div></div>
+                    <div class="going" id="v-going"></div>
+                </div>
+            </div>
+        </div>
+        <div class="tv-rail"><div class="rail-title">Bidders</div><div id="v-rail" style="display:flex;flex-direction:column;gap:1.2vmin">${railRowsHTML(vD)}</div></div>
+    </div>`, `Lot ${vD.lotNum} of ${vD.lotTotal}`);
+}
+
+function renderViewerSold() {
+    const s = vD.soldInfo || {};
+    const inner = s.passed
+        ? `<div class="gavel">🪶</div>
+           <div class="who">PASSED</div>
+           <div class="sub2">Not one bid for ${esc(s.lot ? s.lot.name : '')}. The auctioneer is hurt.</div>`
+        : `<div class="gavel">🔨</div>
+           <div class="who">SOLD to <span style="color:${s.color}">${esc(s.winner)}</span> for ${s.price}!</div>
+           <div class="sub2">${esc(s.lot ? s.lot.emoji + ' ' + s.lot.name : '')} — worth… well, we'll find out.</div>`;
+    return tvShell(`<div class="tv-sold">${inner}</div>`, `Lot ${vD.lotNum} of ${vD.lotTotal}`);
+}
+
+function netWorthRows(msg) {
+    const revealedByPlayer = {};
+    (msg.reveals || []).forEach((r, i) => {
+        if (i <= msg.revealIndex) revealedByPlayer[r.player] = (revealedByPlayer[r.player] || 0) + r.value;
+    });
+    return (msg.players || [])
+        .map(p => ({ ...p, net: p.coins + (revealedByPlayer[p.name] || 0) }))
+        .sort((a, b) => b.net - a.net)
+        .map(p => `
+        <div class="rail-row">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <span class="rname">${esc(p.name)}</span>
+            <span class="rcoins">${p.net}</span>
+        </div>`).join('');
+}
+
+function renderViewerValuation() {
+    const shown = (vD.reveals || []).slice(0, Math.max(0, vD.revealIndex + 1)).slice(-6);
+    const cards = shown.map((r, i) => `
+    <div class="val-card" ${i === shown.length - 1 ? '' : 'style="animation:none;opacity:.65"'}>
+        <div class="vemoji">${r.emoji}</div>
+        <div>
+            <div class="vname">${esc(r.lotName)}</div>
+            <div class="vpaid"><span style="color:${r.color}">${esc(r.player)}</span> paid ${r.paid}</div>
+        </div>
+        <div class="vworth">worth ${r.value}
+            <span class="profit ${r.profit >= 0 ? 'plus' : 'minus'}">${r.profit >= 0 ? '+' : ''}${r.profit}</span>
+        </div>
+    </div>`).join('');
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-val">
+                <div class="rail-title">🧐 The Valuation — what was it all actually worth?</div>
+                <div class="val-list">${cards || '<div class="tv-waiting">Fetching the valuer\'s monocle…</div>'}</div>
+            </div>
+        </div>
+        <div class="tv-rail"><div class="rail-title">Net worth (so far)</div>${netWorthRows(vD)}</div>
+    </div>`, 'The Valuation');
+}
+
+function renderViewerPodium() {
+    const st = vD.standings || [];
+    const podOrder = [st[1], st[0], st[2]].filter(Boolean);
+    const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
+    const medal = { p1: '🥇', p2: '🥈', p3: '🥉' };
+    const pods = podOrder.map((p, i) => `
+        <div class="pod ${cls[i]}" style="animation-delay:${i * 0.18}s">
+            <div class="pname"><span class="pdot" style="background:${p.color};color:${p.color};display:inline-block;vertical-align:middle;margin-right:.6vmin"></span>${esc(p.name)}</div>
+            <div class="pscore">${p.net} net</div>
+            <div class="block">${medal[cls[i]]}</div>
+        </div>`).join('');
+    const awards = (vD.awards || []).map(a =>
+        `<div class="award">${a.emoji} <span class="aw-t">${esc(a.title)}</span><br>${esc(a.name)} — ${esc(a.detail)}</div>`).join('');
+    const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: “Play again” is on your phone` : 'Host: “Play again” is on your phone';
+    return tvShell(`
+    <div class="tv-main" style="flex-direction:column">
+        <div class="podium-wrap">${pods}</div>
+        <div class="awards-row">${awards}</div>
+        <div class="tv-waiting" style="text-align:center;padding-bottom:1.5vmin">${hint}</div>
+    </div>`, '🏆 Auction closed');
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+window.addEventListener('resize', () => {
+    const cv = $id('confetti-cv');
+    if (cv && _cf.running) { cv.width = innerWidth; cv.height = innerHeight; }
+});
+
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
+    render();
+})();
+</script>
+</body>
+</html>
