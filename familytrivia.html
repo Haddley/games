@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Family Trivia</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23231409' width='100' height='100' rx='20'/><text x='50' y='68' font-size='52' text-anchor='middle'>📖</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #231409;
+            --bg2: #2e1c0e;
+            --paper: #f8efdc;
+            --paper2: #f1e4c8;
+            --ink: #3b2a1c;
+            --ink-soft: #7a6450;
+            --cream: #f3e7cf;
+            --muted: #c9b391;
+            --gold: #ffc16b;
+            --ember: #ff7847;
+            --good: #3fae72;
+            --bad: #d84f4f;
+            --a0: #e5484d; --a1: #3b82f6; --a2: #eab308; --a3: #22a06b; --a4: #8b5cf6; --a5: #0d9488;
+        }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--cream);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 26px 16px 48px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 70% 45% at 50% -5%, rgba(255,150,60,0.16) 0%, transparent 60%),
+                radial-gradient(ellipse 55% 45% at 12% 100%, rgba(255,120,71,0.10) 0%, transparent 65%),
+                radial-gradient(ellipse 55% 45% at 90% 95%, rgba(255,193,107,0.08) 0%, transparent 65%);
+        }
+        body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
+
+        h1.logo {
+            font-family: 'Fraunces', serif; font-weight: 900; letter-spacing: 1px;
+            font-size: clamp(1.7rem, 7vw, 2.6rem); text-align: center; color: var(--gold);
+            text-shadow: 0 2px 0 rgba(0,0,0,.35), 0 0 34px rgba(255,150,60,.35);
+        }
+        .sub { color: var(--muted); font-size: .72rem; letter-spacing: 2.5px; text-transform: uppercase; margin: 6px 0 22px; text-align: center; }
+
+        #app { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 14px; }
+        body.viewer-mode #app { max-width: none; height: 100dvh; display: block; }
+
+        .card {
+            background: var(--paper); color: var(--ink); border-radius: 18px;
+            padding: 20px; box-shadow: 0 14px 40px rgba(0,0,0,.45), inset 0 0 0 1px rgba(120,90,50,.18);
+            position: relative;
+        }
+        .card.dark { background: rgba(60,38,18,.65); color: var(--cream); box-shadow: 0 10px 30px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,193,107,.14); }
+        .card.highlight { outline: 3px solid var(--gold); outline-offset: 2px; }
+        .slbl { font-size: .68rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 12px; }
+        .card.dark .slbl { color: var(--muted); }
+
+        .fg { margin-bottom: 12px; }
+        .fg label { display: block; font-size: .68rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 5px; }
+        input[type=text], textarea {
+            width: 100%; padding: 12px 14px; font-family: inherit; font-size: 1rem; font-weight: 700;
+            border: 2px solid rgba(120,90,50,.35); border-radius: 12px; background: #fffaf0; color: var(--ink);
+            outline: none;
+        }
+        input[type=text]:focus, textarea:focus { border-color: var(--ember); }
+        textarea { font-size: .72rem; font-weight: 500; font-family: ui-monospace, monospace; min-height: 130px; resize: vertical; }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            font-family: inherit; font-weight: 900; font-size: .95rem; letter-spacing: .5px;
+            padding: 13px 18px; border: none; border-radius: 14px; cursor: pointer;
+            transition: transform .12s, filter .12s, opacity .12s; user-select: none; -webkit-user-select: none;
+        }
+        .btn:active { transform: scale(.97); }
+        .btn-p { background: linear-gradient(180deg, #ff9a4d, #ff7847); color: #3a1400; box-shadow: 0 5px 0 #b34322, 0 10px 22px rgba(255,120,71,.35); }
+        .btn-p:active { box-shadow: 0 2px 0 #b34322; transform: translateY(3px); }
+        .btn-c { background: linear-gradient(180deg, #ffd58a, #ffc16b); color: #4a2c00; box-shadow: 0 5px 0 #b58032, 0 10px 22px rgba(255,193,107,.3); }
+        .btn-c:active { box-shadow: 0 2px 0 #b58032; transform: translateY(3px); }
+        .btn-g { background: rgba(59,42,28,.12); color: inherit; box-shadow: inset 0 0 0 2px rgba(120,90,50,.35); }
+        .card.dark .btn-g, body.viewer-mode .btn-g { box-shadow: inset 0 0 0 2px rgba(255,193,107,.3); }
+        .btn-full { width: 100%; }
+        .btn-sm { padding: 8px 13px; font-size: .78rem; border-radius: 11px; }
+        .btn:disabled { opacity: .45; cursor: default; }
+
+        .err {
+            background: rgba(216,79,79,.14); border: 1px solid rgba(216,79,79,.5); color: #ffb3b3;
+            padding: 11px 14px; border-radius: 12px; font-size: .82rem; font-weight: 700; text-align: center;
+        }
+        hr { border: none; border-top: 1px dashed rgba(120,90,50,.4); margin: 14px 0; }
+
+        .connecting { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 46px 0; color: var(--muted); font-weight: 700; }
+        .spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid rgba(255,193,107,.2); border-top-color: var(--gold); animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* avatar picker */
+        .avrow { display: flex; flex-wrap: wrap; gap: 7px; }
+        .av {
+            width: 42px; height: 42px; border-radius: 12px; font-size: 1.35rem; display: flex; align-items: center; justify-content: center;
+            background: #fffaf0; border: 2px solid rgba(120,90,50,.3); cursor: pointer; transition: transform .1s;
+        }
+        .av.sel { border-color: var(--ember); background: #ffe9d6; transform: scale(1.1); box-shadow: 0 4px 12px rgba(255,120,71,.35); }
+
+        /* lobby */
+        .player-row { display: flex; align-items: center; gap: 11px; padding: 9px 4px; border-bottom: 1px dashed rgba(120,90,50,.25); font-weight: 800; }
+        .player-row:last-child { border-bottom: none; }
+        .pav { width: 38px; height: 38px; border-radius: 11px; background: var(--paper2); border: 2px solid rgba(120,90,50,.3); font-size: 1.25rem; display: flex; align-items: center; justify-content: center; }
+        .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--good); box-shadow: 0 0 8px var(--good); }
+        .crown { font-size: .95rem; }
+        .qr-wrap { width: min(220px, 60vw); margin: 6px auto 10px; border-radius: 14px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.25); }
+        .qr-wrap svg { display: block; width: 100%; height: auto; }
+        .room-code { font-family: 'Fraunces', serif; font-weight: 900; font-size: 2.3rem; letter-spacing: 12px; text-align: center; color: var(--ink); padding-left: 12px; }
+        .share-row { display: flex; gap: 8px; justify-content: center; margin: 10px 0 6px; }
+        .seg-row { display: flex; flex-wrap: wrap; gap: 7px; }
+
+        /* phone: story phase */
+        .eyes {
+            text-align: center; padding: 42px 10px;
+        }
+        .eyes .big { font-size: 3.4rem; animation: bob 2.2s ease-in-out infinite; }
+        @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+        .eyes .t { font-family: 'Fraunces', serif; font-weight: 900; font-size: 1.5rem; margin-top: 10px; }
+        .eyes .s { color: var(--ink-soft); font-weight: 700; font-size: .85rem; margin-top: 6px; }
+
+        .story-paper { font-family: 'Fraunces', serif; }
+        .story-paper .st-title { font-weight: 900; font-size: 1.35rem; margin-bottom: 10px; }
+        .story-paper .st-text { font-size: 1.02rem; line-height: 1.75; font-weight: 500; }
+        .story-kicker { font-size: .66rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: var(--ember); margin-bottom: 8px; font-family: 'Nunito', sans-serif; }
+
+        /* phone: question phase */
+        .q-prompt { font-family: 'Fraunces', serif; font-weight: 900; font-size: 1.22rem; line-height: 1.4; }
+        .q-meta { display: flex; justify-content: space-between; align-items: center; font-size: .72rem; font-weight: 800; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+        .timebar-wrap { height: 10px; border-radius: 6px; background: rgba(255,255,255,.09); overflow: hidden; }
+        .timebar { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--gold), var(--ember)); transition: width .2s linear; }
+        .ans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .ans {
+            border: none; border-radius: 15px; padding: 16px 13px; min-height: 96px;
+            font-family: inherit; font-weight: 800; font-size: .95rem; line-height: 1.3; color: #fff; text-align: left;
+            display: flex; flex-direction: column; gap: 6px; cursor: pointer;
+            box-shadow: 0 5px 0 rgba(0,0,0,.3), 0 10px 20px rgba(0,0,0,.35);
+            transition: transform .1s, opacity .2s, filter .2s;
+        }
+        .ans:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0,0,0,.3); }
+        .ans .let { font-size: .68rem; font-weight: 900; letter-spacing: 2px; opacity: .85; }
+        .ans.dim { opacity: .28; filter: saturate(.4); }
+        .ans.picked { outline: 4px solid #fff; outline-offset: 2px; }
+        .ans.right { outline: 4px solid #b7ff9e; outline-offset: 2px; }
+        .ans.wrongpick { outline: 4px solid #ffb3b3; outline-offset: 2px; }
+        .locked-note { text-align: center; font-weight: 900; color: var(--gold); font-size: 1rem; padding: 8px 0 2px; }
+
+        /* phone: reveal */
+        .verdict { text-align: center; padding: 8px 0 4px; }
+        .verdict .vico { font-size: 3.2rem; }
+        .verdict .vt { font-family: 'Fraunces', serif; font-weight: 900; font-size: 1.6rem; margin-top: 4px; }
+        .verdict .vpts { font-size: 2rem; font-weight: 900; color: var(--ember); margin-top: 2px; }
+        .verdict .vlab { font-weight: 900; letter-spacing: 1px; margin-top: 4px; }
+        .chip { display: inline-block; padding: 4px 12px; border-radius: 12px; background: rgba(255,120,71,.14); border: 1px solid rgba(255,120,71,.4); color: var(--ember); font-weight: 900; font-size: .78rem; margin: 3px; }
+        .standings .player-row { font-size: .9rem; }
+        .standings .sc { margin-left: auto; font-weight: 900; }
+        .standings .delta { color: var(--good); font-size: .75rem; font-weight: 900; margin-left: 7px; }
+
+        /* ═════════ TV layout ═════════ */
+        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 3vmin 3.4vmin; gap: 2vmin; }
+        .tv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 2vmin; }
+        .tv-logo { font-family: 'Fraunces', serif; font-weight: 900; font-size: 3.4vmin; color: var(--gold); text-shadow: 0 0 24px rgba(255,150,60,.4); }
+        .tv-roundlbl { font-size: 1.9vmin; font-weight: 900; letter-spacing: .4vmin; text-transform: uppercase; color: var(--muted); }
+        .tv-main { flex: 1; display: flex; gap: 2.6vmin; min-height: 0; }
+        .tv-stage { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+        .tv-rail { width: 30vmin; min-width: 240px; display: flex; flex-direction: column; gap: 1.4vmin; }
+        .tv-rail .rail-title { font-size: 1.7vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .rail-row {
+            display: flex; align-items: center; gap: 1.2vmin; background: rgba(60,38,18,.6);
+            border: 1px solid rgba(255,193,107,.16); border-radius: 1.6vmin; padding: 1.2vmin 1.5vmin;
+            font-weight: 800; font-size: 2vmin; position: relative;
+        }
+        .rail-row .rav { font-size: 2.6vmin; }
+        .rail-row .rname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rail-row .rsc { font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; }
+        .rail-row .rdelta { position: absolute; right: 1vmin; top: -1.3vmin; font-size: 1.6vmin; font-weight: 900; color: #b7ff9e; text-shadow: 0 2px 6px rgba(0,0,0,.6); animation: riseIn .5s ease both; }
+        @keyframes riseIn { from { opacity: 0; transform: translateY(1vmin); } to { opacity: 1; transform: none; } }
+        .rail-row.locked::after { content: '✓'; color: var(--good); font-weight: 900; font-size: 2vmin; }
+
+        .tv-paper {
+            flex: 1; background: var(--paper); color: var(--ink); border-radius: 2.4vmin;
+            box-shadow: 0 18px 60px rgba(0,0,0,.55), inset 0 0 0 1px rgba(120,90,50,.2);
+            padding: 4vmin 5vmin; overflow: auto; display: flex; flex-direction: column;
+        }
+        .tv-paper .story-kicker { font-size: 1.6vmin; letter-spacing: .45vmin; margin-bottom: 1.4vmin; }
+        .tv-paper .st-title { font-family: 'Fraunces', serif; font-weight: 900; font-size: 3.6vmin; margin-bottom: 2vmin; }
+        .tv-paper .st-text { font-family: 'Fraunces', serif; font-size: 2.75vmin; line-height: 1.8; font-weight: 500; flex: 1; }
+        .tv-paper .st-text .wpend { opacity: 0; }
+        .tv-progress { height: 1.1vmin; border-radius: .6vmin; background: rgba(120,90,50,.18); overflow: hidden; margin-top: 2.4vmin; }
+        .tv-progress > div { height: 100%; background: linear-gradient(90deg, var(--gold), var(--ember)); width: 0%; transition: width .3s linear; border-radius: .6vmin; }
+
+        .tv-q-prompt { font-family: 'Fraunces', serif; font-weight: 900; font-size: 3.4vmin; line-height: 1.35; margin-bottom: 2.4vmin; }
+        .tv-ans-grid { flex: 1; display: grid; gap: 1.8vmin; grid-template-columns: 1fr 1fr; align-content: stretch; }
+        .tv-ans-grid.six { grid-template-columns: 1fr 1fr 1fr; }
+        .tv-ans {
+            border-radius: 1.8vmin; padding: 2vmin 2.2vmin; color: #fff; display: flex; flex-direction: column; gap: .8vmin; justify-content: center;
+            font-weight: 800; font-size: 2.15vmin; line-height: 1.3; box-shadow: 0 8px 26px rgba(0,0,0,.3);
+            transition: opacity .5s, filter .5s, transform .5s;
+        }
+        .tv-ans .let { font-size: 1.4vmin; font-weight: 900; letter-spacing: .35vmin; opacity: .85; }
+        .tv-ans.dim { opacity: .22; filter: saturate(.35); }
+        .tv-ans.right { transform: scale(1.04); outline: .55vmin solid #fff; outline-offset: .35vmin; box-shadow: 0 0 44px rgba(255,255,255,.45); }
+        .tv-bottom { display: flex; align-items: center; gap: 2.6vmin; }
+        .tv-locked { font-size: 2.1vmin; font-weight: 900; color: var(--gold); white-space: nowrap; }
+        .tv-timebar-wrap { flex: 1; height: 1.6vmin; border-radius: .9vmin; background: rgba(255,255,255,.1); overflow: hidden; }
+        .tv-timebar { height: 100%; background: linear-gradient(90deg, var(--gold), var(--ember)); border-radius: .9vmin; transition: width .2s linear; }
+        .tv-timenum { font-size: 2.4vmin; font-weight: 900; font-variant-numeric: tabular-nums; width: 5vmin; text-align: right; }
+
+        /* TV reveal */
+        .tv-payout { text-align: center; font-family: 'Fraunces', serif; font-weight: 900; font-size: 3.2vmin; color: var(--ember); margin: 1vmin 0 2vmin; text-shadow: 0 0 20px rgba(255,120,71,.3); }
+        .tally-rows { flex: 1; display: flex; flex-direction: column; gap: 1.4vmin; justify-content: center; }
+        .tally-row { display: flex; align-items: center; gap: 1.4vmin; }
+        .tally-chip { width: 4.4vmin; height: 4.4vmin; border-radius: 1.1vmin; color: #fff; font-weight: 900; font-size: 1.9vmin; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .tally-text { width: 30%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; font-size: 1.9vmin; color: var(--ink); }
+        .tally-bar-wrap { flex: 1; height: 4vmin; border-radius: 1vmin; background: rgba(120,90,50,.14); overflow: hidden; position: relative; }
+        .tally-bar { height: 100%; border-radius: 1vmin; width: 0%; transition: width .9s cubic-bezier(.2,.8,.2,1); display: flex; align-items: center; gap: .6vmin; padding-left: 1vmin; font-size: 2.1vmin; }
+        .tally-row.correct .tally-text { font-weight: 900; }
+        .tally-row.correct .tally-bar { box-shadow: 0 0 22px rgba(63,174,114,.55); }
+        .tally-count { font-weight: 900; font-size: 1.9vmin; color: var(--ink); width: 3vmin; text-align: right; }
+
+        /* TV lobby */
+        .tv-lobby { flex: 1; display: flex; gap: 4vmin; align-items: center; min-height: 0; }
+        .tv-lobby .qr-side { background: var(--paper); color: var(--ink); border-radius: 2.4vmin; padding: 3.4vmin; text-align: center; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+        .tv-lobby .qr-side .qr-wrap { width: 34vmin; margin: 1.5vmin auto; }
+        .tv-lobby .qr-side .room-code { font-size: 5vmin; letter-spacing: 2vmin; padding-left: 2vmin; }
+        .tv-lobby .join-hint { font-size: 1.8vmin; font-weight: 800; color: var(--ink-soft); }
+        .tv-players { flex: 1; display: flex; flex-direction: column; gap: 1.6vmin; min-width: 0; }
+        .tv-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20vmin, 1fr)); gap: 1.6vmin; }
+        .tv-pcard {
+            background: rgba(60,38,18,.65); border: 1px solid rgba(255,193,107,.18); border-radius: 1.8vmin;
+            padding: 1.8vmin; text-align: center; font-weight: 900; font-size: 2vmin; animation: popIn .35s ease both;
+        }
+        .tv-pcard .pav-big { font-size: 4.4vmin; }
+        @keyframes popIn { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+        .tv-waiting { color: var(--muted); font-weight: 800; font-size: 2vmin; }
+
+        /* podium */
+        .podium-wrap { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2.4vmin; padding-bottom: 2vmin; }
+        .pod { text-align: center; font-weight: 900; animation: popIn .5s ease both; }
+        .pod .pname { font-size: 2.4vmin; margin-bottom: 1vmin; }
+        .pod .pscore { font-size: 2vmin; color: var(--gold); margin-bottom: 1vmin; }
+        .pod .block { border-radius: 1.6vmin 1.6vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.4vmin; font-size: 3.4vmin; width: 18vmin; }
+        .pod.p1 .block { height: 22vmin; background: linear-gradient(180deg, #ffd58a, #b58032); }
+        .pod.p2 .block { height: 15vmin; background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
+        .pod.p3 .block { height: 10vmin; background: linear-gradient(180deg, #e8a06a, #9c5a33); }
+        .pod .pav-big { font-size: 5vmin; }
+        .awards-row { display: flex; gap: 1.6vmin; justify-content: center; flex-wrap: wrap; }
+        .award {
+            background: rgba(60,38,18,.7); border: 1px solid rgba(255,193,107,.25); border-radius: 1.6vmin;
+            padding: 1.4vmin 2.2vmin; font-weight: 800; font-size: 1.9vmin; text-align: center;
+        }
+        .award .aw-t { color: var(--gold); font-weight: 900; }
+
+        #confetti-cv { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+
+        @media (max-width: 480px) { .ans-grid { grid-template-columns: 1fr 1fr; } }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <canvas id="confetti-cv"></canvas>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════
+// QUESTION PACKS
+// ═══════════════════════════════════════════
+const FAMILY_PACK = {"pack":"The Family Chronicles","description":"100 made-up funny stories about Karen (Mum), Neil (Dad), Jess (only sister), Ben (big brother), Archie (middle son) and Ollie (youngest). Listen carefully — the questions are about the details!","questions":[{"title":"The Quick Trip","story":"Karen announced she was popping to the garden centre 'for five minutes, just for compost'. She returned four hours later with three lavender plants, a bird bath, a scented candle called Autumn Whisper, and a garden gnome she named Gerald. She did not buy any compost.","prompt":"What did Karen forget to buy?","choices":["Compost","A candle","A gnome","Lavender","A bird bath"],"answer":0},{"title":"BBQ Legend","story":"Neil declared himself 'Grill Master Supreme' and refused all help at the family barbecue. He burned eleven sausages, set fire to one oven glove, and served burgers that Ben described as 'charcoal with ketchup'. Neil blamed the wind, the coals, and finally the sausages themselves.","prompt":"How many sausages did Neil burn?","choices":["Seven","Nine","Eleven","Thirteen","All of them plus the glove"],"answer":2},{"title":"The Remote Mystery","story":"The TV remote vanished for six days. Karen blamed Ollie, Ollie blamed Archie, and Archie started a formal investigation with a notebook labelled 'SUSPECTS'. It was finally found in the fridge, inside the salad drawer, next to a yoghurt. Nobody confessed, but Ben went suspiciously quiet.","prompt":"Where was the remote found?","choices":["Under the sofa","In the salad drawer","In Ollie's toy box","In the shed","Inside a cereal box","In the washing machine"],"answer":1},{"title":"Jess vs. The Boys","story":"Jess challenged all three brothers to a video game tournament, offering to do their chores for a week if she lost. She won every single match, celebrated with a slow dance around the living room, and pinned a chore rota to the fridge titled 'MY STAFF'.","prompt":"What did Jess call her chore rota?","choices":["THE LOSERS' LIST","MY STAFF","BROTHER DUTIES","PAYBACK TIME","HOUSEHOLD MINIONS"],"answer":1},{"title":"Archie's Big Business","story":"Archie set up a stall at the front gate selling 'gourmet lemonade' for two pounds a cup. His only customers were Karen, who bought one out of pity, and the postman, who was too polite to refuse. Archie declared the business 'a success' and immediately retired.","prompt":"Who were Archie's only customers?","choices":["Neil and Jess","Karen and the postman","Ben and Ollie","Two neighbours","Nobody at all"],"answer":1},{"title":"Ollie's Pocket Zoo","story":"Karen did the laundry and found the following in Ollie's trouser pockets: four snail shells, a slice of ham, two conkers, a plastic dinosaur, and a note that said 'do not look in my pockets'. Ollie said the ham was 'for emergencies'.","prompt":"What did Ollie say the ham was for?","choices":["The dog","Emergencies","A snack","His dinosaur","Trading at school"],"answer":1},{"title":"The Sat-Nav Standoff","story":"On the way to the seaside, the sat-nav said turn left. Neil said 'I know a shortcut' and turned right. Ninety minutes later the family arrived at a cabbage farm, where Neil confidently announced, 'Well, this is a lovely spot for lunch.' Karen has never let him forget it.","prompt":"Where did Neil's shortcut lead?","choices":["A car park","A cabbage farm","Back home","A different beach","A motorway services","A field of sheep"],"answer":1},{"title":"Ben's Protein Phase","story":"Ben started going to the gym and began adding protein powder to everything: porridge, smoothies, and once, horrifyingly, spaghetti bolognese. The family staged an intervention after he suggested 'protein trifle' for Karen's birthday. Ben agreed to limit himself to shakes, but everyone still checks the lasagne.","prompt":"What protein-powder creation triggered the family intervention?","choices":["Protein spaghetti","Protein trifle","Protein roast potatoes","Protein tea","Protein pizza"],"answer":1},{"title":"The Candle Situation","story":"Neil counted the candles in the living room and found twenty-three. When he suggested Karen might have enough candles, she bought two more the next day, one called Cosy Hearth and one called Winter Cuddle. Neil now measures time in candles. It is currently twenty-five o'clock.","prompt":"How many candles did Neil originally count?","choices":["Nineteen","Twenty-one","Twenty-three","Twenty-five","Thirty"],"answer":2},{"title":"Jess's Hair Adventure","story":"Jess decided to dye a streak of her hair purple using a kit from the chemist. The purple came out perfectly. Unfortunately she also turned one of her ears purple, plus the bathroom sink, one towel, and somehow Ollie's left hand. Ollie refused to wash it off for a week.","prompt":"Besides her hair, what did Jess accidentally dye?","choices":["Her ear, the sink, a towel and Ollie's hand","The cat and the curtains","Both ears and the carpet","Just the sink","Neil's toothbrush"],"answer":0},{"title":"Operation Biscuit","story":"Karen hid a packet of posh chocolate biscuits behind the tinned tomatoes, her secret spot for years. She returned to find only crumbs and a note in Archie's handwriting: 'The biscuits have moved to a better place.' Archie denied everything, despite having chocolate on his chin.","prompt":"Where did Karen hide her secret biscuits?","choices":["Behind the tinned tomatoes","In the washing machine","Under her bed","In an empty cereal box","In the vegetable drawer","On top of the wardrobe"],"answer":0},{"title":"The Smart Doorbell","story":"Neil installed a smart doorbell so he could 'see who's at the door from anywhere in the world'. In its first week it sent him 400 alerts: 397 were for next door's cat, two were for a pigeon, and one was Neil himself, waving at it to see if it worked.","prompt":"What triggered 397 of the doorbell alerts?","choices":["The postman","Next door's cat","A pigeon","Ollie's football","Neil waving"],"answer":1},{"title":"Ollie's Big Question","story":"During a quiet Sunday dinner, Ollie put down his fork and asked, 'If a tomato is a fruit, is ketchup a smoothie?' Neil choked on his roast potato. Karen said 'sort of'. Ben said 'no'. Jess googled it. Archie has called ketchup 'smoothie' ever since.","prompt":"What did Ollie ask about ketchup?","choices":["Whether it's a smoothie","Whether it's a soup","Who invented it","Whether tomatoes feel pain","Why it's red"],"answer":0},{"title":"The Shed of Secrets","story":"Neil spent an entire weekend 'organising the shed'. Karen looked inside afterwards and found he had mainly built a comfy chair area with a radio, a kettle, and a biscuit tin. Neil described it as 'a workshop'. There were no tools within reach of the chair.","prompt":"What did Karen find in Neil's 'organised' shed?","choices":["Perfectly sorted tools","A chair, radio, kettle and biscuit tin","A half-built boat","Christmas decorations","Archie's lemonade stand"],"answer":1},{"title":"Ben's Driving Lesson","story":"On Ben's first driving lesson with Neil, he did brilliantly for twenty minutes, then panicked at a roundabout and went around it four times because he 'couldn't find the exit'. Neil stayed calm for three laps. On the fourth he quietly said, 'We live on lap two, son.'","prompt":"How many times did Ben go around the roundabout?","choices":["Twice","Three times","Four times","Five times","They're still there"],"answer":2},{"title":"The Great Sock Heist","story":"Every one of Neil's left socks kept disappearing. He suspected the washing machine, then Karen, then 'sock thieves'. The truth emerged when the sofa was moved: the dog had built a nest of fourteen socks behind it, arranged by colour. Everyone agreed the dog had better organisational skills than Neil.","prompt":"How many socks were in the dog's nest?","choices":["Ten","Twelve","Fourteen","Sixteen","Twenty"],"answer":2},{"title":"Karen's Label Maker","story":"Karen got a label maker for her birthday and labelled everything in the kitchen within 48 hours. Cupboards, jars, drawers, the kettle ('KETTLE'), and eventually the label maker itself ('LABEL MAKER'). The family drew the line when a label appeared on Neil's forehead reading 'HUSBAND'.","prompt":"What did the label on Neil's forehead say?","choices":["DAD","HUSBAND","NEIL","GRUMPY","DO NOT WASH"],"answer":1},{"title":"Archie's Magic Show","story":"Archie charged the family 50p each to watch his magic show. His grand finale was making Ollie disappear, which worked perfectly because Ollie simply hid in the airing cupboard and then fell asleep. The show ended with the whole family searching the house for the 'disappeared' Ollie for an hour.","prompt":"Where did Ollie fall asleep during the magic show?","choices":["Under his bed","In the airing cupboard","In the shed","Behind the sofa","In the car","In the bath"],"answer":1},{"title":"The Pancake Incident","story":"Neil attempted a dramatic pancake flip to impress the kids. The pancake left the pan beautifully, spun twice, and stuck to the kitchen ceiling, where it stayed for two full days because nobody could reach it. Ollie named it 'Ceiling Steve' and said good morning to it daily.","prompt":"What did Ollie name the ceiling pancake?","choices":["Flippy","Ceiling Steve","Pancake Pete","Sir Flapjack","Dave"],"answer":1},{"title":"Jess's Homework Excuse","story":"Jess told her teacher the dog ate her homework. The teacher didn't believe her, so Jess brought in evidence: a chewed maths book, a signed witness statement from Ollie, and a formal apology letter dictated by the dog and 'signed' with a muddy paw print. She got an extension and a merit for creativity.","prompt":"What evidence did Jess bring to school?","choices":["A photo of the dog","A chewed book, a witness statement and a pawprint apology","The dog itself","A note from Karen","A video recording"],"answer":1},{"title":"The Thermostat Wars","story":"Karen likes the house warm. Neil guards the thermostat 'for the bills'. Their secret war escalated for weeks: Karen nudging it up two degrees, Neil sneaking it down three. It ended when Neil installed a smart thermostat with a passcode, and Jess cracked the code in nine minutes. It was 1234.","prompt":"What was Neil's thermostat passcode?","choices":["0000","1234","His birthday","4321","BBQ1"],"answer":1},{"title":"Ben's Mystery Smoothie","story":"Ben made a smoothie with 'whatever was around': banana, spinach, peanut butter, and what he thought was vanilla yoghurt. It was mayonnaise. He drank half of it before his face changed. He described the flavour as 'a betrayal'. The blender has been labelled 'BEN: CHECK FIRST' ever since.","prompt":"What did Ben accidentally put in his smoothie?","choices":["Mustard","Mayonnaise","Gravy","Salad cream","Horseradish","Cream cheese"],"answer":1},{"title":"Ollie the Tooth Tycoon","story":"Ollie lost a tooth and got two pounds from the tooth fairy. Sensing opportunity, he tried to sell his remaining teeth to the family at 'a discount' — one pound fifty each, 'while stocks last'. Karen declined. Archie offered 20p. Neil asked if there was a loyalty card.","prompt":"How much did Ollie charge for his remaining teeth?","choices":["One pound","One pound fifty","Two pounds","50p","Two pounds fifty"],"answer":1},{"title":"The Christmas Rehearsal","story":"In mid-July, Karen announced a 'Christmas rehearsal' to test a new roast recipe. The family ate turkey in the garden in 28-degree heat, wearing paper hats that stuck to their foreheads. Neil said it was the best Christmas ever. Ollie asked if rehearsal-Christmas meant rehearsal-presents. It did not.","prompt":"What was the weather like at the Christmas rehearsal?","choices":["Snowing","Raining","28 degrees and sunny","Foggy","Windy"],"answer":2},{"title":"Archie's Secret Menu","story":"When Karen and Neil went out, Archie was left in charge of dinner. He created a 'restaurant' called Chez Archie with a menu of exactly one item: cereal, served 'deconstructed' (the box on the table). He charged his siblings a compliment each as payment. Ben paid with 'nice apron'. It was Karen's.","prompt":"What was the only item on the Chez Archie menu?","choices":["Beans on toast","Deconstructed cereal","Crisps sandwich","Microwave pizza","Toast three ways"],"answer":1},{"title":"The Fitness Tracker","story":"Neil got a fitness tracker and became obsessed with his step count. He was caught marching on the spot in the kitchen at 11pm to hit 10,000 steps, and once strapped the tracker to the dog 'as an experiment'. The dog did 22,000 steps. Neil has not spoken about it since.","prompt":"How many steps did the dog do wearing Neil's tracker?","choices":["12,000","15,000","18,000","22,000","30,000"],"answer":3},{"title":"Jess's Big Sleep","story":"Jess claimed she 'barely slept' before her exam. Ben checked the shared tablet: she had fallen asleep at 8:45pm watching a documentary about penguins and slept for eleven hours. Jess maintains the penguins were 'educational stress relief' and that eleven hours 'barely counts as sleeping if you're tired enough'.","prompt":"What was Jess watching when she fell asleep?","choices":["A penguin documentary","A baking show","A horror film","Revision videos","A dance tutorial"],"answer":0},{"title":"The Supermarket Split","story":"Karen sent Neil to the supermarket with a list of six items. He returned with fourteen items, including a novelty cheese board, a plant, and a magazine about camper vans. Of the original six items, he had remembered two: bread and 'the wrong milk'. Karen now texts the list with photos.","prompt":"How many items from Karen's list did Neil actually get?","choices":["All six","Four","Three","Two","None"],"answer":3},{"title":"Ollie's Invisible Friend","story":"Ollie's invisible friend 'Captain Trousers' got blamed for everything for a month: crumbs in the bed, the missing felt tips, a suspicious drawing on the hallway wall. The scam collapsed when Ollie demanded Karen set a dinner place for the Captain, then ate both puddings himself.","prompt":"What was Ollie's invisible friend called?","choices":["Captain Trousers","Mr Biscuit","Sergeant Socks","Big Kevin","Captain Pants","The Colonel"],"answer":0},{"title":"Ben's Leftover Radar","story":"Karen saved one slice of her famous lasagne for lunch and hid it under a bag of frozen peas. Ben, who can allegedly hear a fridge open from upstairs with headphones on, found and ate it within the hour. His defence: 'It didn't have a label.' The label maker was used within minutes.","prompt":"Where did Karen hide the last slice of lasagne?","choices":["Behind the tinned tomatoes","Under frozen peas","In a salad box","In the shed fridge","Inside a bread bag"],"answer":1},{"title":"The Car Wash Surprise","story":"Neil paid for the deluxe car wash and forgot the sunroof was open. He described the experience as 'a theme park ride I didn't ask for'. The car interior got the deluxe treatment too, including tropical wax scent. Archie now calls the car 'the aquarium'. Neil dried the seats with Karen's hairdryer.","prompt":"What does Archie now call the car?","choices":["The submarine","The aquarium","The swamp","Soggy Sally","The car wash special"],"answer":1},{"title":"Karen's Book Club","story":"Karen hosted book club but hadn't finished the book — she'd read four chapters. She got through the whole evening by saying 'the ending really surprised me' and refilling everyone's glasses at key moments. It later turned out only one of the seven attendees had finished the book. It was a 900-page book.","prompt":"How many chapters of the book had Karen actually read?","choices":["None","Two","Four","Six","All of them"],"answer":2},{"title":"Archie's Weather Machine","story":"Archie convinced Ollie he could control the weather with a cardboard box covered in bottle tops. He charged Ollie 30p for 'guaranteed snow'. It did not snow. Ollie demanded a refund. Archie offered store credit at the weather machine. Ollie accepted, and ordered 'sunshine for Saturday', which — annoyingly for everyone — worked.","prompt":"How much did Archie charge Ollie for guaranteed snow?","choices":["20p","30p","50p","One pound","A packet of crisps"],"answer":1},{"title":"The Family Photo","story":"Karen wanted one nice family photo for the hallway. It took 47 attempts. In various shots: Ollie blinked, Ben yawned, Archie held up bunny ears, Jess was mid-sneeze, and the dog walked through with a stolen shoe. The photo Karen finally framed has Neil's eyes closed. She says it's 'the best of a bad bunch'.","prompt":"How many attempts did the family photo take?","choices":["27","37","47","57","They gave up"],"answer":2},{"title":"Jess the Referee","story":"When Ben and Archie argued over the last slice of pizza, Jess appointed herself referee. She held a formal hearing at the kitchen table, heard both sides, reviewed the evidence, and then ruled — after eleven minutes of deliberation — that the pizza was hers. She'd eaten it before the hearing started.","prompt":"How did Jess resolve the pizza dispute?","choices":["Split it in half","Gave it to Ollie","Awarded it to herself, having already eaten it","Flipped a coin","Gave it to the dog"],"answer":2},{"title":"Neil's Password Problem","story":"Neil forgot the wifi password he himself had set. He tried nine guesses, blamed the router, threatened to phone the internet company, and finally found it written in his own handwriting on a sticky note under the router, where he had put it 'somewhere safe'. The password was BiscuitTin99.","prompt":"What was the wifi password?","choices":["BiscuitTin99","Lasagne123","GrillMaster1","Password99","TheShed2024","KarensCandles"],"answer":0},{"title":"Ollie's Bath Protest","story":"Ollie declared himself 'allergic to baths' and presented Karen with a petition. It had three signatures: his own, one from 'Captain Trousers', and a paw print. Karen countered with a professional-looking document titled 'The Smell Report'. Ollie took the bath but negotiated two extra bedtime stories as compensation.","prompt":"How many signatures were on Ollie's anti-bath petition?","choices":["One","Two","Three","Five","Ten"],"answer":2},{"title":"The Wardrobe Avalanche","story":"Karen asked Ben to tidy his room. Ben moved everything into his wardrobe and jammed the doors shut, achieving a technically tidy room in four minutes. The wardrobe held for two days before bursting open at 3am with a crash so loud Neil rang 999 before realising it was trainers, not burglars.","prompt":"How long did Ben's wardrobe hold before the avalanche?","choices":["Two hours","One day","Two days","A week","It's still holding"],"answer":2},{"title":"Archie's Autograph","story":"Archie became convinced he'd be famous one day, so he started practising his autograph and 'pre-signing' things around the house to make them valuable. Karen found his signature on the toaster, three bananas, Neil's briefcase, and the dog. He offered to sign Jess's forehead 'for free, this once'. She declined.","prompt":"Which of these did Archie NOT sign?","choices":["The toaster","Three bananas","Neil's briefcase","The dog","Jess's forehead"],"answer":4},{"title":"Karen's Gnome Empire","story":"It started with Gerald the gnome. Within a year Karen had six gnomes, each with a name and a backstory: Gerald, Beryl, Nigel, Susan, Big Trevor and Little Trevor. Neil says he doesn't mind them, but he was once caught moving Big Trevor so it wasn't 'staring through the kitchen window at breakfast'.","prompt":"Which gnome was staring through the kitchen window?","choices":["Gerald","Nigel","Big Trevor","Little Trevor","Beryl","Susan"],"answer":2},{"title":"The Sports Day Sprint","story":"At school sports day, Neil entered the dads' race declaring he'd 'still got it'. He led for the first half, pulled his hamstring showboating at the halfway cone, and finished last, walking backwards and waving like a champion. Ollie told everyone at school his dad came 'first at the end'.","prompt":"Where did Neil pull his hamstring?","choices":["At the start line","At the halfway cone","At the finish","In the car park","During the warm-up"],"answer":1},{"title":"Jess's Cooking Debut","story":"Jess cooked dinner for the family for the first time: fajitas. They were genuinely delicious, but she used every pan in the kitchen, two mixing bowls, three chopping boards, and somehow the potato masher. The kitchen looked like a crime scene. Jess took a bow and left the washing up 'for her staff'.","prompt":"What did Jess cook for her debut family dinner?","choices":["Spaghetti","Fajitas","Curry","Roast chicken","Stir fry","Pizza"],"answer":1},{"title":"Ben's Alarm Orchestra","story":"Ben sets seven alarms every morning: 6:30, 6:45, 7:00, 7:05, 7:10, 7:15 and one at 7:20 labelled 'ACTUAL EMERGENCY'. He sleeps through all seven. The only thing that reliably wakes him is Karen opening the fridge downstairs, which gets him up in under a minute.","prompt":"What reliably wakes Ben up?","choices":["The seventh alarm","The dog barking","Karen opening the fridge","Ollie jumping on him","The smell of toast"],"answer":2},{"title":"The Tent Situation","story":"The family went camping. Neil refused to read the tent instructions because he had 'put up hundreds of tents'. Two hours later, the tent resembled a collapsed pterodactyl, and Karen quietly assembled it in twenty minutes using the instructions while Neil held a pole and said 'that's what I was doing'.","prompt":"How long did Karen take to put up the tent?","choices":["Ten minutes","Twenty minutes","Forty-five minutes","Two hours","She gave up too"],"answer":1},{"title":"Ollie's Word of the Week","story":"Ollie learned the word 'technically' and used it constantly for a week. 'Technically I'm not jumping on the bed, I'm bouncing.' 'Technically the dog started it.' It peaked at dinner when he announced, 'Technically, broccoli is a tiny tree, and I don't eat trees.' Nobody had a comeback. He didn't eat the broccoli.","prompt":"What did Ollie technically refuse to eat?","choices":["Tiny trees (broccoli)","Baby leaves (spinach)","Orange sticks (carrots)","Green balls (peas)","Mash"],"answer":0},{"title":"Karen's Secret Talent","story":"At the school quiz night, the tiebreaker question was about 1980s pop lyrics. Karen stood up, sang the entire second verse perfectly, added the dance moves, and won the trophy for the family team. The kids stared in horror and awe. Neil said, 'That's how she got me, you know.'","prompt":"What was the tiebreaker question about?","choices":["80s pop lyrics","Football scores","Capital cities","Soap operas","Famous gardens"],"answer":0},{"title":"Archie's Nickname Factory","story":"Archie went through a phase of giving everyone nicknames. Neil was 'Chief Burnt Sausage', Karen was 'The Candle Queen', Ben was 'Fridge Radar', Jess was 'The Lawyer', and Ollie was 'Pockets'. The nicknames were so accurate that everyone secretly liked them, except Neil, who campaigned unsuccessfully to be 'Grill Master'.","prompt":"What nickname did Archie give Ben?","choices":["Chief Burnt Sausage","Fridge Radar","The Lawyer","Pockets","Protein Pete","Wardrobe"],"answer":1},{"title":"The Ice Cream Negotiation","story":"The ice cream van came while Karen was on the phone. Ollie needed money fast. He negotiated a loan from Archie at what Archie called 'family rates': 50p borrowed, 70p back by Friday. Jess reviewed the deal, declared it 'outrageous', and lent Ollie the 50p for free — in exchange for his flake.","prompt":"What did Jess want in exchange for her interest-free loan?","choices":["Ollie's flake","First lick","50p back by Friday","A week of compliments","Nothing at all"],"answer":0},{"title":"Neil's Karaoke Moment","story":"At a family wedding, Neil had one lemonade too many and commandeered the karaoke machine. He performed a heartfelt power ballad, pointing at Karen during the chorus, and finished on one knee with a slide across the dance floor that ripped his trousers. He got a standing ovation and borrowed the DJ's spare trousers.","prompt":"How did Neil finish his karaoke performance?","choices":["A backflip","A knee-slide that ripped his trousers","A microphone drop","Crowd surfing","He fell off the stage"],"answer":1},{"title":"The Homework Helper","story":"Neil offered to help Archie with his maths homework, insisting 'maths hasn't changed'. Forty minutes later, Neil had three browser tabs open, a YouTube video paused, and a page of crossed-out working. Archie's teacher marked the question wrong. Archie told her, 'My dad did that one,' which Neil felt was a betrayal.","prompt":"How did Archie explain the wrong answer to his teacher?","choices":["The dog ate the right one","My dad did that one","The internet was down","Captain Trousers did it","He blamed Ben"],"answer":1},{"title":"Jess's Plant Hospital","story":"Jess rescued a dying plant from the supermarket's reduced shelf for 30p and nursed it back to life on her windowsill. Within months she had eleven rescue plants, all named after pop stars. When Karen's prize fern started drooping, Karen quietly left it outside Jess's door overnight, like a plant orphanage.","prompt":"How much did Jess pay for her first rescue plant?","choices":["10p","30p","50p","One pound","It was free"],"answer":1},{"title":"Jess In Charge","story":"Karen and Neil went out for their anniversary and left Jess, as the oldest, officially in charge. She immediately introduced a laminated list of house rules, a swear jar, and a 'quiet hours' policy. By 8pm she had made 80p from the swear jar — all of it, mysteriously, from words Ben said at the football.","prompt":"How much did Jess's swear jar make in one evening?","choices":["50p","80p","One pound","Two pounds","Nothing"],"answer":1},{"title":"The Dishwasher Debate","story":"Neil believes there is one correct way to load the dishwasher, and that he alone knows it. He was caught secretly re-loading it after Karen had filled it, moving every plate two slots along. Karen now loads it deliberately 'wrong' and times how long he lasts. His record is ninety seconds.","prompt":"What's Neil's record for resisting re-loading the dishwasher?","choices":["Ninety seconds","Five minutes","An hour","A whole evening","He's never resisted"],"answer":0},{"title":"Ollie's Museum","story":"Ollie opened a museum in his bedroom, admission 10p. Exhibits included 'a really good stick', a snail shell collection, one of Ben's old trophies relabelled 'MY TROPHY', and 'mystery soup' (a jar of pond water). Karen was given a guided tour that lasted forty minutes. She described it as 'better than some actual museums'.","prompt":"What was in the 'mystery soup' jar?","choices":["Pond water","Old juice","Rainwater and leaves","Bath water","Nobody knows"],"answer":0},{"title":"Ben's Big Match","story":"Ben scored his first goal of the season and celebrated by sliding on his knees towards the crowd — straight through the biggest puddle on the pitch. He emerged soaked and triumphant to discover Neil had missed the goal entirely because he was in the car park arguing with a parking machine.","prompt":"Why did Neil miss Ben's goal?","choices":["He was buying a burger","He was arguing with a parking machine","He was on the phone","He went to the loo","He was watching the wrong pitch"],"answer":1},{"title":"Karen's Mug Rules","story":"Karen has one special mug — the big spotty one — and everyone knows it's hers. Neil used it once, in an emergency, when every other mug was in Ben's bedroom. Karen didn't say a word. She simply drank her tea from Neil's 'World's Best Dad' mug while maintaining eye contact. The message was received.","prompt":"Which mug is Karen's special mug?","choices":["The big spotty one","The flowery one","World's Best Mum","The Christmas mug","The chipped blue one"],"answer":0},{"title":"Archie's Fortune Telling","story":"Archie set up a fortune-telling booth using a snow globe as a crystal ball. For 20p he told Ollie he'd 'find treasure soon' (Archie had hidden 5p in the garden), told Ben he'd 'meet a tall dark stranger' (the new PE teacher), and told Neil he saw 'a great disappointment' (the football results). All three came true. The family is slightly worried.","prompt":"What did Archie use as a crystal ball?","choices":["A snow globe","A fishbowl","A marble","An upside-down vase","Karen's gazing ball"],"answer":0},{"title":"The Midnight Feast","story":"Karen came downstairs at midnight to find Ollie and the dog sitting on the kitchen floor, sharing a packet of crackers in the light of the open fridge. Ollie, completely unbothered, offered her a cracker and said, 'We couldn't sleep. This is a meeting.' Karen took the cracker and joined the meeting.","prompt":"What did Ollie call his midnight kitchen gathering?","choices":["A picnic","A meeting","A feast","A party","Snack o'clock"],"answer":1},{"title":"Neil's Gadget Graveyard","story":"Karen found a drawer containing Neil's abandoned gadgets: a bread maker used twice, an electric tie rack, a device that claims to peel garlic, three tangled fitness bands, and a 'smart' bottle opener that needs charging. Neil defended each purchase individually, then bought a gadget organiser for the drawer. It's still in its box.","prompt":"What did Neil buy to organise his gadget drawer?","choices":["A label maker","A gadget organiser (still in its box)","A second drawer","Nothing","A shelf for the shed"],"answer":1},{"title":"Jess's Driving Test","story":"Jess passed her driving test first time, which she has mentioned approximately four hundred times since. Her first solo drive was to the supermarket for Karen. She returned ninety minutes late, having driven three friends home, been through a drive-thru, and forgotten the one thing Karen asked for: milk. Genetics, Neil said proudly.","prompt":"What did Jess forget at the supermarket?","choices":["Bread","Milk","Eggs","Compost","The car"],"answer":1},{"title":"The Barbecue Rematch","story":"After the sausage disaster, Neil demanded a barbecue rematch. He watched three tutorial videos, bought a meat thermometer, and produced genuinely perfect burgers. Nobody could believe it. Then, while taking a triumphant bow, he stepped backwards onto the ketchup bottle, which erupted up his leg. The photo is Karen's phone wallpaper.","prompt":"What went wrong during Neil's triumphant bow?","choices":["He dropped the burgers","He stepped on the ketchup bottle","The barbecue tipped over","He sat on the cake","The dog stole a burger"],"answer":1},{"title":"Ollie's Haircut","story":"The night before school photos, Ollie decided his fringe was 'too long' and trimmed it himself with craft scissors. The result was a zigzag that made him look permanently surprised. Karen gasped, Jess laughed for ten minutes, and the school photo — zigzag and all — is now framed in the hallway, by unanimous family vote.","prompt":"What did Ollie use to cut his own fringe?","choices":["Kitchen scissors","Craft scissors","Nail clippers","Neil's beard trimmer","Safety scissors"],"answer":1},{"title":"Ben's Phone Down the Sofa","story":"Ben lost his phone and made everyone search for an hour. Karen rang it: silence, because it was on mute. Neil suggested 'retracing steps'. Jess found it in ninety seconds — down the side of the sofa, where Ben was sitting, underneath Ben, who had not moved during the entire search.","prompt":"Where was Ben's phone?","choices":["In the fridge","Under Ben on the sofa","In his pocket","In the car","In the bathroom","The dog had it"],"answer":1},{"title":"The School Bake Sale","story":"Karen forgot about the bake sale until 9pm the night before. She produced a Victoria sponge from thin air by 11pm. Neil 'helped' by eating the first attempt's broken half, 'for quality control'. The cake won an unofficial prize: a teacher asked for the recipe. Karen said it was 'an old family secret'. It was from the back of the flour bag.","prompt":"Where was Karen's 'old family secret' recipe actually from?","choices":["Her grandmother","The back of the flour bag","A TV show","The internet","A magazine"],"answer":1},{"title":"Archie's Translation Service","story":"When the family got a French exchange student's welcome letter, Archie claimed he could translate it because he 'basically speaks French'. His translation included the phrases 'the hovercraft arrives on Tuesday' and 'please prepare the ceremonial cheese'. Jess, who actually studies French, revealed it was a normal letter about arrival times.","prompt":"What did Archie claim the letter said to prepare?","choices":["The guest room","The ceremonial cheese","A welcome banner","French bread","The hovercraft"],"answer":1},{"title":"The Trampoline Decision","story":"Neil assembled the new trampoline and insisted on 'testing it for safety' before the kids were allowed on. Forty-five minutes later he was still on it, attempting a seat-drop, while all four children stood in a line watching through the window. Karen brought him in with the phrase 'dinner's ready', the only known counter-spell.","prompt":"How did Karen finally get Neil off the trampoline?","choices":["Turned the hose on","Said dinner was ready","Sent the dog","Called his mum","Waited until dark"],"answer":1},{"title":"Jess's Playlist Takeover","story":"On the long drive to Cornwall, Jess connected her phone to the car and appointed herself 'Head of Music'. She DJ'd for three hours, took requests from Ollie only, and blocked all of Neil's suggestions on the grounds of 'dad rock'. Neil hummed his songs quietly to himself instead. She turned the volume up.","prompt":"Whose song requests did Jess accept?","choices":["Only Ollie's","Only Karen's","Everyone's","Nobody's","Only the dog's"],"answer":0},{"title":"The Great Monopoly Ban","story":"Family Monopoly night ended after ninety minutes when Archie was discovered running an illegal side-bank, lending Ollie money at outrageous interest and accepting Ben's shoes as collateral. Karen, as the banker, declared the game void. Monopoly is now banned until further notice. Archie still has one of the shoes.","prompt":"What did Archie accept from Ben as loan collateral?","choices":["His shoes","His watch","His dessert","His phone","His bike"],"answer":0},{"title":"Karen's Yoga Era","story":"Karen started morning yoga in the living room. On day three, mid 'downward dog', the dog joined in, Ollie sat on her back saying 'horsey', and Neil asked where his blue shirt was. She now does yoga at 6am behind a locked door, with a sign that says 'NAMASTE MEANS GO AWAY'.","prompt":"What does Karen's yoga door sign say?","choices":["DO NOT DISTURB","NAMASTE MEANS GO AWAY","YOGA IN PROGRESS","FIND YOUR OWN SHIRT","QUIET PLEASE"],"answer":1},{"title":"Ben's Toast Record","story":"Ben claims to hold the family record for most toast eaten in one sitting: nine slices, set one Saturday morning after football practice. Jess disputes the record on the grounds that two slices were 'technically crumpets'. The Family Records Committee (Ollie) has ruled the record valid. Ollie was paid in toast.","prompt":"Why does Jess dispute Ben's toast record?","choices":["He dropped one slice","Two were technically crumpets","The dog helped","It was eight slices","There were no witnesses"],"answer":1},{"title":"The Loft Expedition","story":"Neil went up to the loft to find one suitcase and was gone so long the family considered sending a rescue party. He eventually descended, without the suitcase, carrying his old records, a lava lamp, and a yearbook. He spent the rest of the evening saying 'no way' at photos of himself with long hair.","prompt":"What did Neil come down from the loft with?","choices":["The suitcase","Records, a lava lamp and a yearbook","Christmas decorations","A tennis racket","Nothing at all"],"answer":1},{"title":"Ollie's Restaurant Review","story":"The family went to a fancy restaurant for Karen's birthday. Ollie inspected his tiny, artistic starter — one scallop with a swirl of sauce — looked up at the waiter and said, kindly but firmly, 'I think you forgot the rest of it.' The waiter brought him extra bread. Ollie left a five-star review: 'good bread'.","prompt":"What did Ollie say to the waiter about his starter?","choices":["This is delicious","I think you forgot the rest of it","Can I have chips","What is this","I ordered pizza"],"answer":1},{"title":"Jess's Room Border","story":"Tired of her brothers 'borrowing' things, Jess installed a border at her bedroom door: a strip of washi tape and a handwritten customs form requiring name, purpose of visit, and estimated duration. Ollie fills in a form every single time, in crayon. Under 'purpose of visit' he always writes the same thing: 'hello'.","prompt":"What does Ollie always write under 'purpose of visit'?","choices":["hello","borrowing","visiting","top secret","snacks"],"answer":0},{"title":"The Fire Drill","story":"After a documentary about emergencies, Neil ran a surprise 7am family fire drill with a whistle. Total evacuation time: nineteen minutes. Jess refused to leave without her plants, Ben slept through the whistle entirely, and Ollie insisted on 'rescuing' the goldfish, tank and all. Neil has scheduled a re-test. Everyone has scheduled to ignore it.","prompt":"What was the family's fire drill evacuation time?","choices":["Four minutes","Nine minutes","Nineteen minutes","Twenty-nine minutes","They never all got out"],"answer":2},{"title":"Archie's Homework Machine","story":"Archie claimed he'd built a 'homework machine' and charged Ollie 40p to use it. The machine was a cardboard box with a slot; inside the box was Archie, doing the homework himself in disguised handwriting. He was caught because he spelled Ollie's own name wrong on the front of the book.","prompt":"How was Archie's homework machine scam exposed?","choices":["Karen looked in the box","He spelled Ollie's name wrong","Ollie confessed","The handwriting matched","Jess audited the machine"],"answer":1},{"title":"Karen's Parking Masterclass","story":"Neil spent five minutes failing to parallel park outside the pizza place while giving a running commentary about the space being 'basically impossible'. Karen swapped seats and parked in one smooth movement, first try, while finishing her sentence about the neighbours' new fence. Ben led a round of applause from the back seat.","prompt":"What was Karen doing while she parked perfectly?","choices":["Finishing a sentence about the fence","Eating chips","On the phone","Telling Neil off","Checking her lipstick"],"answer":0},{"title":"The Advent Calendar Audit","story":"On December 9th, Ollie reported that his advent calendar was 'eating itself' — doors 10 through 14 were already open and empty. Jess dusted for fingerprints with Karen's makeup brush. The culprit was identified when Ben tried to blame the dog, whose paws cannot open tiny cardboard doors. Ben bought Ollie a replacement calendar. And one for the dog.","prompt":"Which advent calendar doors were mysteriously empty?","choices":["1 to 5","10 to 14","12 to 16","20 to 24","All of them"],"answer":1},{"title":"Neil's Weather App","story":"Neil checks three weather apps and trusts none of them. Before the family picnic he consulted all three, tapped his barometer, looked at the sky, and declared 'not a chance of rain'. The family were rained on so hard at the park that Ollie asked if this counted as swimming. Neil blamed 'a rogue microclimate'.","prompt":"What did Neil blame for the picnic downpour?","choices":["The weather apps","A rogue microclimate","Climate change","Karen's planning","Bad luck"],"answer":1},{"title":"Jess's Secret Softie","story":"Jess maintains a strict too-cool-for-family image, but Karen found evidence to the contrary: Jess had spent her Saturday making a photo scrapbook of Ollie's first years for his birthday, complete with captions and glitter. When discovered, Jess denied the glitter 'to her grave'. There was glitter in her hair for three days.","prompt":"What gave away Jess's secret scrapbooking?","choices":["Ollie told everyone","Glitter in her hair for three days","Karen found the receipts","She left it on the table","Ben saw her buying glue"],"answer":1},{"title":"The Doorbell Concert","story":"Neil's smart doorbell has customisable chimes. Archie discovered the settings. For one glorious week, the doorbell played a different animal noise every time: Monday was a cow, Tuesday a duck, Wednesday an elephant. Neil couldn't work out how to change it back and had to ask Archie, who charged a consultation fee of one chocolate bar.","prompt":"What was the doorbell's Wednesday animal?","choices":["A cow","A duck","An elephant","A monkey","A rooster","A pig"],"answer":2},{"title":"Ben's Growth Spurt","story":"Ben grew four centimetres in one summer and became obsessed with measuring himself against the kitchen doorframe. He passed Karen's height in June and made a certificate about it. He passed Neil in August. Neil demanded a re-measure, stood suspiciously tall, and was caught rising onto his tiptoes by the whole family.","prompt":"How did Neil cheat the height re-measure?","choices":["Wore thick socks","Stood on tiptoes","Fluffed up his hair","Moved the pencil mark","Wore Karen's heels"],"answer":1},{"title":"Ollie and the Big School Play","story":"Ollie was cast as 'Third Tree' in the school play and treated it like the lead role. He rehearsed at home for weeks, developed a tragic backstory for his tree, and on the night, delivered his only line — 'the forest is this way' — with such drama that the audience applauded. He took three bows. The play continued around him.","prompt":"What was Ollie's only line in the school play?","choices":["The forest is this way","Beware the wolf","I am a tree","Follow me","Winter is coming"],"answer":0},{"title":"Karen's Garden Rivalry","story":"Karen's sunflowers came second at the village show, one point behind Mr Patterson's from number 12. Karen was gracious in public and ruthless in private: she has spent months researching 'competition-grade compost', talks to her new sunflowers twice a day, and has named the tallest one 'The Revenge'. Mr Patterson doesn't stand a chance.","prompt":"What has Karen named her tallest sunflower?","choices":["The Champion","The Revenge","Big Sunny","Patterson's Doom","Gerald Junior"],"answer":1},{"title":"The Cinema Smuggler","story":"Cinema snacks being 'daylight robbery', Karen packed her big handbag for the family film trip: five drinks, two multipacks of crisps, a full bag of pick'n'mix, and — the kids discovered with horror and delight — a whole cucumber, cut into batons. Ollie loudly asked for 'the cucumber, please' during the film's quietest scene.","prompt":"What was the most surprising item in Karen's cinema handbag?","choices":["A whole cucumber, cut into batons","A thermos of soup","Boiled eggs","A baguette","Cold pizza"],"answer":0},{"title":"Archie's Sleepover Heist","story":"At Archie's sleepover, the boys planned a midnight snack raid. Archie drew an actual map of the kitchen, marked creaky floorboards with red crosses, and scheduled the raid for 12:30am. The mission failed at 12:31am, when they found Neil already in the kitchen, eating the exact crisps they were after. He made them all toast and swore them to secrecy.","prompt":"Why did the midnight snack raid fail?","choices":["The dog barked","Neil was already there eating the crisps","Karen heard the map rustling","A creaky floorboard","They fell asleep"],"answer":1},{"title":"The Wifi Outage","story":"The wifi went down for one evening. The family described it afterwards like survivors of a disaster. Ben did twenty press-ups 'out of confusion'. Jess read an actual paper book. Archie tried to sell everyone 'premium wifi' (a drawing of a router). Ollie asked if the olden days were like this. Karen said yes, exactly like this, and it was lovely.","prompt":"What did Archie try to sell during the wifi outage?","choices":["Board games","Premium wifi (a drawing of a router)","His own phone's hotspot","Candles","Entertainment vouchers"],"answer":1},{"title":"Neil's New Glasses","story":"Neil needed reading glasses but resisted for a year, holding menus at arm's length and claiming restaurants were 'printing smaller these days'. He finally got glasses and spent a week amazed, reading everything aloud: cereal boxes, shampoo bottles, the dog's food label. His review: 'Did you know the shed instructions had diagrams?'","prompt":"What did Neil blame before admitting he needed glasses?","choices":["Dim lighting","Restaurants printing smaller","His eyes being tired","Cheap menus","Karen moving things"],"answer":1},{"title":"Jess's Marathon Month","story":"Jess announced she was training for a half marathon and made the whole family sponsor her. Her training peaked in week two, then quietly became 'rest weeks'. On race day, powered entirely by stubbornness and one energy gel she described as 'wallpaper paste', she finished the whole thing and cried at the medal. The family cried louder.","prompt":"How did Jess describe her energy gel?","choices":["Wallpaper paste","Slug slime","Sweet glue","Jam gone wrong","Actually quite nice"],"answer":0},{"title":"The Goldfish Upgrade","story":"The family goldfish, Gary, lives a life of luxury because Ollie keeps upgrading the tank with 'features': a plastic castle, a diver, a sign saying GARY'S HOUSE, and a small mirror so Gary 'has a friend'. Ollie gives visitors tours of the tank. Gary's castle is bigger than some of Ollie's own toys. Gary seems happy. Gary is always happy.","prompt":"Why did Ollie put a mirror in Gary's tank?","choices":["So Gary has a friend","So Gary can check his scales","For decoration","To make the tank look bigger","Jess suggested it"],"answer":0},{"title":"Ben's Interview Outfit","story":"For his first part-time job interview at the sports shop, Ben wore Neil's tie, Jess's advice, and Karen's ironing. He was doing brilliantly until the manager asked his weakness, and Ben, mind blank, answered honestly: 'Toast. I eat too much toast.' He got the job. The manager said it was the most believable answer she'd heard all week.","prompt":"What did Ben say his weakness was?","choices":["Toast","Being too strong","Perfectionism","Sleeping in","Protein powder"],"answer":0},{"title":"The Anniversary Surprise","story":"The kids planned a surprise anniversary breakfast for Karen and Neil. Jess directed, Ben carried, Archie 'supervised', Ollie decorated. The toast was cold, the tea was grey, there were seventeen napkins for two people, and the tray featured one flower freshly picked from Karen's prize pot. Karen said it was perfect. She meant it.","prompt":"How many napkins did the kids provide for two people?","choices":["Seven","Twelve","Seventeen","Twenty","None"],"answer":2},{"title":"Archie's Snowman Business","story":"It snowed, and Archie saw a market opportunity: he built three snowmen in the front garden and put up a sign — 'SNOWMEN FOR SALE, VIEWING FREE'. When Jess pointed out that snowmen can't be delivered, Archie pivoted the business model to 'snowman photos, 20p'. He made £1.40 before lunch, mostly from grandparents on the school run.","prompt":"How did Archie pivot when told snowmen can't be delivered?","choices":["Snowman photos for 20p","Snowman rental","Building snowmen in customers' gardens","Selling snowballs","He gave up"],"answer":0},{"title":"Karen's Phone Voice","story":"The kids have documented that Karen has a completely different voice for phone calls — two octaves higher and mysteriously posh. The best recorded example: she answered the phone in full posh mode, said 'Oh hellooo, how lovely,' then covered the mouthpiece and bellowed 'BEN, YOUR FOOTBALL SOCKS ARE NOT A FRIDGE ITEM' in her normal voice.","prompt":"What did Karen bellow mid-phone-call in her normal voice?","choices":["Dinner's ready","Ben's socks are not a fridge item","Turn that music down","The dog's escaped","Neil, the barbecue's on fire"],"answer":1},{"title":"The Lawn Stripes","story":"Neil mowed the lawn in perfect diagonal stripes and was so proud he made everyone come outside to look at it, twice. He then banned all walking on the lawn 'until the stripes settle'. The ban lasted four hours, ending when Neil himself crossed the lawn to retrieve the football he had kicked onto it, showing off to Ollie.","prompt":"Who broke Neil's lawn ban first?","choices":["Ollie","The dog","Neil himself","Ben","Karen, on purpose"],"answer":2},{"title":"Ollie's Bedtime Stall","story":"Ollie's bedtime delay tactics reached new heights: one more story, a glass of water, a different glass of water because 'that water tastes loud', checking on Gary the goldfish, one urgent fact about sharks, and finally a question — 'Do worms have birthdays?' — that Neil is still thinking about. Total delay: fifty-five minutes. A family record.","prompt":"Why did Ollie reject the first glass of water?","choices":["It was too cold","It tasted loud","Wrong cup","It had bubbles","Gary needed it"],"answer":1},{"title":"Jess's Study Fortress","story":"During exam season, Jess turned her room into a study fortress: colour-coded notes on every wall, a revision timetable, noise-cancelling headphones, and a strict no-brothers policy enforced by the customs form. Her one weakness: the dog, who was granted a permanent visa and slept on her feet through every revision session. The dog now knows biology.","prompt":"Who was granted a permanent visa to Jess's study fortress?","choices":["Ollie","The dog","Karen","Gary the goldfish","Nobody"],"answer":1},{"title":"The Roast Potato Rules","story":"Sunday roast has one law: Karen's roast potatoes are counted before serving, and everyone gets exactly four. Neil was caught taking a fifth using the 'distraction cough' technique. His punishment, decreed by the family court (Jess presiding), was to peel next Sunday's potatoes. All of them. While everyone watched. Wearing the apron of shame.","prompt":"What technique did Neil use to steal a fifth roast potato?","choices":["The distraction cough","The fake phone call","Sending Ollie as a decoy","The double-fork lift","Blaming the dog"],"answer":0},{"title":"Archie's Time Capsule","story":"Archie buried a time capsule in the garden 'for the year 3000'. Contents: a crisp packet, a drawing of the family, one of Neil's golf balls, a letter to the future, and — discovered too late — Ben's game controller, which Archie insisted 'the future needs more'. Ben dug up the entire flowerbed the same evening. Karen's dahlias survived. Just.","prompt":"Which item made Ben dig up the time capsule?","choices":["His game controller","His phone charger","His football boots","His headphones","His wallet"],"answer":0},{"title":"Karen's Spa Day","story":"The family gave Karen a spa day for Mother's Day, promising the house would be 'exactly as she left it'. Karen returned relaxed at 6pm to find: the house immaculate, dinner cooking, and all five of them frozen mid-panic, because the dinner was being cooked by Neil, and the smoke alarm went off as she opened the door. She turned around and went back to the spa. (Ten more minutes in the car, but the point was made.)","prompt":"What happened the moment Karen opened the front door?","choices":["The dog escaped","The smoke alarm went off","The lights fused","Ollie cried","The dinner was perfect"],"answer":1},{"title":"The Board Game Invention","story":"Ollie invented a board game called 'Snakes and Ladders and Dragons and Also Space'. The rules changed every turn, always in Ollie's favour. Jess lost on a technicality involving 'invisible lava'. Neil landed on a square Ollie declared was 'a black hole for dads'. Everyone agreed Ollie won, mostly because the rulebook (Ollie) said so.","prompt":"What was Ollie's board game called?","choices":["Snakes and Ladders and Dragons and Also Space","Super Mega Game","Ollie's Quest","Dragons and Space Snakes","The Lava Game"],"answer":0},{"title":"The Last Word","story":"At the end of a long family dinner, Neil raised his glass and gave a heartfelt speech about how lucky he was to have this exact family, chaos and all. There was a rare, warm silence. Then Ollie raised his juice and said, 'And thank you to Gary, who couldn't be here tonight.' Gary the goldfish was, as ever, twelve feet away in the living room.","prompt":"Why did Ollie thank Gary 'who couldn't be here tonight'?","choices":["Gary was at the vet","Gary the goldfish was in the living room, twelve feet away","Gary is imaginary","Gary was asleep","Gary was on holiday"],"answer":1}]};
+
+const FAIRY_PACK = {
+    pack: 'Fairy-Tale Fibs',
+    description: 'Classic tales retold with the odd detail changed — was that how it went?',
+    questions: [
+        { title: 'Cinderella, Roughly', story: 'Cinderella wanted to go to the ball, but her stepmother said no. Her fairy godmother appeared and turned a pumpkin into a carriage, mice into horses, and a rat into a coachman. She warned Cinderella the magic would end at half past eleven. Off she went in her glass slippers.', prompt: 'What time did this fairy godmother say the magic would end?', choices: ['Midnight', 'Half past eleven', 'One in the morning', 'Sunrise'], answer: 1 },
+        { title: 'The Three Pigs, Ish', story: 'Three little pigs each built a house: one of straw, one of sticks, and one of very expensive imported bamboo. The wolf huffed and puffed and blew down the straw house, then the stick house. At the third house he pulled a muscle and had to sit down. The pigs brought him lemonade.', prompt: 'What was the third house made of?', choices: ['Bricks', 'Stone', 'Imported bamboo', 'Concrete', 'Logs'], answer: 2 },
+        { title: 'Goldilocks Reviewed', story: 'Goldilocks broke into the bears\' cottage and reviewed everything like a food critic. The porridge: one too hot, one too cold, one "adequate". The chairs: one broke, which she gave a single star. The beds: she fell asleep in the middle-sized one. The bears found her and asked her to leave a tip.', prompt: 'Which bed did Goldilocks fall asleep in?', choices: ['The biggest one', 'The middle-sized one', 'The smallest one', 'The sofa'], answer: 1 },
+        { title: 'Jack and the Receipt', story: 'Jack sold the family cow for five magic beans. His mother was furious and threw the beans out of the window. Overnight a beanstalk grew to the clouds. Jack climbed it, found a giant\'s castle, and borrowed — his word — a hen that laid golden eggs and a singing harp. He forgot to ask for a receipt for the cow.', prompt: 'How many magic beans did Jack get for the cow?', choices: ['Three', 'Four', 'Five', 'Six', 'A handful'], answer: 2 },
+        { title: 'Red\'s Delivery Round', story: 'Little Red Riding Hood set off to deliver a basket to her grandmother: bread, butter, and a small jar of pickled onions, which nobody remembers being in the story. In the woods she met a wolf who took a shortcut. At the cottage she noted grandmother\'s big eyes, big ears, and remarkably big teeth.', prompt: 'What was the surprising item in Red\'s basket?', choices: ['Pickled onions', 'A pineapple', 'Sausage rolls', 'Fizzy pop', 'Soup'], answer: 0 },
+        { title: 'Sleeping Beauty\'s Lie-in', story: 'The princess pricked her finger on a spinning wheel and fell asleep, along with the whole castle: the king, the cook, the dog, and a footman who was halfway through a sneeze. A hundred years later a prince arrived, woke her, and the footman finally finished the sneeze. Everyone said bless you.', prompt: 'Who finally finished a sneeze after 100 years?', choices: ['The king', 'The cook', 'A footman', 'The dog', 'The princess'], answer: 2 },
+        { title: 'The Gingerbread Sprinter', story: 'A little old woman baked a gingerbread man who leapt off the tray and legged it, shouting "Run, run, as fast as you can!" He outran the old woman, the old man, a cow, and a horse — then met a fox by the river who offered him a lift across. Everyone in the room already knows how that went.', prompt: 'Which animal offered the gingerbread man a lift across the river?', choices: ['A fox', 'A wolf', 'A swan', 'A dog', 'A badger'], answer: 0 },
+        { title: 'Rumpel-something', story: 'A strange little man helped the miller\'s daughter spin straw into gold, in exchange for her first-born, unless she could guess his name. She sent scouts across the kingdom. One heard him singing his own name around a campfire, which, for a man whose whole plan relied on a secret name, was a spectacular error.', prompt: 'How was the little man\'s name discovered?', choices: ['It was written on his hat', 'He sang it around a campfire', 'The king knew him', 'She guessed it', 'It was on the contract'], answer: 1 },
+        { title: 'The Frog\'s Terms', story: 'A princess dropped her golden ball into a pond. A frog offered to fetch it in exchange for three things: to eat from her plate, to sit beside her at dinner, and to be given a small but tasteful cushion. The princess agreed, got her ball, and immediately tried to renegotiate the cushion.', prompt: 'What was the frog\'s third condition?', choices: ['A kiss', 'A small but tasteful cushion', 'A crown', 'To sleep on her pillow', 'Half the kingdom'], answer: 1 },
+        { title: 'Hansel\'s Trail Mix', story: 'Hansel and Gretel were led into the woods. Clever Hansel left a trail to find the way home — but instead of white pebbles, this time he used breadcrumbs, and the birds ate the lot. The children walked on and found a cottage made of gingerbread, cake, and, along the gutters, liquorice.', prompt: 'What were the cottage gutters made of?', choices: ['Icing', 'Candy canes', 'Liquorice', 'Toffee', 'Marzipan'], answer: 2 },
+        { title: 'The Emperor\'s Invoice', story: 'Two swindlers sold the emperor a suit of "magic cloth", invisible to anyone unfit for their job. The emperor paraded through town in it. Everyone applauded nervously until a small child at the front said, loudly, "He\'s in his pants!" The swindlers had already left town, having also invoiced for a hat.', prompt: 'What extra item did the swindlers invoice for?', choices: ['Shoes', 'A cloak', 'A hat', 'Gloves', 'A second suit'], answer: 2 },
+        { title: 'Three Goats, One Bridge', story: 'Three billy goats wanted to cross a bridge to the good grass, but a troll lived underneath. The two smaller goats each promised the troll a bigger goat was coming. The biggest goat arrived, dealt with the troll, and the three of them ate grass all summer. The troll now works from home.', prompt: 'How did the smaller goats get past the troll?', choices: ['They paid a toll', 'They promised a bigger goat was coming', 'They swam instead', 'They sang to him', 'They waited for night'], answer: 1 }
+    ]
+};
+
+// ═══════════════════════════════════════════
+// CONSTANTS & HELPERS
+// ═══════════════════════════════════════════
+const PFX = 'FAMTRIV-';
+const MAX_PLAYERS = 12;
+const ANS_COLORS = ['#e5484d', '#3b82f6', '#eab308', '#22a06b', '#8b5cf6', '#0d9488'];
+const ANS_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+const AVATARS = ['🦊', '🐼', '🦁', '🐸', '🐙', '🦄', '🐝', '🐶', '🐨', '🐯', '🐢', '🦉'];
+
+function $id(id) { return document.getElementById(id); }
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function getPacks() {
+    const packs = [
+        { id: 'family', name: FAMILY_PACK.pack, emoji: '🏠', q: FAMILY_PACK.questions },
+        { id: 'fairy', name: FAIRY_PACK.pack, emoji: '🧚', q: FAIRY_PACK.questions },
+    ];
+    const custom = getCustomPack();
+    if (custom) packs.push({ id: 'custom', name: '✍️ Our Own Pack', emoji: '✍️', q: custom });
+    return packs;
+}
+function getCustomPack() {
+    try {
+        const raw = localStorage.getItem('ft-custom');
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        const qs = Array.isArray(data) ? data : data.questions;
+        if (!Array.isArray(qs) || !qs.length) return null;
+        return qs;
+    } catch (e) { return null; }
+}
+
+// ── QR code (paper-themed SVG) ──
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+        let rects = '';
+        for (let r = 0; r < n; r++)
+            for (let c = 0; c < n; c++)
+                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+            `<rect width="${size}" height="${size}" fill="#fffaf0"/>` +
+            `<g fill="#2e1c0e">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+
+// ── Confetti ──
+let _cf = { parts: [], raf: 0, running: false, until: 0 };
+function startConfetti(ms) {
+    if (REDUCED) return;
+    const cv = $id('confetti-cv'), ctx = cv.getContext('2d');
+    cv.width = innerWidth; cv.height = innerHeight;
+    _cf.until = performance.now() + (ms || 2600);
+    const cols = ['#ffc16b', '#ff7847', '#3fae72', '#3b82f6', '#8b5cf6', '#f8efdc'];
+    for (let i = 0; i < 130; i++) {
+        _cf.parts.push({
+            x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5,
+            vx: (Math.random() - 0.5) * 2.4, vy: 2 + Math.random() * 3.6,
+            rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.25,
+            w: 6 + Math.random() * 7, h: 4 + Math.random() * 5,
+            col: cols[Math.floor(Math.random() * cols.length)],
+        });
+    }
+    if (_cf.running) return;
+    _cf.running = true;
+    (function frame(t) {
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        _cf.parts = _cf.parts.filter(p => p.y < cv.height + 30);
+        for (const p of _cf.parts) {
+            p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+            ctx.fillStyle = p.col; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            ctx.restore();
+        }
+        if (t < _cf.until || _cf.parts.length) _cf.raf = requestAnimationFrame(frame);
+        else { _cf.running = false; ctx.clearRect(0, 0, cv.width, cv.height); }
+    })(performance.now());
+}
+
+// ── Tiny sounds (WebAudio, no assets) ──
+let _ac = null;
+function ac() { if (!_ac) { try { _ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return _ac; }
+function blip(freq, dur, type, gain) {
+    const a = ac(); if (!a) return;
+    try {
+        const o = a.createOscillator(), g = a.createGain();
+        o.type = type || 'triangle'; o.frequency.value = freq;
+        g.gain.setValueAtTime(gain || 0.08, a.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + (dur || 0.15));
+        o.connect(g); g.connect(a.destination);
+        o.start(); o.stop(a.currentTime + (dur || 0.15));
+    } catch (e) {}
+}
+function sLock() { blip(660, 0.12); }
+function sRight() { blip(523, 0.12); setTimeout(() => blip(784, 0.2), 110); }
+function sWrong() { blip(196, 0.3, 'sawtooth', 0.05); }
+function sWolf() { blip(392, 0.12); setTimeout(() => blip(523, 0.12), 110); setTimeout(() => blip(659, 0.12), 220); setTimeout(() => blip(784, 0.35), 330); }
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let peer = null, myId = '', myName = '', myAvatar = '', isHost = false, isTvHost = false, isViewer = false, roomCode = '';
+let hostConn = null, guestConns = {}, viewerConns = {};
+let ui = 'home';   // home|creating|connecting|lobby_h|lobby_g|story|question|reveal|podium|viewer
+let uiErr = '';
+let fName = localStorage.getItem('ft-name') || '';
+let fAvatar = localStorage.getItem('ft-avatar') || '';
+let fCode = '', fVCode = '', fShowCustom = false, fCustomText = '';
+let D = null;      // latest message driving the phone UI
+let vD = null;     // latest message driving the TV UI
+
+// phone-local question state
+let myChoice = null, lockedIn = false, qShownAt = 0, qEndsAt = 0;
+let _clientTick = null, _typeTimer = null;
+
+// Host authoritative state
+let H = {
+    phase: 'lobby',          // lobby|story|question|reveal|podium
+    players: [],             // [{id,name,avatar,score,streak,totalMs,lone,flock,lastDelta}]
+    settings: { packId: 'family', qCount: 10, answerSecs: 20, storyMode: 'auto' },
+    questions: [], qIndex: -1,
+    cur: null,               // {qid,title,story,prompt,choices,answer,storySecs}
+    answers: {},             // playerId -> {choice, ms}
+    lastReveal: null,        // cached viewer_reveal payload
+    lastPodium: null,
+};
+let _storyTimer = null, _qTimeout = null, _qTick = null;
+
+// ═══════════════════════════════════════════
+// NETWORK
+// ═══════════════════════════════════════════
+function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('send err', e); } }
+function broadcastViewers(msg) { Object.values(viewerConns).forEach(c => send(c, msg)); }
+function broadcastPlayers(fn) {
+    H.players.forEach(p => {
+        if (p.id === myId) return;
+        const c = guestConns[p.id];
+        if (c) send(c, typeof fn === 'function' ? fn(p) : fn);
+    });
+}
+function connectedPlayers() {
+    return H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+}
+function captainId() { return isTvHost ? (H.players[0]?.id || null) : null; }
+
+function hostAddPlayer(id, name, avatar) {
+    if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
+    const taken = new Set(H.players.map(p => p.avatar));
+    const av = avatar && !taken.has(avatar) ? avatar : (AVATARS.find(a => !taken.has(a)) || '🙂');
+    H.players.push({ id, name, avatar: av, score: 0, streak: 0, totalMs: 0, lone: 0, flock: 0, lastDelta: 0 });
+}
+
+function lobbyMsg() {
+    return {
+        type: 'lobby', roomCode,
+        players: H.players.map(p => ({ name: p.name, avatar: p.avatar })),
+        settings: { ...H.settings },
+        packs: getPacks().map(p => ({ id: p.id, name: p.name, emoji: p.emoji, count: p.q.length })),
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+function broadcastLobby() {
+    broadcastPlayers(lobbyMsg());
+    broadcastViewers({ ...lobbyMsg(), type: 'viewer_lobby' });
+    hostSyncSelf(lobbyMsg());
+}
+
+function progressLbl() { return { num: H.qIndex + 1, total: H.questions.length }; }
+
+function storyMsg() {
+    const showOnPhones = !isTvHost && Object.keys(viewerConns).length === 0;
+    return {
+        type: 'story', qid: H.cur.qid, ...progressLbl(),
+        title: H.cur.title, text: showOnPhones ? H.cur.story : null,
+        seconds: H.cur.storySecs, mode: H.settings.storyMode,
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+function viewerStoryMsg() {
+    return { ...storyMsg(), type: 'viewer_story', text: H.cur.story, players: railPlayers() };
+}
+function questionMsg() {
+    return {
+        type: 'question', qid: H.cur.qid, ...progressLbl(),
+        prompt: H.cur.prompt, choices: H.cur.choices, seconds: H.settings.answerSecs,
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+function viewerQuestionMsg() {
+    return {
+        ...questionMsg(), type: 'viewer_question', title: H.cur.title,
+        lockedCount: Object.keys(H.answers).length, playerCount: connectedPlayers().length,
+        players: railPlayers(),
+    };
+}
+function railPlayers() {
+    return H.players
+        .map(p => ({ name: p.name, avatar: p.avatar, score: p.score, locked: !!H.answers[p.id], delta: p.lastDelta }))
+        .sort((a, b) => b.score - a.score);
+}
+function standings() {
+    return H.players.slice()
+        .sort((a, b) => b.score - a.score || a.totalMs - b.totalMs)
+        .map(p => ({ name: p.name, avatar: p.avatar, score: p.score, delta: p.lastDelta, lone: p.lone, flock: p.flock }));
+}
+
+// snapshot for a (re)joining player or self, based on current phase
+function phaseSnapshotFor(p) {
+    if (H.phase === 'lobby') return lobbyMsg();
+    if (H.phase === 'story') return storyMsg();
+    if (H.phase === 'question') return questionMsg();
+    if (H.phase === 'reveal') return revealMsgFor(p);
+    if (H.phase === 'podium') return podiumMsg();
+    return lobbyMsg();
+}
+
+// ── Host: incoming connections ──
+function setupGuestConn(conn) {
+    conn.on('open', () => { conn._role = null; });
+
+    conn.on('data', msg => {
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer';
+            viewerConns[conn.peer] = conn;
+            send(conn, viewerSnapshot());
+            return;
+        }
+        if (conn._role === null) {
+            conn._role = 'player';
+            guestConns[conn.peer] = conn;
+        }
+        const player = H.players.find(p => p.id === conn.peer);
+        switch (msg.type) {
+            case 'join': {
+                const name = String(msg.name || 'Player').slice(0, 16);
+                const zombie = H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
+                if (zombie) zombie.id = conn.peer;
+                else hostAddPlayer(conn.peer, name, msg.avatar);
+                const p2 = H.players.find(p => p.id === conn.peer);
+                if (!p2) { send(conn, lobbyMsg()); break; }         // room full — show them the lobby
+                if (H.phase === 'lobby') broadcastLobby();
+                else { send(conn, phaseSnapshotFor(p2)); broadcastLobby0(); }
+                break;
+            }
+            case 'answer': {
+                if (player) hostAnswer(player, msg.qid, msg.choice, msg.ms);
+                break;
+            }
+            case 'ctl': {
+                if (!isTvHost || !player || player.id !== H.players[0]?.id) break;
+                hostCtl(msg.action, msg);
+                break;
+            }
+        }
+    });
+
+    conn.on('close', () => {
+        delete guestConns[conn.peer];
+        delete viewerConns[conn.peer];
+        if (H.phase === 'lobby') {
+            const pi = H.players.findIndex(p => p.id === conn.peer);
+            if (pi >= 0) { H.players.splice(pi, 1); broadcastLobby(); }
+        } else if (H.phase === 'question') {
+            maybeEndEarly();
+        }
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+// after a mid-game (re)join, refresh viewer rails without changing anyone's phase screen
+function broadcastLobby0() {
+    if (H.phase === 'question') broadcastViewers(viewerQuestionMsg());
+    else if (H.phase === 'story') broadcastViewers(viewerStoryMsg());
+    if (isTvHost) tvHostSync();
+}
+
+function viewerSnapshot() {
+    if (H.phase === 'lobby') return { ...lobbyMsg(), type: 'viewer_lobby' };
+    if (H.phase === 'story') return viewerStoryMsg();
+    if (H.phase === 'question') return viewerQuestionMsg();
+    if (H.phase === 'reveal') return H.lastReveal || viewerQuestionMsg();
+    if (H.phase === 'podium') return H.lastPodium;
+    return { ...lobbyMsg(), type: 'viewer_lobby' };
+}
+
+// controls arriving from the captain's phone (TV-first mode)
+function hostCtl(action, msg) {
+    if (action === 'start' && H.phase === 'lobby') hostStartGame();
+    else if (action === 'next' && H.phase === 'story') startQuestion();
+    else if (action === 'next' && H.phase === 'reveal') nextQuestion();
+    else if (action === 'again' && H.phase === 'podium') hostNewGame();
+    else if (action === 'set' && H.phase === 'lobby') {
+        const s = H.settings;
+        if (getPacks().find(p => p.id === msg.packId)) s.packId = msg.packId;
+        if ([5, 10, 15].includes(msg.qCount)) s.qCount = msg.qCount;
+        if ([15, 20, 30].includes(msg.answerSecs)) s.answerSecs = msg.answerSecs;
+        if (['auto', 'manual'].includes(msg.storyMode)) s.storyMode = msg.storyMode;
+        broadcastLobby();
+    }
+}
+
+function guestCtl(action, extra) {
+    if (isHost && !isTvHost) { hostCtl(action, extra || {}); return; }
+    if (hostConn) send(hostConn, { type: 'ctl', action, ...(extra || {}) });
+}
+
+// ── Create a room (phone host or TV host) ──
+function makeRoom(onOpen) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    roomCode = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    peer = new Peer(PFX + roomCode);
+    peer.on('open', id => { myId = id; isHost = true; onOpen(); });
+    peer.on('connection', conn => setupGuestConn(conn));
+    peer.on('error', e => {
+        uiErr = 'Connection error: ' + e.message;
+        isHost = false; isTvHost = false;
+        document.body.classList.remove('viewer-mode');
+        ui = 'home'; render();
+    });
+}
+
+function hostGame(name) {
+    myName = name.trim().slice(0, 16) || 'Host';
+    myAvatar = fAvatar || AVATARS[0];
+    localStorage.setItem('ft-name', myName);
+    localStorage.setItem('ft-avatar', myAvatar);
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        hostAddPlayer(myId, myName, myAvatar);
+        ui = 'lobby_h';
+        render();
+    });
+}
+
+function hostOnTV() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        isTvHost = true;
+        document.body.classList.add('viewer-mode');
+        tvHostSync();
+        render();
+    });
+}
+
+// ── Guest ──
+function joinGame(code, name) {
+    myName = name.trim().slice(0, 16) || 'Player';
+    myAvatar = fAvatar || AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    localStorage.setItem('ft-name', myName);
+    localStorage.setItem('ft-avatar', myAvatar);
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        isHost = false;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join', name: myName, avatar: myAvatar }));
+        hostConn.on('data', msg => applyMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the game.'; ui = 'home'; D = null; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        ui = 'home'; render();
+    });
+}
+
+// ── Viewer (a TV joining a phone-hosted game) ──
+function joinAsViewer(code, _attempt) {
+    const attempt = _attempt || 1;
+    isViewer = true;
+    uiErr = ''; ui = 'connecting'; render();
+
+    peer = new Peer();
+    peer.on('open', id => {
+        myId = id;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join_viewer' }));
+        hostConn.on('data', msg => applyViewerMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the game.'; isViewer = false; vD = null; document.body.classList.remove('viewer-mode'); ui = 'home'; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; isViewer = false; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        if (attempt < 2) {
+            try { peer.destroy(); } catch (_) {}
+            peer = null;
+            setTimeout(() => joinAsViewer(code, 2), 600);
+            return;
+        }
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        isViewer = false; ui = 'home'; render();
+    });
+}
+
+// The TV-host mirrors the authoritative state into its own viewer UI
+function tvHostSync() {
+    if (!isTvHost) return;
+    applyViewerMsg(viewerSnapshot());
+}
+
+// The phone-host applies its own broadcast messages through the same client path as guests
+function hostSyncSelf(msg) {
+    if (isTvHost) { tvHostSync(); return; }
+    if (isHost) applyMsg(msg);
+}
+
+// ═══════════════════════════════════════════
+// HOST GAME FLOW
+// ═══════════════════════════════════════════
+function clearHostTimers() {
+    clearTimeout(_storyTimer); clearTimeout(_qTimeout); clearInterval(_qTick);
+}
+
+function drawQuestions() {
+    const pack = getPacks().find(p => p.id === H.settings.packId) || getPacks()[0];
+    const picked = shuffle(pack.q).slice(0, Math.min(H.settings.qCount, pack.q.length));
+    return picked.map((q, i) => {
+        // shuffle the choices, remap the answer index
+        const order = shuffle(q.choices.map((_, ix) => ix));
+        const choices = order.map(ix => q.choices[ix]).slice(0, 6);
+        let answer = order.indexOf(q.answer);
+        if (answer < 0 || answer >= choices.length) { choices[0] = q.choices[q.answer]; answer = 0; }
+        const words = String(q.story).split(/\s+/).length;
+        return {
+            qid: 'q' + i, title: q.title, story: q.story, prompt: q.prompt,
+            choices, answer,
+            storySecs: Math.max(6, Math.min(40, Math.round(words / 3.2) + 3)),
+        };
+    });
+}
+
+function hostStartGame() {
+    if (!connectedPlayers().length) return;
+    clearHostTimers();
+    H.questions = drawQuestions();
+    if (!H.questions.length) return;
+    H.qIndex = -1;
+    H.players.forEach(p => { p.score = 0; p.streak = 0; p.totalMs = 0; p.lone = 0; p.flock = 0; p.lastDelta = 0; });
+    nextQuestion();
+}
+
+function nextQuestion() {
+    clearHostTimers();
+    H.qIndex += 1;
+    if (H.qIndex >= H.questions.length) { showPodium(); return; }
+    H.cur = H.questions[H.qIndex];
+    H.answers = {};
+    H.phase = 'story';
+    broadcastPlayers(storyMsg());
+    broadcastViewers(viewerStoryMsg());
+    hostSyncSelf(storyMsg());
+    if (H.settings.storyMode === 'auto')
+        _storyTimer = setTimeout(startQuestion, H.cur.storySecs * 1000 + 1500);
+}
+
+function startQuestion() {
+    if (H.phase !== 'story') return;
+    clearHostTimers();
+    H.phase = 'question';
+    H.answers = {};
+    broadcastPlayers(questionMsg());
+    broadcastViewers(viewerQuestionMsg());
+    hostSyncSelf(questionMsg());
+    _qTimeout = setTimeout(endQuestion, H.settings.answerSecs * 1000 + 600);
+}
+
+function hostAnswer(player, qid, choice, ms) {
+    if (H.phase !== 'question' || !H.cur || qid !== H.cur.qid) return;
+    if (H.answers[player.id]) return;
+    if (!Number.isInteger(choice) || choice < 0 || choice >= H.cur.choices.length) return;
+    const capMs = Math.max(0, Math.min(Number(ms) || 0, H.settings.answerSecs * 1000));
+    H.answers[player.id] = { choice, ms: capMs };
+    const conn = guestConns[player.id];
+    if (conn) send(conn, { type: 'locked', qid, choice });
+    broadcastViewers(viewerQuestionMsg());
+    if (isTvHost) tvHostSync();
+    maybeEndEarly();
+}
+
+function maybeEndEarly() {
+    if (H.phase !== 'question') return;
+    const active = connectedPlayers();
+    if (active.length && active.every(p => H.answers[p.id]))
+        setTimeout(endQuestion, 700);
+}
+
+function rarity(N, C) {
+    if (C === 0) return { pts: 0, label: '😴 Nobody got it!' };
+    const pts = Math.min(500, Math.round((100 * N / C) / 10) * 10);
+    let label;
+    if (C === 1 && N >= 2) label = '🐺 LONE WOLF!';
+    else if (C === N) label = '🐑 With the Flock';
+    else if (C / N <= 0.34) label = '🕵️ Inner Circle';
+    else label = '⚖️ Split Decision';
+    return { pts, label };
+}
+
+function endQuestion() {
+    if (H.phase !== 'question') return;
+    clearHostTimers();
+    H.phase = 'reveal';
+    const cur = H.cur;
+    const answered = H.players.filter(p => H.answers[p.id]);
+    const N = answered.length;
+    const C = answered.filter(p => H.answers[p.id].choice === cur.answer).length;
+    const { pts, label } = rarity(N, C);
+
+    H.players.forEach(p => {
+        const a = H.answers[p.id];
+        const correct = !!a && a.choice === cur.answer;
+        let base = 0, bonus = 0;
+        if (correct) {
+            base = pts;
+            p.streak += 1;
+            if (p.streak >= 3) bonus = 50 * (p.streak - 2);
+            p.totalMs += a.ms;
+            if (C === 1 && N >= 2) p.lone += 1;
+            if (C === N && N >= 2) p.flock += 1;
+        } else {
+            p.streak = 0;
+            if (a) p.totalMs += a.ms;
+        }
+        p.lastDelta = base + bonus;
+        p.score += p.lastDelta;
+        p._rev = { choice: a ? a.choice : null, correct, base, bonus, streak: p.streak };
+    });
+
+    const tally = cur.choices.map((c, i) => ({
+        choice: c, count: answered.filter(p => H.answers[p.id].choice === i).length,
+        avatars: answered.filter(p => H.answers[p.id].choice === i).map(p => p.avatar),
+    }));
+    const isLast = H.qIndex >= H.questions.length - 1;
+
+    H.players.forEach(p => {
+        if (p.id === myId) return;
+        const conn = guestConns[p.id];
+        if (conn) send(conn, revealMsgFor(p));
+    });
+    H.lastReveal = {
+        type: 'viewer_reveal', qid: cur.qid, ...progressLbl(),
+        title: cur.title, prompt: cur.prompt, choices: cur.choices, correct: cur.answer,
+        tally, label, pts, N, C, isLast, players: railPlayers(),
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+    broadcastViewers(H.lastReveal);
+    hostSyncSelf(revealMsgFor(H.players.find(p => p.id === myId)));
+    if (isTvHost) tvHostSync();
+}
+
+function revealMsgFor(p) {
+    const cur = H.cur;
+    return {
+        type: 'reveal', qid: cur.qid, ...progressLbl(),
+        prompt: cur.prompt, choices: cur.choices, correct: cur.answer,
+        label: rarityLabelCached(), pts: H.lastRevealPts,
+        my: p && p._rev ? p._rev : { choice: null, correct: false, base: 0, bonus: 0, streak: 0 },
+        counts: cur.choices.map((_, i) => H.players.filter(q => H.answers[q.id]?.choice === i).length),
+        N: Object.keys(H.answers).length,
+        C: H.players.filter(q => H.answers[q.id]?.choice === cur.answer).length,
+        standings: standings(),
+        isLast: H.qIndex >= H.questions.length - 1,
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+}
+function rarityLabelCached() {
+    const answered = H.players.filter(p => H.answers[p.id]);
+    const C = answered.filter(p => H.answers[p.id].choice === H.cur.answer).length;
+    const r = rarity(answered.length, C);
+    H.lastRevealPts = r.pts;
+    return r.label;
+}
+
+function showPodium() {
+    clearHostTimers();
+    H.phase = 'podium';
+    const st = standings();
+    const awards = [];
+    const byLone = H.players.filter(p => p.lone > 0).sort((a, b) => b.lone - a.lone)[0];
+    if (byLone) awards.push({ emoji: '🐺', title: 'Sharpest Ear', name: byLone.name, detail: byLone.lone + '× Lone Wolf' });
+    const byFlock = H.players.filter(p => p.flock > 0).sort((a, b) => b.flock - a.flock)[0];
+    if (byFlock) awards.push({ emoji: '🐑', title: 'Crowd Surfer', name: byFlock.name, detail: byFlock.flock + '× with the flock' });
+    const msg = {
+        type: 'podium', standings: st, awards,
+        tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null,
+    };
+    H.lastPodium = { ...msg, type: 'viewer_podium' };
+    broadcastPlayers(msg);
+    broadcastViewers(H.lastPodium);
+    hostSyncSelf(msg);
+}
+
+function podiumMsg() { return { ...(H.lastPodium || {}), type: 'podium' }; }
+
+function hostNewGame() {
+    clearHostTimers();
+    H.phase = 'lobby';
+    H.questions = []; H.qIndex = -1; H.cur = null; H.answers = {};
+    H.players.forEach(p => { p.score = 0; p.streak = 0; p.totalMs = 0; p.lone = 0; p.flock = 0; p.lastDelta = 0; delete p._rev; });
+    // drop players whose connection is gone
+    H.players = H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+    broadcastLobby();
+    if (isHost && !isTvHost) { ui = 'lobby_h'; render(); }
+}
+
+// host phone settings changes (phone-first mode)
+function hostSet(patch) {
+    Object.assign(H.settings, patch);
+    broadcastLobby();
+    if (ui === 'lobby_h') render();
+}
+
+// ═══════════════════════════════════════════
+// CLIENT (phone) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+function stopClientTimers() { clearInterval(_clientTick); _clientTick = null; }
+
+function applyMsg(msg) {
+    switch (msg.type) {
+        case 'lobby':
+            D = msg;
+            if (isHost && !isTvHost) { if (ui !== 'lobby_h') ui = 'lobby_h'; }
+            else ui = 'lobby_g';
+            stopClientTimers();
+            render();
+            break;
+        case 'story':
+            D = msg;
+            stopClientTimers();
+            myChoice = null; lockedIn = false;
+            ui = 'story';
+            render();
+            break;
+        case 'question': {
+            D = msg;
+            myChoice = null; lockedIn = false;
+            qShownAt = Date.now();
+            qEndsAt = qShownAt + msg.seconds * 1000;
+            ui = 'question';
+            render();
+            stopClientTimers();
+            _clientTick = setInterval(patchQuestionTimer, 200);
+            break;
+        }
+        case 'locked':
+            lockedIn = true; myChoice = msg.choice;
+            sLock();
+            if (ui === 'question') render();
+            break;
+        case 'reveal':
+            D = msg;
+            stopClientTimers();
+            ui = 'reveal';
+            render();
+            if (msg.my.correct) {
+                if (msg.label.indexOf('LONE WOLF') >= 0) {
+                    sWolf(); startConfetti(2800);
+                    try { navigator.vibrate && navigator.vibrate([80, 40, 80, 40, 200]); } catch (e) {}
+                } else sRight();
+            } else if (msg.my.choice !== null) sWrong();
+            break;
+        case 'podium':
+            D = msg;
+            stopClientTimers();
+            ui = 'podium';
+            render();
+            startConfetti(3600);
+            break;
+    }
+}
+
+function patchQuestionTimer() {
+    const left = Math.max(0, qEndsAt - Date.now());
+    const total = (D?.seconds || 20) * 1000;
+    const bar = $id('q-timebar'), num = $id('q-timenum');
+    if (bar) bar.style.width = (left / total * 100) + '%';
+    if (num) num.textContent = Math.ceil(left / 1000);
+    if (left <= 0) stopClientTimers();
+}
+
+function sendAnswer(i) {
+    if (lockedIn || ui !== 'question' || !D) return;
+    if (Date.now() > qEndsAt + 400) return;
+    const ms = Date.now() - qShownAt;
+    myChoice = i;
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) {
+            hostAnswer(me, D.qid, i, ms);
+            lockedIn = true; sLock(); render();
+        }
+    } else {
+        send(hostConn, { type: 'answer', qid: D.qid, choice: i, ms });
+        lockedIn = true; sLock(); render();   // optimistic — 'locked' ack confirms
+    }
+}
+
+// ═══════════════════════════════════════════
+// VIEWER (TV) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+let _vTick = null, _vEndsAt = 0, _vTotal = 0;
+function stopViewerTimers() { clearInterval(_vTick); _vTick = null; clearInterval(_typeTimer); _typeTimer = null; }
+
+function applyViewerMsg(msg) {
+    document.body.classList.add('viewer-mode');
+    ui = 'viewer';
+    switch (msg.type) {
+        case 'viewer_lobby':
+            vD = msg; stopViewerTimers(); render(); break;
+        case 'viewer_story':
+            vD = msg; stopViewerTimers(); render(); startTypewriter(msg); break;
+        case 'viewer_question': {
+            const fresh = !vD || vD.type !== 'viewer_question' || vD.qid !== msg.qid;
+            vD = msg;
+            if (fresh) {
+                stopViewerTimers();
+                render();
+                _vTotal = msg.seconds * 1000;
+                _vEndsAt = Date.now() + _vTotal;
+                _vTick = setInterval(patchViewerTimer, 200);
+            } else patchViewerLocked(msg);
+            break;
+        }
+        case 'viewer_reveal':
+            vD = msg; stopViewerTimers(); render();
+            requestAnimationFrame(() => requestAnimationFrame(animateTally));
+            if (msg.label.indexOf('LONE WOLF') >= 0) { sWolf(); startConfetti(3000); }
+            break;
+        case 'viewer_podium':
+            vD = msg; stopViewerTimers(); render(); startConfetti(5200); break;
+    }
+}
+
+function startTypewriter(msg) {
+    const el = $id('st-text'), prog = $id('st-prog');
+    if (!el) return;
+    const words = String(msg.text || '').split(/\s+/);
+    if (REDUCED) { el.textContent = msg.text; if (prog) prog.style.width = '100%'; return; }
+    el.innerHTML = words.map(w => `<span class="wpend">${esc(w)}</span>`).join(' ');
+    const spans = el.querySelectorAll('.wpend');
+    const step = Math.max(40, (msg.seconds * 1000 * 0.82) / words.length);
+    let i = 0;
+    const t0 = Date.now(), total = msg.seconds * 1000;
+    _typeTimer = setInterval(() => {
+        if (i < spans.length) { spans[i].style.transition = 'opacity .25s'; spans[i].style.opacity = '1'; i++; }
+        if (prog) prog.style.width = Math.min(100, (Date.now() - t0) / total * 100) + '%';
+        if (i >= spans.length && Date.now() - t0 >= total) clearInterval(_typeTimer);
+    }, step);
+}
+
+function patchViewerTimer() {
+    const left = Math.max(0, _vEndsAt - Date.now());
+    const bar = $id('v-timebar'), num = $id('v-timenum');
+    if (bar) bar.style.width = (left / _vTotal * 100) + '%';
+    if (num) num.textContent = Math.ceil(left / 1000);
+    if (left <= 0) clearInterval(_vTick);
+}
+
+function patchViewerLocked(msg) {
+    const el = $id('v-locked');
+    if (el) el.textContent = `🔒 ${msg.lockedCount} of ${msg.playerCount} locked in`;
+    const rail = $id('v-rail');
+    if (rail) rail.innerHTML = railRowsHTML(msg.players, true);
+}
+
+function animateTally() {
+    document.querySelectorAll('.tally-bar').forEach(b => { b.style.width = b.dataset.w + '%'; });
+}
+
+// ═══════════════════════════════════════════
+// RENDER — shared bits
+// ═══════════════════════════════════════════
+function hdrHTML(sub) {
+    return `<h1 class="logo">📖 Family Trivia</h1><div class="sub">${esc(sub || 'one story · six answers · listen carefully')}</div>`;
+}
+function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+
+function isCaptain() { return !!(D && D.tvHost && D.captain && D.captain === myName); }
+function canDrive() { return (isHost && !isTvHost) || isCaptain(); }
+
+function avatarPickerHTML() {
+    return `<div class="fg"><label>Pick your face</label><div class="avrow">${
+        AVATARS.map(a => `<div class="av${fAvatar === a ? ' sel' : ''}" onclick="fAvatar='${a}';localStorage.setItem('ft-avatar','${a}');render()">${a}</div>`).join('')
+    }</div></div>`;
+}
+
+function railRowsHTML(players, showLocked) {
+    return (players || []).map(p => `
+        <div class="rail-row${showLocked && p.locked ? ' locked' : ''}">
+            <span class="rav">${esc(p.avatar)}</span>
+            <span class="rname">${esc(p.name)}</span>
+            <span class="rsc">${p.score}</span>
+            ${!showLocked && p.delta ? `<span class="rdelta">+${p.delta}</span>` : ''}
+        </div>`).join('');
+}
+
+function standingsHTML(st) {
+    const medals = ['🥇', '🥈', '🥉'];
+    return `<div class="card standings"><div class="slbl">Scores</div>${
+        st.map((p, i) => `
+        <div class="player-row">
+            <span style="width:22px;text-align:center">${medals[i] || (i + 1)}</span>
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--ember)">(you)</span>' : ''}</div>
+            <div class="sc">${p.score}${p.delta ? `<span class="delta">+${p.delta}</span>` : ''}</div>
+        </div>`).join('')
+    }</div>`;
+}
+
+function settingsSegsHTML(settings, packs, expr) {
+    // expr(patchLiteral) -> onclick JS string
+    const seg = (opts, curV, key) => `<div class="seg-row">${opts.map(o =>
+        `<button class="btn btn-sm ${curV === o.v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{${key}:${o.j}}`)}">${o.l}</button>`).join('')}</div>`;
+    return `
+        <div class="fg"><label>Story pack</label>${seg(
+            packs.map(p => ({ v: p.id, j: `'${p.id}'`, l: `${p.emoji} ${esc(p.name)} (${p.count})` })), settings.packId, 'packId')}</div>
+        <div class="fg"><label>Questions</label>${seg(
+            [5, 10, 15].map(v => ({ v, j: v, l: v })), settings.qCount, 'qCount')}</div>
+        <div class="fg"><label>Answer time</label>${seg(
+            [15, 20, 30].map(v => ({ v, j: v, l: v + 's' })), settings.answerSecs, 'answerSecs')}</div>
+        <div class="fg"><label>Story pacing</label>${seg(
+            [{ v: 'auto', j: `'auto'`, l: '⏱️ Auto' }, { v: 'manual', j: `'manual'`, l: '👑 Wait for tap' }], settings.storyMode, 'storyMode')}</div>`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — phone screens
+// ═══════════════════════════════════════════
+function render() {
+    const app = $id('app');
+    if (isTvHost || isViewer) ui = 'viewer';
+    let html = '';
+    switch (ui) {
+        case 'home':       html = renderHome(); break;
+        case 'creating':   html = renderSpinner('Setting up your game…'); break;
+        case 'connecting': html = renderSpinner('Joining the game…'); break;
+        case 'lobby_h':    html = renderLobbyH(); break;
+        case 'lobby_g':    html = renderLobbyG(); break;
+        case 'story':      html = renderStory(); break;
+        case 'question':   html = renderQuestion(); break;
+        case 'reveal':     html = renderReveal(); break;
+        case 'podium':     html = renderPodium(); break;
+        case 'viewer':     html = renderViewer(); break;
+        default:           html = renderHome();
+    }
+    app.innerHTML = html;
+}
+
+function renderSpinner(msg) {
+    return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`;
+}
+
+function renderHome() {
+    const fromQR = !!fCode;
+    const youCard = `
+    <div class="card">
+        <div class="slbl">Who are you?</div>
+        <div class="fg">
+            <label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
+                ${fromQR ? 'autofocus' : ''} oninput="fName=this.value">
+        </div>
+        ${avatarPickerHTML()}
+    </div>`;
+    const joinCard = `
+    <div class="card${fromQR ? ' highlight' : ''}">
+        <div class="slbl">Join a Game</div>
+        <div class="fg">
+            <label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fCode)}"
+                oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
+        </div>
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-c'} btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">
+            📱 Join with your phone
+        </button>
+    </div>`;
+    const hostCard = `
+    <div class="card">
+        <div class="slbl">Start a Game</div>
+        <button class="btn btn-p btn-full"
+            onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
+            📖 Host on this phone
+        </button>
+        <div style="font-size:.68rem;color:var(--ink-soft);text-align:center;margin-top:8px">
+            You play too — put a TV on the big screen with the room code
+        </div>
+    </div>`;
+    const tvCard = `
+    <div class="card dark">
+        <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-p btn-full" onclick="hostOnTV()">📺 Create the game on this screen</button>
+        <div style="font-size:.68rem;color:var(--muted);text-align:center;margin:6px 0 10px">
+            Shows a big QR code — the first phone to join becomes 👑 Captain
+        </div>
+        <hr>
+        <div class="fg">
+            <label>…or show an existing game</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')joinAsViewer(fVCode)">
+        </div>
+        <button class="btn btn-g btn-full"
+            onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code.';render()}">
+            📺 Open TV screen
+        </button>
+    </div>`;
+    return `
+    ${hdrHTML('2–12 players · read the story · answer in secret')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+}
+
+function renderCustomEditorHTML() {
+    if (!fShowCustom) return `<button class="btn btn-g btn-sm btn-full" onclick="fShowCustom=true;fCustomText=localStorage.getItem('ft-custom')||'';render()">✍️ Edit our own pack</button>`;
+    return `
+    <div class="fg">
+        <label>Paste questions JSON — [{title, story, prompt, choices[2–6], answer}]</label>
+        <textarea id="custom-ta" oninput="fCustomText=this.value">${esc(fCustomText)}</textarea>
+    </div>
+    <div class="seg-row">
+        <button class="btn btn-p btn-sm" onclick="saveCustomPack()">💾 Save pack</button>
+        <button class="btn btn-g btn-sm" onclick="fShowCustom=false;render()">Cancel</button>
+    </div>`;
+}
+
+function saveCustomPack() {
+    try {
+        const data = JSON.parse(fCustomText);
+        const qs = Array.isArray(data) ? data : data.questions;
+        if (!Array.isArray(qs) || !qs.length) throw new Error('No questions found');
+        qs.forEach((q, i) => {
+            if (!q.story || !q.prompt || !Array.isArray(q.choices)) throw new Error('Question ' + (i + 1) + ' is missing story/prompt/choices');
+            if (q.choices.length < 2 || q.choices.length > 6) throw new Error('Question ' + (i + 1) + ' needs 2–6 choices');
+            if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer >= q.choices.length) throw new Error('Question ' + (i + 1) + ' has a bad answer index');
+        });
+        localStorage.setItem('ft-custom', JSON.stringify(qs));
+        fShowCustom = false; uiErr = '';
+        if (isHost) broadcastLobby(); else render();
+    } catch (e) {
+        uiErr = 'Pack not saved: ' + e.message;
+        render();
+    }
+}
+
+function renderLobbyH() {
+    const pList = H.players.map((p, i) =>
+        `<div class="player-row">
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1">${esc(p.name)}${i === 0 ? ' <span style="color:var(--ink-soft)">(you — host)</span>' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    return `
+    ${hdrHTML('Host Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card highlight">
+        <div class="slbl">Scan to join — or share the code</div>
+        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        <div class="room-code">${esc(roomCode)}</div>
+        <div class="share-row">
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.share&&navigator.share({title:'Join Family Trivia',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
+        </div>
+        <div style="font-size:.68rem;color:var(--ink-soft);text-align:center">Put the TV screen up with code <b>${esc(roomCode)}</b> — the story shows there</div>
+    </div>
+    <div class="card">
+        <div class="slbl">Players (${H.players.length}/${MAX_PLAYERS})</div>
+        ${pList || '<div style="color:var(--ink-soft);font-weight:700">Waiting for the family…</div>'}
+    </div>
+    <div class="card">
+        <div class="slbl">Settings</div>
+        ${settingsSegsHTML(H.settings, getPacks().map(p => ({ id: p.id, name: p.name, emoji: p.emoji, count: p.q.length })), patch => `hostSet(${patch})`)}
+        <hr>
+        ${renderCustomEditorHTML()}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.1rem;padding:16px"
+        onclick="hostStartGame()">📖 Start the game</button>`;
+}
+
+function renderLobbyG() {
+    const cap = isCaptain();
+    const pList = (D.players || []).map(p =>
+        `<div class="player-row">
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--ink-soft)">(you)</span>' : ''}${D.tvHost && p.name === D.captain ? ' <span class="crown">👑</span>' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    const s = D.settings || {};
+    const packName = (D.packs || []).find(p => p.id === s.packId)?.name || '';
+    return `
+    ${hdrHTML(cap ? '👑 You are the Captain' : 'Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card">
+        <div class="slbl">Room ${esc(D.roomCode || '')} — Players (${(D.players || []).length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    ${cap ? `
+    <div class="card highlight">
+        <div class="slbl">👑 Captain's Settings</div>
+        ${settingsSegsHTML(s, D.packs || [], patch => `guestCtl('set',${patch})`)}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.1rem;padding:16px" onclick="guestCtl('start')">📖 Start the game</button>`
+    : `
+    <div class="card dark">
+        <div class="slbl">Settings</div>
+        <div style="font-weight:800;font-size:.85rem;line-height:1.9">
+            📚 ${esc(packName)} · ${s.qCount} questions · ${s.answerSecs}s answers
+        </div>
+        <div style="color:var(--muted);font-size:.75rem;font-weight:700;margin-top:8px">
+            Waiting for ${D.tvHost ? `👑 ${esc(D.captain || 'the captain')}` : 'the host'} to start…
+        </div>
+    </div>`}`;
+}
+
+function renderStory() {
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" onclick="guestCtl('next')">❓ Ask the question now</button>`
+        : '';
+    const body = D.text
+        ? `<div class="card story-paper">
+            <div class="story-kicker">Story ${D.num} of ${D.total}</div>
+            <div class="st-title">${esc(D.title)}</div>
+            <div class="st-text">${esc(D.text)}</div>
+        </div>`
+        : `<div class="card eyes">
+            <div class="big">👀</div>
+            <div class="t">Eyes on the TV!</div>
+            <div class="s">Story ${D.num} of ${D.total} — “${esc(D.title)}”</div>
+            <div class="s" style="margin-top:14px">${D.mode === 'manual' && !canDrive() ? `👑 ${esc(D.captain || 'The host')} asks the question when everyone's ready` : 'The question is coming…'}</div>
+        </div>`;
+    return `${hdrHTML(`Question ${D.num} of ${D.total}`)}${body}${driveBtn}`;
+}
+
+function renderQuestion() {
+    const n = D.choices.length;
+    const btns = D.choices.map((c, i) => {
+        const cls = ['ans'];
+        if (lockedIn) cls.push(i === myChoice ? 'picked' : 'dim');
+        return `<button class="${cls.join(' ')}" style="background:${ANS_COLORS[i]}"
+            ${lockedIn ? 'disabled' : ''} onclick="sendAnswer(${i})">
+            <span class="let">${ANS_LETTERS[i]}</span><span>${esc(c)}</span>
+        </button>`;
+    }).join('');
+    return `
+    <div class="q-meta"><span>Question ${D.num} / ${D.total}</span><span id="q-timenum">${D.seconds}</span></div>
+    <div class="timebar-wrap"><div class="timebar" id="q-timebar" style="width:100%"></div></div>
+    <div class="card"><div class="q-prompt">${esc(D.prompt)}</div></div>
+    <div class="ans-grid">${btns}</div>
+    ${lockedIn ? `<div class="locked-note">🔒 Locked in! Watch the TV…</div>` : ''}`;
+}
+
+function renderReveal() {
+    const my = D.my || {};
+    const answered = my.choice !== null && my.choice !== undefined;
+    const ico = my.correct ? '🎉' : (answered ? '😬' : '😴');
+    const vt = my.correct ? 'Correct!' : (answered ? 'Not this time' : 'Too slow!');
+    const btns = D.choices.map((c, i) => {
+        const cls = ['ans'];
+        if (i === D.correct) cls.push('right');
+        else if (i === my.choice) cls.push('wrongpick');
+        else cls.push('dim');
+        return `<div class="${cls.join(' ')}" style="background:${ANS_COLORS[i]};cursor:default">
+            <span class="let">${ANS_LETTERS[i]} · ${D.counts?.[i] ?? 0} ${(D.counts?.[i] ?? 0) === 1 ? 'vote' : 'votes'}</span><span>${esc(c)}</span>
+        </div>`;
+    }).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.05rem;padding:15px" onclick="guestCtl('next')">${D.isLast ? '🏆 See the podium' : '➡️ Next story'}</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.75rem;font-weight:800">${D.tvHost ? `👑 ${esc(D.captain || '')} taps next` : 'The host taps next'}…</div>`;
+    return `
+    <div class="card verdict">
+        <div class="vico">${ico}</div>
+        <div class="vt">${vt}</div>
+        ${my.correct ? `<div class="vpts">+${my.base + my.bonus}</div>` : ''}
+        <div class="vlab">
+            ${my.correct ? `<span class="chip">${esc(D.label)} +${my.base}</span>` : ''}
+            ${my.bonus ? `<span class="chip">🔥 ${my.streak} in a row +${my.bonus}</span>` : ''}
+        </div>
+        <div style="color:var(--ink-soft);font-weight:800;font-size:.8rem;margin-top:8px">${D.C} of ${D.N} got it right</div>
+    </div>
+    <div class="ans-grid">${btns}</div>
+    ${standingsHTML(D.standings || [])}
+    ${driveBtn}`;
+}
+
+function renderPodium() {
+    const st = D.standings || [];
+    const awards = (D.awards || []).map(a =>
+        `<span class="chip">${a.emoji} ${esc(a.title)}: ${esc(a.name)} (${esc(a.detail)})</span>`).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.05rem;padding:15px" onclick="guestCtl('again')">🔁 Play again</button>` : '';
+    const winner = st[0];
+    return `
+    ${hdrHTML('Game over!')}
+    <div class="card verdict">
+        <div class="vico">🏆</div>
+        <div class="vt">${esc(winner?.name || '')} wins!</div>
+        <div class="vlab" style="margin-top:8px">${awards}</div>
+    </div>
+    ${standingsHTML(st)}
+    ${driveBtn}`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — TV screens
+// ═══════════════════════════════════════════
+function tvShell(inner, roundLbl) {
+    return `<div class="tv">
+        <div class="tv-top">
+            <div class="tv-logo">📖 Family Trivia</div>
+            <div class="tv-roundlbl">${esc(roundLbl || ('Room ' + (vD.roomCode || roomCode || '')))}</div>
+        </div>
+        ${inner}
+    </div>`;
+}
+
+function renderViewer() {
+    if (!vD) return renderSpinner('Waiting for the game…');
+    switch (vD.type) {
+        case 'viewer_lobby':    return renderViewerLobby();
+        case 'viewer_story':    return renderViewerStory();
+        case 'viewer_question': return renderViewerQuestion();
+        case 'viewer_reveal':   return renderViewerReveal();
+        case 'viewer_podium':   return renderViewerPodium();
+        default:                return renderSpinner('Waiting for the game…');
+    }
+}
+
+function renderViewerLobby() {
+    const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
+    const players = vD.players || [];
+    const cards = players.map(p =>
+        `<div class="tv-pcard"><div class="pav-big">${esc(p.avatar)}</div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
+    const s = vD.settings || {};
+    const packName = (vD.packs || []).find(p => p.id === s.packId)?.name || '';
+    return tvShell(`
+    <div class="tv-lobby">
+        <div class="qr-side">
+            <div class="slbl">Scan with your phone to join</div>
+            <div class="qr-wrap">${qrSVG(url)}</div>
+            <div class="room-code">${esc(vD.roomCode || '')}</div>
+            <div class="join-hint">${location.host}${location.pathname}</div>
+        </div>
+        <div class="tv-players">
+            <div class="rail-title">Players — ${players.length}/${MAX_PLAYERS}</div>
+            <div class="tv-player-grid">${cards}</div>
+            <div class="tv-waiting">${players.length === 0
+                ? 'Waiting for the first phone… they become 👑 Captain'
+                : (vD.tvHost
+                    ? `Waiting for 👑 ${esc(vD.captain || '')} to start · 📚 ${esc(packName)} · ${s.qCount} questions · ${s.answerSecs}s`
+                    : `Waiting for the host to start · 📚 ${esc(packName)} · ${s.qCount} questions · ${s.answerSecs}s`)}</div>
+        </div>
+    </div>`, 'Lobby');
+}
+
+function renderViewerStory() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-paper">
+                <div class="story-kicker">📖 Story time — listen carefully…</div>
+                <div class="st-title">${esc(vD.title)}</div>
+                <div class="st-text" id="st-text"></div>
+                <div class="tv-progress"><div id="st-prog"></div></div>
+            </div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">Scores</div>
+            ${railRowsHTML(vD.players)}
+        </div>
+    </div>`, `Question ${vD.num} of ${vD.total}`);
+}
+
+function renderViewerQuestion() {
+    const n = vD.choices.length;
+    const cards = vD.choices.map((c, i) =>
+        `<div class="tv-ans" style="background:${ANS_COLORS[i]}">
+            <span class="let">${ANS_LETTERS[i]}</span><span>${esc(c)}</span>
+        </div>`).join('');
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-paper">
+                <div class="story-kicker">❓ “${esc(vD.title)}”</div>
+                <div class="tv-q-prompt">${esc(vD.prompt)}</div>
+                <div class="tv-ans-grid${n > 4 ? ' six' : ''}">${cards}</div>
+            </div>
+            <div class="tv-bottom" style="margin-top:1.6vmin">
+                <div class="tv-locked" id="v-locked">🔒 ${vD.lockedCount} of ${vD.playerCount} locked in</div>
+                <div class="tv-timebar-wrap"><div class="tv-timebar" id="v-timebar" style="width:100%"></div></div>
+                <div class="tv-timenum" id="v-timenum">${vD.seconds}</div>
+            </div>
+        </div>
+        <div class="tv-rail" id="v-rail">
+            <div class="rail-title">Locked in</div>
+            ${railRowsHTML(vD.players, true)}
+        </div>
+    </div>`, `Question ${vD.num} of ${vD.total}`);
+}
+
+function renderViewerReveal() {
+    const total = Math.max(1, (vD.tally || []).reduce((s, t) => s + t.count, 0));
+    const rows = (vD.tally || []).map((t, i) => `
+        <div class="tally-row${i === vD.correct ? ' correct' : ''}">
+            <div class="tally-chip" style="background:${ANS_COLORS[i]}">${ANS_LETTERS[i]}</div>
+            <div class="tally-text">${esc(t.choice)}${i === vD.correct ? ' ✓' : ''}</div>
+            <div class="tally-bar-wrap"><div class="tally-bar" style="background:${ANS_COLORS[i]}" data-w="${Math.round(t.count / total * 100)}">${t.avatars.map(a => `<span>${esc(a)}</span>`).join('')}</div></div>
+            <div class="tally-count">${t.count}</div>
+        </div>`).join('');
+    const nextHint = vD.tvHost
+        ? `👑 ${esc(vD.captain || 'Captain')}: tap ${vD.isLast ? '“See the podium”' : '“Next story”'} on your phone`
+        : `Host: tap ${vD.isLast ? '“See the podium”' : '“Next story”'} on your phone`;
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-paper">
+                <div class="story-kicker">✅ The answer</div>
+                <div class="tv-q-prompt">${esc(vD.prompt)}</div>
+                <div class="tv-payout">${esc(vD.label)}${vD.C > 0 ? ` — ${vD.pts} pts each` : ''}</div>
+                <div class="tally-rows">${rows}</div>
+            </div>
+            <div style="text-align:center;color:var(--muted);font-weight:800;font-size:1.8vmin;margin-top:1.4vmin">${nextHint}</div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">Scores</div>
+            ${railRowsHTML(vD.players)}
+        </div>
+    </div>`, `Question ${vD.num} of ${vD.total}`);
+}
+
+function renderViewerPodium() {
+    const st = vD.standings || [];
+    const podOrder = [st[1], st[0], st[2]].filter(Boolean);
+    const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
+    const medal = { p1: '🥇', p2: '🥈', p3: '🥉' };
+    const pods = podOrder.map((p, i) => `
+        <div class="pod ${cls[i]}" style="animation-delay:${i * 0.18}s">
+            <div class="pav-big">${esc(p.avatar)}</div>
+            <div class="pname">${esc(p.name)}</div>
+            <div class="pscore">${p.score} pts</div>
+            <div class="block">${medal[cls[i]]}</div>
+        </div>`).join('');
+    const rest = st.slice(3).map((p, i) =>
+        `<div class="rail-row"><span>${i + 4}.</span><span class="rav">${esc(p.avatar)}</span><span class="rname">${esc(p.name)}</span><span class="rsc">${p.score}</span></div>`).join('');
+    const awards = (vD.awards || []).map(a =>
+        `<div class="award">${a.emoji} <span class="aw-t">${esc(a.title)}</span><br>${esc(a.name)} — ${esc(a.detail)}</div>`).join('');
+    const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: “Play again” is on your phone` : 'Host: “Play again” is on your phone';
+    return tvShell(`
+    <div class="tv-main" style="flex-direction:column">
+        <div class="podium-wrap">${pods}</div>
+        <div class="awards-row">${awards}</div>
+        ${rest ? `<div style="display:flex;gap:1.4vmin;justify-content:center;flex-wrap:wrap;margin-top:1.4vmin">${rest}</div>` : ''}
+        <div style="text-align:center;color:var(--muted);font-weight:800;font-size:1.8vmin;margin-top:1.6vmin">${hint}</div>
+    </div>`, '🏆 Final scores');
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+window.addEventListener('resize', () => {
+    const cv = $id('confetti-cv');
+    if (cv && _cf.running) { cv.width = innerWidth; cv.height = innerHeight; }
+});
+
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
+    if (!fAvatar) fAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    render();
+})();
+</script>
+</body>
+</html>
