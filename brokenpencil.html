@@ -583,12 +583,13 @@ function sTrombone() {
     tone(mf(60), 0.26, { type: 'sawtooth', vol: 0.16, lp: 1100, slide: mf(58), when: 0.6 });
     tone(mf(58), 0.75, { type: 'sawtooth', vol: 0.18, lp: 1000, slide: mf(53), when: 0.9 });
 }
-// Win fanfare: C-major bugle with a closing trill + crash
+// Win fanfare: quotes the lobby doodle motif, then a closing trill + crash —
+// the game's own tune takes the bow
 function sWin() {
     if (!sfxOn || !AC) return;
     duckMusic(1.6);
-    [0, 4, 7, 12, 16, 12, 19, 24].forEach((s, i) => tone(mf(60 + s), 0.14, { type: 'square', vol: 0.18, when: i * 0.11, lp: 3400 }));
-    [26, 24, 26, 24, 26, 28].forEach((s, i) => tone(mf(60 + s), 0.08, { type: 'triangle', vol: 0.2, when: 0.95 + i * 0.06 }));
+    [72, 74, 76, 74, 72, 69, 67, 72].forEach((m, i) => tone(mf(m), 0.14, { type: 'square', vol: 0.18, when: i * 0.11, lp: 3400 }));
+    [86, 84, 86, 84, 86, 88].forEach((m, i) => tone(mf(m), 0.08, { type: 'triangle', vol: 0.2, when: 0.95 + i * 0.06 }));
     noiseHit(0.7, { vol: 0.18, when: 1.35, hp: 5000 });
 }
 // Drum-roll while the votes are counted (paired with the 🥁 curtain)
@@ -702,11 +703,16 @@ const TRACKS = {
         ] },
 };
 let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
+// Adaptive arrangement: 0 = rhythm section only, 1 = +lead, 2 = full (stabs + shimmer).
+// Key shift lifts everything a whole tone for the final chain — "it's serious now".
+let musicIntensity = 2, musicKeyShift = 0;
 
 function playMusicStep(i, t, bar) {
     const tr = TRACKS[musicTrack];
     const stepDur = 60 / tr.bpm / 4;
     const w = tr.waves || {};
+    const k = musicKeyShift;
+    const full = musicIntensity >= 2 || musicUrgent;
     // Swing: push every off-16th slightly late for the doodly bounce
     const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
     if (tr.kick[i]) tone(140, 0.22, { type: 'sine', vol: 0.4, when: rel, slide: 44, dest: musicGain });
@@ -716,20 +722,20 @@ function playMusicStep(i, t, bar) {
     }
     const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
     const b = bassArr[i];
-    if (b != null) tone(mf(b), stepDur * 1.6, { type: w.bass || 'triangle', vol: 0.28, when: rel, dest: musicGain, lp: 1000, attack: 0.006 });
+    if (b != null) tone(mf(b + k), stepDur * 1.6, { type: w.bass || 'triangle', vol: 0.28, when: rel, dest: musicGain, lp: 1000, attack: 0.006 });
     const pad = tr.pads[bar % tr.pads.length];
     const ch = i < 16 ? pad[0] : pad[16];
     // Plucky "ukulele" comping — short triangle chord stabs on the offbeats
-    if (tr.stab && tr.stab[i] && ch)
-        ch.forEach(m => tone(mf(m + 12), stepDur * 0.7, { type: w.stab || 'triangle', vol: 0.04, when: rel, lp: 3000, dest: musicGain, attack: 0.003 }));
+    if (full && tr.stab && tr.stab[i] && ch)
+        ch.forEach(m => tone(mf(m + 12 + k), stepDur * 0.7, { type: w.stab || 'triangle', vol: 0.04, when: rel, lp: 3000, dest: musicGain, attack: 0.003 }));
     let l = tr.leads[bar % tr.leads.length][i];
-    if (l != null) {
+    if (l != null && (musicIntensity >= 1 || musicUrgent)) {
         if (musicUrgent) l += 12;
-        tone(mf(l), stepDur * 1.4, { type: w.lead || 'triangle', vol: 0.12 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3800, attack: 0.005 });
+        tone(mf(l + k), stepDur * 1.4, { type: w.lead || 'triangle', vol: 0.12 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3800, attack: 0.005 });
     }
     // Music-box doodle shimmer two octaves above the pads
-    if (tr.arp && i % tr.arp === 0 && ch)
-        tone(mf(ch[(i / tr.arp) % ch.length] + 24), stepDur * tr.arp * 0.9, { type: w.arpW || 'sine', vol: 0.04, when: rel, lp: 5200, dest: musicGain, attack: 0.004 });
+    if (full && tr.arp && i % tr.arp === 0 && ch)
+        tone(mf(ch[(i / tr.arp) % ch.length] + 24 + k), stepDur * tr.arp * 0.9, { type: w.arpW || 'sine', vol: 0.04, when: rel, lp: 5200, dest: musicGain, attack: 0.004 });
     if (musicUrgent && i % 4 === 0) noiseHit(0.035, { vol: 0.1, when: rel + stepDur * 2, hp: 11000, dest: musicGain });
 }
 
@@ -755,11 +761,28 @@ function startMusicLoop() {
 
 function setMusic(track) {
     if (musicTrack === track) return;
+    const wasPlaying = !!(AC && musicTimer);
     musicTrack = track;
     musicStep = 0;
     musicBar = 0;
+    // adaptive: rounds build up from the rhythm section (bumpWorkIntensity raises it)
+    musicIntensity = track === 'work' ? 0 : 2;
+    if (track === 'lobby' || track === 'over') musicKeyShift = 0;
     if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[track].bpm * 0.5;
     if (track !== 'work') musicUrgent = false;
+    // one-beat snare fill so phase changes land on a downbeat instead of a hard cut
+    if (wasPlaying) {
+        const s = 60 / TRACKS[track].bpm / 4;
+        for (let f = 0; f < 4; f++) noiseHit(0.06, { vol: 0.1 + f * 0.035, when: f * s, hp: 2800 + f * 900, dest: musicGain });
+        musicNext = AC.currentTime + 4 * s;
+    }
+}
+// Adaptive layers: the lead joins once half the players are done;
+// timer urgency (musicUrgent) forces the full arrangement on its own
+function bumpWorkIntensity(progress) {
+    const list = progress || [];
+    const done = list.filter(p => p.done).length;
+    if (list.length && done / list.length >= 0.5) musicIntensity = Math.max(musicIntensity, 1);
 }
 
 function toggleMusic() {
@@ -1446,10 +1469,13 @@ function applyMsg(msg) {
                 ui = 'work';
                 _lastTickSec = -1;
                 setMusic('work');
+                musicIntensity = 0;   // new step: strip back to the rhythm section
+                bumpWorkIntensity(msg.progress);
                 render();
                 sPage();
                 _clientTick = setInterval(patchWorkTimer, 250);
             } else if (ui === 'work') {
+                bumpWorkIntensity(msg.progress);
                 const pr = $id('w-progress');
                 if (pr) pr.innerHTML = progressHTML(msg.progress);
             }
@@ -1457,6 +1483,7 @@ function applyMsg(msg) {
         }
         case 'progress': {
             if (D) D.progress = msg.progress;
+            bumpWorkIntensity(msg.progress);
             const pr = $id('w-progress');
             if (pr) pr.innerHTML = progressHTML(msg.progress);
             break;
@@ -1464,6 +1491,7 @@ function applyMsg(msg) {
         case 'reveal':
             D = msg; stopClientTimers(); ui = 'reveal';
             setMusic('reveal');
+            musicKeyShift = msg.chainNum === msg.totalChains ? 2 : 0;   // final chain: key up
             render(); sTada();
             break;
         case 'vote':
@@ -1665,12 +1693,15 @@ function applyViewerMsg(msg) {
                 stopViewerTimers();
                 _vLastTickSec = -1;
                 setMusic('work');
+                musicIntensity = 0;
+                bumpWorkIntensity(msg.progress);
                 render();
                 sPage();
                 _vTotal = msg.seconds * 1000;
                 _vEndsAt = Date.now() + _vTotal;
                 _vTick = setInterval(patchViewerTimer, 250);
             } else {
+                bumpWorkIntensity(msg.progress);
                 const wall = $id('tv-wall');
                 // drop 'fresh' so the rebuilt wall cards don't replay their entrance
                 if (wall) { $id('app').classList.remove('fresh'); wall.innerHTML = tvWallHTML(msg.progress); }
@@ -1680,6 +1711,7 @@ function applyViewerMsg(msg) {
         case 'viewer_reveal':
             stopViewerTimers();
             setMusic('reveal');
+            musicKeyShift = msg.chainNum === msg.totalChains ? 2 : 0;   // final chain: key up
             render(); sTada();
             requestAnimationFrame(() => { paintHistory(); animateNewestBeat(); });
             break;

@@ -656,11 +656,12 @@ function sReveal() {
     for (let i = 0; i < 8; i++) noiseHit(0.04, { vol: 0.05 + i * 0.013, when: i * 0.05, hp: 4000 });
     tone(mf(67), 0.3, { type: 'triangle', vol: 0.2, when: 0.42 });
 }
-// Win fanfare: G-major bugle, closing trill + crash
+// Win fanfare: quotes the lobby folk motif (the herd's own tune takes the bow),
+// then the closing trill + crash
 function sWin() {
     if (!sfxOn || !AC) return;
     duckMusic(1.6);
-    [67, 71, 74, 79, 74, 79, 83].forEach((m, i) => tone(mf(m), 0.15, { type: 'triangle', vol: 0.26, when: i * 0.12 }));
+    [74, 71, 67, 71, 74, 74, 76, 79].forEach((m, i) => tone(mf(m), 0.15, { type: 'triangle', vol: 0.26, when: i * 0.12 }));
     [83, 81, 83, 81, 83, 86].forEach((m, i) => tone(mf(m), 0.08, { type: 'triangle', vol: 0.2, when: 1.0 + i * 0.06 }));
     noiseHit(0.7, { vol: 0.16, when: 1.38, hp: 5000 });
 }
@@ -786,11 +787,16 @@ const TRACKS = {
         ] },
 };
 let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
+// Adaptive arrangement: 1 = rhythm + lead, 2 = full (stabs + shimmer).
+// Key shift lifts everything a whole tone once someone's at match point.
+let musicIntensity = 2, musicKeyShift = 0;
 
 function playMusicStep(i, t, bar) {
     const tr = TRACKS[musicTrack];
     const stepDur = 60 / tr.bpm / 4;
     const w = tr.waves || {};
+    const k = musicKeyShift;
+    const full = musicIntensity >= 2 || musicUrgent;
     // Swing: push every off-16th slightly late for a looser folk sway
     const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
     if (tr.kick[i]) tone(140, 0.24, { type: 'sine', vol: 0.42, when: rel, slide: 42, dest: musicGain });
@@ -800,20 +806,20 @@ function playMusicStep(i, t, bar) {
     }
     const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
     const b = bassArr[i];
-    if (b != null) tone(mf(b), stepDur * 1.6, { type: w.bass || 'triangle', vol: 0.3, when: rel, dest: musicGain, lp: 1000, attack: 0.006 });
+    if (b != null) tone(mf(b + k), stepDur * 1.6, { type: w.bass || 'triangle', vol: 0.3, when: rel, dest: musicGain, lp: 1000, attack: 0.006 });
     const pad = tr.pads[bar % tr.pads.length];
     const ch = i < 16 ? pad[0] : pad[16];
-    if (tr.stab && tr.stab[i] && ch)
-        ch.forEach(m => tone(mf(m + 12), stepDur * 0.9, { type: w.stab || 'sine', vol: 0.035, when: rel, lp: 2600, dest: musicGain, attack: 0.005 }));
+    if (full && tr.stab && tr.stab[i] && ch)
+        ch.forEach(m => tone(mf(m + 12 + k), stepDur * 0.9, { type: w.stab || 'sine', vol: 0.035, when: rel, lp: 2600, dest: musicGain, attack: 0.005 }));
     let l = tr.leads[bar % tr.leads.length][i];
-    if (l != null) {
+    if (l != null && (musicIntensity >= 1 || musicUrgent)) {
         if (musicUrgent) l += 12;
         // Plucky lead: short attack, lowpassed triangle
-        tone(mf(l), stepDur * 1.5, { type: w.lead || 'triangle', vol: 0.13 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3800, attack: 0.005 });
+        tone(mf(l + k), stepDur * 1.5, { type: w.lead || 'triangle', vol: 0.13 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3800, attack: 0.005 });
     }
     // Music-box shimmer two octaves above the pads
-    if (tr.arp && i % tr.arp === 0 && ch)
-        tone(mf(ch[(i / tr.arp) % ch.length] + 24), stepDur * tr.arp * 0.9, { type: w.arpW || 'sine', vol: 0.045, when: rel, lp: 5200, dest: musicGain, attack: 0.004 });
+    if (full && tr.arp && i % tr.arp === 0 && ch)
+        tone(mf(ch[(i / tr.arp) % ch.length] + 24 + k), stepDur * tr.arp * 0.9, { type: w.arpW || 'sine', vol: 0.045, when: rel, lp: 5200, dest: musicGain, attack: 0.004 });
     if (musicUrgent && i % 4 === 0) noiseHit(0.035, { vol: 0.1, when: rel + stepDur * 2, hp: 11000, dest: musicGain });
 }
 
@@ -839,11 +845,30 @@ function startMusicLoop() {
 
 function setMusic(track) {
     if (musicTrack === track) return;
+    const wasPlaying = !!(AC && musicTimer);
     musicTrack = track;
     musicStep = 0;
     musicBar = 0;
+    // adaptive: thinking starts lean (rhythm + lead), fills out at half locked-in
+    musicIntensity = track === 'think' ? 1 : 2;
+    if (track === 'lobby' || track === 'over') musicKeyShift = 0;
     if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[track].bpm * 0.5;
     if (track !== 'think') musicUrgent = false;
+    // one-beat snare fill so phase changes land on a downbeat instead of a hard cut
+    if (wasPlaying) {
+        const s = 60 / TRACKS[track].bpm / 4;
+        for (let f = 0; f < 4; f++) noiseHit(0.06, { vol: 0.1 + f * 0.035, when: f * s, hp: 2800 + f * 900, dest: musicGain });
+        musicNext = AC.currentTime + 4 * s;
+    }
+}
+// Adaptive layers: the full arrangement joins once half the herd has locked in
+function bumpThinkIntensity(locked, total) {
+    if (total && locked / total >= 0.5) musicIntensity = Math.max(musicIntensity, 2);
+}
+// Match point: lift the key a whole tone when someone could win next round
+function checkMatchPoint(scores, target) {
+    if (!target) return;
+    musicKeyShift = Math.max(0, ...(scores || [])) >= target - 1 ? 2 : 0;
 }
 
 function toggleMusic() {
@@ -1368,6 +1393,7 @@ function applyMsg(msg) {
             const prev = D;
             D = msg;
             setMusic('think');
+            bumpThinkIntensity(msg.lockedCount, msg.playerCount);
             const fresh = !prev || prev.type !== 'answer' || prev.round !== msg.round;
             if (fresh) { myText = ''; ui = 'answer'; render(); sStart(); }
             else if (ui === 'answer') {
@@ -1392,6 +1418,7 @@ function applyMsg(msg) {
             D = msg;
             ui = 'reveal';
             setMusic('reveal');
+            checkMatchPoint((msg.standings || []).map(s => s.score), msg.target);
             render();
             const my = msg.my || {};
             if (my.gotCow) {
@@ -1451,6 +1478,7 @@ function applyViewerMsg(msg) {
         if (pen) pen.innerHTML = `<b>${msg.lockedCount}</b> of ${msg.playerCount} in the pen 🐑`;
         const rail = $id('v-rail');
         if (rail) rail.innerHTML = railRowsHTML(msg.players, true);
+        bumpThinkIntensity(msg.lockedCount, msg.playerCount);
         if (msg.lockedCount > prev.lockedCount) {
             sPen();
             if (pen) { pen.classList.remove('bump'); void pen.offsetWidth; pen.classList.add('bump'); }
@@ -1464,13 +1492,17 @@ function applyViewerMsg(msg) {
             break;
         case 'viewer_answer':
             setMusic('think');
+            bumpThinkIntensity(msg.lockedCount, msg.playerCount);
             if (!prev || prev.type !== 'viewer_answer') sStart();
             break;
         case 'viewer_grouping':
             setMusic('sort');
             if (!prev || prev.type !== 'viewer_grouping') sClose();
             break;
-        case 'viewer_reveal': setMusic('reveal'); break;
+        case 'viewer_reveal':
+            setMusic('reveal');
+            checkMatchPoint((msg.players || []).map(p => p.score), msg.target);
+            break;
         case 'viewer_podium': setMusic('over'); break;
     }
     render();

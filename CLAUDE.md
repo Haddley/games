@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-Multiplayer browser games served by GitHub Pages at https://haddley.github.io/games/ — published straight from the `main` branch root (`.nojekyll`). **There is no build, lint, or bundle step.** Each game is one self-contained HTML file with all CSS/JS inline; the only external dependencies are CDN scripts (PeerJS 1.5.4, qrcode-generator 1.4.4) and Google Fonts.
+Multiplayer browser games served by GitHub Pages at https://haddley.github.io/games/ — published straight from the `main` branch root (`.nojekyll`). **There is no build, lint, or bundle step.** Each game is one self-contained HTML file with all CSS/JS inline; the external dependencies are CDN scripts (PeerJS 1.5.4, qrcode-generator 1.4.4), Google Fonts, and a Metered TURN relay (see "Connection transport" below).
 
 `index.html` is the launcher grid — add a card there when adding a game. Each game has a companion plan (`bogglepartyplan.md`, `familytrivia.md`, …) written before the game was built; keep these as the reference for game rules and protocol design.
 
@@ -30,6 +30,36 @@ The P2P pattern is identical across `boggle.html`, `pit.html`, `boggleparty.html
 - **Rendering** is string-built `innerHTML` from a `render()` switch on a global `ui` state string. High-frequency updates (timer ticks, counters) **patch DOM nodes by id** instead of re-rendering, so in-progress touch interaction is never interrupted.
 - **Reconnects**: a rejoining player with a known name whose old connection is dead takes over the "zombie" slot (`zombie.id = conn.peer`); viewers retry connecting once before giving up.
 - **QR joining**: host/TV lobbies render a QR of `?room=XXXX`; the page pre-fills the join form from that query param on load.
+- **Connection transport (TURN/ICE)**: WebRTC needs a TURN relay for players on restrictive/remote networks (symmetric NAT, mobile carriers, corporate wifi) — STUN alone only connects friendly NATs, which is why same-LAN players work but a remote player fails with "Negotiation of connection failed". Every game defines a shared `const ICE_CFG = { config: { iceServers: [...] } }` right after its inline `<script>` opens (Metered relay: STUN + TURN on 80/443 + `turns` TLS) and passes it to **every** `new Peer(...)` call — host `new Peer(id, ICE_CFG)`, guest/viewer `new Peer(undefined, ICE_CFG)`. ticktacktoe is the exception: it's class-based and inlines the same `iceServers` array into its two `new Peer` option objects instead of using `ICE_CFG`. **When adding a game or a `new Peer` call, wire in `ICE_CFG` or remote players silently can't join.** The Metered credentials are hardcoded in the public HTML (free tier, 50 GB/mo shared quota); rotate them in the Metered dashboard and re-wire all games if the quota is abused.
+- **Broker reconnect**: the PeerJS signaling broker periodically drops a peer's socket, which de-registers the host's room ID so *new* guests get `peer-unavailable` ("Could not reach room") even though the host tab still shows the lobby. herdmind's `makeRoom` handles this with `peer.on('disconnected', () => peer.reconnect())` and treats `network`/`server-error`/`socket-*` errors as recoverable instead of tearing down the room; its `joinGame` retries the whole connect up to twice (700 ms apart) covering both `peer-unavailable` and negotiation failures. This resilience is **not yet ported to the other games** — replicate it when hardening join flakiness.
+
+## Audio & animation conventions
+
+Every game has a self-contained procedural WebAudio engine and a CSS/JS FX stack. **`brokenpencil.html` and `herdmind.html` are the reference implementations** — copy patterns from them when polishing another game.
+
+- **Engine basics**: `ac()` lazy-inits on first pointer gesture (autoplay policy); `musicGain` ≈ 0.33, `sfxGain` ≈ 0.55; `TRACKS` is a step sequencer (32 sixteenth-steps per bar-pair, `bassBars`/`leads`/`pads`/`hat`/`kick`/`stab` lanes, per-track `waves` + swing); `setMusic(track)` switches per game phase; `musicUrgent` (timer low) lifts the lead an octave and adds hats.
+- **The music quality stack** (apply all five when touching a game's audio):
+  1. `duckMusic(dur)` — sidechain-style dip of `musicGain` called at the top of big stingers (win fanfare, fail trombone, moo) so they read clearly over the music.
+  2. **Adaptive layers** — `musicIntensity` (0/1 = rhythm section ± lead, 2 = full arrangement); `playMusicStep` gates stabs/arp on intensity ≥ 2 and lead on ≥ 1 (urgency forces full); `setMusic` sets the per-track default (answer/work tracks start lean); a `bump*Intensity` helper raises it as player progress comes in (call it from BOTH phone `applyMsg` and TV `applyViewerMsg`, including patch branches).
+  3. **Match-point key change** — `musicKeyShift` (+2 semitones) applied to every melodic voice (bass, stabs, lead, arp) when the decisive round starts (score ≥ target−1, or final chain/round); reset to 0 on lobby/podium tracks.
+  4. **Count-in fills** — `setMusic` plays a one-beat rising snare fill and pushes `musicNext` past it so the new track enters on a downbeat instead of hard-cutting.
+  5. **Winner's motif** — `sWin` opens by quoting the first ~8 notes of the game's own `TRACKS.lobby.leads[0]` melody before the trill + crash, so each game's fanfare is its own hummable tune.
+- **Animation rules**: entrance animations are gated on `#app.fresh` (set only on real screen changes) so same-screen re-renders never re-trigger them; high-frequency updates patch DOM by id; every decorative JS effect early-returns on `REDUCED` (`prefers-reduced-motion`), and the stylesheet kills all animation under the same media query.
+- **FX helpers** available in the reference games: `burst` (particle explosion), `popText` (floating score text), `startConfetti`, `emojiRain`, `flashEdge` (full-screen edge glow), `body.time-low` vignette during final seconds, suspense curtains (`votes-curtain`), shine sweeps (`.win::after`), and ambient layers (`#meadow` grazing sheep, `#doodle-bg` drifting doodles).
+
+## TURN relay (metered.ca)
+
+Cross-network play relies on a TURN relay from **Metered** (metered.ca — "Open Relay"). Account/usage facts a future instance needs:
+
+- **Why we pay for it at all**: PeerJS's default config is STUN-only, which cannot connect a peer behind a symmetric/restrictive NAT (mobile carriers, corporate wifi). TURN relays that peer's traffic. Without it, same-LAN players connect but remote players fail — see "Connection transport" above.
+- **Plan & quota**: free tier, **~50 GB/month** of relayed traffic, shared across *all* games and *all* players (the same credentials are reused everywhere). TURN only carries traffic when a direct P2P path can't be established, but data-heavy games (doodleparty, brokenpencil drawings) consume more relay than text games. If the monthly quota is exhausted, TURN stops relaying and remote players silently fail again until it resets — check the **Metered dashboard** (dashboard.metered.ca) for usage.
+- **The `iceServers` set** each game embeds (STUN + TURN across ports/transports so at least one punches through any firewall; the `:443` and `turns` TLS entries are what tunnel through HTTPS-only networks):
+  - `stun:stun.relay.metered.ca:80`
+  - `turn:global.relay.metered.ca:80` (and `:80?transport=tcp`)
+  - `turn:global.relay.metered.ca:443`
+  - `turns:global.relay.metered.ca:443?transport=tcp`
+- **Credentials**: a Metered username + credential, **hardcoded in cleartext** in every game's `ICE_CFG` (and ticktacktoe's two inline `iceServers` arrays). Current username: `35410ce7572a64d0dad7b813`. They're public (visible in page source) — acceptable for family games, but anyone can burn the quota. **To rotate** (new key from the Metered dashboard): replace the username+credential at every occurrence — they appear ~4× per game across ~16 files, so do it with a scripted find-replace over all `*.html`, not by hand, then verify each inline `<script>` still parses.
+- **No backend**: because the games are static HTML with no server, credentials are long-lived and embedded rather than minted per-session. A credential-vending endpoint would be the "correct" hardening but is overkill unless quota abuse actually happens.
 
 ## Family Trivia specifics
 
