@@ -62,7 +62,8 @@ Architecture mirrors `boggleparty.html`: single self-contained HTML file, PeerJS
 2. **Story phase** — TV shows the story with a gentle typewriter/read-along effect and a progress
    bar; phones just say "👀 Eyes on the TV!". Auto-advance when the bar fills, or Captain taps Next
 3. **Question phase** — TV shows the question + up to 6 colour-coded answers and a countdown ring;
-   phones show the same 6 big buttons. Answers are **secret** — the TV only shows the locked-in
+   phones show the question text **and** the same 6 big buttons (the question stays on the phone
+   through the reveal too). Answers are **secret** — the TV only shows the locked-in
    counter ticking up. Phase ends when everyone locks in or the timer hits zero
 4. **Reveal** — TV flips the cards: wrong answers fade, the correct one glows; an animated bar
    chart shows how the family split; point payouts fly onto the leaderboard with the rarity

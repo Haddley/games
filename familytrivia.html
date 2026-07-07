@@ -1386,6 +1386,7 @@ function renderReveal() {
         </div>
         <div style="color:var(--ink-soft);font-weight:800;font-size:.8rem;margin-top:8px">${D.C} of ${D.N} got it right</div>
     </div>
+    <div class="card"><div class="q-prompt" style="font-size:1rem">${esc(D.prompt)}</div></div>
     <div class="ans-grid">${btns}</div>
     ${standingsHTML(D.standings || [])}
     ${driveBtn}`;
