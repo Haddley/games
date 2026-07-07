@@ -494,6 +494,7 @@ function sSaved() {  // the healer's save — gentle A-major sparkle
 }
 function sBell(n = 2) {  // elimination bell — deep toll with minor-third partial
     if (!sfxOn || !AC) return;
+    duckMusic(1.2 * n);
     for (let k = 0; k < n; k++) {
         const w = k * 1.15;
         tone(220, 2.2, { type: 'sine', vol: 0.26, when: w });
@@ -517,6 +518,7 @@ function sTie() { if (!sfxOn || !AC) return; tone(mf(62), 0.35, { type: 'triangl
 function sTickT() { if (!sfxOn || !AC) return; tone(1150, 0.04, { type: 'square', vol: 0.07, lp: 2800 }); }
 function sHowl() {  // a real wolf howl — rise, hold, droop; a distant answer
     if (!sfxOn || !AC) return;
+    duckMusic(2.0);
     const t = AC.currentTime;
     const howl = (start, peak, end, dur, vol, delay) => {
         const o = AC.createOscillator(), g = AC.createGain();
@@ -535,17 +537,30 @@ function sHowl() {  // a real wolf howl — rise, hold, droop; a distant answer
     howl(233, 494, 311, 1.7, 0.16, 0);
     howl(175, 370, 233, 1.6, 0.055, 0.55);
 }
-function sWinV() {  // village wins — warm triangle bugle into morning light
+function sWinV() {  // village wins — the dusk melody bugled into morning light
     if (!sfxOn || !AC) return;
-    [69, 72, 76, 81].forEach((m, i) => tone(mf(m), 0.22, { type: 'triangle', vol: 0.2, when: i * 0.14, lp: 3600 }));
-    [84, 81, 84, 88].forEach((m, i) => tone(mf(m), 0.14, { type: 'sine', vol: 0.1, when: 0.62 + i * 0.09 }));
-    noiseHit(0.6, { vol: 0.1, when: 0.95, hp: 6000 });
+    duckMusic(1.6);
+    // quotes the lobby lead's opening phrase — the village reclaims its own tune
+    [69, 72, 71, 69, 67, 64, 65, 67].forEach((m, i) => tone(mf(m), 0.2, { type: 'triangle', vol: 0.2, when: i * 0.12, lp: 3600 }));
+    [84, 81, 84, 88].forEach((m, i) => tone(mf(m), 0.14, { type: 'sine', vol: 0.1, when: 1.02 + i * 0.09 }));
+    noiseHit(0.6, { vol: 0.1, when: 1.35, hp: 6000 });
 }
 function sWinW() {  // wolves win — deep phrygian shudder under the howl
     if (!sfxOn || !AC) return;
+    duckMusic(1.6);
     tone(mf(33), 1.8, { type: 'sine', vol: 0.3 });
+    // the same lobby phrase, dragged two octaves down — the village tune belongs to the wolves now
+    [45, 48, 47, 45, 43, 40, 41, 43].forEach((m, i) => tone(mf(m), 0.42, { type: 'sine', vol: 0.13, when: 0.2 + i * 0.17, lp: 1100 }));
     tone(mf(34), 1.6, { type: 'sine', vol: 0.16, when: 1.0 });
     sHowl();
+}
+// Duck the music briefly so big stingers read clearly (sidechain feel)
+function duckMusic(dur = 0.5) {
+    if (!AC || !musicGain || !musicOn) return;
+    const t = AC.currentTime;
+    musicGain.gain.cancelScheduledValues(t);
+    musicGain.gain.setValueAtTime(0.1, t);
+    musicGain.gain.linearRampToValueAtTime(0.33, t + dur);
 }
 
 // ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
@@ -652,11 +667,16 @@ const TRACKS = {
         ] },
 };
 let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
+// Adaptive arrangement: 1 = drums + bass + lead, 2 = full (stabs + moonlight shimmer).
+// Key shift creeps the whole score up a semitone when the wolves near parity.
+let musicIntensity = 2, musicKeyShift = 0;
 
 function playMusicStep(i, t, bar) {
     const tr = TRACKS[musicTrack];
     const stepDur = 60 / tr.bpm / 4;
     const w = tr.waves || {};
+    const k = musicKeyShift;
+    const full = musicIntensity >= 2 || musicUrgent;
     // Swing: push every off-16th slightly late for a looser sway
     const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
     if (tr.kick[i]) tone(130, 0.28, { type: 'sine', vol: 0.4, when: rel, slide: 40, dest: musicGain });
@@ -666,19 +686,19 @@ function playMusicStep(i, t, bar) {
     }
     const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
     const b = bassArr[i];
-    if (b != null) tone(mf(b), stepDur * 1.7, { type: w.bass || 'sine', vol: 0.3, when: rel, dest: musicGain, lp: 900, attack: 0.008 });
+    if (b != null) tone(mf(b + k), stepDur * 1.7, { type: w.bass || 'sine', vol: 0.3, when: rel, dest: musicGain, lp: 900, attack: 0.008 });
     const pad = tr.pads[bar % tr.pads.length];
     const ch = i < 16 ? pad[0] : pad[16];
-    if (tr.stab && tr.stab[i] && ch)
-        ch.forEach(m => tone(mf(m + 12), stepDur * 0.9, { type: w.stab || 'sine', vol: 0.03, when: rel, lp: 2400, dest: musicGain, attack: 0.005 }));
+    if (full && tr.stab && tr.stab[i] && ch)
+        ch.forEach(m => tone(mf(m + 12 + k), stepDur * 0.9, { type: w.stab || 'sine', vol: 0.03, when: rel, lp: 2400, dest: musicGain, attack: 0.005 }));
     let l = tr.leads[bar % tr.leads.length][i];
-    if (l != null) {
+    if (l != null && (musicIntensity >= 1 || musicUrgent)) {
         if (musicUrgent) l += 12;
-        tone(mf(l), stepDur * 1.6, { type: w.lead || 'sine', vol: 0.12 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 2800, attack: 0.008 });
+        tone(mf(l + k), stepDur * 1.6, { type: w.lead || 'sine', vol: 0.12 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 2800, attack: 0.008 });
     }
     // Music-box shimmer two octaves above the pads — the moonlight voice
-    if (tr.arp && i % tr.arp === 0 && ch)
-        tone(mf(ch[(i / tr.arp) % ch.length] + 24), stepDur * tr.arp * 0.9, { type: w.arpW || 'sine', vol: 0.04, when: rel, lp: 5000, dest: musicGain, attack: 0.004 });
+    if (full && tr.arp && i % tr.arp === 0 && ch)
+        tone(mf(ch[(i / tr.arp) % ch.length] + 24 + k), stepDur * tr.arp * 0.9, { type: w.arpW || 'sine', vol: 0.04, when: rel, lp: 5000, dest: musicGain, attack: 0.004 });
     if (musicUrgent && i % 4 === 0) noiseHit(0.035, { vol: 0.09, when: rel + stepDur * 2, hp: 11000, dest: musicGain });
 }
 
@@ -704,11 +724,36 @@ function startMusicLoop() {
 
 function setMusic(track) {
     if (musicTrack === track) return;
+    const wasPlaying = !!(AC && musicTimer);
     musicTrack = track;
     musicStep = 0;
     musicBar = 0;
+    // adaptive: full arrangement by default; the vote strips it back (see below)
+    musicIntensity = 2;
+    if (track === 'lobby' || track === 'over_v' || track === 'over_w') musicKeyShift = 0;
     if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[track].bpm * 0.5;
     if (track !== 'day') musicUrgent = false;
+    // one-beat low-tom fill so phase changes land on a downbeat instead of a hard cut
+    if (wasPlaying) {
+        const s = 60 / TRACKS[track].bpm / 4;
+        for (let f = 0; f < 4; f++) tone(110 - f * 8, 0.09, { type: 'sine', vol: 0.16 + f * 0.03, when: f * s, slide: 70, dest: musicGain });
+        musicNext = AC.currentTime + 4 * s;
+    }
+}
+// Adaptive layers: the vote opens with shimmer and stabs withdrawn — the village
+// holds its breath — and the full arrangement returns once half have voted
+function bumpVoteIntensity(counts) {
+    if (!counts || !counts.votesNeeded) return;
+    if (counts.votesIn / counts.votesNeeded >= 0.5) musicIntensity = Math.max(musicIntensity, 2);
+}
+// A semitone of dread: when the wolves are one death from parity, the whole score
+// creeps up a half-step. Uses public info only (dead roles + the dealt wolf count).
+function updateDreadShift(msg) {
+    if (!msg || !msg.players || msg.winner || msg.phase === 'lobby' || msg.phase === 'gameover') return;
+    const ps = msg.players;
+    const wolvesAlive = wolvesFor(ps.length) - ps.filter(p => !p.alive && p.role === 'wolf').length;
+    const othersAlive = ps.filter(p => p.alive).length - wolvesAlive;
+    musicKeyShift = (wolvesAlive > 0 && wolvesAlive >= othersAlive - 1) ? 1 : 0;
 }
 
 function toggleMusic() {
@@ -1269,6 +1314,7 @@ function applyMsg(msg) {
             ui = msg.phase === 'lobby' ? ((isHost && !isTvHost) ? 'lobby_h' : 'lobby_g') : msg.phase;
             if (phaseChanged) {
                 if (msg.phase !== 'day') musicUrgent = false;
+                updateDreadShift(msg);
                 render();
                 if (msg.phase === 'lobby') setMusic('lobby');
                 else if (msg.phase === 'deal') { setMusic('night'); sDeal(); }
@@ -1280,9 +1326,10 @@ function applyMsg(msg) {
                     else sDawn();
                 }
                 else if (msg.phase === 'day') { setMusic('day'); sBirds(); }
-                else if (msg.phase === 'vote') { setMusic('day'); sVoteBell(); }
+                else if (msg.phase === 'vote') { setMusic('day'); musicIntensity = 1; sVoteBell(); }
                 else if (msg.phase === 'verdict') {
                     setMusic('day');
+                    musicIntensity = 2;
                     const lb = msg.lastBanish || {};
                     if (lb.tie) sTie(); else sBell(1);
                     if (lb.role === 'wolf' && msg.me && msg.me.role !== 'wolf')
@@ -1313,6 +1360,7 @@ function patchState(msg) {
     if (na) na.textContent = `${msg.counts.actionsIn} of ${msg.counts.actionsNeeded}`;
     const vc = $id('vote-count');
     if (vc) vc.textContent = `${msg.counts.votesIn} of ${msg.counts.votesNeeded} votes in`;
+    if (msg.phase === 'vote') bumpVoteIntensity(msg.counts);
     // seer result arrives mid-night without a phase change
     if (msg.phase === 'night' && msg.me && msg.me.role === 'seer' && msg.me.nightDone && !$id('seer-result')) { render(); sSeer(); }
     if (msg.phase === 'night' && msg.me && msg.me.nightDone && $id('pick-wrap') && !$id('night-waiting')) render();
@@ -1374,6 +1422,7 @@ function applyViewerMsg(msg) {
     if (phaseChanged) {
         stopViewerTimers();
         if (msg.phase !== 'day') musicUrgent = false;
+        updateDreadShift(msg);
         render();
         typewrite();
         if (msg.phase === 'lobby') setMusic('lobby');
@@ -1385,9 +1434,10 @@ function applyViewerMsg(msg) {
             else if (msg.lastNight && msg.lastNight.victim) { sBell(2); setTimeout(sHowl, 1100); }
             else sDawn();
         }
-        else if (msg.phase === 'vote') { setMusic('day'); sVoteBell(); }
+        else if (msg.phase === 'vote') { setMusic('day'); musicIntensity = 1; sVoteBell(); }
         else if (msg.phase === 'verdict') {
             setMusic('day');
+            musicIntensity = 2;
             if (msg.lastBanish && msg.lastBanish.tie) sTie(); else sBell(1);
         }
         else if (msg.phase === 'gameover') {
@@ -1413,6 +1463,7 @@ function applyViewerMsg(msg) {
             }, 250);
         }
     } else {
+        if (msg.phase === 'vote') bumpVoteIntensity(msg.counts);
         const el = $id('tv-progress');
         if (el) el.textContent = tvProgressText(msg);
     }

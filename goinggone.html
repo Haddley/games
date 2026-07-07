@@ -496,6 +496,7 @@ function sJoin() {
 // "Lot N!" — two lowpassed sawtooth brass stabs + a herald note
 function sLotIntro() {
     if (!sfxOn || !AC) return;
+    duckMusic(0.8);
     [52, 55, 59].forEach(m => tone(mf(m + 12), 0.14, { type: 'sawtooth', vol: 0.07, lp: 1700, attack: 0.006 }));
     [52, 55, 59].forEach(m => tone(mf(m + 12), 0.22, { type: 'sawtooth', vol: 0.08, lp: 1700, when: 0.17, attack: 0.006 }));
     tone(mf(76), 0.18, { type: 'square', vol: 0.15, lp: 3500, when: 0.35 });
@@ -530,6 +531,7 @@ function sGoing(n) {
 // THE GAVEL — deep thump, wood body, crack, little bounce
 function sGavel() {
     if (!sfxOn || !AC) return;
+    duckMusic(1.0);
     tone(110, 0.3, { type: 'sine', vol: 0.65, slide: 36 });
     tone(210, 0.08, { type: 'square', vol: 0.22, lp: 800, slide: 110 });
     noiseHit(0.12, { vol: 0.4, hp: 1400 });
@@ -556,6 +558,7 @@ function sBroke() {
 // Valuation cha-ching — arpeggio grows with the profit
 function sProfit(p) {
     if (!sfxOn || !AC) return;
+    duckMusic(0.7);
     const steps = p >= 300 ? [0, 4, 7, 12, 16, 19, 24] : p >= 120 ? [0, 4, 7, 12, 16] : [0, 4, 7, 12];
     steps.forEach((s, i) => tone(mf(76 + s), 0.09, { type: 'square', vol: 0.19, lp: 5200, when: i * 0.055 }));
     if (p >= 300) noiseHit(0.3, { vol: 0.13, when: 0.42, hp: 8000 });
@@ -563,17 +566,27 @@ function sProfit(p) {
 // Valuation loss — sad trombone, extra-low tag for a real bath
 function sLoss(l) {
     if (!sfxOn || !AC) return;
+    duckMusic(0.9);
     [63, 61, 59, 55].forEach((m, i) => tone(mf(m), 0.24, { type: 'sawtooth', vol: 0.09, lp: 1200, when: i * 0.2, slide: mf(m - 1) }));
     if (l <= -200) tone(mf(40), 0.5, { type: 'sine', vol: 0.18, when: 0.82, slide: mf(35) });
 }
-// Final hammer + E-major victory bugle with closing trill and crash
+// Final hammer — then the lobby gallop motif takes the bow, closing trill + crash
 function sWin() {
     if (!sfxOn || !AC) return;
+    duckMusic(1.6);
     tone(110, 0.28, { type: 'sine', vol: 0.55, slide: 38 });
     noiseHit(0.1, { vol: 0.3, hp: 1500 });
-    [64, 68, 71, 76, 71, 76, 80].forEach((m, i) => tone(mf(m), 0.14, { type: 'square', vol: 0.2, lp: 4000, when: 0.45 + i * 0.11 }));
-    [83, 81, 83, 81, 83, 88].forEach((m, i) => tone(mf(m), 0.08, { type: 'triangle', vol: 0.2, when: 1.5 + i * 0.06 }));
-    noiseHit(0.7, { vol: 0.18, when: 1.9, hp: 5000 });
+    [64, 67, 71, 72, 71, 67, 64, 60].forEach((m, i) => tone(mf(m), 0.14, { type: 'square', vol: 0.2, lp: 4000, when: 0.45 + i * 0.11 }));
+    [83, 81, 83, 81, 83, 88].forEach((m, i) => tone(mf(m), 0.08, { type: 'triangle', vol: 0.2, when: 1.6 + i * 0.06 }));
+    noiseHit(0.7, { vol: 0.18, when: 2.0, hp: 5000 });
+}
+// Duck the music briefly so big stingers read clearly (sidechain feel)
+function duckMusic(dur = 0.5) {
+    if (!AC || !musicGain || !musicOn) return;
+    const t = AC.currentTime;
+    musicGain.gain.cancelScheduledValues(t);
+    musicGain.gain.setValueAtTime(0.1, t);
+    musicGain.gain.linearRampToValueAtTime(0.33, t + dur);
 }
 
 // ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
@@ -661,11 +674,16 @@ const TRACKS = {
         ] },
 };
 let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
+// Adaptive arrangement: intensity gates the upper voices in/out;
+// keyShift lifts every melodic lane for the final lot's drama
+let musicIntensity = 2, musicKeyShift = 0;
 
 function playMusicStep(i, t, bar) {
     const tr = TRACKS[musicTrack];
     const stepDur = 60 / tr.bpm / 4;
     const w = tr.waves || {};
+    const k = musicKeyShift;
+    const full = musicIntensity >= 2 || musicUrgent;
     // Swing: push every off-16th slightly late for a looser strut
     const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
     if (tr.kick[i]) tone(145, 0.22, { type: 'sine', vol: 0.48, when: rel, slide: 44, dest: musicGain });
@@ -680,20 +698,20 @@ function playMusicStep(i, t, bar) {
     }
     const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
     const b = bassArr[i];
-    if (b != null) tone(mf(b), stepDur * 1.5, { type: w.bass || 'sawtooth', vol: 0.24, when: rel, dest: musicGain, lp: 950, attack: 0.005 });
+    if (b != null) tone(mf(b + k), stepDur * 1.5, { type: w.bass || 'sawtooth', vol: 0.24, when: rel, dest: musicGain, lp: 950, attack: 0.005 });
     const pad = tr.pads[bar % tr.pads.length];
     const ch = i < 16 ? pad[0] : pad[16];
     // Brass stabs — lowpassed sawtooth comping, the auction house signature
-    if (tr.stab && tr.stab[i] && ch)
-        ch.forEach(m => tone(mf(m + 12), stepDur * 0.9, { type: w.stab || 'sawtooth', vol: 0.032, when: rel, lp: 1900, dest: musicGain, attack: 0.005 }));
+    if (tr.stab && tr.stab[i] && ch && full)
+        ch.forEach(m => tone(mf(m + 12 + k), stepDur * 0.9, { type: w.stab || 'sawtooth', vol: 0.032, when: rel, lp: 1900, dest: musicGain, attack: 0.005 }));
     let l = tr.leads[bar % tr.leads.length][i];
-    if (l != null) {
+    if (l != null && (musicIntensity >= 1 || musicUrgent)) {
         if (musicUrgent) l += 12;
-        tone(mf(l), stepDur * 1.4, { type: w.lead || 'sawtooth', vol: 0.11 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3000, attack: 0.005 });
+        tone(mf(l + k), stepDur * 1.4, { type: w.lead || 'sawtooth', vol: 0.11 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3000, attack: 0.005 });
     }
     // Ticking arpeggio an octave up — the room counting along
-    if (tr.arp && i % tr.arp === 0 && ch)
-        tone(mf(ch[(i / tr.arp) % ch.length] + 12), stepDur * tr.arp * 0.9, { type: w.arpW || 'triangle', vol: 0.04, when: rel, lp: 5200, dest: musicGain, attack: 0.003 });
+    if (tr.arp && i % tr.arp === 0 && ch && full)
+        tone(mf(ch[(i / tr.arp) % ch.length] + 12 + k), stepDur * tr.arp * 0.9, { type: w.arpW || 'triangle', vol: 0.04, when: rel, lp: 5200, dest: musicGain, attack: 0.003 });
     if (musicUrgent && i % 4 === 0) noiseHit(0.035, { vol: 0.11, when: rel + stepDur * 2, hp: 11000, dest: musicGain });
 }
 
@@ -719,11 +737,21 @@ function startMusicLoop() {
 
 function setMusic(track) {
     if (musicTrack === track) return;
+    const wasPlaying = !!(AC && musicTimer);
     musicTrack = track;
     musicStep = 0;
     musicBar = 0;
+    // Bidding opens stripped back — the gavel countdown brings the full band in
+    musicIntensity = track === 'bidding' ? 1 : 2;
+    if (track === 'lobby' || track === 'over') musicKeyShift = 0;
     if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[track].bpm * 0.5;
     if (track !== 'bidding') musicUrgent = false;
+    // one-beat snare fill so phase changes land on a downbeat instead of a hard cut
+    if (wasPlaying) {
+        const s = 60 / TRACKS[track].bpm / 4;
+        for (let f = 0; f < 4; f++) noiseHit(0.06, { vol: 0.1 + f * 0.035, when: f * s, hp: 2800 + f * 900, dest: musicGain });
+        musicNext = AC.currentTime + 4 * s;
+    }
 }
 
 function toggleMusic() {
@@ -1194,6 +1222,8 @@ function applyMsg(msg) {
             if (msg.phase === 'lot_intro') {
                 stopClientTick();
                 setMusic('bidding');
+                musicIntensity = 1;   // new lot: strip back until the gavel countdown
+                musicKeyShift = msg.lotNum === msg.lotTotal ? 2 : 0;   // final lot: key up
                 if (_lastLotKey !== lotKey) { _lastLotKey = lotKey; _lastPrice = -1; ui = 'lot'; render(); sLotIntro(); }
                 break;
             }
@@ -1288,6 +1318,7 @@ function startClientGavel(msg) {
             gl.classList.toggle('low', stage > 0);
         }
         musicUrgent = left > 0 && stage > 0;
+        if (musicUrgent) musicIntensity = 2;   // "going…" reached: full band stays in
         if (stage > _goingStage && left > 0) sGoing(stage);
         _goingStage = stage;   // a new bid refills the bar → stage drops → stings re-arm
     }, 100);
@@ -1336,6 +1367,8 @@ function applyViewerMsg(msg) {
     if (msg.phase === 'lot_intro') {
         stopViewerTick();
         setMusic('bidding');
+        musicIntensity = 1;   // new lot: strip back until the gavel countdown
+        musicKeyShift = msg.lotNum === msg.lotTotal ? 2 : 0;   // final lot: key up
         if (_vLotKey !== lotKey) { _vLotKey = lotKey; _vPrice = -1; render(); sLotIntro(); }
         return;
     }
@@ -1414,6 +1447,7 @@ function startViewerGavel(msg) {
             gl.classList.toggle('low', stage > 0);
         }
         musicUrgent = left > 0 && stage > 0;
+        if (musicUrgent) musicIntensity = 2;   // "going…" reached: full band stays in
         if (stage > _vGoingStage && left > 0) sGoing(stage);
         _vGoingStage = stage;
     }, 100);

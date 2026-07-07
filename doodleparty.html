@@ -504,6 +504,7 @@ function sClearS() {
 // YOU got it: ascending D-major chime, taller the faster/earlier the guess
 function sRight(delta) {
     if (!sfxOn || !AC) return;
+    duckMusic(0.5);
     const steps = delta >= 110 ? [0, 4, 7, 12, 16, 19, 24] : delta >= 85 ? [0, 4, 7, 12, 16] : [0, 4, 7, 12];
     steps.forEach((s, i) => tone(mf(74 + s), 0.1, { type: 'triangle', vol: 0.28, when: i * 0.055 }));
     if (delta >= 110) noiseHit(0.25, { vol: 0.12, when: steps.length * 0.055, hp: 8000 });
@@ -533,6 +534,7 @@ function sTick() { if (!sfxOn || !AC) return; tone(mf(86), 0.04, { type: 'square
 // Time-up gong: nobody guessed it
 function sGong() {
     if (!sfxOn || !AC) return;
+    duckMusic(1.4);
     tone(mf(50), 1.1, { type: 'sine', vol: 0.34 });
     tone(mf(57), 0.9, { type: 'sine', vol: 0.16, when: 0.02 });
     tone(mf(62), 0.7, { type: 'sine', vol: 0.09, when: 0.04 });
@@ -541,16 +543,28 @@ function sGong() {
 // Turn results ta-da: quick D run into a held triad
 function sTada() {
     if (!sfxOn || !AC) return;
+    duckMusic(0.6);
     [62, 66, 69].forEach((m, i) => tone(mf(m), 0.09, { type: 'triangle', vol: 0.22, when: i * 0.07 }));
     [74, 78, 81].forEach(m => tone(mf(m), 0.34, { type: 'triangle', vol: 0.15, when: 0.22 }));
     noiseHit(0.2, { vol: 0.08, when: 0.22, hp: 7000 });
 }
-// Podium fanfare: toy bugle up two octaves, closing trill + crash
+// Podium fanfare: quotes the lobby toy-piano motif, closing trill + crash —
+// the game's own tune takes the bow
 function sWin() {
     if (!sfxOn || !AC) return;
-    [62, 66, 69, 74, 78, 74, 81, 86].forEach((m, i) => tone(mf(m), 0.12, { type: 'triangle', vol: 0.26, when: i * 0.1 }));
+    duckMusic(1.6);
+    [74, 78, 81, 78, 74, 76, 78, 79].forEach((m, i) => tone(mf(m), 0.12, { type: 'triangle', vol: 0.26, when: i * 0.1 }));
     [88, 86, 88, 86, 88, 90].forEach((m, i) => tone(mf(m), 0.07, { type: 'sine', vol: 0.17, when: 0.85 + i * 0.055 }));
     noiseHit(0.6, { vol: 0.15, when: 1.15, hp: 5000 });
+}
+
+// Duck the music briefly so big stingers read clearly (sidechain feel)
+function duckMusic(dur = 0.5) {
+    if (!AC || !musicGain || !musicOn) return;
+    const t = AC.currentTime;
+    musicGain.gain.cancelScheduledValues(t);
+    musicGain.gain.setValueAtTime(0.1, t);
+    musicGain.gain.linearRampToValueAtTime(0.33, t + dur);
 }
 
 // ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
@@ -636,12 +650,17 @@ const TRACKS = {
         ] },
 };
 let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
+// Adaptive arrangement: 0 = rhythm section only, 1 = +lead, 2 = full (stabs + shimmer).
+// Key shift lifts everything a whole tone for the final turn — "last chance!".
+let musicIntensity = 2, musicKeyShift = 0;
 
 function playMusicStep(i, t, bar) {
     const tr = TRACKS[musicTrack];
     const stepDur = 60 / tr.bpm / 4;
     const w = tr.waves || {};
     const q = tr.quiet || 1;
+    const k = musicKeyShift;
+    const full = musicIntensity >= 2 || musicUrgent;
     // Swing: push every off-16th slightly late for a bouncier skip
     const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
     if (tr.kick[i]) tone(140, 0.24, { type: 'sine', vol: 0.44 * q, when: rel, slide: 44, dest: musicGain });
@@ -652,19 +671,19 @@ function playMusicStep(i, t, bar) {
     const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
     const b = bassArr[i];
     // Staccato bounce: short notes, quick attack
-    if (b != null) tone(mf(b), stepDur * 1.2, { type: w.bass || 'triangle', vol: 0.3 * q, when: rel, dest: musicGain, lp: 1100, attack: 0.005 });
+    if (b != null) tone(mf(b + k), stepDur * 1.2, { type: w.bass || 'triangle', vol: 0.3 * q, when: rel, dest: musicGain, lp: 1100, attack: 0.005 });
     const pad = tr.pads[bar % tr.pads.length];
     const ch = i < 16 ? pad[0] : pad[16];
-    if (tr.stab && tr.stab[i] && ch)
-        ch.forEach(m => tone(mf(m + 12), stepDur * 0.9, { type: w.stab || 'sine', vol: 0.035 * q, when: rel, lp: 2600, dest: musicGain, attack: 0.005 }));
+    if (full && tr.stab && tr.stab[i] && ch)
+        ch.forEach(m => tone(mf(m + 12 + k), stepDur * 0.9, { type: w.stab || 'sine', vol: 0.035 * q, when: rel, lp: 2600, dest: musicGain, attack: 0.005 }));
     let l = tr.leads[bar % tr.leads.length][i];
-    if (l != null) {
+    if (l != null && (musicIntensity >= 1 || musicUrgent)) {
         if (musicUrgent) l += 12;
-        tone(mf(l), stepDur * 1.5, { type: w.lead || 'triangle', vol: 0.13 * q * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 4200, attack: 0.005 });
+        tone(mf(l + k), stepDur * 1.5, { type: w.lead || 'triangle', vol: 0.13 * q * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 4200, attack: 0.005 });
     }
     // Toy music-box shimmer two octaves above the pads
-    if (tr.arp && i % tr.arp === 0 && ch)
-        tone(mf(ch[(i / tr.arp) % ch.length] + 24), stepDur * tr.arp * 0.9, { type: w.arpW || 'sine', vol: 0.045 * q, when: rel, lp: 5400, dest: musicGain, attack: 0.004 });
+    if (full && tr.arp && i % tr.arp === 0 && ch)
+        tone(mf(ch[(i / tr.arp) % ch.length] + 24 + k), stepDur * tr.arp * 0.9, { type: w.arpW || 'sine', vol: 0.045 * q, when: rel, lp: 5400, dest: musicGain, attack: 0.004 });
     if (musicUrgent && i % 4 === 0) noiseHit(0.035, { vol: 0.1, when: rel + stepDur * 2, hp: 11000, dest: musicGain });
 }
 
@@ -690,11 +709,21 @@ function startMusicLoop() {
 
 function setMusic(track) {
     if (musicTrack === track) return;
+    const wasPlaying = !!(AC && musicTimer);
     musicTrack = track;
     musicStep = 0;
     musicBar = 0;
+    // adaptive: drawing rounds start stripped back, filling in as guessers get it
+    musicIntensity = track === 'draw' ? 1 : 2;
+    if (track === 'lobby' || track === 'over') musicKeyShift = 0;
     if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[track].bpm * 0.5;
     if (track !== 'draw') musicUrgent = false;
+    // one-beat snare fill so phase changes land on a downbeat instead of a hard cut
+    if (wasPlaying) {
+        const s = 60 / TRACKS[track].bpm / 4;
+        for (let f = 0; f < 4; f++) noiseHit(0.06, { vol: 0.1 + f * 0.035, when: f * s, hp: 2800 + f * 900, dest: musicGain });
+        musicNext = AC.currentTime + 4 * s;
+    }
 }
 
 function toggleMusic() {
@@ -1423,6 +1452,8 @@ function feedApply(msg, tv) {
     if (feed) feed.innerHTML = clientFeed.map(ev => feedRowHTML(ev, tv)).join('');
     const g = $id(tv ? 'v-guessed' : 'guessed-count');
     if (g) g.textContent = `✅ ${msg.guessedCount}/${msg.guessTotal}`;
+    // half the guessers are in — bring the full arrangement (stabs + shimmer) back
+    if (msg.ev.correct && msg.guessTotal && msg.guessedCount / msg.guessTotal >= 0.5) musicIntensity = 2;
     if (msg.ev.correct) {
         // my own correct guess already played the big sRight via guess_result
         if (tv || msg.ev.name !== myName) sFeedRight();
@@ -1471,6 +1502,7 @@ function applyMsg(msg) {
             clientFeed = (msg.feed || []).slice();
             ui = msg.role === 'draw' ? 'draw' : 'guess';
             setMusic('draw'); sBegin();
+            musicKeyShift = (msg.total > 1 && msg.num === msg.total) ? 2 : 0;   // last turn: key up a whole tone
             render();
             cvSetup('doodle-cv', msg.strokes);
             if (msg.role === 'draw') { DR.color = DRAW_COLORS[0]; DR.erase = false; initDrawerEvents(); }
@@ -1567,6 +1599,7 @@ function applyViewerMsg(msg) {
             vD = msg;
             clientFeed = (msg.feed || []).slice();
             setMusic('draw');
+            musicKeyShift = (msg.total > 1 && msg.num === msg.total) ? 2 : 0;   // last turn: key up a whole tone
             if (prevType !== 'viewer_draw') sBegin();
             render();
             cvSetup('tv-cv', msg.strokes);

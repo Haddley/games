@@ -1431,6 +1431,7 @@ function sTurn() {
 // LIAR! — thunderclap sting: low sawtooth cluster with a tritone snarl
 function sLiar() {
     if (!sfxOn || !AC) return;
+    duckMusic(1.2);
     [50, 53, 56].forEach(m => tone(mf(m), 0.7, { type: 'sawtooth', vol: 0.13, lp: 1100 }));
     tone(mf(38), 0.8, { type: 'sawtooth', vol: 0.2, lp: 500, slide: mf(36) });
     tone(mf(74), 0.35, { type: 'square', vol: 0.11, when: 0.05, slide: mf(62), lp: 2400 });
@@ -1440,6 +1441,7 @@ function sLiar() {
 // loser drops a die overboard (+ whistle & splash if they're eliminated)
 function sReveal(r, elim) {
     if (!sfxOn || !AC || !r) return;
+    duckMusic(elim ? 2.2 : 1.4);
     const n = Math.max(1, Math.min(r.actual, 10));
     for (let i = 0; i < n; i++)
         tone(mf(62 + i), 0.05, { type: 'square', vol: 0.13, when: 0.65 + i * 0.12, lp: 3200 });
@@ -1452,15 +1454,25 @@ function sReveal(r, elim) {
         noiseHit(0.45, { vol: 0.24, when: tHorn + 1.7, hp: 900 });                  // …splash
     }
 }
-// Last pirate standing: bugle call, jig flourish, full-crew chord + crash
+// Last pirate standing: quotes the tavern-shanty motif (lobby lead), then
+// a jig trill, full-crew chord + crash — the crew sings its own tune home
 function sWin() {
     if (!sfxOn || !AC) return;
-    [62, 65, 69, 74].forEach((m, i) => tone(mf(m), 0.16, { type: 'square', vol: 0.22, when: i * 0.13, lp: 3200 }));
-    [74, 76, 74, 72, 74, 77, 76, 74, 72, 69, 72, 74].forEach((m, i) =>
-        tone(mf(m), 0.09, { type: 'square', vol: 0.17, when: 0.6 + i * 0.07, lp: 3600 }));
+    duckMusic(1.6);
+    [62, 62, 62, 60, 62, 64, 65, 64].forEach((m, i) => tone(mf(m), 0.16, { type: 'square', vol: 0.22, when: i * 0.11, lp: 3200 }));
+    [74, 76, 74, 72, 74, 77].forEach((m, i) =>
+        tone(mf(m), 0.09, { type: 'square', vol: 0.17, when: 0.95 + i * 0.07, lp: 3600 }));
     [50, 57, 62, 65, 69].forEach(m => tone(mf(m), 1.1, { type: 'triangle', vol: 0.11, when: 1.5 }));
     tone(mf(38), 1.1, { type: 'triangle', vol: 0.22, when: 1.5 });
     noiseHit(0.8, { vol: 0.2, when: 1.5, hp: 4500 });
+}
+// Duck the music briefly so big stingers read clearly (sidechain feel)
+function duckMusic(dur = 0.5) {
+    if (!AC || !musicGain || !musicOn) return;
+    const t = AC.currentTime;
+    musicGain.gain.cancelScheduledValues(t);
+    musicGain.gain.setValueAtTime(0.1, t);
+    musicGain.gain.linearRampToValueAtTime(0.33, t + dur);
 }
 
 // ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
@@ -1545,12 +1557,17 @@ const TRACKS = {
         ] },
 };
 let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
+// Adaptive arrangement: 1 = rhythm + lead, 2 = full (accordion chops + shimmer).
+// Key shift lifts every melodic voice a whole tone for the two-pirate duel.
+let musicIntensity = 2, musicKeyShift = 0;
 let _lastScreenKey = ''; // entrance-animation gating (see render)
 
 function playMusicStep(i, t, bar) {
     const tr = TRACKS[musicTrack];
     const stepDur = 60 / tr.bpm / 4;
     const w = tr.waves || {};
+    const k = musicKeyShift;
+    const full = musicIntensity >= 2 || musicUrgent;
     // Swing: push every off-16th late — the shanty sway
     const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
     if (tr.kick[i]) tone(120, 0.24, { type: 'sine', vol: 0.46, when: rel, slide: 40, dest: musicGain }); // boot stomp
@@ -1562,19 +1579,19 @@ function playMusicStep(i, t, bar) {
         tone(70 + Math.random() * 25, 0.6, { type: 'sawtooth', vol: 0.045, when: rel, slide: 55, lp: 380, dest: musicGain, attack: 0.08 }); // hull groan
     const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
     const b = bassArr[i];
-    if (b != null) tone(mf(b), stepDur * 1.6, { type: w.bass || 'triangle', vol: 0.28, when: rel, dest: musicGain, lp: 950, attack: 0.005 });
+    if (b != null) tone(mf(b + k), stepDur * 1.6, { type: w.bass || 'triangle', vol: 0.28, when: rel, dest: musicGain, lp: 950, attack: 0.005 });
     const pad = tr.pads[bar % tr.pads.length];
     const ch = i < 16 ? pad[0] : pad[16];
-    if (tr.stab && tr.stab[i] && ch) // accordion "pah" chop
-        ch.forEach(m => tone(mf(m + 12), stepDur * 0.9, { type: w.stab || 'square', vol: 0.03, when: rel, lp: 2600, dest: musicGain, attack: 0.004 }));
+    if (full && tr.stab && tr.stab[i] && ch) // accordion "pah" chop
+        ch.forEach(m => tone(mf(m + 12 + k), stepDur * 0.9, { type: w.stab || 'square', vol: 0.03, when: rel, lp: 2600, dest: musicGain, attack: 0.004 }));
     let l = tr.leads[bar % tr.leads.length][i];
-    if (l != null) {
+    if (l != null && (musicIntensity >= 1 || musicUrgent)) {
         if (musicUrgent) l += 12;
-        tone(mf(l), stepDur * 1.5, { type: w.lead || 'square', vol: 0.12 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3400, attack: 0.005 });
+        tone(mf(l + k), stepDur * 1.5, { type: w.lead || 'square', vol: 0.12 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3400, attack: 0.005 });
     }
     // Concertina shimmer above the pads
-    if (tr.arp && i % tr.arp === 0 && ch)
-        tone(mf(ch[(i / tr.arp) % ch.length] + 24), stepDur * tr.arp * 0.9, { type: w.arpW || 'triangle', vol: 0.04, when: rel, lp: 5200, dest: musicGain, attack: 0.004 });
+    if (full && tr.arp && i % tr.arp === 0 && ch)
+        tone(mf(ch[(i / tr.arp) % ch.length] + 24 + k), stepDur * tr.arp * 0.9, { type: w.arpW || 'triangle', vol: 0.04, when: rel, lp: 5200, dest: musicGain, attack: 0.004 });
     if (musicUrgent && i % 4 === 0) noiseHit(0.035, { vol: 0.1, when: rel + stepDur * 2, hp: 11000, dest: musicGain });
 }
 
@@ -1600,11 +1617,35 @@ function startMusicLoop() {
 
 function setMusic(track) {
     if (musicTrack === track) return;
+    const wasPlaying = !!(AC && musicTimer);
     musicTrack = track;
     musicStep = 0;
     musicBar = 0;
+    musicIntensity = 2; // tuneMusicToGame() thins the wager track while the table is still full
+    if (track === 'lobby' || track === 'results') musicKeyShift = 0;
     if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[track].bpm * 0.5;
     if (track !== 'bidding') musicUrgent = false;
+    // one-beat snare fill so phase changes land on a downbeat instead of a hard cut
+    if (wasPlaying) {
+        const s = 60 / TRACKS[track].bpm / 4;
+        for (let f = 0; f < 4; f++) noiseHit(0.06, { vol: 0.1 + f * 0.035, when: f * s, hp: 2800 + f * 900, dest: musicGain });
+        musicNext = AC.currentTime + 4 * s;
+    }
+}
+
+// Adaptive layers + endgame key, read off the table state each render:
+// early wagers ride the rhythm section and lead; chops + shimmer pile on
+// once the crew has gambled away a third of its dice. Two pirates left
+// lifts the whole score a whole tone — the final duel.
+function tuneMusicToGame() {
+    const d = ui === 'viewer' ? vD : D;
+    if (!d || !d.players || !d.players.length) return;
+    const alive = d.players.filter(p => p.active).length;
+    musicKeyShift = (alive === 2 && (musicTrack === 'bidding' || musicTrack === 'showdown')) ? 2 : 0;
+    if (musicTrack === 'bidding') {
+        const startTotal = d.players.length * DICE_START;
+        musicIntensity = (d.totalDice ?? startTotal) > startTotal * 0.66 ? 1 : 2;
+    }
 }
 
 // Which track fits the current screen — covers phone, host and TV paths
@@ -2270,6 +2311,7 @@ function render() {
 
     // Music follows the game state on every path (host, guest, viewer)
     setMusic(musicForState());
+    tuneMusicToGame();
 
     if (ui === 'viewer') {
         setTimeout(initViewerBg, 50);

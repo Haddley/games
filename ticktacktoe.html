@@ -672,21 +672,34 @@
         function sInvalid() { if (!sfxOn || !AC) return; tone(150, 0.2, { type: 'square', vol: 0.14, slide: 85, lp: 900 }); }
         // Two-in-a-row with the third square open: an "uh-oh" tension sting
         function sTension() { if (!sfxOn || !AC) return; tone(mf(63), 0.09, { type: 'sawtooth', vol: 0.1, when: 0.16, lp: 1800 }); tone(mf(69), 0.16, { type: 'sawtooth', vol: 0.09, when: 0.26, lp: 1800 }); }
-        // Rising three-note zap, timed to the .45s line strike
+        // Win fanfare: quotes the lobby lead's opening skipping-rope phrase
+        // (down a fourth when the opponent wins), then the noise sweep tail
+        // timed to the .45s line strike
         function sWinLine(mine) {
             if (!sfxOn || !AC) return;
-            const base = mine ? 72 : 65;
-            [0, 4, 7].forEach((s, i) => tone(mf(base + s), 0.14, { type: 'square', vol: 0.24, when: i * 0.14, slide: mf(base + s + 3) }));
+            duckMusic(1.2);
+            const off = mine ? 0 : -7;
+            [72, 74, 76, 74, 76, 79, 76, 74].forEach((m, i) =>
+                tone(mf(m + off), 0.1, { type: 'square', vol: 0.22, when: i * 0.06, lp: 4200, slide: i === 7 ? mf(m + off + 3) : 0 }));
             noiseHit(0.3, { vol: 0.15, when: 0.44, hp: 6000 });
         }
         // Draw: a two-note "wah-wah" shrug
-        function sDraw() { if (!sfxOn || !AC) return; tone(mf(64), 0.25, { type: 'triangle', vol: 0.22, slide: mf(62) }); tone(mf(62), 0.4, { type: 'triangle', vol: 0.2, when: 0.28, slide: mf(58) }); }
+        function sDraw() { if (!sfxOn || !AC) return; duckMusic(0.9); tone(mf(64), 0.25, { type: 'triangle', vol: 0.22, slide: mf(62) }); tone(mf(62), 0.4, { type: 'triangle', vol: 0.2, when: 0.28, slide: mf(58) }); }
         // Rematch accepted: quick square jingle
         function sRematch() { if (!sfxOn || !AC) return; [72, 76, 79, 84].forEach((m, i) => tone(mf(m), 0.09, { type: 'square', vol: 0.22, when: i * 0.06 })); }
         // Opponent wants a rematch: friendly two-note ping
         function sNotify() { if (!sfxOn || !AC) return; tone(mf(76), 0.08, { type: 'triangle', vol: 0.22 }); tone(mf(81), 0.14, { type: 'triangle', vol: 0.22, when: 0.09 }); }
         // Opponent left: soft descending blip
         function sLeft() { if (!sfxOn || !AC) return; tone(mf(67), 0.14, { type: 'triangle', vol: 0.18 }); tone(mf(60), 0.22, { type: 'triangle', vol: 0.16, when: 0.13 }); }
+
+        // Duck the music briefly so big stingers read clearly (sidechain feel)
+        function duckMusic(dur = 0.5) {
+            if (!AC || !musicGain || !musicOn) return;
+            const t = AC.currentTime;
+            musicGain.gain.cancelScheduledValues(t);
+            musicGain.gain.setValueAtTime(0.1, t);
+            musicGain.gain.linearRampToValueAtTime(0.33, t + dur);
+        }
 
         // ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
         // C-major playground chiptune. null = rest; numbers are midi notes.
@@ -754,11 +767,17 @@
                 ] },
         };
         let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
+        // Adaptive arrangement: 0 = rhythm section only, 1 = +lead, 2 = full (stabs + shimmer).
+        // Key shift transposes every melodic voice (never the drums); there's no
+        // series-score tally in this game yet, so it rests at 0 — wired for later.
+        let musicIntensity = 2, musicKeyShift = 0;
 
         function playMusicStep(i, t, bar) {
             const tr = TRACKS[musicTrack];
             const stepDur = 60 / tr.bpm / 4;
             const w = tr.waves || {};
+            const k = musicKeyShift;
+            const full = musicIntensity >= 2 || musicUrgent;
             // Swing: push every off-16th slightly late for a playground lilt
             const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
             if (tr.kick[i]) tone(145, 0.22, { type: 'sine', vol: 0.45, when: rel, slide: 44, dest: musicGain });
@@ -768,19 +787,19 @@
             }
             const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
             const b = bassArr[i];
-            if (b != null) tone(mf(b), stepDur * 1.6, { type: w.bass || 'triangle', vol: 0.28, when: rel, dest: musicGain, lp: 1000, attack: 0.005 });
+            if (b != null) tone(mf(b + k), stepDur * 1.6, { type: w.bass || 'triangle', vol: 0.28, when: rel, dest: musicGain, lp: 1000, attack: 0.005 });
             const pad = tr.pads[bar % tr.pads.length];
             const ch = i < 16 ? pad[0] : pad[16];
-            if (tr.stab && tr.stab[i] && ch)
-                ch.forEach(m => tone(mf(m + 12), stepDur * 0.9, { type: w.stab || 'sine', vol: 0.032, when: rel, lp: 2700, dest: musicGain, attack: 0.004 }));
+            if (full && tr.stab && tr.stab[i] && ch)
+                ch.forEach(m => tone(mf(m + 12 + k), stepDur * 0.9, { type: w.stab || 'sine', vol: 0.032, when: rel, lp: 2700, dest: musicGain, attack: 0.004 }));
             let l = tr.leads[bar % tr.leads.length][i];
-            if (l != null) {
+            if (l != null && (musicIntensity >= 1 || musicUrgent)) {
                 if (musicUrgent) l += 12;
-                tone(mf(l), stepDur * 1.4, { type: w.lead || 'square', vol: 0.12 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3600, attack: 0.005 });
+                tone(mf(l + k), stepDur * 1.4, { type: w.lead || 'square', vol: 0.12 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3600, attack: 0.005 });
             }
             // Chord shimmer an octave up from the pads
-            if (tr.arp && i % tr.arp === 0 && ch)
-                tone(mf(ch[(i / tr.arp) % ch.length] + 24), stepDur * tr.arp * 0.9, { type: w.arpW || 'sine', vol: 0.04, when: rel, lp: 5400, dest: musicGain, attack: 0.003 });
+            if (full && tr.arp && i % tr.arp === 0 && ch)
+                tone(mf(ch[(i / tr.arp) % ch.length] + 24 + k), stepDur * tr.arp * 0.9, { type: w.arpW || 'sine', vol: 0.04, when: rel, lp: 5400, dest: musicGain, attack: 0.003 });
             if (musicUrgent && i % 4 === 0) noiseHit(0.035, { vol: 0.1, when: rel + stepDur * 2, hp: 11000, dest: musicGain });
         }
 
@@ -806,11 +825,20 @@
 
         function setMusic(track) {
             if (musicTrack === track) return;
+            const wasPlaying = !!(AC && musicTimer);
             musicTrack = track;
             musicStep = 0;
             musicBar = 0;
+            // adaptive: the duel starts lean and fills out once someone threatens a line
+            musicIntensity = track === 'game' ? 1 : 2;
             if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[track].bpm * 0.5;
             if (track !== 'game') musicUrgent = false;
+            // one-beat snare fill so phase changes land on a downbeat instead of a hard cut
+            if (wasPlaying) {
+                const s = 60 / TRACKS[track].bpm / 4;
+                for (let f = 0; f < 4; f++) noiseHit(0.06, { vol: 0.1 + f * 0.035, when: f * s, hp: 2800 + f * 900, dest: musicGain });
+                musicNext = AC.currentTime + 4 * s;
+            }
         }
 
         function toggleMusic() {
@@ -1225,6 +1253,9 @@
                 } else {
                     this.gameState.currentPlayer = mover === 'X' ? 'O' : 'X';
                     if (hasOpenTwo(this.gameState.board, mover)) sTension();
+                    // a live threat fills the duel groove out (ratchets up, never back down)
+                    if (hasOpenTwo(this.gameState.board, 'X') || hasOpenTwo(this.gameState.board, 'O'))
+                        musicIntensity = 2;
                     this.updateUI();
                 }
             },

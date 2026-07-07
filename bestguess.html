@@ -549,6 +549,7 @@ function sLockTick() { if (!sfxOn || !AC) return; tone(mf(84), 0.05, { type: 'tr
 // The betting board slides out: card-deal sweep
 function sBoard() {
     if (!sfxOn || !AC) return;
+    duckMusic(0.9);
     [62, 66, 69, 74].forEach((m, i) => tone(mf(m), 0.12, { type: 'sawtooth', vol: 0.1, when: i * 0.07, lp: 2400 }));
     noiseHit(0.22, { vol: 0.09, when: 0.05, hp: 2600 });
     tone(mf(76), 0.2, { type: 'triangle', vol: 0.18, when: 0.3 });
@@ -570,6 +571,7 @@ function sClear() {
 // TV reveal: drum-roll crescendo into a brass hit
 function sReveal() {
     if (!sfxOn || !AC) return;
+    duckMusic(1.2);
     for (let i = 0; i < 10; i++) noiseHit(0.04, { vol: 0.045 + i * 0.014, when: i * 0.05, hp: 3500 });
     [48, 60].forEach((m, i) => tone(mf(m), 0.4, { type: 'sawtooth', vol: 0.14, when: 0.52 + i * 0.02, lp: 1600 }));
     noiseHit(0.35, { vol: 0.14, when: 0.52, hp: 6000 });
@@ -584,15 +586,26 @@ function sPayout(delta) {
 // The house thanks you: playful wah-wah trombone
 function sMiss() {
     if (!sfxOn || !AC) return;
+    duckMusic(0.7);
     tone(233, 0.22, { type: 'sawtooth', vol: 0.12, slide: 220, lp: 1200 });
     tone(220, 0.3, { type: 'sawtooth', vol: 0.12, when: 0.24, slide: 175, lp: 1100 });
 }
-// Grand-prize fanfare: C-major bugle, closing trill, cymbal crash
+// Grand-prize fanfare: quotes the lobby strut motif, then closing trill + cymbal crash —
+// the studio band's own tune takes the bow
 function sWin() {
     if (!sfxOn || !AC) return;
-    [0, 4, 7, 12, 16, 12, 19, 24].forEach((s, i) => tone(mf(60 + s), 0.14, { type: 'square', vol: 0.2, when: i * 0.11, lp: 3800 }));
+    duckMusic(1.6);
+    [72, 76, 79, 76, 72, 67, 69, 72].forEach((m, i) => tone(mf(m), 0.14, { type: 'square', vol: 0.2, when: i * 0.11, lp: 3800 }));
     [26, 24, 26, 24, 26, 28].forEach((s, i) => tone(mf(60 + s), 0.08, { type: 'triangle', vol: 0.2, when: 0.95 + i * 0.06 }));
     noiseHit(0.7, { vol: 0.18, when: 1.32, hp: 5000 });
+}
+// Duck the music briefly so big stingers read clearly (sidechain feel)
+function duckMusic(dur = 0.5) {
+    if (!AC || !musicGain || !musicOn) return;
+    const t = AC.currentTime;
+    musicGain.gain.cancelScheduledValues(t);
+    musicGain.gain.setValueAtTime(0.1, t);
+    musicGain.gain.linearRampToValueAtTime(0.33, t + dur);
 }
 
 // ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
@@ -696,11 +709,15 @@ const TRACKS = {
         ] },
 };
 let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
+// Adaptive arrangement (0 = rhythm section, 1 = +lead, 2 = full band) and match-point key lift
+let musicIntensity = 2, musicKeyShift = 0;
 
 function playMusicStep(i, t, bar) {
     const tr = TRACKS[musicTrack];
     const stepDur = 60 / tr.bpm / 4;
     const w = tr.waves || {};
+    const k = musicKeyShift;
+    const full = musicIntensity >= 2 || musicUrgent;
     // Swing: push every off-16th slightly late for a looser groove
     const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
     if (tr.kick[i]) tone(145, 0.22, { type: 'sine', vol: 0.46, when: rel, slide: 44, dest: musicGain });
@@ -710,20 +727,20 @@ function playMusicStep(i, t, bar) {
     }
     const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
     const b = bassArr[i];
-    if (b != null) tone(mf(b), stepDur * 1.6, { type: w.bass || 'triangle', vol: 0.27, when: rel, dest: musicGain, lp: 1000, attack: 0.005 });
+    if (b != null) tone(mf(b + k), stepDur * 1.6, { type: w.bass || 'triangle', vol: 0.27, when: rel, dest: musicGain, lp: 1000, attack: 0.005 });
     const pad = tr.pads[bar % tr.pads.length];
     const ch = i < 16 ? pad[0] : pad[16];
-    // Brass-section stabs: lowpassed saw comping on the off-beats
-    if (tr.stab && tr.stab[i] && ch)
-        ch.forEach(m => tone(mf(m + 12), stepDur * 0.9, { type: w.stab || 'sawtooth', vol: 0.028, when: rel, lp: 2400, dest: musicGain, attack: 0.005 }));
+    // Brass-section stabs: lowpassed saw comping on the off-beats (full band only)
+    if (tr.stab && tr.stab[i] && ch && full)
+        ch.forEach(m => tone(mf(m + 12 + k), stepDur * 0.9, { type: w.stab || 'sawtooth', vol: 0.028, when: rel, lp: 2400, dest: musicGain, attack: 0.005 }));
     let l = tr.leads[bar % tr.leads.length][i];
-    if (l != null) {
+    if (l != null && (musicIntensity >= 1 || musicUrgent)) {
         if (musicUrgent) l += 12;
-        tone(mf(l), stepDur * 1.4, { type: w.lead || 'square', vol: 0.12 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 4200, attack: 0.005 });
+        tone(mf(l + k), stepDur * 1.4, { type: w.lead || 'square', vol: 0.12 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 4200, attack: 0.005 });
     }
-    // Glockenspiel shimmer two octaves above the pads
-    if (tr.arp && i % tr.arp === 0 && ch)
-        tone(mf(ch[(i / tr.arp) % ch.length] + 24), stepDur * tr.arp * 0.9, { type: w.arpW || 'triangle', vol: 0.04, when: rel, lp: 5500, dest: musicGain, attack: 0.003 });
+    // Glockenspiel shimmer two octaves above the pads (full band only)
+    if (tr.arp && i % tr.arp === 0 && ch && full)
+        tone(mf(ch[(i / tr.arp) % ch.length] + 24 + k), stepDur * tr.arp * 0.9, { type: w.arpW || 'triangle', vol: 0.04, when: rel, lp: 5500, dest: musicGain, attack: 0.003 });
     if (musicUrgent && i % 4 === 0) noiseHit(0.04, { vol: 0.11, when: rel + stepDur * 2, hp: 11000, dest: musicGain });
 }
 
@@ -749,11 +766,28 @@ function startMusicLoop() {
 
 function setMusic(track) {
     if (musicTrack === track) return;
+    const wasPlaying = !!(AC && musicTimer);
     musicTrack = track;
     musicStep = 0;
     musicBar = 0;
+    // adaptive: think music starts on the rhythm section (bumpGuessIntensity fills it out)
+    musicIntensity = track === 'guess' ? 0 : 2;
+    if (track === 'lobby' || track === 'over') musicKeyShift = 0;
     if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[track].bpm * 0.5;
     if (track !== 'guess') musicUrgent = false;
+    // one-beat snare fill so phase changes land on a downbeat instead of a hard cut
+    if (wasPlaying) {
+        const s = 60 / TRACKS[track].bpm / 4;
+        for (let f = 0; f < 4; f++) noiseHit(0.06, { vol: 0.1 + f * 0.035, when: f * s, hp: 2800 + f * 900, dest: musicGain });
+        musicNext = AC.currentTime + 4 * s;
+    }
+}
+// Adaptive layers: the lead joins once half the room has locked a guess,
+// and the full band kicks in when only one player is still thinking
+function bumpGuessIntensity(locked, total) {
+    if (!total) return;
+    if (locked / total >= 0.5) musicIntensity = Math.max(musicIntensity, 1);
+    if (total > 1 && locked >= total - 1) musicIntensity = Math.max(musicIntensity, 2);
 }
 
 function toggleMusic() {
@@ -1264,6 +1298,9 @@ function applyMsg(msg) {
             const fresh = !D || D.type !== 'guess' || D.qid !== msg.qid;
             D = msg;
             setMusic('guess');
+            if (fresh) musicIntensity = 0;   // new question: strip back to the rhythm section
+            musicKeyShift = msg.total && msg.num === msg.total ? 2 : 0;   // final question: key up
+            bumpGuessIntensity(msg.lockedCount, msg.playerCount);
             if (fresh) { numEntry = ''; ui = 'guess'; render(); sStart(); }
             else if (ui === 'guess') patchGuess(msg);
             else { ui = 'guess'; render(); }
@@ -1282,6 +1319,7 @@ function applyMsg(msg) {
             D = msg;
             ui = 'payout';
             setMusic('results');
+            musicKeyShift = msg.isLast ? 2 : 0;   // decisive reveal: key up
             render();
             if (msg.my && msg.my.delta > 0) {
                 sPayout(msg.my.delta);
@@ -1390,6 +1428,9 @@ function applyViewerMsg(msg) {
         case 'viewer_guess': {
             const fresh = !prev || prev.type !== 'viewer_guess' || prev.qid !== msg.qid;
             setMusic('guess');
+            if (fresh) musicIntensity = 0;   // new question: strip back to the rhythm section
+            musicKeyShift = msg.total && msg.num === msg.total ? 2 : 0;   // final question: key up
+            bumpGuessIntensity(msg.lockedCount, msg.playerCount);
             if (fresh) { render(); sStart(); }
             else {
                 if (msg.lockedCount > prev.lockedCount) sLockTick();
@@ -1420,6 +1461,7 @@ function applyViewerMsg(msg) {
         }
         case 'viewer_payout':
             setMusic('results');
+            musicKeyShift = msg.isLast ? 2 : 0;   // decisive reveal: key up
             render();
             sReveal();
             if (msg.exact) startConfetti(2600);

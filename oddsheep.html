@@ -569,6 +569,7 @@ function sTickT() { if (!sfxOn || !AC) return; tone(1250, 0.04, { type: 'square'
 // unmasked! dun — dun — DUNNN (A-minor sting)
 function sCaught() {
     if (!sfxOn || !AC) return;
+    duckMusic(1.2);
     tone(mf(57), 0.26, { type: 'sawtooth', vol: 0.2, lp: 1100 });
     tone(mf(56), 0.26, { type: 'sawtooth', vol: 0.2, when: 0.26, lp: 1100 });
     tone(mf(52), 0.6, { type: 'sawtooth', vol: 0.24, when: 0.52, lp: 900 });
@@ -578,6 +579,7 @@ function sCaught() {
 // slipped away: chromatic tiptoe up, a wink, and a cheeky baa
 function sEscape() {
     if (!sfxOn || !AC) return;
+    duckMusic(0.8);
     [64, 65, 66, 67].forEach((m, i) => tone(mf(m), 0.07, { type: 'triangle', vol: 0.15, when: i * 0.08 }));
     tone(mf(76), 0.16, { type: 'square', vol: 0.18, when: 0.36, lp: 3600, attack: 0.002 });
     sBaa(0.12, 0.55);
@@ -585,6 +587,7 @@ function sEscape() {
 // points! rising banjo roll, bigger roll for bigger payouts
 function sScore(pts) {
     if (!sfxOn || !AC) return;
+    duckMusic(0.8);
     const run = pts >= 150 ? [60, 64, 67, 72, 76, 79, 84] : [60, 64, 67, 72, 76];
     run.forEach((m, i) => tone(mf(m), 0.09, { type: 'square', vol: 0.2, when: i * 0.05, lp: 3600, attack: 0.002 }));
     if (pts >= 150) noiseHit(0.25, { vol: 0.12, when: run.length * 0.05, hp: 7000 });
@@ -595,13 +598,23 @@ function sLose() {
     tone(mf(64), 0.18, { type: 'triangle', vol: 0.16, slide: mf(62) });
     tone(mf(57), 0.24, { type: 'triangle', vol: 0.14, when: 0.14, slide: mf(55) });
 }
-// win fanfare: banjo bugle, closing trill, crash — and one last triumphant baa
+// win fanfare: quotes the lobby banjo motif, closing trill, crash — and one last triumphant baa
 function sWin() {
     if (!sfxOn || !AC) return;
-    [0, 4, 7, 12, 7, 12, 16, 19].forEach((s, i) => tone(mf(72 + s), 0.13, { type: 'square', vol: 0.22, when: i * 0.11, lp: 3800, attack: 0.002 }));
+    duckMusic(1.6);
+    [72, 76, 79, 76, 72, 74, 76, 74].forEach((m, i) => tone(mf(m), 0.13, { type: 'square', vol: 0.22, when: i * 0.11, lp: 3800, attack: 0.002 }));
     [24, 23, 24, 23, 24, 28].forEach((s, i) => tone(mf(72 + s), 0.07, { type: 'square', vol: 0.18, when: 0.92 + i * 0.055, lp: 4200, attack: 0.002 }));
     noiseHit(0.6, { vol: 0.16, when: 1.28, hp: 5000 });
     sBaa(0.2, 1.6);
+}
+
+// Duck the music briefly so big stingers read clearly (sidechain feel)
+function duckMusic(dur = 0.5) {
+    if (!AC || !musicGain || !musicOn) return;
+    const t = AC.currentTime;
+    musicGain.gain.cancelScheduledValues(t);
+    musicGain.gain.setValueAtTime(0.1, t);
+    musicGain.gain.linearRampToValueAtTime(0.33, t + dur);
 }
 
 // ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
@@ -687,11 +700,16 @@ const TRACKS = {
         ] },
 };
 let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
+// Adaptive arrangement: 1 = stripped-back (no stab comping, no fifth-string drone), 2 = full band.
+// musicKeyShift lifts every melodic voice for the decisive final round.
+let musicIntensity = 2, musicKeyShift = 0;
 
 function playMusicStep(i, t, bar) {
     const tr = TRACKS[musicTrack];
     const stepDur = 60 / tr.bpm / 4;
     const w = tr.waves || {};
+    const k = musicKeyShift;
+    const full = musicIntensity >= 2 || musicUrgent;
     // Swing: push every off-16th late for that front-porch lope
     const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
     if (tr.kick[i]) tone(130, 0.2, { type: 'sine', vol: 0.42, when: rel, slide: 40, dest: musicGain });
@@ -701,21 +719,21 @@ function playMusicStep(i, t, bar) {
     }
     const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
     const b = bassArr[i];
-    if (b != null) tone(mf(b), stepDur * 1.5, { type: w.bass || 'triangle', vol: 0.3, when: rel, dest: musicGain, lp: 1100, attack: 0.005 });
+    if (b != null) tone(mf(b + k), stepDur * 1.5, { type: w.bass || 'triangle', vol: 0.3, when: rel, dest: musicGain, lp: 1100, attack: 0.005 });
     const pad = tr.pads[bar % tr.pads.length];
     const ch = i < 16 ? pad[0] : pad[16];
-    // The "pah" of the oom-pah: offbeat chord comping
-    if (tr.stab && tr.stab[i] && ch)
-        ch.forEach(m => tone(mf(m + 12), stepDur * 0.8, { type: w.stab || 'square', vol: 0.03, when: rel, lp: 2400, dest: musicGain, attack: 0.002 }));
+    // The "pah" of the oom-pah: offbeat chord comping (full band only)
+    if (tr.stab && tr.stab[i] && ch && full)
+        ch.forEach(m => tone(mf(m + 12 + k), stepDur * 0.8, { type: w.stab || 'square', vol: 0.03, when: rel, lp: 2400, dest: musicGain, attack: 0.002 }));
     let l = tr.leads[bar % tr.leads.length][i];
-    if (l != null) {
+    if (l != null && (musicIntensity >= 1 || musicUrgent)) {
         if (musicUrgent) l += 12;
         // Banjo pluck: bright square, snappy attack, quick decay
-        tone(mf(l), stepDur * 1.1, { type: w.lead || 'square', vol: 0.12 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3600, attack: 0.002 });
+        tone(mf(l + k), stepDur * 1.1, { type: w.lead || 'square', vol: 0.12 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3600, attack: 0.002 });
     }
-    // High-string drone rolls two octaves up — the banjo's fifth string
-    if (tr.arp && i % tr.arp === 0 && ch)
-        tone(mf(ch[(i / tr.arp) % ch.length] + 24), stepDur * tr.arp * 0.8, { type: w.arpW || 'square', vol: 0.03, when: rel, lp: 5000, dest: musicGain, attack: 0.002 });
+    // High-string drone rolls two octaves up — the banjo's fifth string (full band only)
+    if (full && tr.arp && i % tr.arp === 0 && ch)
+        tone(mf(ch[(i / tr.arp) % ch.length] + 24 + k), stepDur * tr.arp * 0.8, { type: w.arpW || 'square', vol: 0.03, when: rel, lp: 5000, dest: musicGain, attack: 0.002 });
     if (musicUrgent && i % 4 === 0) noiseHit(0.035, { vol: 0.1, when: rel + stepDur * 2, hp: 11000, dest: musicGain });
 }
 
@@ -741,11 +759,27 @@ function startMusicLoop() {
 
 function setMusic(track) {
     if (musicTrack === track) return;
+    const wasPlaying = !!(AC && musicTimer);
     musicTrack = track;
     musicStep = 0;
     musicBar = 0;
+    // The investigation starts stripped back; clue/vote progress brings in the full band
+    musicIntensity = track === 'sneak' ? 1 : 2;
+    if (track === 'lobby' || track === 'over') musicKeyShift = 0;
     if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[track].bpm * 0.5;
     if (track !== 'sneak') musicUrgent = false;
+    // one-beat snare fill so phase changes land on a downbeat instead of a hard cut
+    if (wasPlaying) {
+        const s = 60 / TRACKS[track].bpm / 4;
+        for (let f = 0; f < 4; f++) noiseHit(0.06, { vol: 0.1 + f * 0.035, when: f * s, hp: 2800 + f * 900, dest: musicGain });
+        musicNext = AC.currentTime + 4 * s;
+    }
+}
+
+// Half the flock has clued/voted => bring in the full band
+// (timer urgency via musicUrgent forces the full arrangement on its own)
+function bumpMusicIntensity(done, total) {
+    if (total && done / total >= 0.5) musicIntensity = Math.max(musicIntensity, 2);
 }
 
 function toggleMusic() {
@@ -1376,6 +1410,7 @@ function applyMsg(msg) {
             D = msg; stopClientTimers();
             fClue = ''; clueErr = '';
             ui = 'deal'; render(); setMusic('sneak'); sDeal();
+            musicKeyShift = msg.num === msg.total ? 2 : 0;   // decisive final round: key up
             break;
         case 'clues': {
             const wasMyTurn = D && D.type === 'clues' && D.myTurn;
@@ -1396,6 +1431,7 @@ function applyMsg(msg) {
                 startCountdown(msg.seconds, 'clue-timebar', null);
             }
             setMusic('sneak');
+            bumpMusicIntensity(msg.clues.length, (msg.players || []).length);
             if (prevClues >= 0 && msg.clues.length > prevClues) sClue();
             if (msg.myTurn && !wasMyTurn) sTurn();
             break;
@@ -1407,7 +1443,7 @@ function applyMsg(msg) {
         case 'discuss':
             D = msg; ui = 'discuss'; render();
             startCountdown(msg.seconds, 'disc-timebar', 'disc-num');
-            setMusic('sneak'); sRoundEnd();
+            setMusic('sneak'); musicIntensity = 2; sRoundEnd();
             break;
         case 'vote_state': {
             const fresh = ui !== 'vote';
@@ -1415,6 +1451,7 @@ function applyMsg(msg) {
             const prevMine = !fresh && D && D.type === 'vote_state' ? D.myVote : null;
             D = msg; ui = 'vote';
             setMusic('sneak');
+            bumpMusicIntensity(msg.votedCount, msg.playerCount);
             if (fresh) { stopClientTimers(); render(); sVote(); }
             else {
                 const zone = $id('vote-zone');
@@ -1428,12 +1465,13 @@ function applyMsg(msg) {
         }
         case 'guess_state':
             D = msg; stopClientTimers(); ui = 'guess'; render();
-            setMusic('sneak'); sCaught();
+            setMusic('sneak'); musicIntensity = 2; sCaught();
             if (msg.amSheep) { try { navigator.vibrate && navigator.vibrate([80, 40, 80]); } catch (e) {} }
             break;
         case 'reveal': {
             D = msg; stopClientTimers(); ui = 'reveal'; render();
             setMusic('reveal');
+            musicKeyShift = msg.isLast ? 2 : 0;   // last verdict rides the key change home
             const meDelta = (msg.standings.find(p => p.name === myName) || {}).delta || 0;
             if (meDelta > 0) {
                 startConfetti(2200); sScore(meDelta);
@@ -1516,7 +1554,10 @@ function applyViewerMsg(msg) {
             if (prevN >= 0 && (msg.players || []).length > prevN) sJoin();
             break;
         }
-        case 'viewer_deal': stopViewerTimers(); render(); setMusic('sneak'); sDeal(); break;
+        case 'viewer_deal':
+            stopViewerTimers(); render(); setMusic('sneak'); sDeal();
+            musicKeyShift = msg.num === msg.total ? 2 : 0;   // decisive final round: key up
+            break;
         case 'viewer_clues': {
             const fresh = !prev || prev.type !== 'viewer_clues';
             if (fresh) render();
@@ -1529,13 +1570,15 @@ function applyViewerMsg(msg) {
             startViewerCountdown(msg.seconds, 'v-timebar', null);
             setMusic('sneak');
             const nClues = a => (a || []).filter(p => p.clue).length;
+            bumpMusicIntensity(nClues(msg.players), (msg.players || []).length);
             if (!fresh && nClues(msg.players) > nClues(prev.players)) sClue();
             break;
         }
-        case 'viewer_discuss': render(); startViewerCountdown(msg.seconds, 'v-timebar', 'v-num'); setMusic('sneak'); sRoundEnd(); break;
+        case 'viewer_discuss': render(); startViewerCountdown(msg.seconds, 'v-timebar', 'v-num'); setMusic('sneak'); musicIntensity = 2; sRoundEnd(); break;
         case 'viewer_vote': {
             const fresh = !prev || prev.type !== 'viewer_vote';
             setMusic('sneak');
+            bumpMusicIntensity(msg.votedCount, msg.playerCount);
             if (fresh) { stopViewerTimers(); render(); sVote(); }
             else {
                 const wall = $id('v-wall');
@@ -1546,10 +1589,12 @@ function applyViewerMsg(msg) {
             }
             break;
         }
-        case 'viewer_guess': stopViewerTimers(); render(); setMusic('sneak'); sCaught(); break;
+        case 'viewer_guess': stopViewerTimers(); render(); setMusic('sneak'); musicIntensity = 2; sCaught(); break;
         case 'viewer_reveal':
             stopViewerTimers(); render();
             setMusic('reveal');
+            musicKeyShift = msg.isLast ? 2 : 0;   // last verdict rides the key change home
+
             requestAnimationFrame(() => requestAnimationFrame(() => {
                 document.querySelectorAll('.tally-bar').forEach(b => { b.style.width = b.dataset.w + '%'; });
             }));
