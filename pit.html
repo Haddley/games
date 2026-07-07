@@ -317,6 +317,16 @@
         <button id="tog-sfx" title="Sound effects on/off" onclick="toggleSfx()">🔊</button>
     </div>
 <script>
+// TURN relay (Metered) so players on restrictive/remote networks can connect,
+// not just those behind friendly NATs. Applied to every Peer below.
+const ICE_CFG = { config: { iceServers: [
+    { urls: 'stun:stun.relay.metered.ca:80' },
+    { urls: 'turn:global.relay.metered.ca:80', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
+    { urls: 'turn:global.relay.metered.ca:80?transport=tcp', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
+    { urls: 'turn:global.relay.metered.ca:443', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
+    { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' }
+] } };
+
 'use strict';
 
 // ═══════════════════════════════════════════
@@ -919,7 +929,7 @@ function guestCtl(action, extra) {
 function makeRoom(onOpen) {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     roomCode = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    peer = new Peer(PFX + roomCode);
+    peer = new Peer(PFX + roomCode, ICE_CFG);
     peer.on('open', id => { myId = id; isHost = true; onOpen(); });
     peer.on('connection', conn => setupGuestConn(conn));
     peer.on('error', e => {
@@ -957,7 +967,7 @@ function joinGame(code, name) {
     localStorage.setItem('pit-name', myName);
     uiErr = ''; ui = 'connecting'; render();
 
-    peer = new Peer();
+    peer = new Peer(undefined, ICE_CFG);
     peer.on('open', id => {
         myId = id;
         isHost = false;
@@ -979,7 +989,7 @@ function joinAsViewer(code, _attempt) {
     isViewer = true;
     uiErr = ''; ui = 'connecting'; render();
 
-    peer = new Peer();
+    peer = new Peer(undefined, ICE_CFG);
     peer.on('open', id => {
         myId = id;
         hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });

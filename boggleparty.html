@@ -864,6 +864,16 @@
     <div id="app"></div>
     <canvas id="fireworks"></canvas>
 <script>
+// TURN relay (Metered) so players on restrictive/remote networks can connect,
+// not just those behind friendly NATs. Applied to every Peer below.
+const ICE_CFG = { config: { iceServers: [
+    { urls: 'stun:stun.relay.metered.ca:80' },
+    { urls: 'turn:global.relay.metered.ca:80', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
+    { urls: 'turn:global.relay.metered.ca:80?transport=tcp', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
+    { urls: 'turn:global.relay.metered.ca:443', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
+    { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' }
+] } };
+
 // ═══════════════════════════════════════════
 // BOGGLE PARTY — phones are controllers, the
 // TV (viewer) is the scoreboard. PeerJS P2P.
@@ -1634,7 +1644,7 @@ function hostGame(name) {
     const code = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
     roomCode = code;
 
-    peer = new Peer('BGPARTY-' + code);
+    peer = new Peer('BGPARTY-' + code, ICE_CFG);
     peer.on('open', id => {
         myId = id;
         isHost = true;
@@ -1655,7 +1665,7 @@ function joinGame(code, name) {
     ui = 'connecting';
     render();
 
-    peer = new Peer();
+    peer = new Peer(undefined, ICE_CFG);
     peer.on('open', id => {
         myId = id;
         isHost = false;
@@ -1725,7 +1735,7 @@ function joinAsViewer(code, _attempt) {
     ui = 'connecting';
     render();
 
-    peer = new Peer();
+    peer = new Peer(undefined, ICE_CFG);
     peer.on('open', id => {
         myId = id;
         hostConn = peer.connect('BGPARTY-' + code.trim().toUpperCase(), { reliable: true });
@@ -1776,7 +1786,7 @@ function hostOnTV() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     roomCode = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 
-    peer = new Peer('BGPARTY-' + roomCode);
+    peer = new Peer('BGPARTY-' + roomCode, ICE_CFG);
     peer.on('open', id => {
         myId = id;
         isHost = true;
