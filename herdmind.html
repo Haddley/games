@@ -1037,7 +1037,22 @@ function joinGame(code, name, _attempt) {
     localStorage.setItem('herd-avatar', myAvatar);
     uiErr = ''; ui = 'connecting'; render();
 
-    let connected = false;
+    let connected = false, done = false;
+    // Both peer-unavailable and WebRTC negotiation failures are often transient —
+    // funnel every pre-connect failure through one retry-or-give-up path.
+    const fail = () => {
+        if (connected || done) return;   // ignore benign post-connect errors
+        done = true;
+        if (attempt < 3) {
+            try { peer.destroy(); } catch (_) {}
+            peer = null;
+            setTimeout(() => joinGame(code, name, attempt + 1), 700);
+            return;
+        }
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
+        ui = 'home'; render();
+    };
+
     peer = new Peer();
     peer.on('open', id => {
         myId = id;
@@ -1045,20 +1060,10 @@ function joinGame(code, name, _attempt) {
         hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
         hostConn.on('open', () => { connected = true; send(hostConn, { type: 'join', name: myName, avatar: myAvatar }); });
         hostConn.on('data', msg => applyMsg(msg));
-        hostConn.on('close', () => { uiErr = 'Disconnected from the game.'; ui = 'home'; D = null; render(); });
-        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; ui = 'home'; render(); });
+        hostConn.on('close', () => { if (connected) { uiErr = 'Disconnected from the game.'; ui = 'home'; D = null; render(); } });
+        hostConn.on('error', fail);
     });
-    peer.on('error', () => {
-        if (connected) return;   // benign post-connect error — don't eject a joined player
-        if (attempt < 2) {
-            try { peer.destroy(); } catch (_) {}
-            peer = null;
-            setTimeout(() => joinGame(code, name, 2), 600);
-            return;
-        }
-        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
-        ui = 'home'; render();
-    });
+    peer.on('error', fail);
 }
 
 function joinAsViewer(code, _attempt) {
