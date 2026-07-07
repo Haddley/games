@@ -197,7 +197,8 @@
         .tv-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20vmin, 1fr)); gap: 1.6vmin; }
         .tv-pcard {
             background: rgba(28,46,28,.72); border: 1px solid rgba(74,222,128,.2); border-radius: 1.8vmin;
-            padding: 1.8vmin; text-align: center; font-weight: 900; font-size: 2vmin; animation: popIn .35s ease both;
+            padding: 1.8vmin; text-align: center; font-weight: 900; font-size: 2vmin;
+            animation: popIn .35s ease both, sway 4.5s calc(1s + var(--i, 0) * .7s) ease-in-out infinite alternate;
         }
         .tv-pcard .pav-big { font-size: 4.4vmin; }
         .tv-waiting { color: var(--muted); font-weight: 800; font-size: 2vmin; }
@@ -273,11 +274,76 @@
         #app.fresh .card.verdict.cow { animation: cardIn .35s cubic-bezier(.2,.8,.3,1) both, cowWobble .8s .38s ease-in-out both; }
         @keyframes podRise { from { transform: translateY(35%); opacity: 0; } to { transform: none; opacity: 1; } }
 
+        /* meadow strip — sheep graze back and forth along the bottom of the TV */
+        #meadow { position: fixed; left: 0; right: 0; bottom: 0; height: 7vmin; z-index: 5; pointer-events: none; display: none; overflow: hidden; }
+        body.viewer-mode #meadow { display: block; }
+        #meadow .grazer {
+            position: absolute; bottom: .5vmin; left: 0; font-size: var(--sz, 3vmin); opacity: .5;
+            animation: graze var(--d, 60s) linear var(--dl, 0s) infinite;
+        }
+        #meadow .grazer .hop { display: inline-block; animation: grazeBob 1.15s ease-in-out infinite alternate; }
+        @keyframes graze {
+            0%   { transform: translateX(-8vmin) scaleX(1); }
+            48%  { transform: translateX(96vw) scaleX(1); }
+            50%  { transform: translateX(96vw) scaleX(-1); }
+            98%  { transform: translateX(-8vmin) scaleX(-1); }
+            100% { transform: translateX(-8vmin) scaleX(1); }
+        }
+        @keyframes grazeBob { from { transform: translateY(0) rotate(-2deg); } to { transform: translateY(-.45vmin) rotate(2deg); } }
+
+        /* herd avatars stampede into the row; winning row gets a green shine sweep */
+        .herd-row { position: relative; overflow: hidden; }
+        .herd-row .h-members span { display: inline-block; animation: runIn .4s cubic-bezier(.2,.8,.3,1) both; animation-delay: var(--ad, 0s); }
+        @keyframes runIn { from { opacity: 0; transform: translateX(4vmin); } to { opacity: 1; transform: none; } }
+        .herd-row.win::after {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background: linear-gradient(115deg, transparent 30%, rgba(74,222,128,.3) 50%, transparent 70%);
+            transform: translateX(-110%); animation: herdShine 1.2s var(--sh, .8s) ease forwards;
+        }
+        @keyframes herdShine { to { transform: translateX(110%); } }
+
+        /* TV pen counter squash-pop on every lock-in */
+        .tv-pen b { display: inline-block; }
+        .tv-pen.bump b { animation: penBump .45s cubic-bezier(.2,.8,.3,1); }
+        @keyframes penBump { 0% { transform: scale(1); } 40% { transform: scale(1.5); color: #16a34a; } 100% { transform: scale(1); } }
+
+        /* the cow stomps into the banner */
+        .cow-banner { animation: popIn .5s ease both, cowWobble .9s .55s ease-in-out both; }
+        .cow-stomp { display: inline-block; font-size: 5vmin; animation: cowStomp 1.5s cubic-bezier(.2,.8,.3,1) .25s both; }
+        @keyframes cowStomp {
+            0%  { transform: translateX(-9vmin) rotate(-10deg); opacity: 0; }
+            35% { opacity: 1; }
+            60% { transform: translateX(1.6vmin) rotate(7deg); }
+            100% { transform: translateX(0) rotate(0); opacity: 1; }
+        }
+
+        /* phone verdict edge flash (green = herd, pink = cow) */
+        .edge-flash { position: fixed; inset: 0; pointer-events: none; z-index: 940; animation: edgeFade 1.2s ease forwards; }
+        .edge-flash.good { box-shadow: inset 0 0 70px 16px rgba(74,222,128,.45); }
+        .edge-flash.cow { box-shadow: inset 0 0 70px 16px rgba(244,114,182,.5); }
+        @keyframes edgeFade { from { opacity: 1; } to { opacity: 0; } }
+
+        /* falling farm emoji (podium) */
+        .fall-emoji { position: fixed; top: -8vmin; z-index: 945; pointer-events: none; font-size: var(--sz, 4vmin); animation: fallDown var(--t, 3.2s) linear forwards; }
+        @keyframes fallDown { to { transform: translateY(120vh) rotate(var(--rot, 60deg)); } }
+
+        /* rail score pops when it just went up */
+        .rail-row .rsc.gained { display: inline-block; animation: scorePop .6s .3s cubic-bezier(.2,.8,.3,1) both; }
+        @keyframes scorePop { 0% { transform: scale(1); } 45% { transform: scale(1.55); color: #86efac; } 100% { transform: scale(1); } }
+
+        /* lobby player cards idle-sway once they've popped in */
+        @keyframes sway { from { transform: rotate(-1deg) translateY(0); } to { transform: rotate(1.1deg) translateY(-.4vmin); } }
+
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
     </style>
 </head>
 <body>
     <div id="app"></div>
+    <div id="meadow" aria-hidden="true">
+        <span class="grazer" style="--d:58s;--dl:-12s;--sz:3vmin"><span class="hop">🐑</span></span>
+        <span class="grazer" style="--d:76s;--dl:-40s;--sz:2.4vmin"><span class="hop">🐑</span></span>
+        <span class="grazer" style="--d:66s;--dl:-25s;--sz:2.8vmin"><span class="hop">🐐</span></span>
+    </div>
     <canvas id="confetti-cv"></canvas>
     <div id="sound-togs">
         <button id="tog-music" title="Music on/off" onclick="toggleMusic()">🎵</button>
@@ -559,6 +625,7 @@ function sMerge() {
 // double per note; grows with how many matched
 function sHerd(n) {
     if (!sfxOn || !AC) return;
+    duckMusic(0.8);
     const PENT = [0, 2, 4, 7, 9, 12, 14, 16, 19];
     const count = Math.min(3 + (n || 2), PENT.length);
     for (let i = 0; i < count; i++) {
@@ -571,6 +638,7 @@ function sHerd(n) {
 // The pink cow: a proper two-part sawtooth moo, then a lonely boop
 function sMoo() {
     if (!sfxOn || !AC) return;
+    duckMusic(1.4);
     tone(165, 0.18, { type: 'sawtooth', vol: 0.16, slide: 215, lp: 900 });
     tone(215, 0.55, { type: 'sawtooth', vol: 0.2, when: 0.17, slide: 115, lp: 800 });
     tone(mf(76), 0.12, { type: 'sine', vol: 0.14, when: 0.9 });
@@ -591,9 +659,31 @@ function sReveal() {
 // Win fanfare: G-major bugle, closing trill + crash
 function sWin() {
     if (!sfxOn || !AC) return;
+    duckMusic(1.6);
     [67, 71, 74, 79, 74, 79, 83].forEach((m, i) => tone(mf(m), 0.15, { type: 'triangle', vol: 0.26, when: i * 0.12 }));
     [83, 81, 83, 81, 83, 86].forEach((m, i) => tone(mf(m), 0.08, { type: 'triangle', vol: 0.2, when: 1.0 + i * 0.06 }));
     noiseHit(0.7, { vol: 0.16, when: 1.38, hp: 5000 });
+}
+// Comedy baa for a big winning herd: pulsed saw bleats, then the tail-off
+function sBaa() {
+    if (!sfxOn || !AC) return;
+    [0, 0.09, 0.18].forEach((w, i) => tone(660 - i * 40, 0.07, { type: 'sawtooth', vol: 0.09, when: w, lp: 1600 }));
+    tone(520, 0.32, { type: 'sawtooth', vol: 0.11, when: 0.27, slide: 430, lp: 1400 });
+}
+// Soft ascending pops matching the herd rows landing on the TV
+function sRowPops(n) {
+    if (!sfxOn || !AC) return;
+    const PENT = [0, 2, 4, 7, 9];
+    for (let i = 0; i < Math.min(n, 8); i++)
+        tone(mf(67 + PENT[i % 5] + Math.floor(i / 5) * 12), 0.07, { type: 'triangle', vol: 0.12, when: i * 0.14 });
+}
+// Duck the music briefly so big stingers read clearly (sidechain feel)
+function duckMusic(dur = 0.5) {
+    if (!AC || !musicGain || !musicOn) return;
+    const t = AC.currentTime;
+    musicGain.gain.cancelScheduledValues(t);
+    musicGain.gain.setValueAtTime(0.1, t);
+    musicGain.gain.linearRampToValueAtTime(0.33, t + dur);
 }
 
 // ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
@@ -800,6 +890,31 @@ function popText(x, y, text, cls = 'good') {
     el.style.top = y + 'px';
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 1150);
+}
+// Full-screen edge glow — green for the herd, pink for the cow
+function flashEdge(cls) {
+    if (REDUCED) return;
+    const d = document.createElement('div');
+    d.className = 'edge-flash ' + cls;
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 1300);
+}
+// Farm emoji rain (podium garnish on top of the confetti)
+function emojiRain(chars, n) {
+    if (REDUCED) return;
+    for (let i = 0; i < n; i++) {
+        setTimeout(() => {
+            const el = document.createElement('div');
+            el.className = 'fall-emoji';
+            el.textContent = chars[Math.floor(Math.random() * chars.length)];
+            el.style.left = (Math.random() * 94) + '%';
+            el.style.setProperty('--t', (2.6 + Math.random() * 1.9) + 's');
+            el.style.setProperty('--sz', (2.6 + Math.random() * 2.4) + 'vmin');
+            el.style.setProperty('--rot', ((Math.random() - 0.5) * 260) + 'deg');
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 5000);
+        }, i * 160);
+    }
 }
 
 // ═══════════════════════════════════════════
@@ -1281,11 +1396,13 @@ function applyMsg(msg) {
             const my = msg.my || {};
             if (my.gotCow) {
                 sMoo();
+                flashEdge('cow');
                 popText(innerWidth / 2, innerHeight * 0.28, '🐄 MOO!', 'cow');
                 burst(innerWidth / 2, innerHeight * 0.28 + 20, ['#f472b6', '#f9a8d4', '#fde047'], 16);
                 try { navigator.vibrate && navigator.vibrate([80, 60, 200]); } catch (e) {}
             } else if (my.gain > 0) {
                 sHerd(winHerdSize(msg));
+                flashEdge('good');
                 popText(innerWidth / 2, innerHeight * 0.28, '+1', 'good');
                 burst(innerWidth / 2, innerHeight * 0.28 + 20, ['#4ade80', '#86efac', '#fde047', '#f8f4e3'], 14);
             } else if (my.answer != null) sAlone();
@@ -1296,7 +1413,7 @@ function applyMsg(msg) {
             ui = 'podium';
             setMusic('over');
             render();
-            sWin(); startConfetti(3600);
+            sWin(); startConfetti(3600); emojiRain(['🐑', '🐑', '🐐', '🐄'], 7);
             break;
     }
 }
@@ -1334,7 +1451,10 @@ function applyViewerMsg(msg) {
         if (pen) pen.innerHTML = `<b>${msg.lockedCount}</b> of ${msg.playerCount} in the pen 🐑`;
         const rail = $id('v-rail');
         if (rail) rail.innerHTML = railRowsHTML(msg.players, true);
-        if (msg.lockedCount > prev.lockedCount) sPen();
+        if (msg.lockedCount > prev.lockedCount) {
+            sPen();
+            if (pen) { pen.classList.remove('bump'); void pen.offsetWidth; pen.classList.add('bump'); }
+        }
         return;
     }
     switch (msg.type) {
@@ -1356,14 +1476,19 @@ function applyViewerMsg(msg) {
     render();
     if (msg.type === 'viewer_reveal' && (!prev || prev.type !== 'viewer_reveal')) {
         sReveal();   // drum-roll, then the verdict sound lands after it
+        sRowPops((msg.groups || []).length);   // pops in time with the rows landing
         setTimeout(() => {
             if (msg.cowTaker) {
                 sMoo();
                 burst(innerWidth / 2, innerHeight * 0.3, ['#f472b6', '#f9a8d4', '#fde047'], 22);
-            } else if (msg.winningKeys?.length) sHerd(winHerdSize(msg));
+            } else if (msg.winningKeys?.length) {
+                const n = winHerdSize(msg);
+                sHerd(n);
+                if (n >= 4) setTimeout(sBaa, 550);   // big herd → the flock answers back
+            }
         }, 620);
     }
-    if (msg.type === 'viewer_podium') { sWin(); startConfetti(5200); }
+    if (msg.type === 'viewer_podium') { sWin(); startConfetti(5200); emojiRain(['🐑', '🐑', '🐐', '🐄'], 14); }
 }
 
 // ═══════════════════════════════════════════
@@ -1388,7 +1513,7 @@ function railRowsHTML(players, showLocked) {
             <span class="rav">${esc(p.avatar)}</span>
             <span class="rname">${esc(p.name)}</span>
             ${p.hasCow ? '<span class="rcow">🐄</span>' : ''}
-            <span class="rsc">${p.score}</span>
+            <span class="rsc${!showLocked && p.delta ? ' gained' : ''}">${p.score}</span>
             ${!showLocked && p.delta ? `<span class="rdelta">+${p.delta}</span>` : ''}
         </div>`).join('');
 }
@@ -1709,8 +1834,8 @@ function renderViewer() {
 function renderViewerLobby() {
     const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
     const players = vD.players || [];
-    const cards = players.map(p =>
-        `<div class="tv-pcard"><div class="pav-big">${esc(p.avatar)}</div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
+    const cards = players.map((p, i) =>
+        `<div class="tv-pcard" style="--i:${i}"><div class="pav-big">${esc(p.avatar)}</div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
     const s = vD.settings || {};
     return tvShell(`
     <div class="tv-lobby">
@@ -1771,10 +1896,12 @@ function renderViewerReveal() {
     const rows = (vD.groups || []).map((g, i) => {
         const win = (vD.winningKeys || []).includes(g.key);
         const cowrow = g.count === 1 && vD.cowTaker && g.names[0] === vD.cowTaker;
-        return `<div class="herd-row${win ? ' win' : ''}${cowrow ? ' cowrow' : ''}" style="animation-delay:${i * 0.14}s">
+        const avs = g.avatars.map((a, j) =>
+            `<span style="--ad:${(i * 0.14 + 0.22 + j * 0.07).toFixed(2)}s">${esc(a)}</span>`).join(' ');
+        return `<div class="herd-row${win ? ' win' : ''}${cowrow ? ' cowrow' : ''}" style="animation-delay:${i * 0.14}s;--sh:${(i * 0.14 + 0.65).toFixed(2)}s">
             <div class="h-count">${g.count}</div>
             <div class="h-label">${esc(g.label)}${win ? ' 🏆' : ''}${cowrow ? ' 🐄' : ''}</div>
-            <div class="h-members">${g.avatars.map(esc).join(' ')}</div>
+            <div class="h-members">${avs}</div>
         </div>`;
     }).join('');
     const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Shepherd')}: tap ${vD.pendingWinner ? '“See the podium”' : '“Next prompt”'} on your phone` : `Host: tap ${vD.pendingWinner ? '“See the podium”' : '“Next prompt”'} on your phone`;
@@ -1783,7 +1910,7 @@ function renderViewerReveal() {
         <div class="tv-stage">
             <div class="tv-paper">
                 <div class="prompt-kicker">“${esc(vD.prompt)}”</div>
-                ${vD.cowTaker ? `<div class="cow-banner">🐄 MOOOO! ${esc(vD.cowTaker)} is all alone — take the cow!</div>` : ''}
+                ${vD.cowTaker ? `<div class="cow-banner"><span class="cow-stomp">🐄</span> MOOOO! ${esc(vD.cowTaker)} is all alone — take the cow!</div>` : ''}
                 <div class="herd-rows">${rows}</div>
             </div>
             <div style="text-align:center;color:var(--muted);font-weight:800;font-size:1.8vmin;margin-top:1.4vmin">${hint}</div>

@@ -202,8 +202,11 @@
         .beat-paper .btext { font-family: 'Patrick Hand', cursive; font-size: 4vmin; line-height: 1.3; }
         .beat-paper canvas { background: var(--paper); border-radius: 1.2vmin; box-shadow: inset 0 0 0 1px rgba(107,118,134,.2); }
         .lol-layer { position: fixed; inset: 0; pointer-events: none; z-index: 55; overflow: hidden; }
-        .lol-fly { position: absolute; bottom: -6vmin; font-size: 5vmin; animation: lolUp 1.6s ease-out forwards; }
-        @keyframes lolUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-58vmin); opacity: 0; } }
+        .lol-fly { position: absolute; bottom: -8vmin; font-size: var(--sz, 5vmin); animation: lolUp var(--t, 1.8s) ease-out forwards; }
+        @keyframes lolUp {
+            from { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+            to   { transform: translate(var(--dx, 0px), -64vmin) rotate(var(--rot, 0deg)); opacity: 0; }
+        }
 
         /* TV vote / podium */
         .tv-voteopts { display: flex; flex-direction: column; gap: 1.4vmin; max-width: 70%; margin: 0 auto; }
@@ -266,8 +269,61 @@
         #app.fresh .card { animation: cardIn .35s cubic-bezier(.2,.8,.3,1) both; }
         #app.fresh .player-row, #app.fresh .vote-opt { animation: cardIn .3s cubic-bezier(.2,.8,.3,1) both; animation-delay: calc(var(--i, 0) * 40ms); }
         #app.fresh .tv-pcard, #app.fresh .wcard, #app.fresh .tv-voteopt { animation: tvIn .35s cubic-bezier(.2,.8,.3,1) both; animation-delay: calc(var(--i, 0) * 45ms); }
-        .beat-paper { animation: beatIn .4s cubic-bezier(.2,.8,.3,1) both; }
+        .beat-paper { animation: beatIn .4s cubic-bezier(.2,.8,.3,1) both, sketchWobble 3.4s .5s ease-in-out infinite; }
         @keyframes beatIn { from { opacity: 0; transform: translateY(3vmin) rotate(-1.2deg) scale(.96); } to { opacity: 1; transform: none; } }
+        /* hand-drawn jiggle — the paper never sits perfectly still */
+        @keyframes sketchWobble { 0%, 100% { transform: rotate(-.3deg); } 50% { transform: rotate(.35deg); } }
+        /* newest history card slides off the stage into the rail */
+        .tv-history .hcard:last-child { animation: histIn .45s cubic-bezier(.2,.8,.3,1) both; }
+        @keyframes histIn { from { opacity: 0; transform: translateX(6vmin) rotate(3deg) scale(.9); } to { opacity: 1; transform: none; } }
+
+        /* 🥁 vote-count suspense curtain */
+        .votes-curtain {
+            position: fixed; inset: 0; z-index: 65; display: flex; flex-direction: column; gap: 2.4vmin;
+            align-items: center; justify-content: center; background: rgba(20,25,32,.82);
+            backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+            font-family: 'Patrick Hand', cursive; animation: curtainIn .25s ease both;
+        }
+        .votes-curtain .drum { font-size: 9vmin; animation: drumShake .14s linear infinite; }
+        .votes-curtain .ct { font-size: 3.6vmin; color: var(--pink); letter-spacing: .3vmin; }
+        @keyframes drumShake { 0%, 100% { transform: rotate(-7deg) scale(1); } 50% { transform: rotate(7deg) scale(1.06); } }
+        @keyframes curtainIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* winning vote rows get a golden shine sweep */
+        .tv-voteopt.win { border-color: rgba(251,191,36,.65); position: relative; overflow: hidden; }
+        .tv-voteopt.win::after {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background: linear-gradient(115deg, transparent 30%, rgba(251,191,36,.3) 50%, transparent 70%);
+            transform: translateX(-110%); animation: shineSweep 1.3s .45s ease forwards;
+        }
+        @keyframes shineSweep { to { transform: translateX(110%); } }
+
+        /* last-seconds red vignette pulse */
+        body.time-low::after {
+            content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 940;
+            box-shadow: inset 0 0 64px 14px rgba(239,68,68,.3);
+            animation: vignettePulse .9s ease-in-out infinite;
+        }
+        @keyframes vignettePulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+
+        /* podium crown drop */
+        .pod { position: relative; }
+        .pod .crown { position: absolute; top: -5.4vmin; left: 50%; font-size: 4.6vmin; animation: crownDrop .7s 1.05s cubic-bezier(.3,1.6,.4,1) both; }
+        @keyframes crownDrop { from { transform: translate(-50%, -7vmin) rotate(-26deg); opacity: 0; } to { transform: translate(-50%, 0) rotate(-12deg); opacity: 1; } }
+
+        /* faint drifting doodles behind the phone screens */
+        #doodle-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+        #doodle-bg span {
+            position: absolute; bottom: -10vh; left: var(--x); font-size: var(--s, 2rem); opacity: 0;
+            animation: doodleFloat var(--d, 18s) linear var(--dl, 0s) infinite;
+        }
+        @keyframes doodleFloat {
+            0%   { transform: translateY(0) rotate(-10deg); opacity: 0; }
+            10%  { opacity: .07; }
+            90%  { opacity: .07; }
+            100% { transform: translateY(-120vh) rotate(16deg); opacity: 0; }
+        }
+        body.viewer-mode #doodle-bg { display: none; }
         @keyframes shakeX {
             10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); }
             30%, 50%, 70% { transform: translateX(-6px); } 40%, 60% { transform: translateX(6px); }
@@ -288,6 +344,13 @@
 <body>
     <div id="app"></div>
     <div class="lol-layer" id="lol-layer"></div>
+    <div id="doodle-bg" aria-hidden="true">
+        <span style="--x:8%;--d:19s;--dl:0s;--s:1.7rem">✏️</span>
+        <span style="--x:28%;--d:24s;--dl:-9s;--s:2.2rem">📝</span>
+        <span style="--x:52%;--d:17s;--dl:-4s;--s:1.5rem">🖍️</span>
+        <span style="--x:72%;--d:26s;--dl:-15s;--s:2rem">✂️</span>
+        <span style="--x:90%;--d:21s;--dl:-11s;--s:1.6rem">📐</span>
+    </div>
     <canvas id="confetti-cv"></canvas>
     <div id="sound-togs">
         <button id="tog-music" title="Music on/off" onclick="toggleMusic()">🎵</button>
@@ -501,6 +564,7 @@ function sVote() {
 // Giggly ta-da — a beat of the chain is unveiled
 function sTada() {
     if (!sfxOn || !AC) return;
+    duckMusic(0.6);
     [0, 4, 7, 12].forEach((s, i) => tone(mf(72 + s), 0.11, { type: 'triangle', vol: 0.2, when: i * 0.055 }));
     noiseHit(0.14, { vol: 0.08, when: 0.22, hp: 7000 });
 }
@@ -513,6 +577,7 @@ function sTickT() { if (!sfxOn || !AC) return; tone(1250, 0.04, { type: 'square'
 // Laughing trombone: wah wah wah waaah — nobody voted
 function sTrombone() {
     if (!sfxOn || !AC) return;
+    duckMusic(1.8);
     tone(mf(64), 0.26, { type: 'sawtooth', vol: 0.16, lp: 1100, slide: mf(62) });
     tone(mf(62), 0.26, { type: 'sawtooth', vol: 0.16, lp: 1100, slide: mf(60), when: 0.3 });
     tone(mf(60), 0.26, { type: 'sawtooth', vol: 0.16, lp: 1100, slide: mf(58), when: 0.6 });
@@ -521,9 +586,37 @@ function sTrombone() {
 // Win fanfare: C-major bugle with a closing trill + crash
 function sWin() {
     if (!sfxOn || !AC) return;
+    duckMusic(1.6);
     [0, 4, 7, 12, 16, 12, 19, 24].forEach((s, i) => tone(mf(60 + s), 0.14, { type: 'square', vol: 0.18, when: i * 0.11, lp: 3400 }));
     [26, 24, 26, 24, 26, 28].forEach((s, i) => tone(mf(60 + s), 0.08, { type: 'triangle', vol: 0.2, when: 0.95 + i * 0.06 }));
     noiseHit(0.7, { vol: 0.18, when: 1.35, hp: 5000 });
+}
+// Drum-roll while the votes are counted (paired with the 🥁 curtain)
+function sDrumroll() {
+    if (!sfxOn || !AC) return;
+    duckMusic(1.2);
+    for (let i = 0; i < 14; i++) {
+        noiseHit(0.045, { vol: 0.05 + i * 0.008, when: i * 0.075, hp: 3200 });
+        if (i % 2 === 0) tone(150, 0.06, { type: 'sine', vol: 0.12, when: i * 0.075, slide: 120 });
+    }
+}
+// Feather-light scratch — fired repeatedly while the TV replays a drawing
+function sReplayScratch() {
+    if (!sfxOn || !AC) return;
+    noiseHit(0.05, { vol: 0.035, hp: 2800 + Math.random() * 1800 });
+}
+// Sparkle when the replayed drawing finishes
+function sSparkle() {
+    if (!sfxOn || !AC) return;
+    [88, 91, 95].forEach((m, i) => tone(mf(m), 0.09, { type: 'triangle', vol: 0.14, when: i * 0.055 }));
+}
+// Duck the music briefly so big stingers read clearly (sidechain feel)
+function duckMusic(dur = 0.5) {
+    if (!AC || !musicGain || !musicOn) return;
+    const t = AC.currentTime;
+    musicGain.gain.cancelScheduledValues(t);
+    musicGain.gain.setValueAtTime(0.1, t);
+    musicGain.gain.linearRampToValueAtTime(0.33, t + dur);
 }
 
 // ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
@@ -1324,7 +1417,7 @@ function hostSet(patch) {
 // ═══════════════════════════════════════════
 // CLIENT (phone) MESSAGE HANDLING
 // ═══════════════════════════════════════════
-function stopClientTimers() { clearInterval(_clientTick); _clientTick = null; }
+function stopClientTimers() { clearInterval(_clientTick); _clientTick = null; document.body.classList.remove('time-low'); }
 
 function applyMsg(msg) {
     switch (msg.type) {
@@ -1412,6 +1505,7 @@ function patchWorkTimer() {
     const sec = Math.ceil(left / 1000);
     if (bar) { bar.style.width = (left / total * 100) + '%'; bar.classList.toggle('low', low); }
     if (num) { num.textContent = sec + 's'; num.classList.toggle('low', low); }
+    document.body.classList.toggle('time-low', low);
     musicUrgent = !submitted && left <= 8000 && left > 0;
     if (low && sec !== _lastTickSec) { _lastTickSec = sec; sTickT(); }
     if (left <= 0) {
@@ -1449,7 +1543,7 @@ function sendLol() {
     const now = Date.now();
     if (now - _lastLol < 2000) return;
     _lastLol = now;
-    sLol();
+    spawnLol();   // fly one on this phone too — sLol plays inside
     if (isHost && !isTvHost) {
         const me = H.players.find(p => p.id === myId);
         if (me) hostLol(me);
@@ -1525,23 +1619,34 @@ function syncToolbar() {
 // VIEWER (TV) MESSAGE HANDLING
 // ═══════════════════════════════════════════
 let _vTick = null, _vEndsAt = 0, _vTotal = 0, _beatAnim = 0, _typeTimer = null;
-function stopViewerTimers() { clearInterval(_vTick); _vTick = null; clearInterval(_typeTimer); _typeTimer = null; cancelAnimationFrame(_beatAnim); }
+function stopViewerTimers() { clearInterval(_vTick); _vTick = null; clearInterval(_typeTimer); _typeTimer = null; cancelAnimationFrame(_beatAnim); document.body.classList.remove('time-low'); }
 
-function spawnLol() {
+function spawnLol(opts) {
+    if (!opts || !opts.silent) sLol();
     if (REDUCED) return;
     const layer = $id('lol-layer');
     if (!layer) return;
-    const el = document.createElement('div');
-    el.className = 'lol-fly';
-    el.textContent = ['😂', '🤣', '😆'][Math.floor(Math.random() * 3)];
-    el.style.left = (8 + Math.random() * 84) + '%';
-    layer.appendChild(el);
-    setTimeout(() => el.remove(), 1700);
-    sLol();
+    const n = (opts && opts.n) || 1;
+    for (let k = 0; k < n; k++) {
+        setTimeout(() => {
+            const el = document.createElement('div');
+            el.className = 'lol-fly';
+            el.textContent = ['😂', '🤣', '😆', '💀', '😹', '🙃'][Math.floor(Math.random() * 6)];
+            el.style.left = (8 + Math.random() * 84) + '%';
+            el.style.setProperty('--sz', (3.5 + Math.random() * 3.5) + 'vmin');
+            el.style.setProperty('--t', (1.4 + Math.random() * 0.9) + 's');
+            el.style.setProperty('--dx', ((Math.random() - 0.5) * 24) + 'vmin');
+            el.style.setProperty('--rot', ((Math.random() - 0.5) * 90) + 'deg');
+            layer.appendChild(el);
+            setTimeout(() => el.remove(), 2400);
+        }, k * 110);
+    }
 }
 
 function applyViewerMsg(msg) {
-    if (msg.type === 'viewer_lol') { spawnLol(); return; }
+    if (msg.type === 'viewer_lol') { spawnLol({ n: 1 + Math.floor(Math.random() * 2) }); return; }
+    const stale = document.querySelector('.votes-curtain');   // a newer state supersedes the drumroll
+    if (stale) stale.remove();
     document.body.classList.add('viewer-mode');
     ui = 'viewer';
     const prev = vD;
@@ -1590,13 +1695,23 @@ function applyViewerMsg(msg) {
         case 'viewer_voted': {
             stopViewerTimers();
             setMusic('reveal');
-            render();
-            const wins = (msg.result && msg.result.winners) || [];
-            if (!wins.length) sTrombone();
-            else {
-                sTada();
-                burst(innerWidth / 2, innerHeight * 0.3, ['#f472b6', '#38bdf8', '#4ade80', '#fbbf24'], 24);
-            }
+            const revealResults = () => {
+                render();
+                const wins = (msg.result && msg.result.winners) || [];
+                if (!wins.length) sTrombone();
+                else {
+                    sTada();
+                    burst(innerWidth / 2, innerHeight * 0.3, ['#f472b6', '#38bdf8', '#4ade80', '#fbbf24'], 24);
+                }
+            };
+            if (REDUCED) { revealResults(); break; }
+            // 🥁 suspense curtain before the results land
+            const curtain = document.createElement('div');
+            curtain.className = 'votes-curtain';
+            curtain.innerHTML = '<div class="drum">🥁</div><div class="ct">Counting the votes…</div>';
+            document.body.appendChild(curtain);
+            sDrumroll();
+            setTimeout(() => { curtain.remove(); revealResults(); }, 1150);
             break;
         }
         case 'viewer_podium':
@@ -1614,9 +1729,10 @@ function patchViewerTimer() {
     const sec = Math.ceil(left / 1000);
     if (bar) { bar.style.width = (left / _vTotal * 100) + '%'; bar.classList.toggle('low', low); }
     if (num) { num.textContent = sec + 's'; num.classList.toggle('low', low); }
+    document.body.classList.toggle('time-low', low);
     musicUrgent = left <= 8000 && left > 0;
     if (low && sec !== _vLastTickSec) { _vLastTickSec = sec; sTickT(); }
-    if (left <= 0) clearInterval(_vTick);
+    if (left <= 0) { clearInterval(_vTick); document.body.classList.remove('time-low'); }
 }
 
 // newest beat animation: typewriter for text, stroke replay for drawings
@@ -1630,10 +1746,18 @@ function animateNewestBeat() {
         sizeCanvas(cv);
         if (REDUCED || !beat.strokes.length) { drawStrokes(cv, beat.strokes); return; }
         const t0 = performance.now(), DUR = 2200;
+        let lastScratch = 0;
         (function frame(t) {
             const f = Math.min(1, (t - t0) / DUR);
             drawStrokes(cv, beat.strokes, f);
+            // pencil scratches in time with the replay, sparkle when it lands
+            if (f < 1 && t - lastScratch > 130) { lastScratch = t; sReplayScratch(); }
             if (f < 1) _beatAnim = requestAnimationFrame(frame);
+            else {
+                sSparkle();
+                const r = cv.getBoundingClientRect();
+                burst(r.left + r.width / 2, r.top + r.height / 2, ['#f472b6', '#38bdf8', '#fbbf24'], 10);
+            }
         })(t0);
     } else {
         const el = $id('beat-text');
@@ -2102,7 +2226,7 @@ function renderViewerVote() {
 function renderViewerVoted() {
     const r = vD.result || { winners: [] };
     const winners = r.winners.map((w, i) =>
-        `<div class="tv-voteopt" style="--i:${i}"><span>🏆 ${esc(w.label)} <span style="color:var(--muted)">— ${esc(w.author)}</span></span><span class="votes">+${r.pts} · ${w.votes} vote${w.votes === 1 ? '' : 's'}</span></div>`).join('');
+        `<div class="tv-voteopt win" style="--i:${i}"><span>🏆 ${esc(w.label)} <span style="color:var(--muted)">— ${esc(w.author)}</span></span><span class="votes">+${r.pts} · ${w.votes} vote${w.votes === 1 ? '' : 's'}</span></div>`).join('');
     const chips = (vD.standings || []).map((p, i) =>
         `<div class="tv-voteopt" style="padding:.9vmin 1.6vmin;--i:${r.winners.length + i}"><span>${esc(p.avatar)} ${esc(p.name)}</span><span class="votes">${p.score}</span></div>`).join('');
     const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: ${vD.isLast ? '“See the podium”' : '“Next chain”'} is on your phone` : `Host: ${vD.isLast ? '“See the podium”' : '“Next chain”'} is on your phone`;
@@ -2122,6 +2246,7 @@ function renderViewerPodium() {
     const medal = { p1: '🥇', p2: '🥈', p3: '🥉' };
     const pods = podOrder.map((p, i) => `
         <div class="pod ${cls[i]}" style="animation-delay:${i * 0.18}s">
+            ${cls[i] === 'p1' ? '<div class="crown">👑</div>' : ''}
             <div class="big">${esc(p.avatar)}</div>
             <div class="pname">${esc(p.name)}</div>
             <div class="pscore">${p.score} pts${p.lols ? ` · 😂${p.lols}` : ''}</div>
