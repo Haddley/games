@@ -48,7 +48,9 @@ test('TV-first: race, clash, alliteration, veto, podium', async ({ browser }) =>
     expect(code).toMatch(/^[A-Z]{4}$/);
 
     // Pin the letter pool: round 1 = B, round 2 = C
-    await tv.evaluate(() => { LETTERS.length = 0; LETTERS.push('B', 'C'); });
+    // Pin the pool AND make shuffle() an identity (Fisher-Yates with j===i),
+    // so round 1 is deterministically "B" and round 2 "C".
+    await tv.evaluate(() => { LETTERS.length = 0; LETTERS.push('B', 'C'); Math.random = () => 0.999999; });
 
     // ── Karen (captain) and Ollie join ──
     const karen = await joinPhone(browser, code, 'Karen');

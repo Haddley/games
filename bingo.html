@@ -37,6 +37,7 @@
             font-family: 'Baloo 2', sans-serif; font-weight: 800; letter-spacing: 1px;
             font-size: clamp(1.7rem, 7vw, 2.5rem); text-align: center; color: var(--gold);
             text-shadow: 0 0 26px rgba(255,201,60,.4), 0 2px 0 rgba(0,0,0,.3);
+            padding: 0 46px; /* clear of the fixed sound toggles */
         }
         .sub { color: var(--muted); font-size: .7rem; letter-spacing: 2.5px; text-transform: uppercase; margin: 6px 0 22px; text-align: center; font-weight: 800; }
 
@@ -159,7 +160,9 @@
         }
         .bigball .bn { font-size: 8.5vmin; font-weight: 800; line-height: 1; }
         .bigball .bl { font-size: 1.7vmin; font-weight: 800; letter-spacing: .2vmin; }
-        @keyframes ballpop { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes ballpop { from { opacity: 0; transform: scale(.35); } to { opacity: 1; transform: scale(1); } }
+        .machine { animation: machineBob 3.6s ease-in-out infinite; }
+        @keyframes machineBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-.5vmin); } }
         .nickname { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 3.1vmin; color: var(--text); text-align: center; min-height: 4vmin; text-shadow: 0 2px 12px rgba(0,0,0,.5); }
         .lastballs { display: flex; gap: 1vmin; }
         .lastballs .mini {
@@ -211,22 +214,95 @@
         .tv-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20vmin, 1fr)); gap: 1.5vmin; }
         .tv-pcard {
             background: var(--panel); border: 1px solid var(--border2); border-radius: 1.7vmin;
-            padding: 1.7vmin; text-align: center; font-weight: 900; font-size: 2vmin; animation: popIn .35s ease both;
+            padding: 1.7vmin; text-align: center; font-weight: 900; font-size: 2vmin;
         }
+        #app.fresh .tv-pcard { animation: popIn .35s ease both; animation-delay: calc(var(--i, 0) * 50ms); }
         .tv-pcard .pdot { width: 2.2vmin; height: 2.2vmin; margin: 0 auto 1vmin; }
-        @keyframes popIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes popIn { from { opacity: 0; transform: translateY(12%) scale(.92); } to { opacity: 1; transform: none; } }
         .tv-waiting { color: var(--muted); font-weight: 800; font-size: 1.9vmin; }
         .tv-results { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vmin; text-align: center; }
         .tv-results .big { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 7vmin; color: var(--gold); text-shadow: 0 0 40px rgba(255,201,60,.5); }
         .tv-results .winline { font-size: 2.8vmin; font-weight: 900; }
 
         #confetti-cv { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+
+        /* ── sound toggles ── */
+        #sound-togs { position: fixed; top: 10px; right: 10px; z-index: 80; display: flex; gap: 6px; }
+        #sound-togs button {
+            width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer; font-size: 1rem;
+            background: rgba(48,28,74,.78); box-shadow: inset 0 0 0 1px var(--border2);
+            transition: opacity .2s, transform .12s;
+        }
+        #sound-togs button:active { transform: scale(.88); }
+        #sound-togs button.off { opacity: .35; filter: grayscale(1); }
+        body.viewer-mode #sound-togs { top: auto; bottom: 12px; right: 12px; }
+
+        /* ── FX layer: particles + score pops ── */
+        .pt {
+            position: fixed; width: 9px; height: 9px; border-radius: 50%;
+            z-index: 950; pointer-events: none;
+            animation: ptFly .75s cubic-bezier(.15,.65,.4,1) forwards;
+        }
+        @keyframes ptFly {
+            0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity: 1; }
+            100% { transform: translate(var(--dx), var(--dy)) rotate(540deg) scale(.3); opacity: 0; }
+        }
+        .pop {
+            position: fixed; z-index: 960; pointer-events: none;
+            font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 1.5rem;
+            animation: popUp 1.1s cubic-bezier(.2,.8,.3,1) forwards;
+            text-shadow: 0 2px 12px rgba(0,0,0,.6); white-space: nowrap;
+        }
+        .pop.good { color: var(--teal); }
+        .pop.gold { color: var(--gold); }
+        .pop.bad  { color: var(--bad); font-size: 1rem; }
+        @keyframes popUp {
+            0%   { transform: translate(-50%, 0) scale(.5); opacity: 0; }
+            15%  { transform: translate(-50%, -12px) scale(1.25); opacity: 1; }
+            100% { transform: translate(-50%, -78px) scale(1); opacity: 0; }
+        }
+
+        /* ── entrances — only on real screen changes (#app.fresh), patches never re-trigger ── */
+        @keyframes cardIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+        #app.fresh .card, #app.fresh .btn-bingo, #app.fresh .prize-strip { animation: cardIn .35s cubic-bezier(.2,.8,.3,1) both; }
+        @keyframes rowIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+        #app.fresh .player-row { animation: rowIn .3s cubic-bezier(.2,.8,.3,1) both; animation-delay: calc(var(--i, 0) * 40ms); }
+        @keyframes cellIn { from { opacity: 0; transform: scale(.55); } to { opacity: 1; transform: none; } }
+        #app.fresh .ticket .cell { animation: cellIn .3s cubic-bezier(.2,.8,.3,1) both; animation-delay: calc(var(--i, 0) * 22ms); }
+        @keyframes daubPop { 0% { transform: scale(.7); } 55% { transform: scale(1.14); } 100% { transform: scale(1); } }
+        .cell.daub { animation: daubPop .22s cubic-bezier(.2,.8,.3,1); }
+        @keyframes shakeX {
+            10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); }
+            30%, 50%, 70% { transform: translateX(-6px); } 40%, 60% { transform: translateX(6px); }
+        }
+        .shake { animation: shakeX .45s both !important; }
+        @keyframes notePop { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+        .event-note.win, .event-note.bad { animation: notePop .35s cubic-bezier(.2,.8,.3,1); }
+
+        /* ── TV animation polish (vmin units) ── */
+        @keyframes bcellLit { 0% { transform: scale(1); } 45% { transform: scale(1.3); box-shadow: 0 0 3vmin rgba(255,201,60,.9); } 100% { transform: scale(1); } }
+        .bcell.lit { animation: bcellLit .5s ease; }
+        @keyframes evPop { 0% { transform: scale(.3); opacity: 0; } 60% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+        #v-event.show .big { animation: evPop .45s cubic-bezier(.2,.8,.3,1) both; }
+        @keyframes evShakeX {
+            15%, 85% { transform: translateX(-.6vmin); } 30%, 70% { transform: translateX(1vmin); } 45%, 55% { transform: translateX(-1.4vmin); }
+        }
+        #v-event.bad.show .big { animation: evPop .35s cubic-bezier(.2,.8,.3,1) both, evShakeX .5s .35s both; }
+        @keyframes tvBigIn { 0% { transform: scale(.3); opacity: 0; } 60% { transform: scale(1.15) rotate(2deg); } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+        #app.fresh .tv-results .big { animation: tvBigIn .6s cubic-bezier(.2,.8,.3,1) both; }
+        #app.fresh .tv-results .winline { animation: cardIn .5s .35s cubic-bezier(.2,.8,.3,1) both; }
+        #app.fresh .tv-results .rail-row { animation: cardIn .4s cubic-bezier(.2,.8,.3,1) both; animation-delay: calc(.55s + var(--i, 0) * 80ms); }
+
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
     </style>
 </head>
 <body>
     <div id="app"></div>
     <canvas id="confetti-cv"></canvas>
+    <div id="sound-togs">
+        <button id="tog-music" title="Music on/off" onclick="toggleMusic()">🎵</button>
+        <button id="tog-sfx" title="Sound effects on/off" onclick="toggleSfx()">🔊</button>
+    </div>
 <script>
 'use strict';
 
@@ -351,26 +427,304 @@ function startConfetti(ms) {
     })(performance.now());
 }
 
-// ── Synth sounds ──
-let _ac = null;
-function ac() { if (!_ac) { try { _ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return _ac; }
-function tone(freq, dur, type, gain, when) {
-    const a = ac(); if (!a) return;
-    try {
-        const t0 = a.currentTime + (when || 0);
-        const o = a.createOscillator(), g = a.createGain();
-        o.type = type || 'sine'; o.frequency.value = freq;
-        g.gain.setValueAtTime(gain || 0.07, t0);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-        o.connect(g); g.connect(a.destination);
-        o.start(t0); o.stop(t0 + dur);
-    } catch (e) {}
+// ═══════════════════════════════════════════
+// AUDIO — procedural seaside bingo hall
+// (cheery G-major oom-pah, wurlitzer triangle
+//  chords, gesture-started, music ~0.32 vol)
+// ═══════════════════════════════════════════
+let AC = null, masterGain = null, musicGain = null, sfxGain = null, noiseBuf = null;
+let leadBus = null, musicDelay = null;
+let musicOn = localStorage.getItem('bingo-music') !== '0';
+let sfxOn = localStorage.getItem('bingo-sfx') !== '0';
+
+function ac() {
+    if (!AC) {
+        try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+        masterGain = AC.createGain(); masterGain.gain.value = 1; masterGain.connect(AC.destination);
+        musicGain = AC.createGain(); musicGain.gain.value = musicOn ? 0.32 : 0; musicGain.connect(masterGain);
+        sfxGain = AC.createGain(); sfxGain.gain.value = sfxOn ? 0.55 : 0; sfxGain.connect(masterGain);
+        // Lead bus with a short pier-pavilion slapback echo
+        leadBus = AC.createGain(); leadBus.gain.value = 1; leadBus.connect(musicGain);
+        musicDelay = AC.createDelay(1.2); musicDelay.delayTime.value = 0.25;
+        const fb = AC.createGain(); fb.gain.value = 0.16;
+        const dlp = AC.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 2400;
+        const wet = AC.createGain(); wet.gain.value = 0.15;
+        leadBus.connect(musicDelay); musicDelay.connect(dlp); dlp.connect(fb); fb.connect(musicDelay);
+        dlp.connect(wet); wet.connect(musicGain);
+        const len = AC.sampleRate * 1.2;
+        noiseBuf = AC.createBuffer(1, len, AC.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (AC.state === 'suspended') AC.resume();
+    return AC;
 }
-function sPop() { tone(520, 0.08, 'triangle', 0.07); tone(780, 0.14, 'triangle', 0.06, 0.06); }
-function sDrum() { tone(180, 0.05, 'square', 0.03); }
-function sKlaxon() { [660, 880, 660, 880, 1100].forEach((f, i) => tone(f, 0.16, 'square', 0.06, i * 0.14)); }
-function sBuzz() { tone(150, 0.4, 'sawtooth', 0.05); }
-function sWin() { [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.3, 'triangle', 0.06, i * 0.12)); }
+
+function tone(freq, dur, { type = 'sine', vol = 0.5, when = 0, slide = 0, dest = null, lp = 0, attack = 0.012 } = {}) {
+    if (!AC) return;
+    const t = AC.currentTime + when;
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(slide, 20), t + dur);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    if (lp) {
+        const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp;
+        o.connect(f); f.connect(g);
+    } else {
+        o.connect(g);
+    }
+    g.connect(dest || sfxGain);
+    o.start(t); o.stop(t + dur + 0.06);
+}
+
+function noiseHit(dur, { vol = 0.3, when = 0, hp = 6000, dest = null } = {}) {
+    if (!AC) return;
+    const t = AC.currentTime + when;
+    const src = AC.createBufferSource(); src.buffer = noiseBuf;
+    const f = AC.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hp;
+    const g = AC.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(dest || sfxGain);
+    src.start(t); src.stop(t + dur + 0.05);
+}
+
+const mf = m => 440 * Math.pow(2, (m - 69) / 12); // midi → freq
+
+// ── SFX (seaside hall: cheery pops, wurlitzer chimes, panto womps) ──
+function sJoin() {
+    if (!sfxOn || !AC) return;
+    tone(mf(67), 0.08, { type: 'triangle', vol: 0.24 });
+    tone(mf(74), 0.14, { type: 'triangle', vol: 0.24, when: 0.06 });
+}
+// Ball out of the machine: air-puff + pop whose pitch climbs with the number
+function sBall(n) {
+    if (!sfxOn || !AC) return;
+    const m = 62 + Math.round(((n || 1) - 1) / 89 * 19);
+    noiseHit(0.05, { vol: 0.11, hp: 4200 });
+    tone(mf(m), 0.12, { type: 'triangle', vol: 0.3, slide: mf(m) * 1.25 });
+    tone(mf(m + 12), 0.08, { type: 'sine', vol: 0.12, when: 0.05 });
+}
+// Dabber squish — up-blip on daub, down-blip on un-daub
+function sDaub(on) {
+    if (!sfxOn || !AC) return;
+    if (on) { noiseHit(0.03, { vol: 0.08, hp: 6000 }); tone(mf(74), 0.06, { type: 'triangle', vol: 0.26, slide: mf(79) }); }
+    else tone(mf(67), 0.07, { type: 'triangle', vol: 0.16, slide: mf(62) });
+}
+// One away! — high music-box shimmer (bigger for a full-house near)
+function sNear(lvl) {
+    if (!sfxOn || !AC) return;
+    const base = lvl === 2 ? 86 : 83;
+    [0, 4, 7, 12].forEach((s, i) => tone(mf(base + s), 0.16, { type: 'sine', vol: 0.15, when: i * 0.055 }));
+    if (lvl === 2) noiseHit(0.2, { vol: 0.07, when: 0.24, hp: 9000 });
+}
+// "BINGO!" call — hopeful rising swoop while the caller checks
+function sCall() {
+    if (!sfxOn || !AC) return;
+    tone(mf(67), 0.2, { type: 'triangle', vol: 0.22, slide: mf(79) });
+    noiseHit(0.08, { vol: 0.08, hp: 3000, when: 0.03 });
+}
+// Eyes down! — quick G-major curtain-up jingle
+function sStart() {
+    if (!sfxOn || !AC) return;
+    [55, 59, 62, 67].forEach((m, i) => tone(mf(m), 0.11, { type: 'triangle', vol: 0.24, when: i * 0.07 }));
+    tone(mf(74), 0.22, { type: 'triangle', vol: 0.22, when: 0.3 });
+}
+// LINE! — bright bugle + sparkle
+function sLine() {
+    if (!sfxOn || !AC) return;
+    [67, 71, 74, 79].forEach((m, i) => tone(mf(m), 0.12, { type: 'square', vol: 0.2, when: i * 0.08, lp: 3200 }));
+    [79, 78, 79, 83].forEach((m, i) => tone(mf(m), 0.09, { type: 'triangle', vol: 0.2, when: 0.4 + i * 0.06 }));
+    noiseHit(0.3, { vol: 0.13, when: 0.62, hp: 7000 });
+}
+// False call — soft panto womp-womp (never harsh)
+function sFalse() {
+    if (!sfxOn || !AC) return;
+    tone(mf(59), 0.22, { type: 'sawtooth', vol: 0.12, slide: mf(56), lp: 1200 });
+    tone(mf(55), 0.36, { type: 'sawtooth', vol: 0.14, when: 0.22, slide: mf(50), lp: 1000 });
+}
+// FULL HOUSE — multi-bar G-major fanfare with closing trill + crash
+function sWinBig() {
+    if (!sfxOn || !AC) return;
+    [0, 4, 7, 12, 7, 12, 16, 19].forEach((s, i) => tone(mf(67 + s), 0.14, { type: 'square', vol: 0.2, when: i * 0.11, lp: 3600 }));
+    [24, 23, 24, 26, 24, 28].forEach((s, i) => tone(mf(67 + s), 0.08, { type: 'triangle', vol: 0.2, when: 0.95 + i * 0.06 }));
+    noiseHit(0.7, { vol: 0.18, when: 1.3, hp: 5000 });
+}
+
+// ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
+// G-major seaside organ: oom-pah bass, wurlitzer triangle chord
+// stabs on the offbeats, music-box arp shimmer two octaves up.
+// null = rest; numbers are midi notes.
+const TRACKS = {
+    // Lobby promenade: bouncy oom-pah, G→C / D→G
+    lobby: { bpm: 108, swing: 0.1, arp: 2, leadLp: 3400,
+        waves: { bass: 'triangle', lead: 'triangle', stab: 'triangle', arpW: 'sine' },
+        bassBars: [
+            [43,null,null,null, null,null,null,null, 50,null,null,null, 45,null,47,null, 48,null,null,null, null,null,null,null, 43,null,null,null, 47,null,48,null],
+            [50,null,null,null, null,null,null,null, 45,null,null,null, 52,null,54,null, 55,null,null,null, null,null,null,null, 50,null,null,null, 47,null,45,null],
+        ],
+        leads: [
+            [71,null,72,null, 74,null,71,null, 67,null,null,null, null,null,67,null, 76,null,74,null, 72,null,74,null, 76,null,null,null, null,null,null,null],
+            [74,null,78,null, 81,null,78,null, 74,null,null,null, null,null,74,null, 71,null,74,null, 79,null,74,null, 71,null,null,null, null,null,null,null],
+            [67,null,null,71, null,null,74,null, null,null,71,null, 74,null,76,null, 76,null,null,72, null,null,69,null, 72,null,76,null, 79,null,null,null],
+            [null,null,null,null, 78,null,74,null, 71,null,69,null, 71,null,null,null, 67,null,null,null, null,null,62,null, 67,null,71,null, 67,null,null,null],
+        ],
+        hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        kick: [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+        stab: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+        pads: [
+            { 0: [55,59,62], 16: [52,55,60] },
+            { 0: [50,54,57], 16: [55,59,62] },
+        ] },
+    // Numbers rolling: gentle walking bass, soft sine lead, G→Em / C→D
+    game: { bpm: 116, swing: 0.06, arp: 2, leadLp: 3000,
+        waves: { bass: 'triangle', lead: 'sine', stab: 'triangle', arpW: 'sine' },
+        bassBars: [
+            [43,null,null,null, 50,null,null,null, 47,null,null,null, 43,null,null,null, 40,null,null,null, 47,null,null,null, 43,null,null,null, 40,null,null,null],
+            [48,null,null,null, 55,null,null,null, 52,null,null,null, 48,null,null,null, 50,null,null,null, 54,null,null,null, 57,null,null,null, 50,null,52,null],
+        ],
+        leads: [
+            [62,null,null,null, 67,null,71,null, 74,null,null,null, 71,null,67,null, 64,null,null,null, 67,null,71,null, 76,null,null,null, null,null,null,null],
+            [72,null,null,null, 76,null,72,null, 67,null,null,null, null,null,72,null, 74,null,null,null, 78,null,74,null, 69,null,71,null, 74,null,null,null],
+            [null,null,null,null, null,null,null,null, 74,null,72,null, 71,null,69,null, 67,null,null,null, null,null,64,null, 67,null,null,null, null,null,null,null],
+            [null,null,72,null, 74,null,76,null, 79,null,76,null, 74,null,72,null, 71,null,null,null, 74,null,null,null, 78,null,null,null, 79,null,null,null],
+        ],
+        hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        kick: [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+        stab: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+        pads: [
+            { 0: [55,59,62], 16: [52,55,59] },
+            { 0: [48,52,55], 16: [50,54,57] },
+        ] },
+    // Full house! Celebratory octave-pop march, G→C / D→G
+    results: { bpm: 122, swing: 0, arp: 1, leadLp: 3800,
+        waves: { bass: 'triangle', lead: 'square', stab: 'triangle', arpW: 'sine' },
+        bassBars: [
+            [43,null,55,null, 43,null,55,null, 43,null,55,null, 45,null,47,null, 48,null,60,null, 48,null,60,null, 48,null,60,null, 48,null,50,null],
+            [50,null,62,null, 50,null,62,null, 50,null,62,null, 52,null,54,null, 55,null,43,null, 55,null,43,null, 55,null,43,null, 47,null,45,null],
+        ],
+        leads: [
+            [67,67,null,67, null,71,null,74, 76,null,74,null, 71,null,67,null, 76,null,76,null, 74,null,72,null, 76,null,74,null, 72,null,null,null],
+            [74,74,null,74, null,78,null,81, 78,null,76,null, 74,null,71,null, 79,null,79,null, 78,null,76,null, 74,null,71,null, 67,null,null,null],
+            [null,null,79,null, 76,null,74,null, 76,null,null,null, null,null,72,null, 74,null,null,null, 76,null,79,null, 84,null,null,null, null,null,null,null],
+        ],
+        hat:  [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+        kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,1,0],
+        stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        pads: [
+            { 0: [55,59,62], 16: [48,52,55] },
+            { 0: [50,54,57], 16: [55,59,62] },
+        ] },
+};
+let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
+
+function playMusicStep(i, t, bar) {
+    const tr = TRACKS[musicTrack];
+    const stepDur = 60 / tr.bpm / 4;
+    const w = tr.waves || {};
+    // Swing: push every off-16th slightly late for the seaside sway
+    const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
+    if (tr.kick[i]) tone(145, 0.22, { type: 'sine', vol: 0.42, when: rel, slide: 44, dest: musicGain });
+    if (tr.hat[i]) {
+        const hv = (i % 4 === 2 ? 0.11 : 0.055) * (0.8 + Math.random() * 0.4);
+        noiseHit(0.045, { vol: hv, when: rel, hp: 9500, dest: musicGain });
+    }
+    const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
+    const b = bassArr[i];
+    if (b != null) tone(mf(b), stepDur * 1.6, { type: w.bass || 'triangle', vol: 0.3, when: rel, dest: musicGain, lp: 1000, attack: 0.005 });
+    const pad = tr.pads[bar % tr.pads.length];
+    const ch = i < 16 ? pad[0] : pad[16];
+    // The "pah" — wurlitzer chord comping on the offbeats
+    if (tr.stab && tr.stab[i] && ch)
+        ch.forEach(m => tone(mf(m + 12), stepDur * 0.95, { type: w.stab || 'triangle', vol: 0.04, when: rel, lp: 2700, dest: musicGain, attack: 0.005 }));
+    let l = tr.leads[bar % tr.leads.length][i];
+    if (l != null) {
+        if (musicUrgent) l += 12;
+        tone(mf(l), stepDur * 1.5, { type: w.lead || 'triangle', vol: 0.12 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3400, attack: 0.005 });
+    }
+    // Music-box shimmer two octaves above the pads
+    if (tr.arp && i % tr.arp === 0 && ch)
+        tone(mf(ch[(i / tr.arp) % ch.length] + 24), stepDur * tr.arp * 0.9, { type: w.arpW || 'sine', vol: 0.04, when: rel, lp: 5200, dest: musicGain, attack: 0.004 });
+    if (musicUrgent && i % 4 === 0) noiseHit(0.035, { vol: 0.1, when: rel + stepDur * 2, hp: 11000, dest: musicGain });
+}
+
+function musicScheduler() {
+    const tr = TRACKS[musicTrack];
+    const stepDur = 60 / tr.bpm / 4;
+    while (musicNext < AC.currentTime + 0.18) {
+        playMusicStep(musicStep, musicNext, musicBar);
+        musicNext += stepDur;
+        musicStep++;
+        if (musicStep === 32) { musicStep = 0; musicBar++; }
+    }
+}
+
+function startMusicLoop() {
+    if (musicTimer || !AC) return;
+    musicNext = AC.currentTime + 0.1;
+    musicStep = 0;
+    musicBar = 0;
+    if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[musicTrack].bpm * 0.5;
+    musicTimer = setInterval(musicScheduler, 30);
+}
+
+function setMusic(track) {
+    if (musicTrack === track) return;
+    musicTrack = track;
+    musicStep = 0;
+    musicBar = 0;
+    if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[track].bpm * 0.5;
+    if (track !== 'game') musicUrgent = false;
+}
+
+function toggleMusic() {
+    musicOn = !musicOn;
+    localStorage.setItem('bingo-music', musicOn ? '1' : '0');
+    if (!AC && musicOn) { ac(); startMusicLoop(); }
+    if (AC && musicGain) musicGain.gain.linearRampToValueAtTime(musicOn ? 0.32 : 0, AC.currentTime + 0.2);
+    $id('tog-music').classList.toggle('off', !musicOn);
+}
+function toggleSfx() {
+    sfxOn = !sfxOn;
+    localStorage.setItem('bingo-sfx', sfxOn ? '1' : '0');
+    if (AC && sfxGain) sfxGain.gain.value = sfxOn ? 0.55 : 0;
+    $id('tog-sfx').classList.toggle('off', !sfxOn);
+}
+
+// Unlock audio on first interaction (browser autoplay policy)
+let _audioUnlocked = false;
+document.addEventListener('pointerdown', () => {
+    if (_audioUnlocked) return;
+    _audioUnlocked = true;
+    if (ac()) startMusicLoop();
+}, { capture: true });
+
+// ── Particle bursts + floating score text ──
+function burst(x, y, colors, n = 14) {
+    if (REDUCED) return;
+    for (let i = 0; i < n; i++) {
+        const p = document.createElement('div');
+        p.className = 'pt';
+        const ang = Math.random() * Math.PI * 2;
+        const dist = 40 + Math.random() * 90;
+        p.style.cssText = `left:${x}px;top:${y}px;background:${colors[i % colors.length]};` +
+            `--dx:${Math.cos(ang) * dist}px;--dy:${Math.sin(ang) * dist - 30}px;`;
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 800);
+    }
+}
+function popText(x, y, text, cls = 'good') {
+    const el = document.createElement('div');
+    el.className = 'pop ' + cls;
+    el.textContent = text;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1150);
+}
 
 // ═══════════════════════════════════════════
 // STATE
@@ -387,6 +741,8 @@ let D = null, vD = null;
 let daubs = new Set();
 let autoDaub = localStorage.getItem('bingo-autodaub') === '1';
 let _gameKey = '', _seenEventSeq = 0, _vSeenEventSeq = 0;
+let _nearLvl = 0;                 // 0 none, 1 one-away-from-line, 2 one-away-from-house
+let _lastUi = '', _lastVKey = ''; // entrance-animation gating (#app.fresh)
 
 // Host authoritative state
 let H = {
@@ -701,33 +1057,45 @@ function effectiveDaubs() {
 
 function applyMsg(msg) {
     switch (msg.type) {
-        case 'lobby':
+        case 'lobby': {
+            const prevN = D && D.type === 'lobby' ? D.players.length : -1;
             D = msg;
             _gameKey = '';
             ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g';
+            setMusic('lobby');
             render();
+            if (prevN >= 0 && msg.players.length > prevN) sJoin();
             break;
+        }
         case 'state': {
             D = msg;
             const key = msg.phase + ':' + msg.gamesPlayed;
             if (msg.phase === 'playing') {
+                setMusic('game');
                 if (key !== _gameKey) {
                     _gameKey = key;
                     daubs.clear();
+                    _nearLvl = 0;
                     _seenBallCount = msg.ballCount;
                     ui = 'game';
                     render();
+                    sStart();
                 } else {
                     if (ui !== 'game') { ui = 'game'; render(); }
                     else patchGame(msg);
                 }
-                if (msg.ballCount > _seenBallCount) { _seenBallCount = msg.ballCount; sPop(); }
+                if (msg.ballCount > _seenBallCount) {
+                    _seenBallCount = msg.ballCount;
+                    sBall(msg.called[msg.called.length - 1]);
+                    checkNear();
+                }
             } else if (msg.phase === 'results') {
+                setMusic('results');
                 if (key !== _gameKey) {
                     _gameKey = key;
                     ui = 'results';
                     render();
-                    sWin(); startConfetti(3600);
+                    sWinBig(); startConfetti(3600);
                 } else { ui = 'results'; render(); }
             }
             handleEvent(msg);
@@ -736,16 +1104,43 @@ function applyMsg(msg) {
     }
 }
 
+// One-away detection: shimmer the first time you're one number
+// short of a line (while it's unclaimed) or of the full house.
+function checkNear() {
+    if (!D || D.phase !== 'playing' || !D.myTicket) { _nearLvl = 0; return; }
+    const calledSet = new Set(D.called);
+    const marked = new Set(effectiveDaubs().filter(n => calledSet.has(n)));
+    const rows = D.myTicket.map(r => r.filter(n => n !== null));
+    let lvl = 0;
+    if (!D.prizes.house && rows.flat().filter(n => !marked.has(n)).length === 1) lvl = 2;
+    else if (!D.prizes.line && rows.some(r => r.filter(n => !marked.has(n)).length === 1)) lvl = 1;
+    if (lvl > _nearLvl) sNear(lvl);
+    _nearLvl = lvl;
+}
+
 function handleEvent(msg) {
     const ev = msg.lastEvent;
     if (!ev || ev.seq <= _seenEventSeq) return;
     _seenEventSeq = ev.seq;
     const mine = ev.name === myName;
+    const cx = innerWidth / 2, cy = innerHeight * 0.38;
     if (ev.kind === 'false') {
-        if (mine) { sBuzz(); try { navigator.vibrate && navigator.vibrate(200); } catch (e) {} }
+        if (mine) {
+            sFalse();
+            const btn = $id('bingo-btn');
+            if (btn) { btn.classList.add('shake'); setTimeout(() => btn.classList.remove('shake'), 500); }
+            popText(cx, cy, 'Not quite!', 'bad');
+            try { navigator.vibrate && navigator.vibrate(200); } catch (e) {}
+        }
     } else {
-        sKlaxon();
-        if (mine) { startConfetti(3000); try { navigator.vibrate && navigator.vibrate([90, 40, 90, 40, 220]); } catch (e) {} }
+        // 'house'/'both' land with the results screen, whose fanfare covers them
+        if (ev.kind === 'line') sLine();
+        if (mine) {
+            startConfetti(3000);
+            burst(cx, cy, ['#ffc93c', '#ff5fa2', '#2dd4bf', '#fdf4ff'], 20);
+            popText(cx, cy, ev.kind === 'line' ? '+1 LINE!' : (ev.kind === 'both' ? '+4 HOUSE!' : '+3 HOUSE!'), 'gold');
+            try { navigator.vibrate && navigator.vibrate([90, 40, 90, 40, 220]); } catch (e) {}
+        }
     }
     const note = $id('p-event');
     if (note) {
@@ -766,13 +1161,19 @@ function tapCell(el) {
     if (autoDaub || !D || D.phase !== 'playing') return;
     const n = parseInt(el.dataset.n, 10);
     if (!n) return;
-    if (daubs.has(n)) { daubs.delete(n); el.classList.remove('daub'); }
-    else { daubs.add(n); el.classList.add('daub'); }
+    if (daubs.has(n)) { daubs.delete(n); el.classList.remove('daub'); sDaub(false); }
+    else {
+        daubs.add(n); el.classList.add('daub'); sDaub(true);
+        const r = el.getBoundingClientRect();
+        burst(r.left + r.width / 2, r.top + r.height / 2, ['#ff5fa2', '#ff8fc0'], 6);
+    }
+    checkNear();
 }
 
 function sendBingo() {
     if (!D || D.phase !== 'playing') return;
     if (D.myLockUntil > D.ballCount) return;
+    sCall();
     const claimed = effectiveDaubs();
     if (isHost && !isTvHost) {
         const me = H.players.find(p => p.id === myId);
@@ -783,7 +1184,9 @@ function sendBingo() {
 function setAutoDaub(on) {
     autoDaub = on;
     localStorage.setItem('bingo-autodaub', on ? '1' : '0');
+    sDaub(on);
     refreshCells();
+    checkNear();
 }
 
 function refreshCells() {
@@ -819,14 +1222,23 @@ let _vKey = '', _vSeenBall = 0, _vEventTimer = null;
 function applyViewerMsg(msg) {
     document.body.classList.add('viewer-mode');
     ui = 'viewer';
+    const prevN = vD && vD.type === 'viewer_lobby' ? (vD.players || []).length : -1;
     vD = msg;
-    if (msg.type === 'viewer_lobby') { _vKey = ''; render(); return; }
+    if (msg.type === 'viewer_lobby') {
+        _vKey = '';
+        setMusic('lobby');
+        render();
+        if (prevN >= 0 && (msg.players || []).length > prevN) sJoin();
+        return;
+    }
     const key = msg.phase + ':' + msg.gamesPlayed;
     if (msg.phase === 'playing') {
-        if (key !== _vKey) { _vKey = key; _vSeenBall = msg.ballCount; render(); }
+        setMusic('game');
+        if (key !== _vKey) { _vKey = key; _vSeenBall = msg.ballCount; render(); sStart(); }
         else patchViewer(msg);
     } else if (msg.phase === 'results') {
-        if (key !== _vKey) { _vKey = key; render(); sWin(); startConfetti(5200); }
+        setMusic('results');
+        if (key !== _vKey) { _vKey = key; render(); sWinBig(); startConfetti(5200); }
         else render();
     }
     viewerEvent(msg);
@@ -835,7 +1247,7 @@ function applyViewerMsg(msg) {
 function patchViewer(msg) {
     if (msg.ballCount > _vSeenBall) {
         _vSeenBall = msg.ballCount;
-        sDrum(); setTimeout(sPop, 120);
+        sBall(msg.called[msg.called.length - 1]);
         const bz = $id('v-ball');
         if (bz) bz.innerHTML = bigBallHTML(msg);
     }
@@ -863,7 +1275,13 @@ function viewerEvent(msg) {
     ovParent.innerHTML = bad
         ? `<div class="big">😬 OOH, NO!</div><div class="who">${esc(ev.name)} — not quite! Locked for 3 balls</div>`
         : `<div class="big">${ev.kind === 'line' ? '🎉 LINE!' : '🏆 FULL HOUSE!'}</div><div class="who">${esc(ev.name)} — ball ${ev.ball}</div>`;
-    if (bad) sBuzz(); else { sKlaxon(); startConfetti(2600); }
+    if (bad) sFalse();
+    else {
+        // 'house'/'both' arrive with the results screen, whose fanfare covers them
+        if (ev.kind === 'line') sLine();
+        startConfetti(2600);
+        burst(innerWidth / 2, innerHeight * 0.35, ['#ffc93c', '#ff5fa2', '#2dd4bf', '#fdf4ff'], 26);
+    }
     clearTimeout(_vEventTimer);
     _vEventTimer = setTimeout(() => { const o = $id('v-event'); if (o) o.className = ''; }, 3500);
 }
@@ -911,6 +1329,11 @@ function railHTML(msg) {
 function render() {
     const app = $id('app');
     if (isTvHost || isViewer) ui = 'viewer';
+    // 'fresh' marks a real screen change → entrance animations run once,
+    // never on same-screen re-renders (joins, prize updates, results ticks)
+    const vk = ui === 'viewer' ? (vD ? (vD.type === 'viewer_lobby' ? 'lobby' : 'p:' + vD.phase) : '') : '';
+    const fresh = ui !== _lastUi || vk !== _lastVKey;
+    _lastUi = ui; _lastVKey = vk;
     let html = '';
     switch (ui) {
         case 'home':       html = renderHome(); break;
@@ -924,6 +1347,7 @@ function render() {
         default:           html = renderHome();
     }
     app.innerHTML = html;
+    app.classList.toggle('fresh', fresh);
 }
 
 function renderSpinner(msg) {
@@ -1001,7 +1425,7 @@ function settingsSegsHTML(settings, expr) {
 
 function renderLobbyH() {
     const pList = H.players.map((p, i) =>
-        `<div class="player-row">
+        `<div class="player-row" style="--i:${i}">
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
             <div style="flex:1">${esc(p.name)}${i === 0 ? ' <span style="color:var(--muted)">(you — host)</span>' : ''}</div>
             <div class="dot"></div>
@@ -1034,8 +1458,8 @@ function renderLobbyH() {
 
 function renderLobbyG() {
     const cap = isCaptain();
-    const pList = (D.players || []).map(p =>
-        `<div class="player-row">
+    const pList = (D.players || []).map((p, i) =>
+        `<div class="player-row" style="--i:${i}">
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
             <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--muted)">(you)</span>' : ''}${D.tvHost && p.name === D.captain ? ' 👑' : ''}</div>
             <div class="dot"></div>
@@ -1071,9 +1495,10 @@ function renderGame() {
     for (let r = 0; r < 3; r++)
         for (let c = 0; c < 9; c++) {
             const n = ticket[r] ? ticket[r][c] : null;
+            const st = ` style="--i:${r * 9 + c}"`;
             cells.push(n
-                ? `<button class="cell${marked.has(n) ? ' daub' : ''}" data-n="${n}" onclick="tapCell(this)">${n}</button>`
-                : `<div class="cell blank"></div>`);
+                ? `<button class="cell${marked.has(n) ? ' daub' : ''}"${st} data-n="${n}" onclick="tapCell(this)">${n}</button>`
+                : `<div class="cell blank"${st}></div>`);
         }
     const locked = D.myLockUntil > D.ballCount;
     return `
@@ -1093,7 +1518,7 @@ function renderGame() {
 function renderResults() {
     const r = D.results || {};
     const rows = (r.tally || []).map((p, i) => `
-        <div class="player-row">
+        <div class="player-row" style="--i:${i}">
             <span style="width:22px;text-align:center">${['🥇', '🥈', '🥉'][i] || (i + 1)}</span>
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
             <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--gold)">(you)</span>' : ''}</div>
@@ -1141,8 +1566,8 @@ function renderViewer() {
 function renderViewerLobby() {
     const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
     const players = vD.players || [];
-    const cards = players.map(p =>
-        `<div class="tv-pcard"><div class="pdot" style="background:${p.color};color:${p.color}"></div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
+    const cards = players.map((p, i) =>
+        `<div class="tv-pcard" style="--i:${i}"><div class="pdot" style="background:${p.color};color:${p.color}"></div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
     return tvShell(`
     <div class="tv-lobby">
         <div class="qr-side">
@@ -1208,8 +1633,8 @@ function renderViewerPlaying() {
 
 function renderViewerResults() {
     const r = vD.results || {};
-    const rows = (r.tally || []).map(p =>
-        `<div class="rail-row"><span class="pdot" style="background:${p.color};color:${p.color}"></span><span class="rname">${esc(p.name)}</span><span class="rsc">${p.score}</span></div>`).join('');
+    const rows = (r.tally || []).map((p, i) =>
+        `<div class="rail-row" style="--i:${i}"><span class="pdot" style="background:${p.color};color:${p.color}"></span><span class="rname">${esc(p.name)}</span><span class="rsc">${p.score}</span></div>`).join('');
     const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: “New game” is on your phone` : 'Host: “New game” is on your phone';
     return tvShell(`
     <div class="tv-results">
@@ -1233,6 +1658,8 @@ window.addEventListener('resize', () => {
     const params = new URLSearchParams(location.search);
     const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
     if (room) fCode = room;
+    if (!musicOn) $id('tog-music').classList.add('off');
+    if (!sfxOn) $id('tog-sfx').classList.add('off');
     render();
 })();
 </script>

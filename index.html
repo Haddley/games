@@ -53,7 +53,22 @@
         }
         a.game:hover { transform: translateY(-4px); border-color: rgba(255,45,120,.6); box-shadow: 0 0 28px rgba(255,45,120,.2), 0 14px 36px rgba(0,0,0,.5); }
         a.game.featured { border-color: rgba(255,201,60,.55); box-shadow: 0 0 26px rgba(255,201,60,.15), 0 10px 32px rgba(0,0,0,.4); }
+        a.game { animation: cardRise .55s cubic-bezier(.2,.8,.3,1) both; animation-delay: calc(var(--i, 0) * 50ms); }
+        a.game.featured {
+            animation: cardRise .55s cubic-bezier(.2,.8,.3,1) both, featuredGlow 3.2s ease-in-out infinite;
+            animation-delay: calc(var(--i, 0) * 50ms), 1.2s;
+        }
+        @keyframes cardRise { from { opacity: 0; transform: translateY(18px) scale(.97); } to { opacity: 1; transform: none; } }
+        @keyframes featuredGlow {
+            0%, 100% { box-shadow: 0 0 26px rgba(255,201,60,.15), 0 10px 32px rgba(0,0,0,.4); }
+            50%      { box-shadow: 0 0 44px rgba(255,201,60,.32), 0 10px 32px rgba(0,0,0,.4); }
+        }
         .emoji { font-size: 2rem; margin-bottom: 10px; }
+        a.game:hover .emoji { animation: emojiBounce .5s cubic-bezier(.2,.8,.3,1); }
+        @keyframes emojiBounce { 0% { transform: scale(1); } 40% { transform: scale(1.35) rotate(-8deg); } 100% { transform: scale(1); } }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+        }
         .name { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.05rem; letter-spacing: 2px; margin-bottom: 6px; }
         .desc { color: var(--muted); font-size: .78rem; line-height: 1.55; }
         .tag {
@@ -69,92 +84,92 @@
     <h1>GAME NIGHT</h1>
     <p class="sub">multiplayer browser games — no installs, phones as controllers</p>
     <div class="grid">
-        <a class="game featured" href="boggleparty.html">
+        <a class="game featured" style="--i:0" href="boggleparty.html">
             <div class="emoji">🎉</div>
             <div class="name">BOGGLE PARTY<span class="tag">new</span></div>
             <div class="desc">1–8 players race to swipe words on their phones while the TV keeps score. Earn prank tokens and hit rivals with ink splats, dizzy spins and freezes. Music, fireworks, QR-code joining.</div>
         </a>
-        <a class="game" href="familytrivia.html">
+        <a class="game" style="--i:1" href="familytrivia.html">
             <div class="emoji">📖</div>
             <div class="name">FAMILY TRIVIA<span class="tag">new</span></div>
             <div class="desc">The whole family reads a short story on the TV, then answers a multiple-choice question in secret on their phones. Be right when everyone else is wrong for the Lone Wolf payout.</div>
         </a>
-        <a class="game" href="fibbers.html">
+        <a class="game" style="--i:2" href="fibbers.html">
             <div class="emoji">🤥</div>
             <div class="name">FIBBERS!<span class="tag">new</span></div>
             <div class="desc">Bluff trivia: everyone invents a fake answer, then votes for the truth among the lies. Score for spotting the truth — and for every player your lie fools.</div>
         </a>
-        <a class="game" href="doodleparty.html">
+        <a class="game" style="--i:3" href="doodleparty.html">
             <div class="emoji">🎨</div>
             <div class="name">DOODLE PARTY<span class="tag">new</span></div>
             <div class="desc">Sketch a secret word on your phone while it appears live on the TV — everyone else races to guess it first. Letter hints, near-miss nudges, drawer rotation.</div>
         </a>
-        <a class="game" href="oddsheep.html">
+        <a class="game" style="--i:4" href="oddsheep.html">
             <div class="emoji">🐑</div>
             <div class="name">THE ODD SHEEP<span class="tag">new</span></div>
             <div class="desc">Everyone secretly knows the word — except one faker. Drop one-word clues, argue, vote out the sheep… who might still guess their way to victory.</div>
         </a>
-        <a class="game" href="herdmind.html">
+        <a class="game" style="--i:5" href="herdmind.html">
             <div class="emoji">🐮</div>
             <div class="name">HERD MIND<span class="tag">new</span></div>
             <div class="desc">Answer like the family would: the biggest herd scores, and the one lone answer wins the Pink Cow — which blocks you from winning until you pass it on.</div>
         </a>
-        <a class="game" href="categoryclash.html">
+        <a class="game" style="--i:6" href="categoryclash.html">
             <div class="emoji">⚡</div>
             <div class="name">CATEGORY CLASH<span class="tag">new</span></div>
             <div class="desc">One letter, eight categories, one frantic timer. Unique answers score — duplicates CLASH and cancel. The captain gets a veto for dodgy answers.</div>
         </a>
-        <a class="game" href="bestguess.html">
+        <a class="game" style="--i:7" href="bestguess.html">
             <div class="emoji">🎯</div>
             <div class="name">BEST GUESS<span class="tag">new</span></div>
             <div class="desc">Trivia for people who don't know trivia: everyone guesses a number, then bets on whichever guess looks closest. Grandma can win by betting on you.</div>
         </a>
-        <a class="game" href="brokenpencil.html">
+        <a class="game" style="--i:8" href="brokenpencil.html">
             <div class="emoji">✏️</div>
             <div class="name">BROKEN PENCIL<span class="tag">new</span></div>
             <div class="desc">The telephone game in drawings: write, draw, describe, redraw… then watch every chain fall apart on the TV, stroke by stroke. Vote the funniest beat.</div>
         </a>
-        <a class="game" href="moonlightvillage.html">
+        <a class="game" style="--i:9" href="moonlightvillage.html">
             <div class="emoji">🌙</div>
             <div class="name">MOONLIGHT VILLAGE<span class="tag">new</span></div>
             <div class="desc">Werewolf with the TV as narrator: secret roles on phones, night actions, dawn reveals and dramatic day votes. Wolves lurk among the family.</div>
         </a>
-        <a class="game" href="goinggone.html">
+        <a class="game" style="--i:10" href="goinggone.html">
             <div class="emoji">🔨</div>
             <div class="name">GOING, GOING, GONE!<span class="tag">new</span></div>
             <div class="desc">A live auction of ridiculous lots with hidden values. Outbid the family before the gavel falls, then survive the valuation: treasure or haunted toaster?</div>
         </a>
-        <a class="game" href="bingo.html">
+        <a class="game" style="--i:11" href="bingo.html">
             <div class="emoji">🎫</div>
             <div class="name">FULL HOUSE BINGO<span class="tag">new</span></div>
             <div class="desc">The TV is the caller — ball machine, nickname calls and flashboard. Daub your ticket on your phone and smash BINGO! for the line and the full house.</div>
         </a>
-        <a class="game" href="boggle.html">
+        <a class="game" style="--i:12" href="boggle.html">
             <div class="emoji">🔤</div>
             <div class="name">BOGGLE</div>
             <div class="desc">Classic multiplayer Boggle — tap out words on a shared 4×4 board, duplicates cancel, longest unique words win the round.</div>
         </a>
-        <a class="game" href="liarsdice.html">
+        <a class="game" style="--i:13" href="liarsdice.html">
             <div class="emoji">🎲</div>
             <div class="name">LIAR'S DICE</div>
             <div class="desc">Bid, bluff and call liar. Each player peeks at their own dice on their phone — last one with dice standing wins.</div>
         </a>
-        <a class="game" href="pit.html">
+        <a class="game" style="--i:14" href="pit.html">
             <div class="emoji">🔔</div>
             <div class="name">PIT!<span class="tag">redone</span></div>
             <div class="desc">The frantic commodity-trading game, rebuilt party-style: shout-trade card bundles on your phone while the TV runs the trading floor. QR joining, corner bell, Bull &amp; Bear traps.</div>
         </a>
-        <a class="game" href="ticktacktoe.html">
+        <a class="game" style="--i:15" href="ticktacktoe.html">
             <div class="emoji">⭕</div>
             <div class="name">TIC TAC TOE</div>
             <div class="desc">Head-to-head noughts and crosses over peer-to-peer — share a room code and play.</div>
         </a>
-        <a class="game" href="skydive.html">
+        <a class="game" style="--i:16" href="skydive.html">
             <div class="emoji">🪂</div>
             <div class="name">SKYDIVE</div>
             <div class="desc">Solo arcade freefall — dodge, dive and stick the landing.</div>
         </a>
-        <a class="game" href="synthwave.html">
+        <a class="game" style="--i:17" href="synthwave.html">
             <div class="emoji">🌆</div>
             <div class="name">SYNTHWAVE</div>
             <div class="desc">Neon retro arcade shooter with a full synth soundtrack.</div>

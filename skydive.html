@@ -32,6 +32,8 @@
         canvas {
             display: block;
             margin: 0 auto;
+            max-width: 100%;
+            height: auto;
             border-radius: 1rem;
             box-shadow: 0 10px 20px rgba(0,0,0,0.5);
             cursor: pointer;
@@ -100,6 +102,68 @@
             .score-box, .best-box { padding: 0.1rem 0.8rem; }
             button { font-size: 1rem; padding: 0.3rem 1rem; }
         }
+
+        /* ── sound toggles ── */
+        #sound-togs { position: fixed; top: 10px; right: 10px; z-index: 80; display: flex; gap: 6px; }
+        #sound-togs button {
+            width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer; font-size: 1rem;
+            padding: 0; background: #0f281fdd; box-shadow: inset 0 0 0 1px rgba(212,255,201,.25);
+            transition: opacity .2s, transform .12s;
+        }
+        #sound-togs button:active { transform: scale(.88); box-shadow: inset 0 0 0 1px rgba(212,255,201,.25); }
+        #sound-togs button.off { opacity: .35; filter: grayscale(1); }
+
+        /* ── FX layer: particles + floating score text ── */
+        .pt {
+            position: fixed; width: 8px; height: 8px; border-radius: 2px;
+            z-index: 950; pointer-events: none;
+            animation: ptFly .75s cubic-bezier(.15,.65,.4,1) forwards;
+        }
+        @keyframes ptFly {
+            0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity: 1; }
+            100% { transform: translate(var(--dx), var(--dy)) rotate(560deg) scale(.3); opacity: 0; }
+        }
+        .pop {
+            position: fixed; z-index: 960; pointer-events: none;
+            font-family: 'Courier New', monospace; font-weight: 900; font-size: 1.3rem;
+            animation: popUp 1.1s cubic-bezier(.2,.8,.3,1) forwards;
+            text-shadow: 0 2px 8px rgba(0,0,0,.7); white-space: nowrap;
+        }
+        .pop.good { color: #d4ffc9; }
+        .pop.gold { color: #ffd76a; }
+        @keyframes popUp {
+            0%   { transform: translate(-50%, 0) scale(.5); opacity: 0; }
+            15%  { transform: translate(-50%, -12px) scale(1.25); opacity: 1; }
+            100% { transform: translate(-50%, -70px) scale(1); opacity: 0; }
+        }
+
+        /* ── entrance + freefall drift + crash shake ── */
+        @keyframes riseIn { from { opacity: 0; transform: translateY(18px) scale(.98); } to { opacity: 1; transform: none; } }
+        .game-container { animation: riseIn .5s cubic-bezier(.2,.8,.3,1) both; }
+        @keyframes drift {
+            0%   { transform: translateY(0) rotate(0deg); }
+            50%  { transform: translateY(-4px) rotate(.15deg); }
+            100% { transform: translateY(2px) rotate(-.15deg); }
+        }
+        .game-container.flying { animation: riseIn .5s cubic-bezier(.2,.8,.3,1) both, drift 7s 1.2s ease-in-out infinite alternate; }
+        @keyframes shakeX {
+            10%, 90% { transform: translate(-2px, 1px); } 20%, 80% { transform: translate(4px, -2px); }
+            30%, 50%, 70% { transform: translate(-7px, 2px); } 40%, 60% { transform: translate(7px, -1px); }
+        }
+        .game-container.shake { animation: shakeX .5s both; }
+
+        /* ── score / status feedback ── */
+        @keyframes bumpNum { 0% { transform: scale(1); } 40% { transform: scale(1.45); color: #fff; } 100% { transform: scale(1); } }
+        #scoreValue.bump, #bestValue.bump { display: inline-block; animation: bumpNum .45s ease; }
+        @keyframes dangerPulse {
+            0%, 100% { color: #ffcc88; text-shadow: 0 2px 2px black; }
+            50% { color: #ff8855; text-shadow: 0 0 12px rgba(255,120,60,.8); }
+        }
+        .status.danger { animation: dangerPulse .8s ease-in-out infinite; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+        }
     </style>
 </head>
 <body>
@@ -121,15 +185,330 @@
         </div>
     </div>
 </div>
+<div id="sound-togs">
+    <button id="tog-music" title="Music on/off">🎵</button>
+    <button id="tog-sfx" title="Sound effects on/off">🔊</button>
+</div>
 
 <script>
     (function(){
+        'use strict';
         // CANVAS
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
         // DIMENSIONS
         const W = 800, H = 500;
+
+        const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // ═══════════════════════════════════════════
+        // AUDIO — procedural freefall rush + SFX
+        // (airy A-minor: wide sine pads like wind, a
+        //  looped wind bed on the music bus, pulse
+        //  that builds as the ground approaches.
+        //  Gesture-started, music ~0.33 vol, SFX on top)
+        // ═══════════════════════════════════════════
+        let AC = null, masterGain = null, musicGain = null, sfxGain = null, noiseBuf = null;
+        let leadBus = null, musicDelay = null, windGain = null;
+        let musicOn = localStorage.getItem('skydive-music') !== '0';
+        let sfxOn = localStorage.getItem('skydive-sfx') !== '0';
+
+        function ac() {
+            if (!AC) {
+                try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+                masterGain = AC.createGain(); masterGain.gain.value = 1; masterGain.connect(AC.destination);
+                musicGain = AC.createGain(); musicGain.gain.value = musicOn ? 0.33 : 0; musicGain.connect(masterGain);
+                sfxGain = AC.createGain(); sfxGain.gain.value = sfxOn ? 0.55 : 0; sfxGain.connect(masterGain);
+                // Lead bus with a wide-open echo — big empty sky
+                leadBus = AC.createGain(); leadBus.gain.value = 1; leadBus.connect(musicGain);
+                musicDelay = AC.createDelay(1.5); musicDelay.delayTime.value = 0.29;
+                const fb = AC.createGain(); fb.gain.value = 0.24;
+                const dlp = AC.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 2000;
+                const wet = AC.createGain(); wet.gain.value = 0.19;
+                leadBus.connect(musicDelay); musicDelay.connect(dlp); dlp.connect(fb); fb.connect(musicDelay);
+                dlp.connect(wet); wet.connect(musicGain);
+                const len = AC.sampleRate * 1.2;
+                noiseBuf = AC.createBuffer(1, len, AC.sampleRate);
+                const d = noiseBuf.getChannelData(0);
+                for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+                // Wind bed: looped soft filtered noise, slow LFO gusts, on the music bus
+                windGain = AC.createGain(); windGain.gain.value = 0; windGain.connect(musicGain);
+                const wsrc = AC.createBufferSource(); wsrc.buffer = noiseBuf; wsrc.loop = true;
+                const wlp = AC.createBiquadFilter(); wlp.type = 'lowpass'; wlp.frequency.value = 480; wlp.Q.value = 0.7;
+                const lfo = AC.createOscillator(); lfo.frequency.value = 0.13;
+                const lfoG = AC.createGain(); lfoG.gain.value = 170;
+                lfo.connect(lfoG); lfoG.connect(wlp.frequency);
+                wsrc.connect(wlp); wlp.connect(windGain);
+                wsrc.start(); lfo.start();
+            }
+            if (AC.state === 'suspended') AC.resume();
+            return AC;
+        }
+
+        // Wind bed fades up in freefall, away once the run ends
+        function setWind(on) {
+            if (!AC || !windGain) return;
+            windGain.gain.cancelScheduledValues(AC.currentTime);
+            windGain.gain.setTargetAtTime(on ? 0.09 : 0, AC.currentTime, 0.7);
+        }
+
+        function tone(freq, dur, { type = 'sine', vol = 0.5, when = 0, slide = 0, dest = null, lp = 0, attack = 0.012 } = {}) {
+            if (!AC) return;
+            const t = AC.currentTime + when;
+            const o = AC.createOscillator(), g = AC.createGain();
+            o.type = type;
+            o.frequency.setValueAtTime(freq, t);
+            if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(slide, 20), t + dur);
+            g.gain.setValueAtTime(0, t);
+            g.gain.linearRampToValueAtTime(vol, t + attack);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+            if (lp) {
+                const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp;
+                o.connect(f); f.connect(g);
+            } else {
+                o.connect(g);
+            }
+            g.connect(dest || sfxGain);
+            o.start(t); o.stop(t + dur + 0.06);
+        }
+
+        function noiseHit(dur, { vol = 0.3, when = 0, hp = 6000, dest = null } = {}) {
+            if (!AC) return;
+            const t = AC.currentTime + when;
+            const src = AC.createBufferSource(); src.buffer = noiseBuf;
+            const f = AC.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hp;
+            const g = AC.createGain();
+            g.gain.setValueAtTime(vol, t);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+            src.connect(f); f.connect(g); g.connect(dest || sfxGain);
+            src.start(t); src.stop(t + dur + 0.05);
+        }
+
+        const mf = m => 440 * Math.pow(2, (m - 69) / 12); // midi → freq
+
+        // ── SFX (freefall: whooshes, rising altitude ticks, comic thud) ──
+        // Plane-door whoosh into the void, then canopy snap + relieved chord
+        function sJump() {
+            if (!sfxOn || !AC) return;
+            noiseHit(0.5, { vol: 0.2, hp: 900 });
+            tone(mf(57), 0.5, { type: 'sine', vol: 0.16, slide: mf(69) });
+            noiseHit(0.07, { vol: 0.26, hp: 2200, when: 0.5 });
+            [69, 72, 76].forEach((m, i) => tone(mf(m), 0.5, { type: 'triangle', vol: 0.13, when: 0.56 + i * 0.04, attack: 0.03 }));
+        }
+        // Altimeter tick — pitch climbs with every 500 m as the ground nears
+        function sMilestone(lap) {
+            if (!sfxOn || !AC) return;
+            const base = 74 + Math.min(lap, 12);
+            tone(mf(base), 0.07, { type: 'triangle', vol: 0.22 });
+            tone(mf(base + 5), 0.1, { type: 'triangle', vol: 0.2, when: 0.08 });
+        }
+        // Soft lub-dub while the intensity is redlined
+        function sHeartbeat() {
+            if (!sfxOn || !AC) return;
+            tone(80, 0.12, { type: 'sine', vol: 0.3, slide: 54 });
+            tone(72, 0.1, { type: 'sine', vol: 0.22, slide: 48, when: 0.18 });
+        }
+        // Comic thud (soft, not gory) + a little wipeout sting
+        function sCrash() {
+            if (!sfxOn || !AC) return;
+            tone(150, 0.45, { type: 'sine', vol: 0.4, slide: 40 });
+            noiseHit(0.3, { vol: 0.18, hp: 700 });
+            tone(mf(52), 0.16, { type: 'triangle', vol: 0.15, when: 0.22, slide: mf(45) });
+            [69, 65, 60, 52].forEach((m, i) => tone(mf(m), 0.18, { type: 'triangle', vol: 0.15, when: 0.42 + i * 0.14 }));
+        }
+        // New best: banked-points coin jingle + a short fanfare
+        function sBest() {
+            if (!sfxOn || !AC) return;
+            [0, 4, 7, 12, 16].forEach((s, i) => tone(mf(81 + s), 0.09, { type: 'triangle', vol: 0.26, when: i * 0.055 }));
+            [69, 76, 81, 84].forEach((m, i) => tone(mf(m), 0.16, { type: 'square', vol: 0.13, when: 0.4 + i * 0.12, lp: 3000 }));
+            noiseHit(0.5, { vol: 0.13, when: 0.85, hp: 6000 });
+        }
+
+        // ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
+        // Airy A-minor freefall. null = rest; numbers are midi notes.
+        // padSus holds the pad chords as long sine washes (wind harmony),
+        // bassBars follows the chords bar-to-bar, waves picks the palette.
+        const TRACKS = {
+            // In the fall: floaty sine lead over Am→G / F→Em, sparse pulse
+            fall: { bpm: 104, swing: 0.08, arp: 2, leadLp: 3200, padSus: true,
+                waves: { bass: 'triangle', lead: 'sine', stab: 'sine', arpW: 'sine' },
+                bassBars: [
+                    [45,null,null,null, 52,null,null,null, 45,null,null,52, 45,null,52,null, 43,null,null,null, 50,null,null,null, 43,null,null,50, 43,null,50,null],
+                    [41,null,null,null, 48,null,null,null, 41,null,null,48, 41,null,48,null, 40,null,null,null, 47,null,null,null, 40,null,null,47, 40,null,47,null],
+                ],
+                leads: [
+                    [69,null,null,null, 72,null,74,null, 76,null,null,null, null,null,74,null, 71,null,null,72, 74,null,null,null, 71,null,null,null, null,null,null,null],
+                    [76,null,null,null, 74,null,72,null, 69,null,null,null, null,null,67,null, 64,null,null,67, 69,null,null,null, 71,null,72,null, null,null,null,null],
+                    [null,null,69,null, null,null,71,null, 72,null,null,74, null,null,72,null, 71,null,null,null, 67,null,null,64, 67,null,null,null, null,null,null,null],
+                    [null,null,null,null, null,null,null,null, null,null,null,null, null,null,null,null, null,null,null,null, null,null,64,null, 67,null,69,null, 71,null,null,null],
+                ],
+                hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+                kick: [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+                stab: [0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0],
+                pads: [
+                    { 0: [57,60,64], 16: [55,59,62] },
+                    { 0: [53,57,60], 16: [52,55,59] },
+                ] },
+            // Terminal velocity (score ≥ 900): driving saw bass, Am→C / F→G climb
+            rush: { bpm: 132, swing: 0, arp: 1, leadLp: 4200, padSus: false,
+                waves: { bass: 'sawtooth', lead: 'square', stab: 'square', arpW: 'sine' },
+                bassBars: [
+                    [45,null,45,57, 45,null,47,null, 45,null,45,57, 45,null,48,null, 48,null,48,60, 48,null,50,null, 48,null,48,60, 48,null,52,null],
+                    [41,null,41,53, 41,null,43,null, 41,null,41,53, 41,null,45,null, 43,null,43,55, 43,null,45,null, 43,null,43,55, 43,null,47,null],
+                ],
+                leads: [
+                    [69,69,null,72, null,74,null,76, 77,null,76,null, 74,null,72,null, 76,null,null,76, null,79,null,76, 74,null,72,null, 74,null,null,null],
+                    [81,null,79,null, 76,null,79,null, 81,81,null,79, null,76,null,74, 77,null,76,null, 74,null,76,null, 77,null,79,null, 81,null,null,null],
+                    [null,64,67,69, null,67,69,72, null,69,72,76, null,72,76,79, 81,null,79,null, 76,null,74,null, 72,null,71,null, 69,null,null,null],
+                ],
+                hat:  [1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1],
+                kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,1,0],
+                stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+                pads: [
+                    { 0: [57,60,64], 16: [55,60,64] },
+                    { 0: [53,57,60], 16: [55,59,62] },
+                ] },
+            // Canopy open / results: serene F→G / Am resolution, almost weightless
+            over: { bpm: 84, swing: 0.1, arp: 4, leadLp: 2800, padSus: true,
+                waves: { bass: 'sine', lead: 'triangle', stab: 'sine', arpW: 'sine' },
+                bassBars: [
+                    [41,null,null,null, null,null,null,null, 48,null,null,null, null,null,null,null, 43,null,null,null, null,null,null,null, 50,null,null,null, null,null,null,null],
+                    [45,null,null,null, null,null,null,null, 52,null,null,null, null,null,null,null, 45,null,null,null, null,null,null,null, 57,null,null,null, null,null,null,null],
+                ],
+                leads: [
+                    [null,null,null,null, 72,null,null,null, null,null,71,null, null,null,null,null, 71,null,null,null, null,null,69,null, null,null,67,null, null,null,null,null],
+                    [null,null,null,null, 76,null,null,null, null,null,74,null, null,null,null,null, 72,null,null,null, null,null,71,null, null,null,72,null, null,null,null,null],
+                ],
+                hat:  [0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+                kick: [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+                stab: [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+                pads: [
+                    { 0: [53,57,60], 16: [55,59,62] },
+                    { 0: [57,60,64], 16: [57,60,64] },
+                ] },
+        };
+        let musicTrack = 'fall', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
+
+        function playMusicStep(i, t, bar) {
+            const tr = TRACKS[musicTrack];
+            const stepDur = 60 / tr.bpm / 4;
+            const w = tr.waves || {};
+            // Swing: push every off-16th slightly late for a looser float
+            const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
+            if (tr.kick[i]) tone(140, 0.25, { type: 'sine', vol: 0.42, when: rel, slide: 42, dest: musicGain });
+            if (tr.hat[i]) {
+                const hv = (i % 4 === 2 ? 0.11 : 0.055) * (0.8 + Math.random() * 0.4);
+                noiseHit(0.045, { vol: hv, when: rel, hp: 9500, dest: musicGain });
+            }
+            const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
+            const b = bassArr[i];
+            if (b != null) tone(mf(b), stepDur * 1.6, { type: w.bass || 'triangle', vol: 0.28, when: rel, dest: musicGain, lp: 1000, attack: 0.006 });
+            const pad = tr.pads[bar % tr.pads.length];
+            const ch = i < 16 ? pad[0] : pad[16];
+            // Wide sine pads like wind — a long soft wash on each chord change
+            if (tr.padSus && (i === 0 || i === 16) && ch)
+                ch.forEach(m => tone(mf(m), stepDur * 15, { type: 'sine', vol: 0.038, when: rel, lp: 1500, dest: musicGain, attack: 0.5 }));
+            if (tr.stab && tr.stab[i] && ch)
+                ch.forEach(m => tone(mf(m + 12), stepDur * 0.9, { type: w.stab || 'sine', vol: 0.035, when: rel, lp: 2600, dest: musicGain, attack: 0.005 }));
+            let l = tr.leads[bar % tr.leads.length][i];
+            if (l != null) {
+                if (musicUrgent) l += 12;
+                tone(mf(l), stepDur * 1.5, { type: w.lead || 'sine', vol: 0.13 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3800, attack: 0.006 });
+            }
+            // Ice-air shimmer two octaves above the pads
+            if (tr.arp && i % tr.arp === 0 && ch)
+                tone(mf(ch[(i / tr.arp) % ch.length] + 24), stepDur * tr.arp * 0.9, { type: w.arpW || 'sine', vol: 0.04, when: rel, lp: 5200, dest: musicGain, attack: 0.004 });
+            if (musicUrgent && i % 4 === 0) noiseHit(0.035, { vol: 0.1, when: rel + stepDur * 2, hp: 11000, dest: musicGain });
+        }
+
+        function musicScheduler() {
+            const tr = TRACKS[musicTrack];
+            const stepDur = 60 / tr.bpm / 4;
+            while (musicNext < AC.currentTime + 0.18) {
+                playMusicStep(musicStep, musicNext, musicBar);
+                musicNext += stepDur;
+                musicStep++;
+                if (musicStep === 32) { musicStep = 0; musicBar++; }
+            }
+        }
+
+        function startMusicLoop() {
+            if (musicTimer || !AC) return;
+            musicNext = AC.currentTime + 0.1;
+            musicStep = 0;
+            musicBar = 0;
+            if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[musicTrack].bpm * 0.5;
+            musicTimer = setInterval(musicScheduler, 30);
+        }
+
+        function setMusic(track) {
+            if (musicTrack === track) return;
+            musicTrack = track;
+            musicStep = 0;
+            musicBar = 0;
+            if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[track].bpm * 0.5;
+            if (track === 'over') musicUrgent = false;
+        }
+
+        function toggleMusic() {
+            musicOn = !musicOn;
+            localStorage.setItem('skydive-music', musicOn ? '1' : '0');
+            if (!AC && musicOn) { if (ac()) { startMusicLoop(); setWind(gameRunning); } }
+            if (AC && musicGain) musicGain.gain.linearRampToValueAtTime(musicOn ? 0.33 : 0, AC.currentTime + 0.2);
+            document.getElementById('tog-music').classList.toggle('off', !musicOn);
+        }
+        function toggleSfx() {
+            sfxOn = !sfxOn;
+            localStorage.setItem('skydive-sfx', sfxOn ? '1' : '0');
+            if (AC && sfxGain) sfxGain.gain.value = sfxOn ? 0.55 : 0;
+            document.getElementById('tog-sfx').classList.toggle('off', !sfxOn);
+        }
+
+        // Unlock audio on first interaction (browser autoplay policy).
+        // This game is keyboard-driven on desktop, so keydown also unlocks.
+        let _audioUnlocked = false;
+        function unlockAudio() {
+            if (_audioUnlocked) return;
+            _audioUnlocked = true;
+            if (ac()) { startMusicLoop(); setWind(gameRunning); }
+        }
+        document.addEventListener('pointerdown', unlockAudio, { capture: true });
+        window.addEventListener('keydown', unlockAudio, { capture: true });
+
+        // ── Particle bursts + floating score text ──
+        function burst(x, y, colors, n = 14) {
+            if (REDUCED) return;
+            for (let i = 0; i < n; i++) {
+                const p = document.createElement('div');
+                p.className = 'pt';
+                const ang = Math.random() * Math.PI * 2;
+                const dist = 40 + Math.random() * 90;
+                p.style.cssText = `left:${x}px;top:${y}px;background:${colors[i % colors.length]};` +
+                    `--dx:${Math.cos(ang) * dist}px;--dy:${Math.sin(ang) * dist - 30}px;`;
+                document.body.appendChild(p);
+                setTimeout(() => p.remove(), 800);
+            }
+        }
+        function popText(x, y, text, cls = 'good') {
+            const el = document.createElement('div');
+            el.className = 'pop ' + cls;
+            el.textContent = text;
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1150);
+        }
+        // Map a canvas-space point to page coordinates (canvas scales on phones)
+        function canvasPoint(px, py) {
+            const r = canvas.getBoundingClientRect();
+            return { x: r.left + px * r.width / W, y: r.top + py * r.height / H };
+        }
+        function bumpEl(el) {
+            el.classList.remove('bump');
+            void el.offsetWidth;
+            el.classList.add('bump');
+        }
         
         // SKYDIVER AT THE TOP (falling upward theme -> skydiver descending but visual is at top)
         const BASE_PLAYER_WIDTH = 34;
@@ -169,6 +548,14 @@
         
         // Parachute animation flag
         let parachuteAngle = 0;
+
+        // FX state: chute-deploy bounce, altitude milestones, urgency, crash fade
+        let chuteDeploy = 40;
+        let lastLap = 0;
+        let isCritical = false;
+        let gameOverAt = 0;
+        const containerEl = document.querySelector('.game-container');
+        const statusEl = document.getElementById('statusText');
         
         // Helper functions
         function loadBest() {
@@ -204,6 +591,17 @@
             document.getElementById('statusText').innerHTML = "SKYDIVE";
             document.getElementById('statusText').style.color = "#d4ffc9";
             updateScoreDisplay();
+            // FX + audio: back out of the plane
+            chuteDeploy = 0;
+            lastLap = 0;
+            isCritical = false;
+            musicUrgent = false;
+            statusEl.classList.remove('danger');
+            containerEl.classList.remove('shake');
+            containerEl.classList.add('flying');
+            setMusic('fall');
+            setWind(true);
+            sJump();
         }
         
         function updateScoreDisplay() {
@@ -213,9 +611,33 @@
         function gameOver() {
             if(!gameRunning) return;
             gameRunning = false;
+            gameOverAt = Date.now();
+            const newBest = score > bestScore && Math.floor(score) > 0;
             document.getElementById('statusText').innerHTML = "GAME OVER";
             document.getElementById('statusText').style.color = "#ffaa99";
             saveBest();
+            // FX + audio: comic thud, shake, debris — then serene canopy resolution
+            isCritical = false;
+            musicUrgent = false;
+            statusEl.classList.remove('danger');
+            containerEl.classList.remove('flying');
+            void containerEl.offsetWidth;
+            containerEl.classList.add('shake');
+            const hit = canvasPoint(playerX + playerWidth / 2, playerY + playerHeight / 2);
+            burst(hit.x, hit.y, ['#e84c3c', '#f4a460', '#cceeff', '#9b5e2c'], 18);
+            sCrash();
+            setMusic('over');
+            setWind(false);
+            if (newBest) {
+                setTimeout(() => {
+                    sBest();
+                    const bEl = document.getElementById('bestValue');
+                    bumpEl(bEl);
+                    const r = bEl.getBoundingClientRect();
+                    burst(r.left + r.width / 2, r.top + r.height / 2, ['#ffd76a', '#fff2b0', '#e8a23c'], 16);
+                    popText(r.left + r.width / 2, r.top - 6, 'NEW BEST!', 'gold');
+                }, 900);
+            }
         }
         
         // Random size multiplier between 0.5 and 2.0
@@ -309,6 +731,17 @@
             survivalFrames++;
             score += 1.0;
             updateScoreDisplay();
+            // Altitude milestone every 500: rising altimeter tick + score pop
+            const lap = Math.floor(score / 500);
+            if (lap > lastLap) {
+                lastLap = lap;
+                sMilestone(lap);
+                bumpEl(document.getElementById('scoreValue'));
+                const p = canvasPoint(W / 2, 96);
+                popText(p.x, p.y, '▼ ' + (lap * 500) + 'm', 'good');
+            }
+            // Terminal velocity: harder music once the speed lines appear
+            if (score >= 900 && musicTrack === 'fall') setMusic('rush');
         }
         
         // Skydiver movement
@@ -322,6 +755,7 @@
             
             // animate parachute gently
             parachuteAngle = (parachuteAngle + 0.03) % (Math.PI * 2);
+            if (chuteDeploy < 40) chuteDeploy++;
         }
         
         // ---------- RENDERING (No emojis, no % labels on objects, skydiver theme) ----------
@@ -335,6 +769,17 @@
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, W, H);
             
+            // Far cloud layer — slow parallax for freefall depth
+            ctx.fillStyle = 'rgba(255,255,250,0.25)';
+            for(let i=0;i<5;i++) {
+                let fx = (frameCounter * 0.09 + i * 185) % (W + 140) - 70;
+                let fy = 45 + i * 92;
+                ctx.beginPath();
+                ctx.ellipse(fx, fy, 52, 16, 0, 0, Math.PI*2);
+                ctx.ellipse(fx+40, fy-8, 40, 14, 0, 0, Math.PI*2);
+                ctx.fill();
+            }
+
             // Clouds
             ctx.fillStyle = 'rgba(255,255,240,0.7)';
             for(let i=0;i<8;i++) {
@@ -377,7 +822,18 @@
             let chuteX = playerX + playerWidth/2;
             let chuteY = playerY - 12;
             let sway = Math.sin(parachuteAngle * 2) * 4;
-            
+
+            // Chute-open bounce: canopy scales in with an overshoot after each jump
+            const dt = Math.min(1, chuteDeploy / 34);
+            const ds = (REDUCED || dt >= 1) ? 1 : 0.25 + 0.75 * dt + 0.22 * Math.sin(dt * Math.PI * 2.2) * (1 - dt);
+            ctx.save();
+            if (ds !== 1) {
+                ctx.globalAlpha = 0.35 + 0.65 * dt;
+                ctx.translate(chuteX, playerY + 8);
+                ctx.scale(ds, ds);
+                ctx.translate(-chuteX, -(playerY + 8));
+            }
+
             ctx.fillStyle = '#e84c3c';
             ctx.beginPath();
             ctx.moveTo(chuteX + sway, chuteY);
@@ -406,7 +862,8 @@
             ctx.lineWidth = 1.5;
             ctx.strokeStyle = '#8b5a2b';
             ctx.stroke();
-            
+            ctx.restore(); // end chute-deploy transform
+
             // Body (skydiver suit)
             ctx.fillStyle = '#2c6e9e';
             ctx.fillRect(playerX+6, playerY+8, playerWidth-12, 22);
@@ -525,21 +982,34 @@
             if(gameRunning) {
                 let intensityPercent = Math.min(100, Math.floor((currentSpawnDelay - 7) / (baseSpawnDelay - 7) * 100));
                 if(intensityPercent < 0) intensityPercent = 0;
+                // Critical intensity: numbers pulse hot
+                const hot = isCritical && !REDUCED && Math.sin(Date.now() * 0.012) > 0;
+                ctx.fillStyle = isCritical ? (hot ? '#ff9860' : '#ffd2a8') : '#FFFAC2';
                 ctx.fillText(`INTENSITY: ${Math.floor(100-intensityPercent)}%`, 18, 48);
-                
+
                 // Altitude style meter
                 ctx.font = "10px monospace";
-                ctx.fillStyle = "#bdf2ff";
+                ctx.fillStyle = isCritical ? (hot ? '#ffb080' : '#ffe0c0') : '#bdf2ff';
                 ctx.fillText("ALTITUDE", 18, 72);
                 let altitudePercent = (score % 500) / 500;
                 ctx.fillRect(18, 76, 80 * altitudePercent, 4);
             } else if(!gameRunning) {
+                // Crash: dim the sky, drop the headline in, blink the prompt
+                const k = REDUCED ? 1 : Math.min(1, (Date.now() - gameOverAt) / 700);
+                ctx.globalAlpha = k * 0.45;
+                ctx.fillStyle = "#000";
+                ctx.fillRect(0, 0, W, H);
+                ctx.globalAlpha = k;
+                const dy = (1 - k) * (1 - k) * -46;
                 ctx.font = "bold 28px monospace";
                 ctx.fillStyle = "#ffbc8c";
-                ctx.fillText("GAME OVER", W/2-78, H/2-35);
-                ctx.font = "14px monospace";
-                ctx.fillStyle = "#dddd99";
-                ctx.fillText("PRESS RESTART", W/2-58, H/2+15);
+                ctx.fillText("GAME OVER", W/2-78, H/2-35+dy);
+                if (REDUCED || Math.floor((Date.now() - gameOverAt) / 600) % 2 === 0) {
+                    ctx.font = "14px monospace";
+                    ctx.fillStyle = "#dddd99";
+                    ctx.fillText("PRESS RESTART", W/2-58, H/2+15);
+                }
+                ctx.globalAlpha = 1;
             }
         }
         
@@ -592,6 +1062,14 @@
                 if(gameRunning) {
                     manageSpawning();
                     updateScore();
+                    // Urgency: intensity redlined → lifted lead, shaker 16ths, heartbeat
+                    const critical = currentSpawnDelay <= 11;
+                    if (critical !== isCritical) {
+                        isCritical = critical;
+                        statusEl.classList.toggle('danger', critical);
+                    }
+                    musicUrgent = critical;
+                    if (critical && frameCounter % 132 === 0) sHeartbeat();
                 }
                 frameCounter++;
             }
@@ -662,7 +1140,13 @@
         
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('keyup', handleKeyUp);
-        
+
+        // Sound toggles
+        document.getElementById('tog-music').addEventListener('click', toggleMusic);
+        document.getElementById('tog-sfx').addEventListener('click', toggleSfx);
+        document.getElementById('tog-music').classList.toggle('off', !musicOn);
+        document.getElementById('tog-sfx').classList.toggle('off', !sfxOn);
+
         // Initialize
         loadBest();
         resetGame();
