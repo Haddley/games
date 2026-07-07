@@ -1029,24 +1029,33 @@ function hostOnTV() {
     });
 }
 
-function joinGame(code, name) {
+function joinGame(code, name, _attempt) {
+    const attempt = _attempt || 1;
     myName = name.trim().slice(0, 16) || 'Player';
     myAvatar = fAvatar || AVATARS[Math.floor(Math.random() * AVATARS.length)];
     localStorage.setItem('herd-name', myName);
     localStorage.setItem('herd-avatar', myAvatar);
     uiErr = ''; ui = 'connecting'; render();
 
+    let connected = false;
     peer = new Peer();
     peer.on('open', id => {
         myId = id;
         isHost = false;
         hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
-        hostConn.on('open', () => send(hostConn, { type: 'join', name: myName, avatar: myAvatar }));
+        hostConn.on('open', () => { connected = true; send(hostConn, { type: 'join', name: myName, avatar: myAvatar }); });
         hostConn.on('data', msg => applyMsg(msg));
         hostConn.on('close', () => { uiErr = 'Disconnected from the game.'; ui = 'home'; D = null; render(); });
         hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; ui = 'home'; render(); });
     });
     peer.on('error', () => {
+        if (connected) return;   // benign post-connect error — don't eject a joined player
+        if (attempt < 2) {
+            try { peer.destroy(); } catch (_) {}
+            peer = null;
+            setTimeout(() => joinGame(code, name, 2), 600);
+            return;
+        }
         uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.';
         ui = 'home'; render();
     });

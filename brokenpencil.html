@@ -955,7 +955,7 @@ function setupGuestConn(conn) {
             case 'vote':   if (player) hostVote(player, msg.beat); break;
             case 'ctl': {
                 if (!isTvHost || !player || player.id !== H.players[0]?.id) break;
-                hostCtl(msg.action, msg);
+                hostCtl(msg.action, msg, conn);
                 break;
             }
         }
@@ -973,8 +973,10 @@ function setupGuestConn(conn) {
     conn.on('error', e => console.warn('conn err', e));
 }
 
-function hostCtl(action, msg) {
-    if (action === 'start' && H.phase === 'lobby') hostStartGame();
+function hostCtl(action, msg, conn) {
+    if (action === 'start' && H.phase === 'lobby') {
+        if (!hostStartGame() && conn) send(conn, { type: 'notice', text: uiErr });
+    }
     else if (action === 'next' && H.phase === 'reveal') hostNextBeat();
     else if (action === 'next' && H.phase === 'voted') hostNextChain();
     else if (action === 'again' && H.phase === 'podium') hostNewGame();
@@ -1093,7 +1095,7 @@ function hostStartGame() {
     if (connectedPlayers().length < minPlayers()) {
         uiErr = 'Need at least ' + minPlayers() + ' players.';
         if (ui === 'lobby_h') render();
-        return;
+        return false;
     }
     clearHostTimers();
     // seat order fixes here; late joiners spectate till next game
@@ -1105,6 +1107,7 @@ function hostStartGame() {
     H.phase = 'work';
     broadcastWork();
     armStepTimer();
+    return true;
 }
 
 function armStepTimer() {
@@ -1315,9 +1318,14 @@ function stopClientTimers() { clearInterval(_clientTick); _clientTick = null; }
 
 function applyMsg(msg) {
     switch (msg.type) {
+        case 'notice':
+            uiErr = String(msg.text || '');
+            if (ui === 'lobby_g' || ui === 'lobby_h') render();
+            break;
         case 'lobby': {
             const prevN = D && D.type === 'lobby' ? (D.players || []).length : -1;
             D = msg;
+            uiErr = '';
             stopClientTimers();
             ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g';
             setMusic('lobby');
