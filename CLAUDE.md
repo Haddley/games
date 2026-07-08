@@ -55,9 +55,9 @@ Cross-network play relies on a TURN relay from **Metered** (metered.ca — "Open
 - **Plan & quota**: free tier, **~50 GB/month** of relayed traffic, shared across *all* games and *all* players (the same credentials are reused everywhere). TURN only carries traffic when a direct P2P path can't be established, but data-heavy games (doodleparty, brokenpencil drawings) consume more relay than text games. If the monthly quota is exhausted, TURN stops relaying and remote players silently fail again until it resets — check the **Metered dashboard** (dashboard.metered.ca) for usage.
 - **The `iceServers` set** each game embeds (STUN + TURN across ports/transports so at least one punches through any firewall; the `:443` and `turns` TLS entries are what tunnel through HTTPS-only networks):
   - `stun:stun.relay.metered.ca:80`
-  - `turn:global.relay.metered.ca:80` (and `:80?transport=tcp`)
-  - `turn:global.relay.metered.ca:443`
-  - `turns:global.relay.metered.ca:443?transport=tcp`
+  - `turn:standard.relay.metered.ca:80` (and `:80?transport=tcp`)
+  - `turn:standard.relay.metered.ca:443`
+  - `turns:standard.relay.metered.ca:443?transport=tcp`
 - **Credentials**: a Metered username + credential, **hardcoded in cleartext** in every game's `ICE_CFG` (and ticktacktoe's two inline `iceServers` arrays). Current username: `35410ce7572a64d0dad7b813`. They're public (visible in page source) — acceptable for family games, but anyone can burn the quota. **To rotate** (new key from the Metered dashboard): replace the username+credential at every occurrence — they appear ~4× per game across ~16 files, so do it with a scripted find-replace over all `*.html`, not by hand, then verify each inline `<script>` still parses.
 - **No backend**: because the games are static HTML with no server, credentials are long-lived and embedded rather than minted per-session. A credential-vending endpoint would be the "correct" hardening but is overkill unless quota abuse actually happens.
 
