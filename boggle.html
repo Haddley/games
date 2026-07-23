@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -332,6 +333,16 @@
             letter-spacing: 10px; text-align: center;
         }
         .v-lobby-waiting { font-size: clamp(0.75rem,1.5vw,1rem); color: var(--muted); text-transform: uppercase; letter-spacing: 3px; }
+
+        /* ── QR code (phone lobby + TV lobby) ── */
+        .qr-wrap { width: min(200px, 56vw); margin: 4px auto 8px; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.4); background: #fffbeb; }
+        .qr-wrap svg { display: block; width: 100%; height: auto; }
+        .v-lobby-qr { display: flex; flex-direction: column; align-items: center; gap: clamp(8px,1.5vh,16px);
+            background: #0d0d16; border: 1px solid rgba(245,158,11,0.25); border-radius: 2vmin;
+            padding: clamp(14px,2.4vmin,28px); box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+        .v-lobby-qr .qr-wrap { width: min(30vmin, 260px); margin: 0; }
+        .v-lobby-qr .slbl { font-size: clamp(0.7rem,1.4vw,0.95rem); letter-spacing: 2px; }
+        .v-lobby-join-hint { font-size: clamp(0.6rem,1.1vw,0.8rem); color: var(--muted); letter-spacing: 1px; }
 
         /* ── Gameover animations ── */
         @keyframes trophyBounce {
@@ -838,6 +849,7 @@ let peer       = null;
 let myId       = '';
 let myName     = '';
 let isHost     = false;
+let isTvHost   = false;     // this screen created the room but renders the TV/scoreboard view
 let roomCode   = '';
 let hostConn   = null;      // guest/viewer → host
 let guestConns = {};        // host: { peerId: DataConnection }
@@ -877,6 +889,29 @@ function esc(s) {
 function hdrHTML(sub) {
     return `<div class="hdr"><h1>BOGGLE</h1><p class="sub">${esc(sub || 'Word Search Game')}</p></div>`;
 }
+
+// ── Join link + themed QR (for TV-host lobby & viewer scoreboard) ──
+function joinURL(code) { return location.origin + location.pathname + '?room=' + (code || roomCode || ''); }
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+        let rects = '';
+        for (let r = 0; r < n; r++)
+            for (let c = 0; c < n; c++)
+                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+            `<rect width="${size}" height="${size}" fill="#fffbeb"/>` +
+            `<g fill="#0a0a0f">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+
+// ── TV-host captain helpers ──
+// In a TV-host game the FIRST phone to join drives start/next/again from its phone.
+function isCaptain() { return !!(D && D.tvHost && D.captain && D.captain === myName); }
+function guestCtl(action) { if (hostConn) send(hostConn, { type: 'ctl', action }); }
 
 // ═══════════════════════════════════════════
 // AUDIO — procedural "wordsmith's study" music + SFX
@@ -1218,8 +1253,8 @@ function popText(x, y, text, cls = 'good') {
 let _lastUi = '', _lastVPhase = '';
 function render() {
     const app = document.getElementById('app');
-    // In tv-simulation the host flow drives the game but the big screen always shows the TV view
-    if (simTvHost && ui !== 'home' && ui !== 'creating') ui = 'viewer';
+    // TV-host (and tv-simulation): the host flow drives the game but the big screen always shows the TV view
+    if ((isTvHost || simTvHost) && ui !== 'home' && ui !== 'creating') ui = 'viewer';
     const vphase = ui === 'viewer' ? (vD?.phase || '') : '';
     const fresh = ui !== _lastUi || vphase !== _lastVPhase;
     _lastUi = ui; _lastVPhase = vphase;
@@ -1290,16 +1325,21 @@ function renderHome() {
         </button>
     </div>
     <div class="card">
-        <div class="slbl">Watch (Viewer / TV)</div>
+        <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-p btn-full" onclick="hostOnTV()">&#128250; Host the party on this screen</button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin:8px 0 10px">
+            Shows a big QR code &mdash; the first phone to join becomes &#128081; Captain
+        </div>
+        <hr>
         <div class="fg">
-            <label>Room Code</label>
+            <label>&hellip;or open an existing room's scoreboard</label>
             <input type="text" maxlength="4" placeholder="4-letter code"
                 value="${esc(fVCode)}" oninput="fVCode=this.value=this.value.toUpperCase()"
                 onkeydown="if(event.key==='Enter')joinAsViewer(fVCode)">
         </div>
         <button class="btn btn-g btn-full"
             onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code.';render()}">
-            &#128250; Watch
+            &#128250; Open Scoreboard
         </button>
     </div>
     ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}`;
@@ -1331,8 +1371,9 @@ function hostAddPlayer(id, name) {
 // ── Host: broadcast lobby state to all guests + viewers ──
 function broadcastLobby() {
     const players = H.players.map(p => p.name);
-    broadcast({ type: 'lobby', players, roomCode, roundsTarget: H.roundsTarget });
-    broadcastViewers({ type: 'viewer_lobby', players, roomCode });
+    const captain = isTvHost ? (H.players[0]?.name || null) : null;
+    broadcast({ type: 'lobby', players, roomCode, roundsTarget: H.roundsTarget, tvHost: isTvHost, captain });
+    broadcastViewers({ type: 'viewer_lobby', players, roomCode, tvHost: isTvHost, captain });
     render();
 }
 
@@ -1377,6 +1418,16 @@ function setupGuestConn(conn) {
                 if (player) {
                     player._submitted = msg.payload;
                     hostCheckAllSubmitted();
+                }
+                break;
+            }
+            // TV-host: only the captain (first player to join) may drive the game
+            case 'ctl': {
+                if (!isTvHost || conn.peer !== H.players[0]?.id) break;
+                if (msg.action === 'start') {           // start OR advance to next round
+                    if (H.phase === 'lobby' || H.phase === 'results') hostStartGame();
+                } else if (msg.action === 'again') {    // play again from game over
+                    if (H.phase === 'gameover') hostNewGame();
                 }
                 break;
             }
@@ -1428,6 +1479,46 @@ function hostGame(name, rounds) {
     });
 }
 
+// ── Host the party on THIS screen (TV-host) ──
+// The big screen creates the room and runs the authoritative host logic, but
+// renders the TV/scoreboard view instead of a phone. It is NOT a player; the
+// first phone to join becomes the captain and drives start/next from its phone.
+function hostOnTV() {
+    myName = '';           // the TV is not a player
+    uiErr = '';
+    ui = 'creating';
+    render();
+
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I/O
+    const code = 'BOGGLE-' + Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    roomCode = code.replace('BOGGLE-', '');
+
+    peer = new Peer(code, ICE_CFG);
+
+    peer.on('open', id => {
+        myId     = id;
+        isHost   = true;
+        isTvHost = true;
+        // A local stub "viewer" connection: host broadcasts flow straight into the
+        // TV's own viewer UI (vD, music, stingers) — same mechanism the sim uses.
+        viewerConns['__tvhost__'] = { peer: '__tvhost__', send: applyViewerLocal };
+        document.body.classList.add('viewer-mode');
+        loadDictionary();
+        broadcastLobby();   // paints the TV lobby (QR + code) via the stub viewer
+    });
+
+    peer.on('connection', conn => setupGuestConn(conn));
+
+    peer.on('error', e => {
+        uiErr = 'Connection error: ' + e.message;
+        isHost = false; isTvHost = false;
+        document.body.classList.remove('viewer-mode');
+        delete viewerConns['__tvhost__'];
+        ui = 'home';
+        render();
+    });
+}
+
 // ── Join game ──
 function joinGame(code, name) {
     myName = name.trim() || 'Player';
@@ -1451,7 +1542,7 @@ function joinGame(code, name) {
         hostConn.on('data', msg => {
             if (msg.type === 'lobby') {
                 const prevN = D && D.phase === 'lobby' ? (D.players || []).length : -1;
-                D = { phase: 'lobby', players: msg.players, roomCode: msg.roomCode, roundsTarget: msg.roundsTarget };
+                D = { phase: 'lobby', players: msg.players, roomCode: msg.roomCode, roundsTarget: msg.roundsTarget, tvHost: msg.tvHost, captain: msg.captain };
                 ui = 'lobby_g';
                 setMusic('lobby');
                 if (prevN >= 0 && (msg.players || []).length > prevN) sJoin();
@@ -1646,27 +1737,34 @@ function renderLobbyH() {
 function renderLobbyG() {
     if (!D) return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>Joining\u2026</div></div>`;
 
+    const cap = isCaptain();
     const pList = (D.players || []).map((name, i) =>
         `<div class="player-row${i === 0 ? ' host-row' : ''}" style="--i:${i}">
             <div class="dot"></div>
-            <div style="flex:1">${esc(name)}${name === myName ? ' (you)' : ''}</div>
+            <div style="flex:1">${esc(name)}${name === myName ? ' (you)' : ''}${D.tvHost && name === D.captain ? ' \ud83d\udc51' : ''}</div>
         </div>`
     ).join('');
 
+    const nPlayers = (D.players || []).length;
+    const footer = cap
+        ? `<button class="btn btn-p btn-full" onclick="guestCtl('start')" ${nPlayers >= 2 ? '' : 'disabled'}>&#x1F680; Start Game</button>
+           ${nPlayers >= 2 ? '' : '<div style="font-size:.72rem;color:var(--muted);text-align:center;margin-top:8px">Need at least 2 players to start</div>'}`
+        : `<div class="status">Waiting for ${D.tvHost ? `\ud83d\udc51 ${esc(D.captain || 'the captain')}` : 'host'} to start\u2026</div>`;
+
     return `
-    ${hdrHTML('Lobby')}
+    ${hdrHTML(cap ? '\ud83d\udc51 You are the Captain' : 'Lobby')}
     <div class="card highlight">
         <div class="slbl">Room Code</div>
         <div class="room-code">${esc((D.roomCode || roomCode))}</div>
     </div>
     <div class="card">
-        <div class="slbl">Players (${(D.players || []).length})</div>
+        <div class="slbl">Players (${nPlayers})</div>
         <div class="player-list">${pList}</div>
         <div class="info-row" style="margin-top:10px">
             <span>Rounds</span><strong>${D.roundsTarget || 5}</strong>
         </div>
     </div>
-    <div class="status">Waiting for host to start\u2026</div>`;
+    ${footer}`;
 }
 
 // ══════════════════════════════════════════
@@ -1682,13 +1780,28 @@ function renderViewer() {
     }
 
     if (vD.phase === 'lobby') {
-        const chips = (vD.players || []).map(n =>
-            `<div class="v-lobby-chip">${esc(n)}</div>`
+        const players = vD.players || [];
+        const chips = players.map(n =>
+            `<div class="v-lobby-chip">${esc(n)}${vD.tvHost && n === vD.captain ? ' \ud83d\udc51' : ''}</div>`
         ).join('');
+        const url = joinURL(vD.roomCode);
+        const qr = qrSVG(url);
+        const waiting = players.length === 0
+            ? (vD.tvHost ? 'Scan to join \u2014 the first phone becomes \ud83d\udc51 Captain' : 'Waiting for players\u2026')
+            : players.length < 2
+                ? 'Need at least 2 players\u2026'
+                : vD.tvHost
+                    ? `Waiting for \ud83d\udc51 ${esc(vD.captain || 'the Captain')} to start\u2026`
+                    : 'Waiting for the host to start\u2026';
         return `<div class="v-lobby-screen">
             <div class="v-lobby-title">BOGGLE</div>
-            <div class="v-lobby-code">${esc(vD.roomCode || '')}</div>
-            <div class="v-lobby-waiting">Waiting for players\u2026</div>
+            ${qr ? `<div class="v-lobby-qr">
+                <div class="slbl">Scan with your phone to join</div>
+                <div class="qr-wrap">${qr}</div>
+                <div class="v-lobby-code">${esc(vD.roomCode || '')}</div>
+                <div class="v-lobby-join-hint">${esc(location.host + location.pathname)}</div>
+            </div>` : `<div class="v-lobby-code">${esc(vD.roomCode || '')}</div>`}
+            <div class="v-lobby-waiting">${waiting}</div>
             ${chips ? `<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:800px">${chips}</div>` : ''}
         </div>`;
     }
@@ -1864,6 +1977,8 @@ function broadcastGameState() {
             players:      H.players.map(q => ({ name: q.name, wordCount: q.words.length, totalScore: q.totalScore })),
             roundResults: H.roundResults,
             winner:       H.winner,
+            tvHost:       isTvHost,
+            captain:      isTvHost ? (H.players[0]?.name || null) : null,
         });
     });
 
@@ -1879,6 +1994,8 @@ function broadcastGameState() {
         players:      H.players.map(p => ({ name: p.name, wordCount: p.words.length, totalScore: p.totalScore })),
         roundResults: H.roundResults,
         winner:       H.winner,
+        tvHost:       isTvHost,
+        captain:      isTvHost ? (H.players[0]?.name || null) : null,
     };
     Object.values(viewerConns).forEach(c => send(c, viewerState));
 }
@@ -2367,9 +2484,11 @@ function renderResults() {
         <div class="slbl" style="margin-bottom:10px">Other players</div>
         ${accordions}
     </div>` : ''}
-    ${isHost
+    ${isHost && !isTvHost
         ? `<button class="btn btn-p btn-full" onclick="hostStartGame()">&#x25B6; Next Round</button>`
-        : `<div class="status">Waiting for host to start next round\u2026</div>`
+        : isCaptain()
+            ? `<button class="btn btn-p btn-full" onclick="guestCtl('start')">&#x25B6; Next Round</button>`
+            : `<div class="status">Waiting for ${D && D.tvHost ? `\ud83d\udc51 ${esc(D.captain || 'the captain')}` : 'host'} to start next round\u2026</div>`
     }`;
 }
 
@@ -2407,10 +2526,13 @@ function renderGameOver() {
         <div class="slbl" style="margin-bottom:10px">Final Standings</div>
         ${rankings}
     </div>
-    ${isHost ? `
+    ${isHost && !isTvHost ? `
         <button class="btn btn-p btn-full" onclick="hostNewGame()" style="margin-bottom:8px">&#x1F503; Play Again</button>
         <button class="btn btn-g btn-full" onclick="location.reload()">&#x1F3E0; Back to Home</button>`
-        : `<div class="status">Thanks for playing!</div>`
+        : isCaptain()
+            ? `<button class="btn btn-p btn-full" onclick="guestCtl('again')" style="margin-bottom:8px">&#x1F503; Play Again</button>
+               <button class="btn btn-g btn-full" onclick="location.reload()">&#x1F3E0; Back to Home</button>`
+            : `<div class="status">Thanks for playing!</div>`
     }`;
 }
 
@@ -2489,9 +2611,9 @@ if (!sfxOn)   document.getElementById('tog-sfx').classList.add('off');
 //   • tvsimulation     — watch the big-screen BOGGLE play itself (TV view)
 //   • playersimulation — watch a phone player ("You") find words automatically
 // (?mode=simulation stays as an alias for tvsimulation.)
-// Boggle has no built-in TV-host mode, so tv mode sets `simTvHost` (which coerces
-// render() to the viewer screen) and pipes viewer broadcasts into a stub viewer
-// connection that mirrors the real viewer's data handler.
+// tv mode sets `simTvHost` (which, like the real `isTvHost`, coerces render() to
+// the viewer screen) and pipes viewer broadcasts into a stub viewer connection
+// (applyViewerLocal) — the same mechanism the real TV-host mode uses.
 // ═══════════════════════════════════════════
 let simTimer = null, simMode = 'tv', simActive = false, simPool = [];
 const SIM_NAMES = ['Ace', 'Bux', 'Cash', 'Duke', 'Edie', 'Fox', 'Gwen', 'Hawk'];
@@ -2506,7 +2628,7 @@ function startSimulation(nPlayers, mode) {
     if (simMode === 'tv') {
         isHost = true; simTvHost = true; myId = '__sim_host__';
         document.body.classList.add('viewer-mode');
-        viewerConns['__sim_viewer__'] = { peer: '__sim_viewer__', send: simViewerApply };
+        viewerConns['__sim_viewer__'] = { peer: '__sim_viewer__', send: applyViewerLocal };
         ui = 'viewer';
     } else {
         isHost = true; simTvHost = false; myName = 'You'; myId = '__you__';
@@ -2525,15 +2647,20 @@ function startSimulation(nPlayers, mode) {
 }
 
 // The stub TV connection: mirror the real viewer's data handler so vD, music
-// and stingers all behave exactly as they would on a remote scoreboard.
-function simViewerApply(msg) {
+// and stingers all behave exactly as they would on a remote scoreboard. Shared
+// by both the TV-host (big screen created the room) and the tv-simulation demo.
+function applyViewerLocal(msg) {
     if (msg.type === 'viewer_lobby') {
-        vD = { phase: 'lobby', players: msg.players, roomCode: msg.roomCode };
+        vD = { phase: 'lobby', players: msg.players, roomCode: msg.roomCode, tvHost: msg.tvHost, captain: msg.captain };
         ui = 'viewer'; document.body.classList.add('viewer-mode'); setMusic('lobby'); render();
     } else if (msg.type === 'viewer_state') {
         const prevPhase = vD?.phase, prevRound = vD?.currentRound;
         vD = msg;
-        if (msg.phase === 'playing') { setMusic('game'); tickUrgency(msg.timeLeft ?? 0); }
+        if (msg.phase === 'playing') {
+            setMusic('game');
+            musicKeyShift = msg.currentRound >= (msg.roundsTarget ?? Infinity) ? 2 : 0;
+            tickUrgency(msg.timeLeft ?? 0);
+        }
         else if (msg.phase === 'scoring' || msg.phase === 'results') setMusic('results');
         else if (msg.phase === 'gameover') setMusic('over');
         if (prevPhase === 'playing' && msg.phase === 'scoring') sRoundEnd();
@@ -2677,6 +2804,8 @@ function simRestart() {
     if (!REDUCED) spawnTileField();
     if (mode === 'playersimulation') { startSimulation(simPlayers, 'player'); return; }
     if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;   // scanned a TV-host QR → pre-fill the Join code
     render();
 })();
 </script>

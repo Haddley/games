@@ -463,6 +463,43 @@
         @keyframes tttFloat2 { 0% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(-32px,28px) rotate(-48deg); } 100% { transform: translate(0,0) rotate(-96deg); } }
         @keyframes tttFloat3 { 0% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(22px,32px) rotate(42deg); } 100% { transform: translate(0,0) rotate(84deg); } }
 
+        /* ═══════════════════════════════════════
+           TV-HOST / SPECTATOR MODE
+           (big screen owns the room; two phones play,
+            the screen mirrors the board live)
+           ═══════════════════════════════════════ */
+        .divider.tv { margin-top: 4px; }
+        .tv-buttons { display: flex; flex-direction: column; gap: 10px; }
+        .tv-hint { font-size: .66rem; color: var(--muted); text-align: center; margin-top: 2px; }
+        .qr-wrap {
+            width: min(220px, 62vw); margin: 8px auto 12px; border-radius: 13px;
+            overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.4); background: #fffbeb;
+        }
+        .qr-wrap svg { display: block; width: 100%; height: auto; }
+        .tv-players-count { text-align: center; font-size: .8rem; color: var(--muted); margin: 4px 0 14px; }
+        .tv-players-count b { color: var(--accent); }
+        .spectator-tag {
+            display: inline-block; font-size: .62rem; letter-spacing: 1.5px; text-transform: uppercase;
+            color: var(--accent); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px;
+        }
+
+        /* Big-screen layout: widen the app + scale the board with vmin so a
+           TV reads it across a room. Toggled via body.tv-mode. */
+        body.tv-mode { padding: 24px 20px 40px; }
+        body.tv-mode #app { max-width: min(860px, 92vw); }
+        body.tv-mode .hdr h1 { font-size: clamp(2rem, 5vmin, 3.4rem); }
+        body.tv-mode #game-screen .game-board {
+            gap: 1.4vmin; padding: 1.4vmin; max-width: 60vmin; margin: 0 auto 3vmin;
+        }
+        body.tv-mode #game-screen .game-status { font-size: clamp(1rem, 2.6vmin, 1.8rem); min-height: 2.2vmin; }
+        body.tv-mode #game-screen .player { font-size: clamp(.9rem, 2vmin, 1.4rem); padding: 10px 16px; }
+        body.tv-mode #game-screen .player-icon { width: clamp(20px, 2.6vmin, 30px); height: clamp(20px, 2.6vmin, 30px); }
+        body.tv-mode .room-code { font-size: clamp(2.2rem, 6vmin, 4rem); }
+        /* the spectator screen never plays — hide the phone-only action buttons */
+        body.tv-mode #game-actions { display: none; }
+        body.tv-mode .cell { cursor: default; }
+        body.tv-mode .cell:hover:not(.taken):not(.game-over) { transform: none; background: var(--surface); }
+
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation: none !important; transition: none !important; }
             /* pieces normally appear via the draw animation — show them outright */
@@ -514,7 +551,33 @@
                         </div>
                         <div id="join-error" class="error-message">Room not found or connection failed</div>
                     </div>
+
+                    <div class="divider tv">TV / Big Screen</div>
+
+                    <div class="tv-buttons">
+                        <button class="btn btn-p btn-full" id="tv-host-btn">📺 Host the party on this screen</button>
+                        <div class="tv-hint">The screen shows a QR — the first two phones to join play as X and O.</div>
+                        <div class="input-wrapper">
+                            <input type="text" id="scoreboard-code-input" placeholder="XXXX" maxlength="4" oninput="this.value=this.value.toUpperCase()">
+                            <button class="btn btn-g btn-sm" id="scoreboard-btn">📺 Open Scoreboard</button>
+                        </div>
+                        <div id="scoreboard-error" class="error-message">Couldn't open a spectator view for that room</div>
+                    </div>
                 </div>
+            </div>
+
+            <div id="tv-lobby-screen" class="screen">
+                <div class="room-code-display">
+                    <div class="room-code-label">Scan to join — or enter the code</div>
+                    <div class="qr-wrap" id="tv-qr"></div>
+                    <div class="room-code" id="tv-room-code">----</div>
+                </div>
+                <div class="tv-players-count" id="tv-players-count"><b>0</b> / 2 players joined</div>
+                <div class="waiting-indicator">
+                    <span>Waiting for players</span>
+                    <div class="waiting-dots"><span></span><span></span><span></span></div>
+                </div>
+                <button class="btn btn-g btn-full" id="tv-cancel-btn">Cancel</button>
             </div>
 
             <div id="waiting-screen" class="screen">
@@ -600,6 +663,7 @@
     <div class="toast" id="toast">Copied to clipboard!</div>
 
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script>
         'use strict';
 
@@ -956,11 +1020,53 @@
             return empty[Math.floor(Math.random() * empty.length)];
         }
 
+        // ── Shared PeerJS options (public broker + Metered STUN/TURN) ──
+        const TTT_PEER_OPTS = {
+            debug: 0, host: '0.peerjs.com', port: 443, path: '/', secure: true,
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.relay.metered.ca:80' },
+                    { urls: 'turn:standard.relay.metered.ca:80', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
+                    { urls: 'turn:standard.relay.metered.ca:80?transport=tcp', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
+                    { urls: 'turn:standard.relay.metered.ca:443', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
+                    { urls: 'turns:standard.relay.metered.ca:443?transport=tcp', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' }
+                ]
+            }
+        };
+        function roomURL(code) { return location.origin + location.pathname + '?room=' + code; }
+        function tttSend(conn, msg) { try { if (conn && conn.open) conn.send(msg); } catch (e) {} }
+
+        // ── QR code (themed SVG) — copied from pit.html ──
+        function qrSVG(url) {
+            try {
+                const qr = qrcode(0, 'M');
+                qr.addData(url);
+                qr.make();
+                const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+                let rects = '';
+                for (let r = 0; r < n; r++)
+                    for (let c = 0; c < n; c++)
+                        if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+                return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+                    `<rect width="${size}" height="${size}" fill="#fffbeb"/>` +
+                    `<g fill="#0d172a">${rects}</g></svg>`;
+            } catch (e) { return ''; }
+        }
+
         const App = {
             peer: null,
             connection: null,
             myRole: null,
             isHost: false,
+            // TV-host / spectator state (see the "TV-HOST + SPECTATOR" section below)
+            isTvHost: false,
+            isViewer: false,
+            spectator: false,      // true on any non-playing screen (TV host + scoreboard)
+            _tvRoom: false,        // true on a phone that joined a TV-hosted room
+            tvConns: [],           // TV host: the (up to two) player connections
+            viewers: [],           // TV host: extra scoreboard connections
+            _xName: '',
+            _oName: '',
             roomCode: null,
             playerName: '',
             opponentName: '',
@@ -996,7 +1102,19 @@
                 modalTitle: document.getElementById('modal-title'),
                 modalMessage: document.getElementById('modal-message'),
                 modalBtn: document.getElementById('modal-btn'),
-                toast: document.getElementById('toast')
+                toast: document.getElementById('toast'),
+                // TV-host + spectator elements
+                tvLobbyScreen: document.getElementById('tv-lobby-screen'),
+                tvQr: document.getElementById('tv-qr'),
+                tvRoomCode: document.getElementById('tv-room-code'),
+                tvPlayersCount: document.getElementById('tv-players-count'),
+                tvHostBtn: document.getElementById('tv-host-btn'),
+                tvCancelBtn: document.getElementById('tv-cancel-btn'),
+                scoreboardBtn: document.getElementById('scoreboard-btn'),
+                scoreboardInput: document.getElementById('scoreboard-code-input'),
+                scoreboardError: document.getElementById('scoreboard-error'),
+                waitingLabel: document.querySelector('#waiting-screen .room-code-label'),
+                waitingIndicatorText: document.querySelector('#waiting-screen .waiting-indicator span')
             },
 
             init() {
@@ -1020,12 +1138,21 @@
                 this.elements.gameBoard.querySelectorAll('.cell').forEach(cell => {
                     cell.addEventListener('click', () => this.handleCellClick(cell));
                 });
+
+                // TV-host + spectator entry points
+                this.elements.tvHostBtn.addEventListener('click', () => this.hostOnTV());
+                this.elements.tvCancelBtn.addEventListener('click', () => this.cleanup());
+                this.elements.scoreboardBtn.addEventListener('click', () => this.openScoreboard());
+                this.elements.scoreboardInput.addEventListener('keyup', (e) => {
+                    if (e.key === 'Enter') this.openScoreboard();
+                });
             },
 
             showScreen(screenName) {
                 this.elements.lobbyScreen.classList.remove('active');
                 this.elements.waitingScreen.classList.remove('active');
                 this.elements.gameScreen.classList.remove('active');
+                this.elements.tvLobbyScreen.classList.remove('active');
 
                 if (screenName === 'lobby') {
                     this.elements.lobbyScreen.classList.add('active');
@@ -1033,7 +1160,12 @@
                     this.elements.waitingScreen.classList.add('active');
                 } else if (screenName === 'game') {
                     this.elements.gameScreen.classList.add('active');
+                } else if (screenName === 'tv-lobby') {
+                    this.elements.tvLobbyScreen.classList.add('active');
                 }
+
+                // Big-screen styling whenever this browser is a TV host or scoreboard
+                document.body.classList.toggle('tv-mode', !!(this.isTvHost || this.isViewer));
 
                 setMusic(screenName === 'game' ? 'game' : 'lobby');
             },
@@ -1055,6 +1187,10 @@
                 this.myRole = 'X';
 
                 this.elements.roomCodeText.textContent = this.roomCode;
+                // restore the waiting-screen chrome (a TV-room join may have repurposed it)
+                this.elements.waitingLabel.textContent = 'Your Room Code';
+                this.elements.waitingIndicatorText.textContent = 'Waiting for opponent';
+                this.elements.copyCodeBtn.style.display = '';
                 this.showScreen('waiting');
 
                 this.peer = new Peer(this.roomCode, {
@@ -1180,6 +1316,10 @@
                 if (this.isHost) {
                     this.startGame();
                     this.connection.send({ type: 'start', hostName: this.playerName });
+                } else {
+                    // Announce ourselves. A phone-host ignores this (it drives via 'start');
+                    // a TV host uses it to assign us a role (X or O).
+                    this.connection.send({ type: 'join', name: this.playerName });
                 }
             },
 
@@ -1206,7 +1346,45 @@
                     case 'leave':
                         this.handleOpponentLeft();
                         break;
+                    // ── TV-hosted room: the big screen assigns our role and starts us ──
+                    case 'assign':
+                        this.onTvAssign(data.role);
+                        break;
+                    case 'begin':
+                        this.onTvBegin(data.xName, data.oName);
+                        break;
+                    case 'full':
+                        this.elements.joinError.textContent = 'That room already has two players.';
+                        this.elements.joinError.classList.add('show');
+                        this.cleanup();
+                        break;
                 }
+            },
+
+            // A phone that joined a TV-hosted room: the screen tells us we are X or O.
+            onTvAssign(role) {
+                this._tvRoom = true;
+                this.spectator = false;
+                this.isHost = false;
+                this.myRole = role;
+                this.opponentName = role === 'X' ? 'Player O' : 'Player X';
+                // Repurpose the waiting screen to show our role while the screen waits
+                this.elements.waitingLabel.textContent = 'You are Player ' + role;
+                this.elements.roomCodeText.textContent = role;
+                this.elements.waitingIndicatorText.textContent = 'Waiting for the other player';
+                this.elements.copyCodeBtn.style.display = 'none';
+                this.elements.joinGameBtn.disabled = false;
+                this.elements.joinGameBtn.textContent = 'Join';
+                this.showScreen('waiting');
+            },
+
+            // Both players are present — the screen kicks the game off.
+            onTvBegin(xName, oName) {
+                this._xName = xName || 'Player X';
+                this._oName = oName || 'Player O';
+                this.opponentName = this.myRole === 'X' ? this._oName : this._xName;
+                this.elements.copyCodeBtn.style.display = '';
+                this.startGame();
             },
 
             startGame() {
@@ -1218,8 +1396,13 @@
             },
 
             updatePlayerLabels() {
-                const xName = this.isHost ? this.playerName : this.opponentName;
-                const oName = this.isHost ? this.opponentName : this.playerName;
+                let xName, oName;
+                if (this._tvRoom || this.isTvHost) {
+                    xName = this._xName; oName = this._oName;
+                } else {
+                    xName = this.isHost ? this.playerName : this.opponentName;
+                    oName = this.isHost ? this.opponentName : this.playerName;
+                }
                 this.elements.playerX.querySelector('span').textContent = xName || 'Player X';
                 this.elements.playerO.querySelector('span').textContent = oName || 'Player O';
             },
@@ -1254,6 +1437,7 @@
             },
 
             handleCellClick(cell) {
+                if (this.spectator) return;   // the TV / scoreboard only watches
                 if (this.gameState.isGameOver) return;
                 if (this.gameState.currentPlayer !== this.myRole) {
                     sInvalid();
@@ -1364,7 +1548,7 @@
             },
 
             showGameEnd() {
-                this.elements.playAgainBtn.style.display = 'block';
+                if (!this.spectator) this.elements.playAgainBtn.style.display = 'block';
                 setMusic('over');
 
                 const br = this.elements.gameBoard.getBoundingClientRect();
@@ -1391,11 +1575,15 @@
                     buttonText = 'Play Again'; delay = 1400;
                 }
 
-                // let the strike / pop land before the modal covers the board
+                // Spectators (TV host + scoreboard) never see the blocking modal —
+                // the board and the neutral status line tell the whole story.
                 clearTimeout(this._endModalT);
-                this._endModalT = setTimeout(() => {
-                    if (this.gameState.isGameOver) this.showModal(title, message, buttonText);
-                }, delay);
+                if (!this.spectator) {
+                    // let the strike / pop land before the modal covers the board
+                    this._endModalT = setTimeout(() => {
+                        if (this.gameState.isGameOver) this.showModal(title, message, buttonText);
+                    }, delay);
+                }
 
                 this.updateUI();
             },
@@ -1448,6 +1636,19 @@
                 this.elements.playerX.classList.toggle('active', this.gameState.currentPlayer === 'X');
                 this.elements.playerO.classList.toggle('active', this.gameState.currentPlayer === 'O');
 
+                // Spectator view (TV host + scoreboard): neutral, third-person status.
+                if (this.spectator) {
+                    const gs = this.gameState;
+                    const nameOf = s => (s === 'X' ? (this._xName || 'Player X') : (this._oName || 'Player O'));
+                    let txt;
+                    if (!gs.isGameOver) txt = nameOf(gs.currentPlayer) + ' to move';
+                    else if (gs.winner === 'draw') txt = "It's a draw!";
+                    else txt = nameOf(gs.winner) + ' wins!';
+                    this.elements.gameStatus.textContent = txt;
+                    this.elements.gameStatus.className = 'game-status';
+                    return;
+                }
+
                 if (!this.gameState.isGameOver) {
                     if (this.gameState.currentPlayer === this.myRole) {
                         this.elements.gameStatus.textContent = 'Your turn';
@@ -1496,6 +1697,11 @@
             handleDisconnect() {
                 this.elements.connectionDot.classList.add('disconnected');
                 this.elements.connectionText.textContent = 'Disconnected';
+                if (this._tvRoom) {
+                    clearTimeout(this._endModalT);
+                    this.showModal('Room Closed', 'The host screen ended the session.', 'Back to Lobby');
+                    this.elements.modalBtn.textContent = 'Back to Lobby';
+                }
             },
 
             handleOpponentLeft() {
@@ -1507,6 +1713,8 @@
 
             cleanup() {
                 clearTimeout(this._endModalT);
+                clearTimeout(this._viewerT);
+                this.hideModal();
                 if (this.connection) {
                     this.connection.close();
                     this.connection = null;
@@ -1515,13 +1723,25 @@
                     this.peer.destroy();
                     this.peer = null;
                 }
+                this.tvConns = [];
+                this.viewers = [];
                 this.roomCode = null;
                 this.myRole = null;
                 this.isHost = false;
+                this.isTvHost = false;
+                this.isViewer = false;
+                this.spectator = false;
+                this._tvRoom = false;
+                this._gotSnapshot = false;
+                this.tvGameActive = false;
+                this._xName = '';
+                this._oName = '';
                 this.opponentName = '';
                 this.elements.joinGameBtn.disabled = false;
                 this.elements.joinGameBtn.textContent = 'Join';
                 this.elements.roomCodeInput.value = '';
+                this.elements.copyCodeBtn.style.display = '';
+                this.elements.scoreboardError.classList.remove('show');
                 this.elements.connectionDot.classList.remove('disconnected');
                 this.elements.connectionText.textContent = 'Connected';
                 this.showScreen('lobby');
@@ -1541,6 +1761,289 @@
                 setTimeout(() => {
                     this.elements.toast.classList.remove('show');
                 }, 2000);
+            },
+
+            // ═══════════════════════════════════════════════════════════
+            // TV-HOST + SPECTATOR MODE
+            //
+            // The big screen CREATES and OWNS the room but never plays — it
+            // registers the PeerJS host id and acts as a relay/mirror. The
+            // first two phones to join become X and O; every move a phone
+            // sends is applied to the screen's own board (for display) and
+            // forwarded to the other phone, so the two players stay in sync
+            // through the screen. Extra connections ("Open Scoreboard") join
+            // as read-only viewers and receive board snapshots.
+            // ═══════════════════════════════════════════════════════════
+            hostOnTV() {
+                if (ac()) startMusicLoop();     // unlock audio on this gesture
+                this.roomCode = this.generateRoomCode();
+                this.isTvHost = true;
+                this.spectator = true;
+                this.isHost = false;
+                this.myRole = null;
+                this._tvRoom = false;
+                this.tvConns = [];
+                this.viewers = [];
+                this.tvGameActive = false;
+                this._xName = 'Player X';
+                this._oName = 'Player O';
+
+                this.elements.tvRoomCode.textContent = this.roomCode;
+                this.elements.tvQr.innerHTML = qrSVG(roomURL(this.roomCode));
+                this.updateTvCount();
+                this.showScreen('tv-lobby');
+
+                this.peer = new Peer(this.roomCode, TTT_PEER_OPTS);
+                this.peer.on('open', () => { console.log('TV host room:', this.roomCode); });
+                this.peer.on('connection', (conn) => {
+                    conn.on('open', () => this.tvSetupConn(conn));
+                });
+                this.peer.on('error', (err) => {
+                    console.error('TV host peer error:', err);
+                    this.showToast('Connection error: ' + err.type, 'error');
+                    if (err.type === 'unavailable-id') this.cleanup();
+                });
+            },
+
+            updateTvCount() {
+                const n = this.tvConns ? this.tvConns.length : 0;
+                this.elements.tvPlayersCount.innerHTML = '<b>' + n + '</b> / 2 players joined';
+            },
+
+            // First message on a fresh connection decides its kind:
+            //   {type:'join'}     → a player phone (assign X or O)
+            //   {type:'spectate'} → a read-only scoreboard viewer
+            tvSetupConn(conn) {
+                let decided = false;
+                conn.on('data', (msg) => {
+                    if (!decided) {
+                        decided = true;
+                        if (msg && msg.type === 'spectate') { this.tvAddViewer(conn); return; }
+                        this.tvAddPlayer(conn, msg && msg.name);
+                        return;   // the 'join' itself carries no further action
+                    }
+                    this.tvOnPlayerData(conn, msg);
+                });
+                conn.on('close', () => this.tvOnConnClose(conn));
+            },
+
+            tvAddPlayer(conn, name) {
+                const taken = this.tvConns.map(c => c._role);
+                const role = !taken.includes('X') ? 'X' : (!taken.includes('O') ? 'O' : null);
+                if (!role) { tttSend(conn, { type: 'full' }); setTimeout(() => { try { conn.close(); } catch (e) {} }, 400); return; }
+                conn._role = role;
+                conn._name = (name && name.trim()) || ('Player ' + role);
+                this.tvConns.push(conn);
+                if (role === 'X') this._xName = conn._name; else this._oName = conn._name;
+                tttSend(conn, { type: 'assign', role });
+                sJoin();
+                this.updateTvCount();
+                this.tvMaybeBegin();
+            },
+
+            tvAddViewer(conn) {
+                conn._role = 'viewer';
+                this.viewers.push(conn);
+                tttSend(conn, { type: 'snapshot', snap: this.tvSnapshotData(), active: this.tvGameActive });
+            },
+
+            tvMaybeBegin() {
+                const x = this.tvConns.find(c => c._role === 'X');
+                const o = this.tvConns.find(c => c._role === 'O');
+                if (!x || !o || this.tvGameActive) return;
+                this.tvGameActive = true;
+                this.spectator = true;
+                this.myRole = null;
+                this.showScreen('game');
+                this.resetGame();
+                this.gameState.currentPlayer = 'X';
+                this.updatePlayerLabels();
+                this.elements.connectionText.textContent = 'Spectating';
+                this.updateUI();
+                this.tvConns.forEach(c => tttSend(c, { type: 'begin', xName: this._xName, oName: this._oName }));
+                this.sendSnapshotToViewers();
+            },
+
+            // Relay + mirror a message that arrived from one of the two players.
+            tvOnPlayerData(conn, msg) {
+                if (!msg) return;
+                switch (msg.type) {
+                    case 'move': {
+                        const gs = this.gameState;
+                        if (!gs.isGameOver && gs.board[msg.cell] === '' && gs.currentPlayer === conn._role) {
+                            this.makeMove(msg.cell);   // mirror on the screen (spectator: no modal)
+                        }
+                        this.tvForwardToOther(conn, { type: 'move', cell: msg.cell });
+                        this.sendSnapshotToViewers();
+                        break;
+                    }
+                    case 'playAgain':
+                        this.tvForwardToOther(conn, { type: 'playAgain' });
+                        break;
+                    case 'playAgainResponse':
+                        if (msg.accept) this.tvResetBoard();
+                        this.tvForwardToOther(conn, { type: 'playAgainResponse', accept: msg.accept });
+                        break;
+                    case 'leave':
+                        this.tvForwardToOther(conn, { type: 'leave' });
+                        break;
+                }
+            },
+
+            tvForwardToOther(fromConn, msg) {
+                this.tvConns.forEach(c => { if (c !== fromConn) tttSend(c, msg); });
+            },
+
+            tvResetBoard() {
+                this.resetGame();
+                this.gameState.currentPlayer = 'X';
+                this.updateUI();
+                this.sendSnapshotToViewers();
+            },
+
+            tvOnConnClose(conn) {
+                if (conn._role === 'viewer') {
+                    this.viewers = this.viewers.filter(c => c !== conn);
+                    return;
+                }
+                // a player dropped — free their slot and let the other one know
+                this.tvConns = this.tvConns.filter(c => c !== conn);
+                if (conn._role === 'X') this._xName = 'Player X';
+                else if (conn._role === 'O') this._oName = 'Player O';
+                this.tvGameActive = false;
+                this.tvConns.forEach(c => tttSend(c, { type: 'leave' }));
+                if (this.isTvHost) {
+                    this.updateTvCount();
+                    this.showScreen('tv-lobby');
+                    this.sendSnapshotToViewers();
+                }
+            },
+
+            tvSnapshotData() {
+                const gs = this.gameState;
+                return {
+                    board: gs.board.slice(),
+                    currentPlayer: gs.currentPlayer,
+                    winner: gs.winner,
+                    winningCells: gs.winningCells ? gs.winningCells.slice() : [],
+                    isGameOver: gs.isGameOver,
+                    xName: this._xName,
+                    oName: this._oName,
+                    active: this.tvGameActive
+                };
+            },
+
+            sendSnapshotToViewers() {
+                if (!this.viewers || !this.viewers.length) return;
+                const snap = this.tvSnapshotData();
+                this.viewers.forEach(c => tttSend(c, { type: 'snapshot', snap, active: this.tvGameActive }));
+            },
+
+            // ── Open Scoreboard: spectate an existing (TV-hosted) room ──
+            openScoreboard() {
+                const code = this.elements.scoreboardInput.value.toUpperCase().trim();
+                this.elements.scoreboardError.classList.remove('show');
+                if (code.length !== 4) {
+                    this.elements.scoreboardError.textContent = 'Please enter a 4-character room code';
+                    this.elements.scoreboardError.classList.add('show');
+                    return;
+                }
+                if (ac()) startMusicLoop();
+                this.roomCode = code;
+                this.isViewer = true;
+                this.spectator = true;
+                this.myRole = null;
+                this._gotSnapshot = false;
+                this.elements.scoreboardBtn.disabled = true;
+                this.elements.scoreboardBtn.textContent = 'Opening…';
+
+                this.peer = new Peer(TTT_PEER_OPTS);
+                this.peer.on('open', () => {
+                    this.connection = this.peer.connect(code, { reliable: true });
+                    this.connection.on('open', () => tttSend(this.connection, { type: 'spectate' }));
+                    this.connection.on('data', (msg) => this.viewerOnData(msg));
+                    this.connection.on('error', () => this.viewerFail());
+                    this._viewerT = setTimeout(() => { if (!this._gotSnapshot) this.viewerFail(); }, 6000);
+                });
+                this.peer.on('error', () => this.viewerFail());
+            },
+
+            viewerFail() {
+                clearTimeout(this._viewerT);
+                if (this._gotSnapshot) return;
+                this.elements.scoreboardBtn.disabled = false;
+                this.elements.scoreboardBtn.textContent = '📺 Open Scoreboard';
+                this.elements.scoreboardError.textContent = 'Could not open a spectator view (the room may be hosted on a phone).';
+                this.elements.scoreboardError.classList.add('show');
+                this.isViewer = false;
+                this.spectator = false;
+                if (this.peer) { this.peer.destroy(); this.peer = null; }
+                this.connection = null;
+            },
+
+            viewerOnData(msg) {
+                if (!msg) return;
+                if (msg.type === 'snapshot') {
+                    this._gotSnapshot = true;
+                    clearTimeout(this._viewerT);
+                    this.elements.scoreboardBtn.disabled = false;
+                    this.elements.scoreboardBtn.textContent = '📺 Open Scoreboard';
+                    if (this.elements.gameScreen.classList.contains('active') === false) {
+                        this.showScreen('game');
+                        this.elements.connectionText.textContent = 'Spectating';
+                        this._specBoard = ['', '', '', '', '', '', '', '', ''];
+                        this._specOver = false;
+                    }
+                    this.applySnapshot(msg.snap);
+                } else if (msg.type === 'start' || msg.type === 'assign') {
+                    // A phone-host (or a full TV room) treated us as a player — bail cleanly.
+                    this.viewerFail();
+                }
+            },
+
+            // Diff the incoming board against what we last drew so pieces animate
+            // in once, not on every snapshot.
+            applySnapshot(snap) {
+                if (!snap) return;
+                this._xName = snap.xName || 'Player X';
+                this._oName = snap.oName || 'Player O';
+                this.updatePlayerLabels();
+                const prev = this._specBoard || ['', '', '', '', '', '', '', '', ''];
+                const board = snap.board || [];
+                // reset detection: board went (partly) empty where it was filled → fresh game
+                const wasFilled = prev.some(v => v);
+                const nowEmpty = board.every(v => !v);
+                if (wasFilled && nowEmpty) {
+                    this.elements.gameBoard.querySelectorAll('.win-strike').forEach(el => el.remove());
+                    this.elements.gameBoard.querySelectorAll('.cell').forEach(cell => {
+                        cell.innerHTML = ''; cell.className = 'cell'; cell.style.animationDelay = '';
+                    });
+                    this._specBoard = ['', '', '', '', '', '', '', '', ''];
+                    this._specOver = false;
+                }
+                for (let i = 0; i < 9; i++) {
+                    if (board[i] && board[i] !== this._specBoard[i]) this.renderCell(i, board[i]);
+                }
+                this._specBoard = board.slice();
+                // reflect authoritative game state for the neutral status line
+                this.gameState = {
+                    board: board.slice(),
+                    currentPlayer: snap.currentPlayer || 'X',
+                    winner: snap.winner || null,
+                    isGameOver: !!snap.isGameOver,
+                    winningCells: snap.winningCells || []
+                };
+                if (snap.isGameOver && !this._specOver) {
+                    this._specOver = true;
+                    if (snap.winner && snap.winner !== 'draw' && snap.winningCells && snap.winningCells.length) {
+                        this.gameState.winningCells = snap.winningCells;
+                        this.gameState.winner = snap.winner;
+                        this.highlightWinningCells();
+                    } else if (snap.winner === 'draw') {
+                        sDraw();
+                    }
+                }
+                this.updateUI();
             },
 
             // ── SELF-PLAYING DEMO (?mode=tvsimulation | playersimulation | simulation) ──
@@ -1607,9 +2110,17 @@
 
         // Boot routing: self-playing demo modes (bots vs bots, looping)
         (function () {
-            const _m = (new URLSearchParams(location.search).get('mode') || '').toLowerCase();
+            const params = new URLSearchParams(location.search);
+            const _m = (params.get('mode') || '').toLowerCase();
             if (_m === 'tvsimulation' || _m === 'playersimulation' || _m === 'simulation') {
                 App.startSimulation();
+                return;
+            }
+            // QR joining: pre-fill the room code from ?room=XXXX
+            const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+            if (room) {
+                App.elements.roomCodeInput.value = room;
+                App.elements.playerNameInput.focus();
             }
         })();
 
