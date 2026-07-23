@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Full House Bingo</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%231b0f26' width='100' height='100' rx='20'/><text x='50' y='68' font-size='52' text-anchor='middle'>🎱</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%231b0f26' width='100' height='100' rx='20'/><circle cx='50' cy='52' r='34' fill='%23d0342c'/><circle cx='40' cy='40' r='11' fill='%23ffffff' opacity='0.85'/><text x='50' y='66' font-size='34' font-weight='bold' fill='%23ffffff' text-anchor='middle' font-family='Arial'>B</text></svg>">
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="common.js"></script>
@@ -41,6 +41,16 @@
             padding: 0 46px; /* clear of the fixed sound toggles */
         }
         .sub { color: var(--muted); font-size: .7rem; letter-spacing: 2.5px; text-transform: uppercase; margin: 6px 0 22px; text-align: center; font-weight: 800; }
+        /* a proper bingo ball (not a pool 8-ball) as an inline icon — scales with font-size */
+        .bico {
+            display: inline-block; width: 1.05em; height: 1.05em; border-radius: 50%; vertical-align: -.18em;
+            background: radial-gradient(circle at 34% 27%, rgba(255,255,255,.92), rgba(255,255,255,0) 42%),
+                        radial-gradient(circle at 64% 72%, rgba(0,0,0,.4), rgba(0,0,0,0) 55%), var(--bico, #d0342c);
+            box-shadow: inset -.1em -.12em .16em rgba(0,0,0,.35), 0 .04em .08em rgba(0,0,0,.4);
+            color: #fff; font-size: 1em; line-height: 1.05em; text-align: center; font-weight: 900;
+            font-family: 'Arial Black', sans-serif;
+        }
+        .bico b { font-size: .56em; font-weight: 900; font-style: normal; }
 
         #app { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 13px; }
         body.viewer-mode #app { max-width: none; height: 100dvh; display: block; }
@@ -1362,7 +1372,7 @@ function viewerEvent(msg) {
 // RENDER — shared bits
 // ═══════════════════════════════════════════
 function hdrHTML(sub) {
-    return `<h1 class="logo">🎱 Full House Bingo</h1><div class="sub">${esc(sub || 'eyes down for a full house')}</div>`;
+    return `<h1 class="logo"><span class="bico"><b>B</b></span> Full House Bingo</h1><div class="sub">${esc(sub || 'eyes down for a full house')}</div>`;
 }
 function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
 
@@ -1456,7 +1466,7 @@ function renderHome() {
         <div class="slbl">Start a Game</div>
         <button class="btn btn-p btn-full"
             onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
-            🎱 Host on this phone
+            <span class="bico"><b>B</b></span> Host on this phone
         </button>
         <div style="font-size:.66rem;color:var(--muted);text-align:center;margin-top:8px">
             2–12 players — put the flashboard on a TV with the room code
@@ -1491,7 +1501,7 @@ function settingsSegsHTML(settings, expr) {
     const seg = (opts, curV, key) => `<div class="seg-row">${opts.map(o =>
         `<button class="btn btn-sm ${curV === o.v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{${key}:${o.j}}`)}">${o.l}</button>`).join('')}</div>`;
     return `<div class="fg"><label>Call speed</label>${seg(
-        [{ v: 9, j: 9, l: '🐢 Relaxed 9s' }, { v: 6, j: 6, l: '🎱 Classic 6s' }, { v: 4, j: 4, l: '🐇 Turbo 4s' }],
+        [{ v: 9, j: 9, l: '🐢 Relaxed 9s' }, { v: 6, j: 6, l: '🔴 Classic 6s' }, { v: 4, j: 4, l: '🐇 Turbo 4s' }],
         settings.interval, 'interval')}</div>`;
 }
 
@@ -1553,7 +1563,7 @@ function renderLobbyG() {
     : `
     <div class="card">
         <div class="slbl">Settings</div>
-        <div style="font-weight:800;font-size:.85rem">🎱 A ball every ${s.interval}s</div>
+        <div style="font-weight:800;font-size:.85rem">🔴 A ball every ${s.interval}s</div>
         <div style="color:var(--muted);font-size:.72rem;font-weight:800;margin-top:8px">
             Waiting for ${D.tvHost ? `👑 ${esc(D.captain || 'the captain')}` : 'the host'} to start…
         </div>
@@ -1622,7 +1632,7 @@ function renderResults() {
 function tvShell(inner, meta) {
     return `<div class="tv">
         <div class="tv-top">
-            <div class="tv-logo">🎱 FULL HOUSE BINGO</div>
+            <div class="tv-logo"><span class="bico"><b>B</b></span> FULL HOUSE BINGO</div>
             <div class="tv-meta">${esc(meta || ('Room ' + (vD.roomCode || roomCode || '')))}</div>
         </div>
         ${inner}
@@ -1656,7 +1666,7 @@ function renderViewerLobby() {
             <div class="tv-waiting">${players.length === 0
                 ? 'Waiting for the first phone… they become 👑 Captain'
                 : (vD.tvHost ? `Waiting for 👑 ${esc(vD.captain || '')} to start` : 'Waiting for the host to start')
-                  + ` · 🎱 a ball every ${(vD.settings || {}).interval}s`}</div>
+                  + ` · 🔴 a ball every ${(vD.settings || {}).interval}s`}</div>
         </div>
     </div>`, 'Lobby');
 }

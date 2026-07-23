@@ -188,10 +188,10 @@ function _buildCows(m) {
     for (let i = 0; i < 11; i++) {
         html += `<div class="flower" style="left:${_rand(100).toFixed(1)}%;--fb:${(1.4 + _rand(2.8)).toFixed(1)}vmin;--fc:${FLOWERS[i % FLOWERS.length]};--dl:${(-_rand(3)).toFixed(2)}s"></div>`;
     }
-    const N = 6;   // cows are wider than ewes, so a slightly smaller herd
+    const N = 5;   // cows are big, so a smaller herd with room to roam
     for (let i = 0; i < N; i++) {
-        const left = (i / (N - 1)) * 86 + 6 + (_rand(4) - 2);
-        const sc = 0.64 + _rand(0.42);
+        const left = (i / (N - 1)) * 84 + 7 + (_rand(4) - 2);
+        const sc = 0.95 + _rand(0.6);   // hearty cattle — noticeably bigger than the ewes
         const br = 0.88 + sc * 0.16;
         const bottom = 2.4 + (1 - sc) * 3.4;
         const bob = (2.4 + _rand(1.4)).toFixed(2);

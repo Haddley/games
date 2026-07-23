@@ -303,15 +303,18 @@
             padding: 0; overflow: hidden;
             display: block; /* override flex so fixed children fill viewport freely */
             height: 100dvh; width: 100vw;
+            /* the dark-hold backdrop lives here (not on .v-screen) so the ambient
+               pirate scene at the bottom of the screen shows behind the content */
+            background:
+                radial-gradient(ellipse 70% 50% at 50% -8%, rgba(255,191,90,0.10) 0%, transparent 60%),
+                radial-gradient(ellipse 80% 60% at 50% 120%, rgba(44,143,124,0.12) 0%, transparent 65%),
+                #040d0b;
         }
         body.viewer-mode #app { max-width: none; width: 100vw; height: 100dvh; }
 
         .v-screen {
             position: fixed; inset: 0;
-            background:
-                radial-gradient(ellipse 70% 50% at 50% -8%, rgba(255,191,90,0.10) 0%, transparent 60%),
-                radial-gradient(ellipse 80% 60% at 50% 120%, rgba(44,143,124,0.12) 0%, transparent 65%),
-                #040d0b;
+            background: transparent;   /* backdrop lives on body.viewer-mode so the ambient scene shows behind */
             display: flex; flex-direction: column;
             overflow: hidden;
         }
@@ -569,10 +572,7 @@
         /* Lobby viewer */
         .v-lobby-screen {
             position: fixed; inset: 0;
-            background:
-                radial-gradient(ellipse 70% 50% at 50% -6%, rgba(255,191,90,0.10) 0%, transparent 60%),
-                radial-gradient(ellipse 80% 60% at 50% 120%, rgba(44,143,124,0.12) 0%, transparent 65%),
-                #040d0b;
+            background: transparent;   /* backdrop on body.viewer-mode; ambient scene shows behind */
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: clamp(14px, 2.5vh, 26px); padding: 40px;
             z-index: 1;
@@ -1366,16 +1366,8 @@ function toggleFullscreen() {
     }
 }
 
-// Auto-enter fullscreen once, on the first tap on the game area in viewer mode —
-// but NEVER from the sound / theme / fullscreen controls (tapping 🎵 must not
-// fullscreen the browser). The explicit ⛶ button still toggles it any time.
-let _autoFsDone = false;
-document.addEventListener('click', function(e) {
-    if (_autoFsDone || !isViewer || document.fullscreenElement) return;
-    if (e.target.closest('#sound-togs, #theme-btn, .v-fs-btn')) return;
-    _autoFsDone = true;
-    document.documentElement.requestFullscreen().catch(() => {});
-});
+// (Auto-fullscreen-on-first-tap removed — it surprised people and hid the scene.
+//  The explicit ⛶ button still toggles fullscreen any time you want it.)
 
 // Update fullscreen button icon when browser fullscreen state changes externally (e.g. Esc key)
 document.addEventListener('fullscreenchange', function() {
