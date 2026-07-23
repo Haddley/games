@@ -100,13 +100,16 @@
         .seg-row { display: flex; flex-wrap: wrap; gap: 7px; }
 
         /* ── phone: trading ── */
-        .scores-strip { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 2px; }
+        /* every trader visible at once — wrap instead of scrolling off-screen */
+        .scores-strip { display: flex; flex-wrap: wrap; gap: 7px; padding-bottom: 2px; }
         .sc-chip {
-            flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+            display: flex; align-items: center; gap: 6px;
             background: var(--panel); border: 1px solid var(--border2); border-radius: 11px;
             padding: 6px 10px; font-size: .7rem; font-weight: 800; white-space: nowrap;
         }
-        .sc-chip .shout { color: var(--gold); }
+        /* a trader who's shouting a number lights up gold so you can match them */
+        .sc-chip.offering { border-color: var(--gold); background: rgba(251,191,36,.12); animation: shoutPulse 1.1s ease-in-out infinite; }
+        .sc-chip .shout { color: var(--gold); display: inline-flex; align-items: center; gap: 3px; }
         .hand-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .pcard {
             border: none; border-radius: 13px; padding: 10px 6px 9px; font-family: inherit;
@@ -128,6 +131,14 @@
             border-radius: 13px; padding: 11px; font-weight: 800; color: var(--gold);
             animation: shoutPulse 1.1s ease-in-out infinite;
         }
+        /* a matching offering chip becomes a tappable "trade" button (green) */
+        .sc-chip.cantrade {
+            border-color: var(--up); background: rgba(34,197,94,.16); cursor: pointer;
+            animation: tradePulse 1s ease-in-out infinite;
+        }
+        .sc-chip.cantrade .shout { color: #4ade80; }
+        .sc-chip.cantrade:active { transform: scale(.96); }
+        @keyframes tradePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,.5); } 50% { box-shadow: 0 0 0 7px rgba(34,197,94,0); } }
         @keyframes shoutPulse { 0%,100% { box-shadow: 0 0 0 rgba(251,191,36,0); } 50% { box-shadow: 0 0 22px rgba(251,191,36,.35); } }
         .btn-corner {
             width: 100%; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.15rem; letter-spacing: 2px;
@@ -170,7 +181,7 @@
         #count-ov .lbl { color: var(--muted); font-weight: 800; letter-spacing: 3px; text-transform: uppercase; font-size: .8rem; }
 
         /* ═════════ TV ═════════ */
-        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 2.6vmin 3.2vmin 0; gap: 1.8vmin; }
+        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 2.6vmin 3.2vmin 0; gap: 1.8vmin; position: relative; overflow: hidden; }
         .tv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 2vmin; }
         .tv-logo { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 3.1vmin; letter-spacing: .4vmin; color: var(--gold); text-shadow: 0 0 24px rgba(251,191,36,.45); }
         .tv-meta { font-size: 1.8vmin; font-weight: 800; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
@@ -306,7 +317,84 @@
         @keyframes podRise { from { transform: translateY(30%); opacity: 0; } to { transform: none; opacity: 1; } }
         .award { animation: cardIn .5s 1s both; }
 
-        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+        /* ═════════ HERITAGE: badges, hand signals, pit crowd, paper ═════════ */
+
+        /* Laminated red trading badge (acronym + floor number) */
+        .badge {
+            display: inline-flex; align-items: center; gap: 2px; vertical-align: middle;
+            font-family: 'JetBrains Mono', monospace; font-weight: 800; letter-spacing: .5px;
+            font-size: .56rem; text-transform: uppercase; color: #fff;
+            padding: 2px 6px 3px; border-radius: 4px;
+            background: linear-gradient(180deg, #f04747 0%, #b91c1c 100%);
+            border-top: 1.5px solid rgba(255,255,255,.55);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,.28), 0 1px 3px rgba(0,0,0,.55);
+            position: relative;
+        }
+        .badge::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: rgba(0,0,0,.35); box-shadow: inset 0 0 0 1px rgba(255,255,255,.3); margin-right: 1px; }
+        .badge .bnum { opacity: .82; font-weight: 700; }
+        .badge.ontv { font-size: 1.35vmin; padding: .3vmin .8vmin .4vmin; border-radius: .55vmin; gap: .3vmin; }
+        .badge.ontv::before { width: .8vmin; height: .8vmin; }
+
+        /* Open-outcry hand signal — n fingers over a palm */
+        /* em-based hand so it scales by font-size; fingers rise index-first (left)
+           from a palm with a thumb out to the side — so "1" is a pointing index,
+           never a lone middle finger. Size set per context via font-size. */
+        .hsig { position: relative; display: inline-block; width: 1.5em; height: 1.6em; vertical-align: middle; font-size: 12px; }
+        .hsig.big { font-size: 21px; } .hsig.ontv { font-size: 2.2vmin; }
+        .hsig .hpalm { position: absolute; left: .2em; bottom: 0; width: 1.02em; height: .62em; border-radius: .26em; background: linear-gradient(180deg, #f4c89c, #d99b6c); box-shadow: inset 0 -.08em 0 rgba(0,0,0,.1); }
+        .hsig .hthumb { position: absolute; left: -.02em; bottom: .16em; width: .34em; height: .52em; border-radius: .2em; background: linear-gradient(180deg, #f4c89c, #d99b6c); transform: rotate(30deg); transform-origin: bottom right; }
+        .hsig .hfings { position: absolute; left: .3em; bottom: .52em; display: flex; gap: .12em; align-items: flex-end; }
+        .hsig .hfings i { width: .26em; height: 1em; border-radius: .13em .13em 0 0; background: linear-gradient(180deg, #f4c89c, #d99b6c); box-shadow: inset -.06em 0 0 rgba(0,0,0,.12); }
+        /* real hand proportions: middle longest, index ≈ ring, pinky shortest */
+        .hsig .hfings i:nth-child(1) { height: .95em; }  /* index  */
+        .hsig .hfings i:nth-child(2) { height: 1.1em; }  /* middle — longest */
+        .hsig .hfings i:nth-child(3) { height: .9em; }   /* ring   */
+        .hsig .hfings i:nth-child(4) { height: .68em; }  /* pinky — shortest */
+
+        /* The roaring pit — red-jacketed traders waving arms behind the whole TV show */
+        #pit-crowd { position: absolute; left: 0; right: 0; bottom: 0; height: 42%; z-index: 0; pointer-events: none; overflow: hidden; }
+        .tfig { position: absolute; bottom: -1.5vmin; transform-origin: bottom center; filter: brightness(var(--br, 1)) saturate(1.1); }
+        /* colored firm jackets — the London LIFFE floor was a riot of colour */
+        .tfig .body { width: 5.2vmin; height: 8vmin; border-radius: 2.2vmin 2.2vmin .5vmin .5vmin; position: relative;
+            background: linear-gradient(100deg, var(--jkt, #ef4444) 0%, var(--jkt) 55%, var(--jkd, #9b1c1c) 100%); box-shadow: inset -0.7vmin 0 0 rgba(0,0,0,.18); }
+        .tfig .body::before { content: ''; position: absolute; left: 50%; top: .6vmin; width: .5vmin; height: 6vmin; background: rgba(0,0,0,.2); transform: translateX(-50%); } /* jacket seam */
+        .tfig .body::after { content: ''; position: absolute; left: .9vmin; top: 1.6vmin; width: 1.6vmin; height: 1.1vmin; border-radius: .2vmin; background: rgba(255,255,255,.82); box-shadow: 0 0 0 .15vmin rgba(0,0,0,.15); } /* clip-on badge */
+        .tfig .head { position: absolute; left: 50%; top: -2.7vmin; transform: translateX(-50%); width: 3vmin; height: 3vmin; border-radius: 50%;
+            background: radial-gradient(circle at 40% 35%, #f6cfa4, #d69b6b); box-shadow: inset -.4vmin -.3vmin 0 rgba(0,0,0,.12); }
+        .tfig .head::before { content: ''; position: absolute; left: -.3vmin; right: -.3vmin; top: -.4vmin; height: 1.4vmin; border-radius: 1.4vmin 1.4vmin 0 0; background: var(--hair, #263041); } /* hair */
+        .tfig .head::after { content: ''; position: absolute; right: -.5vmin; top: 1vmin; width: 1vmin; height: 1vmin; border-radius: 50%; background: #1a2231; box-shadow: 0 0 0 .3vmin rgba(26,34,49,.35); } /* headset cup */
+        .tfig .arm { position: absolute; top: .8vmin; width: 1.5vmin; height: 5vmin; border-radius: 1vmin; transform-origin: top center;
+            background: linear-gradient(180deg, var(--jkt, #ef4444), var(--jkd, #9b1c1c)); }
+        .tfig .arm::after { content: ''; position: absolute; left: 50%; bottom: -1vmin; transform: translateX(-50%); width: 1.9vmin; height: 1.9vmin; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #f6cfa4, #d69b6b); } /* hand */
+        .tfig .arm.l { left: -.7vmin; animation: waveL var(--aw, 0.9s) ease-in-out infinite; }
+        .tfig .arm.r { right: -.7vmin; animation: waveR var(--aw2, 1.05s) ease-in-out infinite; }
+        @keyframes waveL { 0%,100% { transform: rotate(24deg); } 50% { transform: rotate(58deg); } }
+        @keyframes waveR { 0%,100% { transform: rotate(-58deg); } 50% { transform: rotate(-12deg); } }
+        /* order-slips carpeting the floor, as they always did after a frenzy */
+        .floorslip { position: absolute; bottom: 0; width: 1.5vmin; height: 2vmin; background: linear-gradient(160deg,#fff,#dbe0ea); border-radius: .2vmin; box-shadow: 0 .2vmin .5vmin rgba(0,0,0,.35); opacity: .85; }
+        .tv > .tv-top, .tv > .tv-main, .tv > .tv-lobby, .tv > .tv-bell, .tv > .ticker { position: relative; z-index: 1; }
+
+        /* TV shout: comic speech bubble + signal over a trader */
+        .tv-trader { position: relative; }
+        .tv-trader .tsig { display: inline-flex; align-items: center; }
+        .tv-trader .tpill {
+            position: relative; box-shadow: 0 .3vmin 1vmin rgba(0,0,0,.4);
+        }
+        .tv-trader .tpill::after {
+            content: ''; position: absolute; left: -.9vmin; top: 50%; transform: translateY(-50%);
+            border: .7vmin solid transparent; border-right-color: #f59e0b;
+        }
+
+        /* Paper order-slips — thrown on every trade, and a storm at the close */
+        .slip { position: fixed; z-index: 940; width: 15px; height: 20px; border-radius: 2px; pointer-events: none;
+            background: linear-gradient(160deg, #ffffff, #dfe4ec); box-shadow: 0 2px 6px rgba(0,0,0,.45); }
+        .slip::before, .slip::after { content: ''; position: absolute; left: 2.5px; right: 2.5px; height: 1.6px; background: #9aa6bb; border-radius: 2px; }
+        .slip::before { top: 5px; } .slip::after { top: 10px; box-shadow: 0 4px 0 #9aa6bb; }
+        .slip.gold { background: linear-gradient(160deg, #fef3c7, #fcd34d); }
+        .slip.gold::before, .slip.gold::after { background: #b45309; box-shadow: none; }
+        @keyframes slipFall { to { transform: translate(var(--drift, 0), 106vh) rotate(var(--rot, 360deg)); opacity: .15; } }
+
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } #pit-crowd { display: none; } }
     </style>
 </head>
 <body>
@@ -333,7 +421,7 @@ const ICE_CFG = { config: { iceServers: [
 // CONSTANTS & HELPERS
 // ═══════════════════════════════════════════
 const PFX = 'PITPARTY-';
-const MAX_PLAYERS = 8, MIN_PLAYERS = 2;
+const MAX_PLAYERS = 8, MIN_PLAYERS = 3;   // classic Pit needs 3+ (commodities = player count, 9 cards each)
 const COMMODITIES = [
     { name: 'Wheat',  pts: 100, bg: '#b45309', fg: '#fef3c7' },
     { name: 'Coffee', pts: 90,  bg: '#7c2d12', fg: '#ffedd5' },
@@ -367,6 +455,41 @@ function cardStyle(name) {
 function sortHand(hand) {
     const order = n => isSpecial(n) ? 100 + (n === 'Bull' ? 0 : 1) : COMMODITIES.findIndex(c => c.name === n);
     return hand.slice().sort((a, b) => order(a) - order(b));
+}
+
+// ── Open-outcry heritage: the laminated red trading badge every pit trader wore
+// (think "KB 737" in the trading-floor photos). Deterministic from the name so
+// every screen shows the same badge with no extra protocol traffic. ──
+function _hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function traderBadge(name) {
+    const clean = String(name || '').toUpperCase().replace(/[^A-Z0-9 ]/g, '');
+    const words = clean.split(/\s+/).filter(Boolean);
+    let acr;
+    if (words.length >= 2) acr = words[0][0] + words[1][0] + (words[1][1] || '');
+    else if (words[0]) acr = words[0].slice(0, 3);
+    else acr = 'TDR';
+    return { acr, num: (_hash(name) % 900) + 100 };   // 100–999, like a real floor badge
+}
+function badgeHTML(name, cls) {
+    const b = traderBadge(name);
+    return `<span class="badge ${cls || ''}">${esc(b.acr)}<span class="bnum">${b.num}</span></span>`;
+}
+
+// ── Hand signal — fingers held up for the bundle size, the way pit traders
+// signalled quantity across a roaring floor. A little CSS hand, 1–4 fingers. ──
+function handSigHTML(n, cls) {
+    n = Math.max(1, Math.min(4, n | 0));
+    return `<span class="hsig ${cls || ''}"><span class="hpalm"></span><span class="hthumb"></span><span class="hfings">${'<i></i>'.repeat(n)}</span></span>`;
+}
+function badgePrevHTML(name) {
+    return name && name.trim()
+        ? `Your floor badge → ${badgeHTML(name)}`
+        : 'Your floor badge appears here';
+}
+function updateBadgePrev(v) {
+    fName = v;
+    const el = $id('badge-prev');
+    if (el) el.innerHTML = badgePrevHTML(v);
 }
 
 // ── QR code (themed SVG) ──
@@ -420,8 +543,9 @@ function startConfetti(ms) {
 }
 
 // ═══════════════════════════════════════════
-// AUDIO — procedural trading-floor ragtime + SFX
-// (F-major stride piano feel, brassy square stabs,
+// AUDIO — procedural "trading motivation" + open-outcry SFX
+// (uplifting-corporate music in C major: four-on-the-floor, warm plucks,
+//  anthemic lead; SFX = cash register, crowd roar, ticker, THE bell.
 //  gesture-started, music ~0.33 vol, SFX on top)
 // ═══════════════════════════════════════════
 let AC = null, masterGain = null, musicGain = null, sfxGain = null, noiseBuf = null;
@@ -484,6 +608,23 @@ function noiseHit(dur, { vol = 0.3, when = 0, hp = 6000, dest = null } = {}) {
     src.start(t); src.stop(t + dur + 0.05);
 }
 
+// Hand-clap / snare-ish backbeat — three quick band-passed noise bursts
+function clapHit(when) {
+    if (!AC) return;
+    const t0 = AC.currentTime + (when || 0);
+    for (let j = 0; j < 3; j++) {
+        const t = t0 + j * 0.009;
+        const src = AC.createBufferSource(); src.buffer = noiseBuf;
+        const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1700; f.Q.value = 1.1;
+        const g = AC.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(0.10, t + 0.001);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+        src.connect(f); f.connect(g); g.connect(musicGain);
+        src.start(t); src.stop(t + 0.12);
+    }
+}
+
 const mf = m => 440 * Math.pow(2, (m - 69) / 12); // midi → freq
 
 // ── SFX (open outcry: ticker clicks, coin, and THE bell) ──
@@ -507,14 +648,33 @@ function sShout(n) {
     tone(mf(65), 0.1, { type: 'square', vol: 0.15, when: 0.13, lp: 3600 });
 }
 function sCancel() { if (!sfxOn || !AC) return; tone(mf(67), 0.12, { type: 'square', vol: 0.12, slide: mf(60), lp: 2400 }); }
-// Trade completed: swap shwoop (down–up crossfade) + coin jingle
+// Trade completed: cash-register cha-CHING! — drawer clack, bright bell ding,
+// then a cascade of coins (longer the bigger the bundle)
 function sTrade(count) {
     if (!sfxOn || !AC) return;
-    noiseHit(0.15, { vol: 0.13, hp: 2200 });
-    tone(520, 0.14, { type: 'sine', vol: 0.2, slide: 180 });
-    tone(220, 0.16, { type: 'sine', vol: 0.2, when: 0.08, slide: 660 });
-    const steps = count >= 3 ? [0, 4, 7, 12, 16] : [0, 4, 7, 12];
-    steps.forEach((s, i) => tone(mf(77 + s), 0.08, { type: 'square', vol: 0.2, when: 0.17 + i * 0.05, lp: 5000 }));
+    noiseHit(0.05, { vol: 0.12, hp: 3000 });                 // drawer clack
+    tone(1318, 0.16, { type: 'triangle', vol: 0.16 });        // ching (E6)
+    tone(1760, 0.22, { type: 'triangle', vol: 0.13, when: 0.02 }); // ching (A6)
+    const coins = count >= 3 ? [0, 4, 7, 12, 16, 19] : [0, 4, 7, 12];
+    coins.forEach((s, i) => tone(mf(84 + s), 0.07, { type: 'square', vol: 0.12, when: 0.12 + i * 0.045, lp: 6500 }));
+}
+// The roar of the floor: a crowd swell with scattered shouts, on the open
+function sRoar(dur) {
+    if (!sfxOn || !AC) return;
+    dur = dur || 1.1;
+    const t = AC.currentTime;
+    const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+    const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 650; bp.Q.value = 0.7;
+    const g = AC.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.14, t + dur * 0.45);
+    g.gain.linearRampToValueAtTime(0.0001, t + dur);
+    src.connect(bp); bp.connect(g); g.connect(sfxGain);
+    src.start(t); src.stop(t + dur + 0.1);
+    for (let i = 0; i < 6; i++) {
+        const m = 50 + Math.floor(Math.random() * 12);
+        tone(mf(m), 0.13, { type: 'sawtooth', vol: 0.05, when: Math.random() * dur * 0.8, slide: mf(m - 4), lp: 1300 });
+    }
 }
 // Small TV coin tick when the trade counter climbs
 function sTick() {
@@ -557,8 +717,9 @@ function sCount(i) {
 function sWin() {
     if (!sfxOn || !AC) return;
     duckMusic(1.6);
-    [65, 69, 72, 69, 65, 69, 72, 77].forEach((m, i) => tone(mf(m), 0.14, { type: 'square', vol: 0.22, when: i * 0.11, lp: 3600 }));
-    [84, 82, 84, 82, 84, 86].forEach((m, i) => tone(mf(m), 0.08, { type: 'square', vol: 0.18, when: 0.95 + i * 0.06, lp: 4200 }));
+    // quote the lobby anthem's opening phrase, then a rising trill + crash
+    [67, 72, 71, 72, 74, 72, 71, 74].forEach((m, i) => tone(mf(m), 0.15, { type: 'sawtooth', vol: 0.2, when: i * 0.11, lp: 3400 }));
+    [83, 84, 83, 84, 83, 86].forEach((m, i) => tone(mf(m), 0.08, { type: 'sawtooth', vol: 0.17, when: 0.95 + i * 0.06, lp: 4200 }));
     noiseHit(0.7, { vol: 0.18, when: 1.35, hp: 5000 });
 }
 // Duck the music briefly so big stingers read clearly (sidechain feel)
@@ -573,84 +734,84 @@ function duckMusic(dur = 0.5) {
 // ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
 // F-major ragtime: stride oom-pah bass, brassy square leads,
 // chords cycle F/C7 · Bb/C7 with chromatic walkups at the turns.
+// "Trading — Motivational Background Music": bright uplifting-corporate in C major,
+// the classic I–V–vi–IV (C·G·Am·F) progression, four-on-the-floor kick + backbeat
+// clap, warm plucked arps and an anthemic lead. Same pad chord set across all four
+// tracks (the progression is the hook); tempo/energy/waveform set the phase mood.
+const CORP_PADS = [
+    { 0: [48,52,55], 16: [43,47,50] },   // C major → G major
+    { 0: [45,48,52], 16: [41,45,48] },   // A minor → F major
+];
 const TRACKS = {
-    // Lobby: 120bpm ragtime stroll — doors open, traders drift in
-    lobby: { bpm: 120, swing: 0.1, arp: 2, leadLp: 4000,
-        waves: { bass: 'triangle', lead: 'square', stab: 'square', arpW: 'triangle' },
+    // Lobby: 116bpm — warm and optimistic, the doors about to open
+    lobby: { bpm: 116, swing: 0.03, arp: 2, leadLp: 3000,
+        waves: { bass: 'triangle', lead: 'triangle', stab: 'triangle', arpW: 'sine' },
         bassBars: [
-            [41,null,null,null, 53,null,null,null, 45,null,null,null, 53,null,null,null, 48,null,null,null, 55,null,null,null, 43,null,null,null, 55,null,null,null],
-            [46,null,null,null, 58,null,null,null, 50,null,null,null, 58,null,null,null, 48,null,null,null, 55,null,null,null, 43,null,45,null, 47,null,48,null],
+            [36,null,null,null, 43,null,null,null, 36,null,null,null, 43,null,36,null, 43,null,null,null, 50,null,null,null, 43,null,null,null, 50,null,47,null],
+            [45,null,null,null, 52,null,null,null, 45,null,null,null, 52,null,45,null, 41,null,null,null, 48,null,null,null, 41,null,null,null, 48,null,43,null],
         ],
         leads: [
-            [65,null,69,null, 72,null,69,null, 65,null,69,null, 72,null,null,null, 64,null,67,null, 70,null,67,null, 64,null,62,null, 60,null,null,null],
-            [62,null,65,null, 70,null,65,null, 62,null,65,null, 70,null,null,null, 67,null,70,null, 74,null,72,null, 70,null,67,null, 65,null,null,null],
-            [null,65,null,68, 69,null,null,72, null,null,69,null, 65,null,null,null, null,64,null,67, 70,null,null,74, null,null,72,null, 67,null,null,null],
-            [70,null,null,null, null,null,67,null, 65,null,null,null, null,null,null,null, 64,null,65,null, 67,null,69,null, 71,null,72,null, 74,null,null,null],
+            [null,null,67,null, 72,null,71,null, 72,null,74,null, 72,null,null,null, null,null,67,null, 71,null,69,null, 67,null,null,null, null,null,null,null],
+            [72,null,71,null, 72,null,74,null, 76,null,74,null, 72,null,null,null, 74,null,72,null, 71,null,69,null, 67,null,69,null, 71,null,null,null],
+            [null,null,null,null, 72,null,null,74, 76,null,null,null, 74,null,72,null, null,null,null,null, 71,null,null,72, 74,null,null,null, 72,null,null,null],
+            [76,null,null,null, 74,null,72,null, 71,null,72,null, 74,null,null,null, 72,null,null,null, 71,null,69,null, 67,null,69,null, 71,null,null,null],
         ],
         hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
-        kick: [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
-        stab: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
-        pads: [
-            { 0: [53,57,60], 16: [52,55,58] },
-            { 0: [50,53,58], 16: [52,55,58] },
-        ] },
-    // Trading: 140bpm open-outcry frenzy — busy hats, call-and-response leads
-    trading: { bpm: 140, swing: 0, arp: 1, leadLp: 4400,
-        waves: { bass: 'square', lead: 'square', stab: 'square', arpW: 'triangle' },
+        kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+        clap: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+        stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        pads: CORP_PADS },
+    // Trading: 128bpm — driving engine-room, the motivational push in full swing
+    trading: { bpm: 128, swing: 0, arp: 2, leadLp: 3600,
+        waves: { bass: 'sawtooth', lead: 'sawtooth', stab: 'sawtooth', arpW: 'triangle' },
         bassBars: [
-            [41,null,41,53, 41,null,43,null, 41,null,41,53, 41,null,45,null, 46,null,46,58, 46,null,48,null, 46,null,46,58, 46,null,45,null],
-            [43,null,43,55, 43,null,45,null, 43,null,43,55, 43,null,46,null, 48,null,48,60, 48,null,50,null, 48,null,47,null, 48,null,43,null],
+            [36,null,36,48, 36,null,43,null, 36,null,36,48, 43,null,47,null, 43,null,43,55, 43,null,50,null, 43,null,43,55, 50,null,45,null],
+            [45,null,45,57, 45,null,52,null, 45,null,45,57, 52,null,44,null, 41,null,41,53, 41,null,48,null, 41,null,41,53, 48,null,43,null],
         ],
         leads: [
-            [72,null,72,null, 74,null,72,null, 69,null,65,null, null,null,null,null, 70,null,70,null, 72,null,70,null, 65,null,62,null, null,null,null,null],
-            [null,null,null,null, 67,69,70,null, 74,null,72,null, 70,null,null,null, null,null,null,null, 64,67,70,null, 76,null,74,null, 72,null,null,null],
-            [77,null,76,null, 77,null,74,null, 72,null,69,null, 65,null,null,null, 74,null,73,null, 74,null,72,null, 70,null,67,null, 62,null,null,null],
-            [null,62,67,70, null,67,70,74, null,70,74,79, null,null,77,null, 76,null,74,null, 72,null,70,null, 67,null,64,null, 65,null,null,null],
+            [67,null,72,null, 71,null,72,null, 74,null,72,null, 67,null,null,null, 69,null,72,null, 74,null,76,null, 72,null,74,null, 72,null,null,null],
+            [72,null,74,null, 76,null,74,null, 72,null,71,null, 72,null,74,null, 76,null,77,null, 76,null,74,null, 72,null,71,null, 69,null,null,null],
+            [null,null,67,69, 72,null,null,74, 76,null,74,null, 72,null,null,null, null,null,74,76, 77,null,null,76, 74,null,72,null, 71,null,null,null],
+            [79,null,77,null, 76,null,74,null, 72,null,74,null, 76,null,null,null, 77,null,79,null, 81,null,79,null, 77,null,76,null, 74,null,null,null],
         ],
         hat:  [1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1],
         kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,1,0],
+        clap: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
         stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
-        pads: [
-            { 0: [53,57,60], 16: [50,53,58] },
-            { 0: [55,58,62], 16: [52,55,58] },
-        ] },
-    // CORNER! — 112bpm triumphant swagger while the bell still echoes
-    corner: { bpm: 112, swing: 0.08, arp: 2, leadLp: 4200,
-        waves: { bass: 'triangle', lead: 'square', stab: 'square', arpW: 'triangle' },
+        pads: CORP_PADS },
+    // CORNER! — 124bpm triumphant uplift while the bell still rings
+    corner: { bpm: 124, swing: 0, arp: 2, leadLp: 3800,
+        waves: { bass: 'triangle', lead: 'sawtooth', stab: 'triangle', arpW: 'triangle' },
         bassBars: [
-            [41,null,null,null, 53,null,null,null, 45,null,53,null, 41,null,null,null, 38,null,null,null, 50,null,null,null, 45,null,50,null, 38,null,null,null],
-            [46,null,null,null, 58,null,null,null, 50,null,58,null, 46,null,null,null, 48,null,null,null, 55,null,null,null, 52,null,48,null, 43,null,47,null],
+            [36,null,48,null, 43,null,48,null, 36,null,48,null, 43,null,55,null, 43,null,55,null, 50,null,55,null, 43,null,55,null, 50,null,47,null],
+            [45,null,57,null, 52,null,57,null, 45,null,57,null, 52,null,44,null, 41,null,53,null, 48,null,53,null, 41,null,53,null, 48,null,43,null],
         ],
         leads: [
-            [65,null,null,69, 72,null,null,null, 72,null,74,null, 72,null,69,null, 74,null,null,null, 72,null,null,null, 69,null,67,null, 65,null,null,null],
-            [70,null,null,74, 77,null,null,null, 77,null,79,null, 77,null,74,null, 76,null,null,null, 74,null,null,null, 72,null,70,null, 67,null,null,null],
+            [72,null,null,74, 76,null,null,null, 77,null,76,null, 74,null,72,null, 76,null,null,77, 79,null,null,null, 77,null,76,null, 74,null,null,null],
+            [79,null,null,null, 77,null,76,null, 74,null,76,null, 77,null,null,null, 81,null,null,null, 79,null,77,null, 76,null,74,null, 72,null,null,null],
         ],
         hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
-        kick: [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
-        stab: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
-        pads: [
-            { 0: [53,57,60], 16: [50,53,57] },
-            { 0: [50,53,58], 16: [52,55,58] },
-        ] },
-    // Market closed: 132bpm victory march out onto the street
-    over: { bpm: 132, swing: 0, arp: 1, leadLp: 4800,
-        waves: { bass: 'triangle', lead: 'square', stab: 'square', arpW: 'triangle' },
+        kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+        clap: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+        stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        pads: CORP_PADS },
+    // Market closed: 128bpm full victory anthem
+    over: { bpm: 128, swing: 0, arp: 1, leadLp: 4200,
+        waves: { bass: 'sawtooth', lead: 'sawtooth', stab: 'sawtooth', arpW: 'triangle' },
         bassBars: [
-            [41,null,53,null, 41,null,53,null, 45,null,53,null, 41,null,53,null, 46,null,58,null, 46,null,58,null, 50,null,58,null, 46,null,58,null],
-            [48,null,55,null, 48,null,55,null, 52,null,55,null, 48,null,55,null, 41,null,53,null, 45,null,53,null, 46,null,47,null, 48,null,45,null],
+            [36,null,36,48, 43,null,36,null, 36,null,36,48, 43,null,47,null, 43,null,43,55, 50,null,43,null, 43,null,43,55, 50,null,45,null],
+            [45,null,45,57, 52,null,45,null, 45,null,45,57, 52,null,44,null, 41,null,41,53, 48,null,41,null, 41,null,41,53, 48,null,43,null],
         ],
         leads: [
-            [65,65,null,65, null,69,null,72, 77,null,76,null, 74,null,72,null, 74,74,null,74, null,77,null,74, 72,null,70,null, 69,null,null,null],
-            [76,76,null,76, null,79,null,81, 79,null,77,null, 76,null,74,null, 77,null,76,null, 77,null,79,null, 77,null,null,null, null,null,null,null],
-            [null,null,72,null, 74,null,77,null, null,null,74,null, 72,null,69,null, null,null,70,null, 72,null,74,null, 76,null,77,null, null,null,null,null],
+            [72,72,null,74, 76,null,77,null, 79,null,77,null, 76,null,74,null, 76,76,null,77, 79,null,81,null, 79,null,77,null, 76,null,null,null],
+            [84,null,null,null, 83,null,81,null, 79,null,77,null, 76,null,null,null, 77,null,79,null, 81,null,83,null, 84,null,null,null, null,null,null,null],
+            [null,null,76,null, 77,null,79,null, null,null,77,null, 76,null,74,null, null,null,77,null, 79,null,81,null, null,null,79,null, 77,null,null,null],
         ],
         hat:  [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
         kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,1,0],
+        clap: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
         stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
-        pads: [
-            { 0: [53,57,60], 16: [50,53,58] },
-            { 0: [52,55,58], 16: [53,57,60] },
-        ] },
+        pads: CORP_PADS },
 };
 let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
 // Adaptive arrangement: intensity 1 drops the stab/arp layers (quiet floor),
@@ -663,21 +824,22 @@ function playMusicStep(i, t, bar) {
     const w = tr.waves || {};
     const k = musicKeyShift;
     const full = musicIntensity >= 2 || musicUrgent;
-    // Swing: push every off-16th slightly late for the ragtime lilt
+    // Straight modern feel (tiny swing only in the lobby); push off-16ths a hair late
     const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
     if (tr.kick[i]) tone(150, 0.22, { type: 'sine', vol: 0.45, when: rel, slide: 45, dest: musicGain });
     if (tr.hat[i]) {
         const hv = (i % 4 === 2 ? 0.13 : 0.07) * (0.8 + Math.random() * 0.4);
         noiseHit(0.05, { vol: hv, when: rel, hp: 9000, dest: musicGain });
     }
+    if (tr.clap && tr.clap[i]) clapHit(rel);      // backbeat clap (2 & 4) — the pop groove
     const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
     const b = bassArr[i];
-    if (b != null) tone(mf(b + k), stepDur * 1.5, { type: w.bass || 'triangle', vol: 0.26, when: rel, dest: musicGain, lp: 950, attack: 0.005 });
+    if (b != null) tone(mf(b + k), stepDur * 1.5, { type: w.bass || 'triangle', vol: 0.26, when: rel, dest: musicGain, lp: 1150, attack: 0.005 });
     const pad = tr.pads[bar % tr.pads.length];
     const ch = i < 16 ? pad[0] : pad[16];
-    // Stride "pah" / offbeat comping: brassy square chord stabs
+    // Muted plucked chord — the signature "uplifting corporate" offbeat pluck
     if (full && tr.stab && tr.stab[i] && ch)
-        ch.forEach(m => tone(mf(m + 12 + k), stepDur * 0.9, { type: w.stab || 'square', vol: 0.035, when: rel, lp: 2800, dest: musicGain, attack: 0.004 }));
+        ch.forEach(m => tone(mf(m + 12 + k), stepDur * 0.7, { type: w.stab || 'triangle', vol: 0.05, when: rel, lp: 3000, dest: musicGain, attack: 0.003 }));
     let l = tr.leads[bar % tr.leads.length][i];
     if (l != null && (musicIntensity >= 1 || musicUrgent)) {
         if (musicUrgent) l += 12;
@@ -790,6 +952,89 @@ function popText(x, y, text, cls = 'gold') {
     setTimeout(() => el.remove(), 1150);
 }
 
+// ── The pit crowd: a packed row of red-jacketed traders waving their arms,
+// sitting behind the whole TV show. Rebuilt on each full render for variety. ──
+// Each firm on the LIFFE floor wore its own jacket colour — reproduce that
+// carnival of red / orange / gold / green / teal / blue / purple / pink.
+const JACKETS = [
+    ['#ef4444', '#9b1c1c'], ['#f97316', '#9a3d0a'], ['#f5c518', '#a67c00'],
+    ['#22c55e', '#137a3a'], ['#14b8c6', '#0a6b78'], ['#3b82f6', '#1a4aa8'],
+    ['#8b5cf6', '#4c2d9c'], ['#ec4899', '#9d2765'], ['#e6edf7', '#8f98ab'],
+];
+const HAIRS = ['#263041', '#3a2a1a', '#4a2e12', '#1c2230', '#5a4632'];
+function pitCrowdHTML() {
+    if (REDUCED) return '';
+    let out = '';
+    const N = 16;
+    for (let i = 0; i < N; i++) {
+        const left = (i / (N - 1)) * 100 + (Math.random() * 5 - 2.5);
+        const sz = 0.62 + Math.random() * 0.62;          // depth: smaller = further back
+        const br = 0.55 + sz * 0.45;                      // dimmer when further back
+        const aw = (0.72 + Math.random() * 0.5).toFixed(2);
+        const aw2 = (0.82 + Math.random() * 0.5).toFixed(2);
+        const dl = (-Math.random() * 1.2).toFixed(2);
+        const jk = JACKETS[Math.floor(Math.random() * JACKETS.length)];
+        const hair = HAIRS[Math.floor(Math.random() * HAIRS.length)];
+        out += `<div class="tfig" style="left:${left.toFixed(1)}%;bottom:${(-1.5 - (1 - sz) * 6).toFixed(1)}vmin;` +
+            `transform:scale(${sz.toFixed(2)});--br:${br.toFixed(2)};--aw:${aw}s;--aw2:${aw2}s;` +
+            `--jkt:${jk[0]};--jkd:${jk[1]};--hair:${hair};z-index:${Math.round(sz * 10)}">` +
+            `<div class="head"></div><div class="body">` +
+            `<div class="arm l" style="animation-delay:${dl}s"></div><div class="arm r" style="animation-delay:${dl}s"></div>` +
+            `</div></div>`;
+    }
+    // paper slips scattered across the floor
+    let paper = '';
+    for (let i = 0; i < 26; i++) {
+        paper += `<div class="floorslip" style="left:${(Math.random() * 100).toFixed(1)}%;bottom:${(Math.random() * 5).toFixed(1)}vmin;` +
+            `transform:scale(${(0.7 + Math.random() * 0.9).toFixed(2)}) rotate(${(Math.random() * 90 - 45).toFixed(0)}deg);opacity:${(0.5 + Math.random() * 0.4).toFixed(2)}"></div>`;
+    }
+    return `<div id="pit-crowd">${paper}${out}</div>`;
+}
+
+// Paper order-slips fly between two traders when a trade completes
+function findTraderEl(name) { return [...document.querySelectorAll('.tv-trader')].find(el => el.dataset.name === name); }
+function flySlip(x0, y0, x1, y1, delay, gold) {
+    if (REDUCED) return;
+    setTimeout(() => {
+        const s = document.createElement('div');
+        s.className = 'slip' + (gold ? ' gold' : '');
+        s.style.cssText = `left:${x0}px;top:${y0}px;opacity:0;transform:translate(-50%,-50%) rotate(0deg);` +
+            `transition:transform .52s cubic-bezier(.3,.7,.35,1),opacity .52s;`;
+        document.body.appendChild(s);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            s.style.opacity = '1';
+            s.style.transform = `translate(-50%,-50%) translate(${x1 - x0}px,${y1 - y0}px) rotate(${Math.random() * 720 - 360}deg)`;
+        }));
+        setTimeout(() => { s.style.opacity = '0'; }, 430);
+        setTimeout(() => s.remove(), 760);
+    }, delay || 0);
+}
+function flyTradeSlips(aName, bName, count) {
+    const ae = findTraderEl(aName), be = findTraderEl(bName);
+    if (!ae || !be) return;
+    const ar = ae.getBoundingClientRect(), br = be.getBoundingClientRect();
+    const ax = ar.left + ar.width / 2, ay = ar.top + ar.height / 2;
+    const bx = br.left + br.width / 2, by = br.top + br.height / 2;
+    const k = Math.max(1, Math.min(count || 1, 4));
+    for (let i = 0; i < k; i++) { flySlip(ax, ay, bx, by, i * 60); flySlip(bx, by, ax, ay, i * 60 + 30); }
+}
+
+// A blizzard of paper thrown at the closing bell / corner
+function paperStorm(n) {
+    if (REDUCED) return;
+    n = n || 46;
+    for (let i = 0; i < n; i++) {
+        const s = document.createElement('div');
+        s.className = 'slip' + (Math.random() < 0.4 ? ' gold' : '');
+        const dur = 1.7 + Math.random() * 1.7;
+        s.style.cssText = `left:${Math.random() * innerWidth}px;top:${-30 - Math.random() * 200}px;` +
+            `--drift:${(Math.random() * 180 - 90)}px;--rot:${Math.random() * 900 - 450}deg;` +
+            `animation:slipFall ${dur}s linear ${(Math.random() * 0.5).toFixed(2)}s forwards;`;
+        document.body.appendChild(s);
+        setTimeout(() => s.remove(), dur * 1000 + 700);
+    }
+}
+
 // ═══════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════
@@ -809,7 +1054,7 @@ let _prevHandKey = '';
 let H = {
     phase: 'lobby',              // lobby|trading|corner|gameover
     players: [],                 // [{id,name,color,hand:[],offer:null,score:0,trades:0,corners:0,lastDelta:0}]
-    settings: { bullBear: false, winScore: 500 },
+    settings: { bullBear: false, winScore: 500, autoMatch: true },
     round: 0,
     feed: [],                    // last 12 [{id,t,...}]
     tradeCount: 0,
@@ -875,14 +1120,15 @@ function stateFor(p) {
     return {
         type: 'state',
         phase: H.phase, round: H.round, roomCode,
-        winScore: H.settings.winScore, bullBear: H.settings.bullBear,
+        winScore: H.settings.winScore, bullBear: H.settings.bullBear, autoMatch: H.settings.autoMatch,
         myHand: p ? sortHand(p.hand) : [],
         myOffer: p && p.offer ? { cards: p.offer.cards, count: p.offer.count } : null,
         canCorner: !!corner, cornerInfo: corner,
         myDelta: p ? p.lastDelta : 0,
-        players: H.players.map(q => ({
-            name: q.name, color: q.color, score: q.score, cards: q.hand.length,
+        players: H.players.map((q, idx) => ({
+            idx, name: q.name, color: q.color, score: q.score, cards: q.hand.length,
             offerCount: q.offer ? q.offer.count : 0, trades: q.trades, delta: q.lastDelta,
+            me: !!(p && q.id === p.id),
         })),
         feed: H.feed.slice(-8),
         tradeCount: H.tradeCount,
@@ -933,6 +1179,7 @@ function setupGuestConn(conn) {
             }
             case 'offer':        if (player) hostOffer(player, msg.cards); break;
             case 'cancel_offer': if (player) hostCancelOffer(player); break;
+            case 'trade_with':   if (player) hostTradeWith(player, msg.targetIdx, msg.cards); break;
             case 'corner':       if (player) hostCorner(player); break;
             case 'ctl': {
                 if (!isTvHost || !player || player.id !== H.players[0]?.id) break;
@@ -959,6 +1206,7 @@ function hostCtl(action, msg) {
     else if (action === 'again' && H.phase === 'gameover') hostNewGame();
     else if (action === 'set' && H.phase === 'lobby') {
         if (typeof msg.bullBear === 'boolean') H.settings.bullBear = msg.bullBear;
+        if (typeof msg.autoMatch === 'boolean') H.settings.autoMatch = msg.autoMatch;
         if ([300, 500, 750].includes(msg.winScore)) H.settings.winScore = msg.winScore;
         broadcastLobby();
     }
@@ -1124,12 +1372,32 @@ function validBundle(hand, cards) {
     return comms.length <= 1;    // one commodity + any specials
 }
 
+// Shouting posts a standing offer (you're holding out your cards). With auto-match
+// ON ("Frantic Floor") the first equal-count offer swaps instantly; with it OFF
+// ("Open Outcry") offers stand until a trader taps a match — so several people can
+// hold out the same number and you choose your partner (see hostTradeWith).
 function hostOffer(player, cards) {
     if (H.phase !== 'trading' || !validBundle(player.hand, cards)) return;
     player.offer = { cards: cards.slice(), count: cards.length };
-    const match = H.players.find(q => q.id !== player.id && q.offer && q.offer.count === player.offer.count);
-    if (match) executeTrade(player, match);
-    else broadcastState();
+    if (H.settings.autoMatch) {
+        const match = H.players.find(q => q.id !== player.id && q.offer && q.offer.count === player.offer.count);
+        if (match) { executeTrade(player, match); return; }
+    }
+    broadcastState();
+}
+
+// You picked a specific trader who's holding out the same number → blind swap.
+// No refusal: their standing offer is a commitment to swap that count with
+// whoever completes it first.
+function hostTradeWith(me, targetIdx, cards) {
+    if (H.phase !== 'trading') return;
+    const target = H.players[targetIdx];
+    if (!target || target.id === me.id || !target.offer) return;
+    // use my standing offer if I have one, else the cards I sent
+    const give = (me.offer ? me.offer.cards : cards) || [];
+    if (give.length !== target.offer.count || !validBundle(me.hand, give)) return;
+    me.offer = { cards: give.slice(), count: give.length };
+    executeTrade(me, target);
 }
 
 function hostCancelOffer(player) {
@@ -1262,6 +1530,7 @@ function applyMsg(msg) {
                     sBell(3);
                     if (msg.myDelta > 0) {
                         startConfetti(2400);
+                        paperStorm(30);
                         burst(innerWidth / 2, innerHeight * 0.3, ['#fbbf24', '#fcd34d', '#fff7ed', '#4ade80'], 24);
                         popText(innerWidth / 2, innerHeight * 0.26, '+' + msg.myDelta, 'gold');
                         try { navigator.vibrate && navigator.vibrate([90, 40, 90, 40, 220]); } catch (e) {}
@@ -1276,7 +1545,7 @@ function applyMsg(msg) {
                     ui = 'gameover';
                     setMusic('over');
                     render();
-                    sWin(); startConfetti(3800);
+                    sWin(); startConfetti(3800); paperStorm(44);
                 } else render();
             } else render();
             updateMusicMood(msg);
@@ -1300,7 +1569,7 @@ function tradeFlash(count) {
 
 // opening-bell countdown overlay (non-blocking)
 function showOpeningBell(round) {
-    if (REDUCED) { sBell(2); return; }
+    if (REDUCED) { sBell(2); sRoar(1.2); return; }
     const ov = document.createElement('div');
     ov.id = 'count-ov';
     document.body.appendChild(ov);
@@ -1309,7 +1578,7 @@ function showOpeningBell(round) {
     const step = () => {
         if (i >= steps.length) { ov.remove(); return; }
         ov.innerHTML = `<div class="n">${steps[i]}</div><div class="lbl">Round ${round} — trade!</div>`;
-        if (steps[i] === '🔔') sBell(2); else sCount(i);
+        if (steps[i] === '🔔') { sBell(2); sRoar(1.3); } else sCount(i);
         i++;
         setTimeout(step, i === steps.length ? 700 : 750);
     };
@@ -1338,6 +1607,7 @@ function toggleCard(i) {
     sSelect(selection.size);
     patchHandSelection();
     patchShoutBar();
+    patchScoresStrip();
 }
 
 function shout() {
@@ -1367,6 +1637,25 @@ function ringBell() {
     } else send(hostConn, { type: 'corner' });
 }
 
+// Pick a specific trader who's shouting your number → blind swap with them.
+// Uses your standing offer's cards if you've shouted, else your selection.
+function myTradeCards() {
+    if (D && D.myOffer) return D.myOffer.cards.slice();
+    const { cards, valid } = selInfo();
+    return valid ? cards : null;
+}
+function tradeWithPlayer(idx) {
+    if (!D || D.phase !== 'trading') return;
+    const cards = myTradeCards();
+    const target = (D.players || []).find(p => p.idx === idx);
+    if (!cards || !target || target.me || !target.offerCount || target.offerCount !== cards.length) return;
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostTradeWith(me, idx, cards);
+    } else send(hostConn, { type: 'trade_with', targetIdx: idx, cards });
+    selection.clear();
+}
+
 // ── patching (never re-render the hand mid-selection) ──
 function patchGame(msg) {
     const strip = $id('scores-strip');
@@ -1378,6 +1667,12 @@ function patchGame(msg) {
     const cw = $id('corner-wrap');
     if (cw) cw.innerHTML = cornerBtnHTML(msg);
     patchHandOffered(msg);
+}
+// re-render the strip so offering chips light up as tappable "trade" targets
+// the moment my selection matches their number
+function patchScoresStrip() {
+    const strip = $id('scores-strip');
+    if (strip && D) strip.innerHTML = scoresStripHTML(D);
 }
 
 function patchHandSelection() {
@@ -1418,16 +1713,22 @@ function applyViewerMsg(msg) {
     if (msg.phase === 'trading') {
         setMusic('trading');
         const newRound = !prev || prev.type !== 'viewer_state' || prev.phase !== 'trading' || prev.round !== msg.round;
-        if (newRound) { render(); sBell(1); }
+        if (newRound) { render(); sBell(1); sRoar(1.3); }
         else {
-            if (prev && msg.tradeCount > (prev.tradeCount || 0)) sTick();
+            const traded = prev && msg.tradeCount > (prev.tradeCount || 0);
+            if (traded) sTick();
             patchViewer(msg);
+            if (traded) {
+                const tr = [...(msg.feed || [])].reverse().find(e => e.t === 'trade');
+                if (tr) flyTradeSlips(tr.a, tr.b, tr.count);
+            }
         }
     } else if (msg.phase === 'corner') {
         if (!prev || prev.phase !== 'corner') {
             setMusic('corner');
             render();
             sBell(3);
+            paperStorm(56);
             // gold burst shower behind the bell
             for (let i = 0; i < 3; i++)
                 setTimeout(() => burst(innerWidth * (0.3 + Math.random() * 0.4), innerHeight * (0.2 + Math.random() * 0.3),
@@ -1435,7 +1736,7 @@ function applyViewerMsg(msg) {
         }
         else render();
     } else if (msg.phase === 'gameover') {
-        if (!prev || prev.phase !== 'gameover') { setMusic('over'); render(); sWin(); startConfetti(5200); }
+        if (!prev || prev.phase !== 'gameover') { setMusic('over'); render(); sWin(); startConfetti(5200); paperStorm(72); }
         else render();
     } else render();
     updateMusicMood(msg);
@@ -1467,6 +1768,8 @@ function settingsSegsHTML(settings, expr) {
     const seg = (opts, curV, key) => `<div class="seg-row">${opts.map(o =>
         `<button class="btn btn-sm ${curV === o.v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{${key}:${o.j}}`)}">${o.l}</button>`).join('')}</div>`;
     return `
+        <div class="fg"><label>Trading style</label>${seg(
+            [{ v: true, j: 'true', l: '⚡ Frantic (auto-match)' }, { v: false, j: 'false', l: '✋ Open outcry (pick)' }], settings.autoMatch !== false, 'autoMatch')}</div>
         <div class="fg"><label>Bull &amp; Bear cards</label>${seg(
             [{ v: false, j: 'false', l: 'Off' }, { v: true, j: 'true', l: '🐂🐻 On (−20 traps)' }], settings.bullBear, 'bullBear')}</div>
         <div class="fg"><label>Win score</label>${seg(
@@ -1474,12 +1777,21 @@ function settingsSegsHTML(settings, expr) {
 }
 
 function scoresStripHTML(msg) {
-    return standingsOf(msg.players).map(p => `
-        <div class="sc-chip">
+    // my tradeable count = my standing offer, else my current valid selection
+    const myCount = (D && D.myOffer) ? D.myOffer.count : (selInfo().valid ? selInfo().cards.length : 0);
+    return standingsOf(msg.players).map(p => {
+        const offering = p.offerCount > 0;
+        const canTrade = offering && !p.me && myCount && p.offerCount === myCount;
+        const cls = `sc-chip${offering ? ' offering' : ''}${canTrade ? ' cantrade' : ''}`;
+        const tap = canTrade ? ` role="button" tabindex="0" onclick="tradeWithPlayer(${p.idx})"` : '';
+        const shout = offering
+            ? `<span class="shout">${handSigHTML(p.offerCount)} ${canTrade ? '🤝 trade ' + p.offerCount + '!' : 'shouting ' + p.offerCount + '!'}</span>`
+            : `<span style="color:var(--muted)">${p.cards}🂠</span>`;
+        return `<div class="${cls}"${tap}>
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
-            ${esc(p.name)} <b>${p.score}</b>
-            ${p.offerCount ? `<span class="shout">📢${p.offerCount}!</span>` : `<span style="color:var(--muted)">${p.cards}🂠</span>`}
-        </div>`).join('');
+            ${badgeHTML(p.name)} ${esc(p.name)} <b>${p.score}</b>${shout}
+        </div>`;
+    }).join('');
 }
 
 function feedHTML(feed, tv) {
@@ -1499,6 +1811,7 @@ function standingsHTML(players, deltas) {
         <div class="player-row" style="--i:${i}">
             <span style="width:22px;text-align:center">${medals[i] || (i + 1)}</span>
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            ${badgeHTML(p.name)}
             <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--gold)">(you)</span>' : ''}</div>
             <div class="sc">${p.score}${deltas && p.delta ? `<span class="delta ${p.delta > 0 ? 'plus' : 'minus'}">${p.delta > 0 ? '+' : ''}${p.delta}</span>` : ''}</div>
         </div>`).join('')
@@ -1542,12 +1855,13 @@ function renderHome() {
     const fromQR = !!fCode;
     const youCard = `
     <div class="card">
-        <div class="slbl">Who are you?</div>
+        <div class="slbl">Step onto the floor</div>
         <div class="fg">
             <label>Your Name</label>
             <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
-                ${fromQR ? 'autofocus' : ''} oninput="fName=this.value">
+                ${fromQR ? 'autofocus' : ''} oninput="updateBadgePrev(this.value)">
         </div>
+        <div id="badge-prev" style="font-size:.66rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:center">${badgePrevHTML(fName)}</div>
     </div>`;
     const joinCard = `
     <div class="card${fromQR ? ' highlight' : ''}">
@@ -1571,7 +1885,7 @@ function renderHome() {
             🔔 Host on this phone
         </button>
         <div style="font-size:.66rem;color:var(--muted);text-align:center;margin-top:8px">
-            2–8 traders — put the TV up with the room code for the trading floor
+            3–8 traders — put the TV up with the room code for the trading floor
         </div>
     </div>`;
     const tvCard = `
@@ -1594,7 +1908,7 @@ function renderHome() {
         </button>
     </div>`;
     return `
-    ${hdrHTML('the frantic trading party game')}
+    ${hdrHTML('open outcry · red jackets · ring the bell')}
     ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
     ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
 }
@@ -1614,6 +1928,7 @@ function renderLobbyH() {
     const pList = H.players.map((p, i) =>
         `<div class="player-row" style="--i:${i}">
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            ${badgeHTML(p.name)}
             <div style="flex:1">${esc(p.name)}${i === 0 ? ' <span style="color:var(--muted)">(you — host)</span>' : ''}</div>
             <div class="dot"></div>
         </div>`).join('');
@@ -1649,6 +1964,7 @@ function renderLobbyG() {
     const pList = (D.players || []).map((p, i) =>
         `<div class="player-row" style="--i:${i}">
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            ${badgeHTML(p.name)}
             <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--muted)">(you)</span>' : ''}${D.tvHost && p.name === D.captain ? ' 👑' : ''}</div>
             <div class="dot"></div>
         </div>`).join('');
@@ -1689,11 +2005,11 @@ function shoutBarHTML() {
     if (!D || D.myOffer) return '';
     const { cards, valid, comm } = selInfo();
     const n = cards.length;
-    const label = n ? `📢 SHOUT ${n}! ${n}! ${n}!` : '📢 Pick 1–4 cards to trade';
+    const label = n ? `${handSigHTML(n)} SHOUT ${n}! ${n}! ${n}!` : '📢 Pick 1–4 cards to trade';
     return `
     <div class="shout-bar">
         <button class="btn btn-p" ${valid ? '' : 'disabled'} onclick="shout()">${label}</button>
-        ${n ? `<button class="btn btn-g" style="flex:0 0 auto" onclick="selection.clear();patchHandSelection();patchShoutBar()">✕</button>` : ''}
+        ${n ? `<button class="btn btn-g" style="flex:0 0 auto" onclick="selection.clear();patchHandSelection();patchShoutBar();patchScoresStrip()">✕</button>` : ''}
     </div>
     ${comm && valid ? `<div style="text-align:center;color:var(--muted);font-size:.7rem;font-weight:700;margin-top:6px">Trading ${n} × ${esc(comm)}${cards.some(isSpecial) ? ' (specials hidden inside!)' : ''}</div>` : ''}`;
 }
@@ -1701,10 +2017,12 @@ function shoutBarHTML() {
 function offerZoneHTML(msg) {
     if (!msg.myOffer) return '';
     const n = msg.myOffer.count;
+    const wait = msg.autoMatch === false ? 'someone can grab you, or grab a match below' : 'waiting for a match…';
     return `
-    <div class="offer-banner">📢 You're shouting “${n}! ${n}! ${n}!” — waiting for a match…</div>
+    <div class="offer-banner">${handSigHTML(n, 'big')} You're shouting “${n}! ${n}! ${n}!” — ${wait}</div>
     <button class="btn btn-g btn-full" style="margin-top:9px" onclick="cancelShout()">🤫 Stop shouting</button>`;
 }
+
 
 function handCardHTML(name, i) {
     const c = commOf(name);
@@ -1766,7 +2084,7 @@ function renderGameover() {
     ${hdrHTML('Market closed!')}
     <div class="card bell-card highlight">
         <div class="bell">🏆</div>
-        <div class="ct">${esc((D.winner || '').toUpperCase())} WINS!</div>
+        <div class="ct">${D.winner === myName ? 'YOU WIN!' : esc((D.winner || '').toUpperCase()) + ' WINS!'}</div>
         <div style="margin-top:10px">${awards}</div>
         <div style="color:var(--muted);font-size:.72rem;font-weight:700;margin-top:8px">${s.totalTrades || 0} trades this game</div>
     </div>
@@ -1779,6 +2097,7 @@ function renderGameover() {
 // ═══════════════════════════════════════════
 function tvShell(inner, meta, ticker) {
     return `<div class="tv">
+        ${pitCrowdHTML()}
         <div class="tv-top">
             <div class="tv-logo">🔔 PIT! — TRADING FLOOR</div>
             <div class="tv-meta">${esc(meta || ('Room ' + (vD.roomCode || roomCode || '')))}</div>
@@ -1811,7 +2130,7 @@ function renderViewerLobby() {
     const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
     const players = vD.players || [];
     const cards = players.map(p =>
-        `<div class="tv-pcard"><div class="pdot" style="background:${p.color};color:${p.color}"></div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
+        `<div class="tv-pcard"><div class="pdot" style="background:${p.color};color:${p.color}"></div>${badgeHTML(p.name, 'ontv')} ${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
     const s = vD.settings || {};
     return tvShell(`
     <div class="tv-lobby">
@@ -1834,13 +2153,13 @@ function renderViewerLobby() {
 
 function tvTradersHTML(msg) {
     return standingsOf(msg.players).map(p => `
-        <div class="tv-trader">
+        <div class="tv-trader" data-name="${esc(p.name)}">
             <span class="tdot" style="background:${p.color};color:${p.color}"></span>
             <div style="min-width:0">
-                <div class="tname">${esc(p.name)}</div>
+                <div class="tname">${badgeHTML(p.name, 'ontv')} ${esc(p.name)}</div>
                 <div class="tcards">${p.cards} cards · ${p.trades} trades</div>
             </div>
-            ${p.offerCount ? `<span class="tpill">${p.offerCount}!</span>` : ''}
+            ${p.offerCount ? `<span class="tsig">${handSigHTML(p.offerCount, 'ontv')}</span><span class="tpill">${p.offerCount}!</span>` : ''}
             <span class="tscore">${p.score}</span>
         </div>`).join('');
 }
@@ -1866,7 +2185,7 @@ function renderViewerCorner() {
     const lc = vD.lastCorner || {};
     const pens = (lc.penalties || []).map(p => `<span class="chip pen">🐻 ${esc(p.name)} −${p.amount}</span>`).join('');
     const lead = standingsOf(vD.players).map(p =>
-        `<div class="rail-chip"><span class="pdot" style="background:${p.color};color:${p.color}"></span>${esc(p.name)}<span class="sc">${p.score}</span>${p.delta ? `<span style="color:${p.delta > 0 ? 'var(--up)' : 'var(--down)'};font-size:1.5vmin">${p.delta > 0 ? '+' : ''}${p.delta}</span>` : ''}</div>`).join('');
+        `<div class="rail-chip"><span class="pdot" style="background:${p.color};color:${p.color}"></span>${badgeHTML(p.name, 'ontv')} ${esc(p.name)}<span class="sc">${p.score}</span>${p.delta ? `<span style="color:${p.delta > 0 ? 'var(--up)' : 'var(--down)'};font-size:1.5vmin">${p.delta > 0 ? '+' : ''}${p.delta}</span>` : ''}</div>`).join('');
     const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: “Next round” is on your phone` : 'Host: “Next round” is on your phone';
     return tvShell(`
     <div class="tv-bell">
@@ -1886,7 +2205,7 @@ function renderViewerPodium() {
     const medal = { p1: '🥇', p2: '🥈', p3: '🥉' };
     const pods = podOrder.map((p, i) => `
         <div class="pod ${cls[i]}" style="animation-delay:${i * 0.18}s">
-            <div class="pname"><span class="pdot" style="background:${p.color};color:${p.color};display:inline-block;vertical-align:middle;margin-right:.6vmin"></span>${esc(p.name)}</div>
+            <div class="pname"><span class="pdot" style="background:${p.color};color:${p.color};display:inline-block;vertical-align:middle;margin-right:.6vmin"></span>${badgeHTML(p.name, 'ontv')} ${esc(p.name)}</div>
             <div class="pscore">${p.score} pts</div>
             <div class="block">${medal[cls[i]]}</div>
         </div>`).join('');
@@ -1906,6 +2225,130 @@ function renderViewerPodium() {
 }
 
 // ═══════════════════════════════════════════
+// SIMULATION MODES — ?mode=tvsimulation | playersimulation  (&players=N)
+// Self-driving demos with no PeerJS and no real people. Bots are counted as
+// "connected" via stub guestConns so the normal host flow drives everything.
+//   • tvsimulation     — watch the big-screen TRADING FLOOR play itself
+//   • playersimulation — watch a phone TRADER play itself (your hand, your
+//     SHOUT with hand signals, your pulsing CORNER button)
+// (?mode=simulation stays as an alias for tvsimulation.)
+// ═══════════════════════════════════════════
+let simTimer = null, simMode = 'tv';
+const SIM_NAMES = ['Ace', 'Bux', 'Cash', 'Duke', 'Edie', 'Fox', 'Gwen', 'Hawk'];
+
+function startSimulation(nPlayers, mode) {
+    simMode = mode === 'player' ? 'player' : 'tv';
+    roomCode = 'DEMO';
+    H.settings.bullBear = true;
+    H.settings.winScore = 300;
+    H.settings.autoMatch = false;   // showcase the "Open outcry" pick-your-trade flow
+    H.players = []; guestConns = {}; viewerConns = {};
+    const n = Math.max(MIN_PLAYERS, Math.min(nPlayers || 4, MAX_PLAYERS));
+    if (simMode === 'tv') {
+        isHost = true; isTvHost = true; myId = '__sim_host__';
+        document.body.classList.add('viewer-mode');
+    } else {
+        isHost = true; isTvHost = false; myName = 'You'; myId = '__you__';
+        hostAddPlayer(myId, myName);                 // you are trader #1 (the host)
+    }
+    for (let i = H.players.length; i < n; i++) {
+        const id = '__bot_' + i;
+        hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length]);
+        guestConns[id] = { peer: id, send() {} };    // stub so bots count as present
+    }
+    broadcastLobby();                                // show the lobby first
+    simTimer = setTimeout(() => simRound(true), 2400);
+}
+
+function simRound(fresh) {
+    hostStartRound(fresh);                            // deal + phase 'trading' + bell/roar
+    let ticks = 9 + Math.floor(Math.random() * 7);
+    const step = () => {
+        if (H.phase !== 'trading') return;
+        simBotAction();
+        if (simMode === 'player' && Math.random() < 0.55) simYouAction();
+        if (--ticks > 0) simTimer = setTimeout(step, 650 + Math.random() * 450);
+        else simTimer = setTimeout(simForceCorner, 1100);
+    };
+    // in player mode wait out the phone's 3-2-1 opening-bell overlay first
+    simTimer = setTimeout(step, simMode === 'player' ? 3600 : 1500);
+}
+
+// A bot either completes a standing offer it can fulfil (tap-to-trade) or posts
+// its own offer of the least-held commodity. Works with auto-match on or off.
+function simBotAction() {
+    const free = H.players.filter(p => !p.offer && !(simMode === 'player' && p.id === myId));
+    if (!free.length) return;
+    const bot = free[Math.floor(Math.random() * free.length)];
+    const held = {};
+    bot.hand.forEach(c => { if (!isSpecial(c)) held[c] = (held[c] || 0) + 1; });
+    const names = Object.keys(held);
+    if (!names.length) return;
+    names.sort((a, b) => held[a] - held[b]);
+    const dump = names[0], dumpMax = held[dump];
+    const targets = H.players.filter(p => p.offer && p.id !== bot.id && p.offer.count <= dumpMax);
+    if (targets.length && Math.random() < 0.75) {
+        const t = targets[Math.floor(Math.random() * targets.length)];
+        hostTradeWith(bot, H.players.indexOf(t), Array(t.offer.count).fill(dump));
+    } else {
+        const k = Math.min(dumpMax, 1 + Math.floor(Math.random() * 3));
+        hostOffer(bot, Array(k).fill(dump));
+    }
+}
+
+// You (phone demo): tap a couple of cards then SHOUT — through the real UI
+// functions so the selection outline, ticker clicks and hand signal all animate
+function simYouAction() {
+    if (H.phase !== 'trading' || !D || D.myOffer) return;
+    const hand = D.myHand || [];
+    const held = {};
+    hand.forEach((c, i) => { if (!isSpecial(c)) (held[c] = held[c] || []).push(i); });
+    const names = Object.keys(held);
+    if (!names.length) return;
+    names.sort((a, b) => held[a].length - held[b].length);
+    const idxs = held[names[0]].slice(0, 1 + Math.floor(Math.random() * 2));   // 1–2 cards
+    selection.clear(); patchHandSelection(); patchShoutBar();
+    idxs.forEach((idx, j) => setTimeout(() => { if (H.phase === 'trading') toggleCard(idx); }, j * 280));
+    setTimeout(() => { if (selection.size && D && !D.myOffer) shout(); }, idxs.length * 280 + 520);
+}
+
+// Force a winning corner so the demo always resolves; sometimes a Bull corner,
+// and drop a Bear on someone else to show the penalty. In player mode it's
+// sometimes YOU — then the pulsing CORNER button shows before it's rung.
+function simForceCorner() {
+    if (H.phase !== 'trading') return;
+    const comms = activeCommodities();
+    const youMode = simMode === 'player';
+    const me = H.players.find(x => x.id === myId);
+    const p = (youMode && me && Math.random() < 0.5) ? me
+        : H.players[Math.floor(Math.random() * H.players.length)];
+    const comm = comms[Math.floor(Math.random() * comms.length)].name;
+    const bull = H.settings.bullBear && Math.random() < 0.4;
+    p.hand = bull ? [...Array(8).fill(comm), 'Bull'] : Array(9).fill(comm);
+    if (H.settings.bullBear) {
+        const other = H.players.filter(q => q.id !== p.id)[0];
+        if (other) { const oc = comms[(comms.findIndex(c => c.name === comm) + 1) % comms.length].name; other.hand = [...Array(8).fill(oc), 'Bear']; }
+    }
+    if (youMode && p.id === myId) {
+        broadcastState();                             // pulsing 🔔 CORNER button appears on the phone
+        simTimer = setTimeout(() => { ringBell(); simAfterCorner(); }, 1500);
+    } else {
+        hostCorner(p);
+        simAfterCorner();
+    }
+}
+
+function simAfterCorner() {
+    if (H.phase === 'gameover') simTimer = setTimeout(simRestart, 7000);
+    else simTimer = setTimeout(() => simRound(false), 4200);
+}
+
+function simRestart() {
+    hostNewGame();
+    simTimer = setTimeout(() => simRound(true), 2600);
+}
+
+// ═══════════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════════
 window.addEventListener('resize', () => {
@@ -1915,10 +2358,14 @@ window.addEventListener('resize', () => {
 
 (function boot() {
     const params = new URLSearchParams(location.search);
-    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
-    if (room) fCode = room;
     if (!musicOn) $id('tog-music').classList.add('off');
     if (!sfxOn) $id('tog-sfx').classList.add('off');
+    const mode = (params.get('mode') || '').toLowerCase();
+    const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (mode === 'playersimulation') { startSimulation(simPlayers, 'player'); return; }
+    if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
     render();
 })();
 </script>

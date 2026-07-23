@@ -48,8 +48,10 @@ test('TV-first: trade, corner bell, bear penalty, podium', async ({ browser }) =
     const karen = await joinPhone(browser, code, 'Karen');
     await expect(karen.locator('text=Captain\'s Settings')).toBeVisible({ timeout: 30_000 });
     const ben = await joinPhone(browser, code, 'Ben');
-    await expect(ben.locator('.player-row')).toHaveCount(2, { timeout: 30_000 });
-    await expect(tv.locator('.tv-pcard')).toHaveCount(2, { timeout: 15_000 });
+    // classic Pit needs 3+ traders — Cass joins but just idles this game
+    const cass = await joinPhone(browser, code, 'Cass');
+    await expect(ben.locator('.player-row')).toHaveCount(3, { timeout: 30_000 });
+    await expect(tv.locator('.tv-pcard')).toHaveCount(3, { timeout: 15_000 });
     await shot(tv, 'pit-02-tv-lobby');
     await shot(karen, 'pit-03-captain-lobby');
 
@@ -143,7 +145,7 @@ test('TV-first: trade, corner bell, bear penalty, podium', async ({ browser }) =
     });
     await karen.locator('.btn-corner').click();
 
-    await expect(karen.locator('text=KAREN WINS!')).toBeVisible({ timeout: 10_000 });
+    await expect(karen.locator('text=YOU WIN!')).toBeVisible({ timeout: 10_000 });
     await expect(tv.locator('.podium-wrap')).toBeVisible({ timeout: 10_000 });
     await tv.waitForTimeout(1500); // pods pop in staggered
     await shot(tv, 'pit-14-tv-podium');
@@ -154,7 +156,7 @@ test('TV-first: trade, corner bell, bear penalty, podium', async ({ browser }) =
     await expect(karen.locator('text=Captain\'s Settings')).toBeVisible({ timeout: 15_000 });
     await expect(tv.locator('.qr-side .room-code')).toBeVisible({ timeout: 15_000 });
 
-    await Promise.all([tv, karen, ben].map(p => p.close()));
+    await Promise.all([tv, karen, ben, cass].map(p => p.close()));
 });
 
 test('phone-first: host phone + TV viewer, one-card trade', async ({ browser }) => {
@@ -176,12 +178,13 @@ test('phone-first: host phone + TV viewer, one-card trade', async ({ browser }) 
     await tv.getByRole('button', { name: /Open trading floor/ }).click();
     await expect(tv.locator('.qr-side .room-code')).toHaveText(code, { timeout: 30_000 });
 
-    // ── Jess joins, Neil rings the bell ──
+    // ── Jess & Raj join (3-trader minimum), Neil rings the bell ──
     const jess = await joinPhone(browser, code, 'Jess');
-    await expect(neil.locator('.player-row')).toHaveCount(2, { timeout: 30_000 });
+    const raj = await joinPhone(browser, code, 'Raj');
+    await expect(neil.locator('.player-row')).toHaveCount(3, { timeout: 30_000 });
     await neil.getByRole('button', { name: /Ring the opening bell/ }).click();
     await expect(neil.locator('.hand-grid .pcard')).toHaveCount(9, { timeout: 15_000 });
-    await expect(tv.locator('.tv-trader')).toHaveCount(2, { timeout: 15_000 });
+    await expect(tv.locator('.tv-trader')).toHaveCount(3, { timeout: 15_000 });
     await neil.waitForTimeout(BELL_WAIT);
 
     // A single-card shout is always a valid bundle — trade 1-for-1
@@ -193,5 +196,5 @@ test('phone-first: host phone + TV viewer, one-card trade', async ({ browser }) 
     await shot(tv, 'pit-21-tv-viewer-floor');
     await shot(neil, 'pit-22-host-trading');
 
-    await Promise.all([tv, neil, jess].map(p => p.close()));
+    await Promise.all([tv, neil, jess, raj].map(p => p.close()));
 });
