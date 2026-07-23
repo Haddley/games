@@ -91,16 +91,53 @@ const SHEEP_CSS = `
 @keyframes mdw-dogNod { 0%,100% { transform: translateY(0); } 50% { transform: translateY(.3vmin); } }
 `;
 
-// Per-theme palette + emoji cast. 'meadow' is the CSS flock; the rest are emoji.
+// The CSS-drawn dairy herd (only the 'cows' theme uses these) — reuses the amble/
+// bob/graze keyframes, just a bigger black-patched body with a pink muzzle & horns.
+const COW_CSS = `
+#meadow .cow { position: absolute; transform-origin: bottom center; filter: brightness(var(--br, 1)); transform: translateX(0) scale(var(--sc, 1)); animation-duration: var(--walk, 30s); animation-timing-function: ease-in-out; animation-iteration-count: infinite; animation-delay: var(--dl, 0s); }
+#meadow .cow.goR { animation-name: mdw-ambleR; }
+#meadow .cow.goL { animation-name: mdw-ambleL; }
+#meadow .cow .body {
+    position: relative; width: 8vmin; height: 4.4vmin; border-radius: 2.4vmin 2.8vmin 1.4vmin 1.4vmin;
+    background: radial-gradient(ellipse 2.2vmin 1.7vmin at 28% 42%, #2b2b30 60%, transparent 63%), radial-gradient(ellipse 1.9vmin 1.5vmin at 66% 58%, #2b2b30 60%, transparent 63%), radial-gradient(120% 130% at 45% 25%, #ffffff, #ececf0 82%);
+    box-shadow: 0 .5vmin .8vmin rgba(0,0,0,.3);
+    animation: mdw-eweBob var(--bob, 2.6s) ease-in-out infinite var(--dl, 0s);
+}
+#meadow .cow .body::before { content: ''; position: absolute; left: -1vmin; top: .4vmin; width: .5vmin; height: 2.6vmin; background: #3a3238; border-radius: .3vmin; transform-origin: top; transform: rotate(10deg); }
+#meadow .cow .body::after { content: ''; position: absolute; bottom: -1.7vmin; left: 1.2vmin; width: .85vmin; height: 2vmin; background: #3a3238; border-radius: 0 0 .2vmin .2vmin; box-shadow: 2vmin 0 0 #3a3238, 4.1vmin 0 0 #3a3238, 6.1vmin 0 0 #3a3238; }
+#meadow .cow .head { position: absolute; z-index: 2; right: -2.4vmin; top: 0; width: 3vmin; height: 2.9vmin; border-radius: 46% 52% 46% 52%; background: radial-gradient(120% 120% at 40% 35%, #ffffff, #e9e9ee); transform-origin: 42% 90%; animation: mdw-eweGraze var(--gz, 5s) ease-in-out infinite var(--dl, 0s); }
+#meadow .cow .head::before { content: ''; position: absolute; bottom: .15vmin; right: .3vmin; width: 2vmin; height: 1.6vmin; background: radial-gradient(circle at 50% 40%, #f3aec0, #d97e97); border-radius: 50%; }
+#meadow .cow .head::after { content: ''; position: absolute; top: .8vmin; right: .8vmin; width: .55vmin; height: .55vmin; background: #2a2a2e; border-radius: 50%; }
+#meadow .cow .ear { position: absolute; top: .5vmin; left: -.5vmin; width: 1.4vmin; height: .95vmin; background: #2b2b30; border-radius: 50%; transform: rotate(-22deg); }
+#meadow .cow .horn { position: absolute; top: -.45vmin; left: .8vmin; width: .8vmin; height: .8vmin; background: #e8dcc0; border-radius: 50% 50% 40% 40%; box-shadow: 1.1vmin 0 0 #e8dcc0; }
+`;
+
+// Real bingo balls (only the 'bingo' theme): a glossy colour sphere with a BINGO
+// letter over a number, printed black — NOT pool balls (no white number-circle).
+// They bob and DRIFT left/right without the mirror-flip, so numbers stay upright.
+const BINGOBALL_CSS = `
+#meadow .bball { position: absolute; bottom: var(--b, 2.4vmin); transform: translateX(0) scale(var(--sc, 1)); animation-duration: var(--walk, 30s); animation-timing-function: ease-in-out; animation-iteration-count: infinite; animation-delay: var(--dl, 0s); }
+#meadow .bball.goR { animation-name: mdw-driftR; }
+#meadow .bball.goL { animation-name: mdw-driftL; }
+#meadow .bball .ball-in { position: relative; width: var(--d, 6vmin); height: var(--d, 6vmin); border-radius: 50%; display: flex; align-items: center; justify-content: center; filter: brightness(var(--br, 1)); background: radial-gradient(circle at 34% 26%, rgba(255,255,255,.9), rgba(255,255,255,0) 40%), radial-gradient(circle at 64% 72%, rgba(0,0,0,.4), rgba(0,0,0,0) 55%), var(--bc, #d0342c); box-shadow: inset -.7vmin -.85vmin 1.3vmin rgba(0,0,0,.32), 0 .5vmin .7vmin rgba(0,0,0,.42); animation: mdw-bob var(--bob, 1.5s) ease-in-out infinite var(--dl, 0s); }
+#meadow .bball .bmark { display: flex; flex-direction: column; align-items: center; line-height: .82; color: var(--tc, #1b1b1b); font-family: 'Arial Black', 'Trebuchet MS', sans-serif; font-weight: 900; }
+#meadow .bball .bmark .bl { font-size: var(--fl, 1.5vmin); letter-spacing: .04vmin; }
+#meadow .bball .bmark .bn { font-size: var(--fn, 2.4vmin); margin-top: -.15vmin; }
+@keyframes mdw-driftR { 0%,100% { transform: translateX(0) scale(var(--sc,1)); } 50% { transform: translateX(var(--range,18vw)) scale(var(--sc,1)); } }
+@keyframes mdw-driftL { 0%,100% { transform: translateX(0) scale(var(--sc,1)); } 50% { transform: translateX(calc(-1 * var(--range,18vw))) scale(var(--sc,1)); } }
+`;
+
+// Per-theme palette + emoji cast. 'meadow'/'cows' are CSS herds; the rest are emoji.
 const SCENE_THEMES = {
     meadow:   { sheep: true, g1: '#59c06d', g2: '#1f7a3a', glow: 'rgba(255,216,140,.22)' },
+    cows:     { cows: true,  g1: '#59c06d', g2: '#1f7a3a', glow: 'rgba(255,216,140,.22)' },
     pirates:  { g1: '#7a5636', g2: '#3d2817', glow: 'rgba(90,150,200,.30)', walk: ['🏴‍☠️','🦜','🎲','🏴‍☠️','⚓'], props: ['💰','🪙','🍺','💀'], fly: ['🦜','🦅'] },
     night:    { g1: '#2b3152', g2: '#12142a', glow: 'rgba(150,170,255,.26)', walk: ['🐺','🌲','🧑‍🌾','🐺','🌲'], props: ['🌙','⭐','🍄','⭐'], fly: ['🦇','🦇','🦉'] },
     letters:  { g1: '#4a2f7a', g2: '#26124d', glow: 'rgba(255,90,180,.26)', walk: ['🔤','📖','✏️','🅰️','🅱️'], props: ['✨','⭐','💡'], fly: ['🦋','✨'] },
     library:  { g1: '#7a5a35', g2: '#3f2c17', glow: 'rgba(255,210,150,.28)', walk: ['📚','🦉','📖','🧓','📜'], props: ['✨','🕯️','🗝️'], fly: ['🦉'] },
     carnival: { g1: '#3f6bb5', g2: '#213f7a', glow: 'rgba(255,200,80,.26)', walk: ['🎯','🧩','🎨','🎲','🏆'], props: ['✨','⭐','🎈'], fly: ['🎉','🎈'] },
     art:      { g1: '#b9b9c8', g2: '#83839a', glow: 'rgba(255,255,255,.22)', walk: ['✏️','🖍️','🖌️','🎨','🖊️'], props: ['📐','⭐','📎'], fly: ['🦋','🎈'] },
-    bingo:    { g1: '#2f9a6a', g2: '#125a3a', glow: 'rgba(255,201,60,.28)', walk: ['🎱','🔴','🟡','🟢','🔵'], props: ['✨','🎟️','⭐'], fly: ['🎉'] },
+    bingo:    { balls: true, g1: '#2f9a6a', g2: '#125a3a', glow: 'rgba(255,201,60,.28)', props: ['✨','🎟️','⭐'], fly: ['🎉'] },
     auction:  { g1: '#8a2f3a', g2: '#54141d', glow: 'rgba(255,201,60,.30)', walk: ['🔨','💰','🧑‍⚖️','🏺','💎'], props: ['💵','🪙','✨'], fly: ['💸'] },
     masks:    { g1: '#6a4a8a', g2: '#38254f', glow: 'rgba(255,120,200,.26)', walk: ['🤥','🎭','🕵️','🃏','🤥'], props: ['❓','💬','✨'], fly: ['🎈'] },
     mystery:  { g1: '#2f6a9a', g2: '#154a6a', glow: 'rgba(120,200,255,.26)', walk: ['🔮','💡','❓','🎯','🧠'], props: ['✨','⭐','💭'], fly: ['💭'] },
@@ -142,6 +179,73 @@ function _buildSheep(m) {
     m.innerHTML = html;
 }
 
+function _buildCows(m) {
+    let html = '<div class="ground"></div>';
+    for (let i = 0; i < 16; i++) {
+        html += `<div class="blade" style="left:${_rand(100).toFixed(1)}%;--h:${(1.2 + _rand(1.7)).toFixed(1)}vmin;--dl:${(-_rand(3)).toFixed(2)}s"></div>`;
+    }
+    const FLOWERS = ['#ff7aa8', '#ffffff', '#c98bff', '#ff9a5c', '#7ad0ff'];
+    for (let i = 0; i < 11; i++) {
+        html += `<div class="flower" style="left:${_rand(100).toFixed(1)}%;--fb:${(1.4 + _rand(2.8)).toFixed(1)}vmin;--fc:${FLOWERS[i % FLOWERS.length]};--dl:${(-_rand(3)).toFixed(2)}s"></div>`;
+    }
+    const N = 6;   // cows are wider than ewes, so a slightly smaller herd
+    for (let i = 0; i < N; i++) {
+        const left = (i / (N - 1)) * 86 + 6 + (_rand(4) - 2);
+        const sc = 0.64 + _rand(0.42);
+        const br = 0.88 + sc * 0.16;
+        const bottom = 2.4 + (1 - sc) * 3.4;
+        const bob = (2.4 + _rand(1.4)).toFixed(2);
+        const gz = (4 + _rand(4.5)).toFixed(2);
+        const dl = (-_rand(6)).toFixed(2);
+        const go = left < 50 ? 'goR' : 'goL';
+        const range = (11 + _rand(15)).toFixed(1);
+        const walk = (22 + _rand(16)).toFixed(1);
+        html += `<div class="cow ${go}" style="left:${left.toFixed(1)}%;bottom:${bottom.toFixed(1)}vmin;`
+            + `--sc:${sc.toFixed(2)};--br:${br.toFixed(2)};--range:${range}vw;--walk:${walk}s;--dl:${dl}s;z-index:${Math.round(sc * 10)}">`
+            + `<div class="body" style="--bob:${bob}s;--dl:${dl}s"></div>`
+            + `<div class="head" style="--gz:${gz}s;--dl:${dl}s"><span class="ear"></span><span class="horn"></span></div></div>`;
+    }
+    html += `<div class="collie" style="--d:22s;--dl:-4s"><div class="cbody"><div class="chead"></div></div></div>`;
+    html += `<div class="flyer" style="--d:23s;--dl:-6s;bottom:8vmin"><span class="w">🦋</span></div>`;
+    html += `<div class="flyer" style="--d:30s;--dl:-17s;bottom:9.6vmin;--sz:1.9vmin;--fb:.42s"><span class="w">🐝</span></div>`;
+    m.innerHTML = html;
+}
+
+function _buildBingo(m, t) {
+    // solid glossy spheres with a BINGO letter over a number (B 1-15, I 16-30, …)
+    const COLORS = [['#d0342c', '#fff'], ['#f2c018', '#1b1b1b'], ['#1a9a3a', '#fff'], ['#2a6fd0', '#fff'], ['#f4f4f4', '#1b1b1b']];
+    const COLS = [['B', 1, 15], ['I', 16, 30], ['N', 31, 45], ['G', 46, 60], ['O', 61, 75]];
+    let html = '<div class="ground"></div>';
+    const props = t.props || [];
+    for (let i = 0; i < 10 && props.length; i++) {
+        html += `<div class="prop" style="left:${_rand(100).toFixed(1)}%;--b:${(1.2 + _rand(2.6)).toFixed(1)}vmin;--sz:${(1.7 + _rand(1.3)).toFixed(1)}vmin;--dl:${(-_rand(3)).toFixed(2)}s">${props[i % props.length]}</div>`;
+    }
+    const N = 7;
+    for (let i = 0; i < N; i++) {
+        const left = (i / (N - 1)) * 88 + 5 + (_rand(4) - 2);
+        const sc = (0.82 + _rand(0.5)).toFixed(2);
+        const d = 5 + _rand(1.5);
+        const br = (0.92 + _rand(0.08)).toFixed(2);
+        const b = (2.2 + _rand(1.2)).toFixed(1);
+        const bob = (1.0 + _rand(0.9)).toFixed(2);
+        const dl = (-_rand(6)).toFixed(2);
+        const go = left < 50 ? 'goR' : 'goL';
+        const range = (10 + _rand(14)).toFixed(1);
+        const walk = (20 + _rand(16)).toFixed(1);
+        const col = COLORS[Math.floor(_rand(COLORS.length))];
+        const c = COLS[Math.floor(_rand(COLS.length))];
+        const num = c[1] + Math.floor(_rand(c[2] - c[1] + 1));
+        html += `<div class="bball ${go}" style="left:${left.toFixed(1)}%;--sc:${sc};--range:${range}vw;--walk:${walk}s;--dl:${dl}s;--b:${b}vmin;z-index:${Math.round(sc * 10)}">`
+            + `<div class="ball-in" style="--d:${d.toFixed(1)}vmin;--bc:${col[0]};--tc:${col[1]};--br:${br};--bob:${bob}s;--dl:${dl}s;--fl:${(d * 0.26).toFixed(2)}vmin;--fn:${(d * 0.42).toFixed(2)}vmin">`
+            + `<span class="bmark"><span class="bl">${c[0]}</span><span class="bn">${num}</span></span></div></div>`;
+    }
+    const fly = t.fly || ['🎉'];
+    fly.slice(0, 2).forEach((e, i) => {
+        html += `<div class="flyer" style="--d:${24 + i * 6}s;--dl:${-6 - i * 8}s;bottom:${(8 + i * 1.6).toFixed(1)}vmin;--sz:${(1.9 + _rand(0.6)).toFixed(1)}vmin;--fb:${(0.42 + _rand(0.2)).toFixed(2)}s"><span class="w">${e}</span></div>`;
+    });
+    m.innerHTML = html;
+}
+
 function _buildEmojiScene(m, t) {
     let html = '<div class="ground"></div>';
     const props = t.props || [];
@@ -179,7 +283,7 @@ function mountScene(theme, contentSelector) {
         if (!document.getElementById('scene-style')) {
             const st = document.createElement('style');
             st.id = 'scene-style';
-            st.textContent = SCENE_CSS + SHEEP_CSS + `\n${lift} { position: relative; z-index: 1; }\n`;
+            st.textContent = SCENE_CSS + SHEEP_CSS + COW_CSS + BINGOBALL_CSS + `\n${lift} { position: relative; z-index: 1; }\n`;
             document.head.appendChild(st);
         }
         let m = document.getElementById('meadow');
@@ -189,7 +293,7 @@ function mountScene(theme, contentSelector) {
         if (t.g1) m.style.setProperty('--g1', t.g1);
         if (t.g2) m.style.setProperty('--g2', t.g2);
         if (t.glow) m.style.setProperty('--glow', t.glow);
-        if (t.sheep) _buildSheep(m); else _buildEmojiScene(m, t);
+        if (t.sheep) _buildSheep(m); else if (t.cows) _buildCows(m); else if (t.balls) _buildBingo(m, t); else _buildEmojiScene(m, t);
     };
     if (document.body) run(); else document.addEventListener('DOMContentLoaded', run);
 }
