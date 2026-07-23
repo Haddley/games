@@ -7,6 +7,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230b1c10' width='100' height='100' rx='20'/><text x='50' y='68' font-size='52' text-anchor='middle'>🐄</text></svg>">
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="common.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
@@ -324,14 +325,25 @@
             transform-origin: bottom center; animation: sway 3.4s ease-in-out infinite alternate var(--dl, 0s);
         }
         @keyframes sway { from { transform: rotate(-9deg); } to { transform: rotate(9deg); } }
-        /* — a woolly ewe — ambles back and forth across the paddock, turning to face the way she walks */
+        /* — a woolly ewe — ambles back and forth across the paddock, turning to FACE the way she walks.
+           Two keyframes so facing always matches travel: goR walks right-then-left, goL left-then-right. */
         .ewe { position: absolute; transform-origin: bottom center; filter: brightness(var(--br, 1));
-               animation: amble var(--walk, 30s) ease-in-out infinite var(--dl, 0s); }
-        @keyframes amble {
-            0%,  100% { transform: translateX(0)            scale(var(--sc, 1)) scaleX(1); }
-            47%       { transform: translateX(var(--range, 20vw)) scale(var(--sc, 1)) scaleX(1); }
-            50%       { transform: translateX(var(--range, 20vw)) scale(var(--sc, 1)) scaleX(-1); }
-            97%       { transform: translateX(0)            scale(var(--sc, 1)) scaleX(-1); }
+               transform: translateX(0) scale(var(--sc, 1));   /* base (also the reduced-motion pose) */
+               animation-duration: var(--walk, 30s); animation-timing-function: ease-in-out;
+               animation-iteration-count: infinite; animation-delay: var(--dl, 0s); }
+        .ewe.goR { animation-name: ambleR; }
+        .ewe.goL { animation-name: ambleL; }
+        @keyframes ambleR {   /* head on the right = faces right; walk right first */
+            0%,  100% { transform: translateX(0)                          scale(var(--sc, 1)) scaleX(1); }
+            47%       { transform: translateX(var(--range, 20vw))         scale(var(--sc, 1)) scaleX(1); }
+            50%       { transform: translateX(var(--range, 20vw))         scale(var(--sc, 1)) scaleX(-1); }
+            97%       { transform: translateX(0)                          scale(var(--sc, 1)) scaleX(-1); }
+        }
+        @keyframes ambleL {   /* flipped = faces left; walk left first */
+            0%,  100% { transform: translateX(0)                          scale(var(--sc, 1)) scaleX(-1); }
+            47%       { transform: translateX(calc(-1 * var(--range, 20vw))) scale(var(--sc, 1)) scaleX(-1); }
+            50%       { transform: translateX(calc(-1 * var(--range, 20vw))) scale(var(--sc, 1)) scaleX(1); }
+            97%       { transform: translateX(0)                          scale(var(--sc, 1)) scaleX(1); }
         }
         .ewe .wool {
             position: relative; width: 6.4vmin; height: 4.1vmin; border-radius: 3.3vmin 3.5vmin 2.6vmin 2.6vmin;
@@ -460,15 +472,7 @@
         <button id="tog-sfx" title="Sound effects on/off" onclick="toggleSfx()">🔊</button>
     </div>
 <script>
-// TURN relay (Metered) so players on restrictive/remote networks can connect,
-// not just those behind friendly NATs. Applied to every Peer below.
-const ICE_CFG = { config: { iceServers: [
-    { urls: 'stun:stun.relay.metered.ca:80' },
-    { urls: 'turn:standard.relay.metered.ca:80', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
-    { urls: 'turn:standard.relay.metered.ca:80?transport=tcp', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
-    { urls: 'turn:standard.relay.metered.ca:443', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
-    { urls: 'turns:standard.relay.metered.ca:443?transport=tcp', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' }
-] } };
+// ICE_CFG + rankByScore now come from common.js (loaded in <head>).
 
 'use strict';
 
@@ -1078,11 +1082,12 @@ function buildMeadow() {
         const bob = (2.2 + Math.random() * 1.3).toFixed(2);
         const gz = (4 + Math.random() * 4.5).toFixed(2);
         const dl = (-Math.random() * 6).toFixed(2);
-        // wander back and forth; those on the left half stroll right, the right half stroll left (stay on screen)
-        const dir = left < 50 ? 1 : -1;
-        const range = (dir * (12 + Math.random() * 18)).toFixed(1);
+        // wander back and forth; left-half strolls right, right-half strolls left (stays on screen,
+        // and each keyframe keeps her facing the way she travels)
+        const go = left < 50 ? 'goR' : 'goL';
+        const range = (12 + Math.random() * 18).toFixed(1);
         const walk = (20 + Math.random() * 16).toFixed(1);
-        html += `<div class="ewe" style="left:${left.toFixed(1)}%;bottom:${bottom.toFixed(1)}vmin;`
+        html += `<div class="ewe ${go}" style="left:${left.toFixed(1)}%;bottom:${bottom.toFixed(1)}vmin;`
             + `--sc:${sc.toFixed(2)};--br:${br.toFixed(2)};--range:${range}vw;--walk:${walk}s;--dl:${dl}s;z-index:${Math.round(sc * 10)}">`
             + `<div class="wool" style="--bob:${bob}s;--dl:${dl}s"></div>`
             + `<div class="head" style="--gz:${gz}s;--dl:${dl}s"></div></div>`;
@@ -1702,12 +1707,6 @@ function railRowsHTML(players, showLocked) {
         </div>`).join('');
 }
 
-// Competition ranking (1-2-2-4): equal scores share a place, so tied players
-// get the SAME medal. `st` must already be sorted by score descending.
-function rankByScore(st) {
-    let rank = 0;
-    return st.map((p, i) => { if (i > 0 && p.score < st[i - 1].score) rank = i; return rank; });
-}
 function standingsHTML(st) {
     const medals = ['🥇', '🥈', '🥉'];
     const ranks = rankByScore(st);   // ties share a place → joint medals
