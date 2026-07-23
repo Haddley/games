@@ -214,9 +214,12 @@
         .pod .pname { font-size: 2.4vmin; margin-bottom: .8vmin; }
         .pod .pscore { font-size: 2vmin; color: var(--gold); margin-bottom: .8vmin; font-family: 'Playfair Display', serif; }
         .pod .block { border-radius: 1.5vmin 1.5vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.3vmin; font-size: 3.2vmin; width: 17vmin; }
-        .pod.p1 .block { height: 21vmin; background: linear-gradient(180deg, var(--gold2), #8a6220); }
-        .pod.p2 .block { height: 14vmin; background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
-        .pod.p3 .block { height: 9.5vmin; background: linear-gradient(180deg, #e8a06a, #9c5a33); }
+        .pod.p1 .block { height: 21vmin; }
+        .pod.p2 .block { height: 14vmin; }
+        .pod.p3 .block { height: 9.5vmin; }
+        .pod.mrank-0 .block { background: linear-gradient(180deg, var(--gold2), #8a6220); }
+        .pod.mrank-1 .block { background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
+        .pod.mrank-2 .block { background: linear-gradient(180deg, #e8a06a, #9c5a33); }
         .awards-row { display: flex; gap: 1.5vmin; justify-content: center; flex-wrap: wrap; padding-bottom: 2vmin; }
         .award { background: var(--panel); border: 1px solid var(--border); border-radius: 1.5vmin; padding: 1.3vmin 2vmin; font-weight: 800; font-size: 1.8vmin; text-align: center; }
         .award .aw-t { color: var(--gold); font-weight: 900; }
@@ -1779,6 +1782,12 @@ function renderValuation() {
     <div style="text-align:center"><span class="coins-chip">🪙 ${D.myCoins} coins left</span></div>`;
 }
 
+// Competition ranking (1-2-2-4): equal scores share a place, so tied players
+// get the SAME medal. Input list must already be sorted by score descending.
+function rankByScore(list, key = 'score') {
+    let rank = 0;
+    return list.map((p, i) => { if (i > 0 && p[key] < list[i - 1][key]) rank = i; return rank; });
+}
 function renderPodium() {
     const st = D.standings || [];
     const winner = st[0];
@@ -1795,13 +1804,13 @@ function renderPodium() {
         <div style="color:var(--muted);font-weight:700;font-size:.78rem;margin-top:4px">net worth ${winner ? winner.net : 0} — coins + shelf value</div>
         <div style="margin-top:10px">${awards}</div>
     </div>
-    <div class="card standings"><div class="slbl">Net worth</div>${st.map((p, i) => `
+    <div class="card standings"><div class="slbl">Net worth</div>${(() => { const ranks = rankByScore(st, 'net'); return st.map((p, i) => `
         <div class="player-row" style="--i:${i}">
-            <span style="width:22px;text-align:center">${medals[i] || (i + 1)}</span>
+            <span style="width:22px;text-align:center">${medals[ranks[i]] || (ranks[i] + 1)}</span>
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
             <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--gold)">(you)</span>' : ''}</div>
             <div class="sc">${p.net} <span style="color:var(--muted);font-size:.7rem">(🪙${p.coins} + 🖼️${p.shelf})</span></div>
-        </div>`).join('')}
+        </div>`).join(''); })()}
     </div>
     ${driveBtn}`;
 }
@@ -1951,14 +1960,16 @@ function renderViewerValuation() {
 
 function renderViewerPodium() {
     const st = vD.standings || [];
-    const podOrder = [st[1], st[0], st[2]].filter(Boolean);
+    const medals = ['🥇', '🥈', '🥉'];
+    const ranks = rankByScore(st, 'net');   // ties share a place → joint medals
+    const wm = st.map((p, i) => ({ ...p, medal: medals[ranks[i]] || '', mr: ranks[i] }));
+    const podOrder = [wm[1], wm[0], wm[2]].filter(Boolean);
     const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
-    const medal = { p1: '🥇', p2: '🥈', p3: '🥉' };
     const pods = podOrder.map((p, i) => `
-        <div class="pod ${cls[i]}" style="animation-delay:${i * 0.18}s">
+        <div class="pod ${cls[i]} mrank-${Math.min(p.mr, 2)}" style="animation-delay:${i * 0.18}s">
             <div class="pname"><span class="pdot" style="background:${p.color};color:${p.color};display:inline-block;vertical-align:middle;margin-right:.6vmin"></span>${esc(p.name)}</div>
             <div class="pscore">${p.net} net</div>
-            <div class="block">${medal[cls[i]]}</div>
+            <div class="block">${p.medal}</div>
         </div>`).join('');
     const awards = (vD.awards || []).map((a, i) =>
         `<div class="award" style="--i:${i}">${a.emoji} <span class="aw-t">${esc(a.title)}</span><br>${esc(a.name)} — ${esc(a.detail)}</div>`).join('');

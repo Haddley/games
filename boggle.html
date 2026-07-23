@@ -886,6 +886,13 @@ function esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// Competition ranking (1-2-2-4): equal scores share a place, so tied players
+// get the SAME medal. Input list must already be sorted by score descending.
+function rankByScore(list, key = 'score') {
+    let rank = 0;
+    return list.map((p, i) => { if (i > 0 && p[key] < list[i - 1][key]) rank = i; return rank; });
+}
+
 function hdrHTML(sub) {
     return `<div class="hdr"><h1>BOGGLE</h1><p class="sub">${esc(sub || 'Word Search Game')}</p></div>`;
 }
@@ -1825,9 +1832,10 @@ function renderViewer() {
 
     // Sidebar: players sorted by totalScore desc, bar = word count relative to leader
     const sorted    = [...players].sort((a, b) => b.totalScore - a.totalScore);
+    const ranks     = rankByScore(sorted, 'totalScore');   // ties share a place → joint medals
     const maxWords  = Math.max(1, ...players.map(p => p.wordCount));
     const sidebarHTML = sorted.map((p, i) =>
-        `<div class="v-player-row${i === 0 ? ' leader' : ''}" style="--i:${i}">
+        `<div class="v-player-row${ranks[i] === 0 ? ' leader' : ''}" style="--i:${i}">
             <div class="v-player-top">
                 <span class="v-player-name">${esc(p.name)}</span>
                 <span class="v-player-score">${p.totalScore}</span>
@@ -1851,8 +1859,8 @@ function renderViewer() {
         const rows = sorted.map((p, i) => {
             const r = vD.roundResults[p.name];
             const medals = ['🥇','🥈','🥉'];
-            return `<div class="v-result-row${i === 0 ? ' winner' : ''}" style="animation-delay:${i * 0.08}s">
-                <div class="v-result-rank">${medals[i] || (i + 1)}</div>
+            return `<div class="v-result-row${ranks[i] === 0 ? ' winner' : ''}" style="animation-delay:${i * 0.08}s">
+                <div class="v-result-rank">${medals[ranks[i]] || (ranks[i] + 1)}</div>
                 <div class="v-result-name">${esc(p.name)}</div>
                 <div>
                     <span class="v-result-score">${p.totalScore}</span>
@@ -1868,8 +1876,8 @@ function renderViewer() {
         const winner = vD.winner || (sorted[0]?.name ?? '');
         const rows = sorted.map((p, i) => {
             const medals = ['🥇','🥈','🥉'];
-            return `<div class="v-result-row${i === 0 ? ' winner' : ''}" style="animation-delay:${i * 0.1}s">
-                <div class="v-result-rank">${medals[i] || (i + 1)}</div>
+            return `<div class="v-result-row${ranks[i] === 0 ? ' winner' : ''}" style="animation-delay:${i * 0.1}s">
+                <div class="v-result-rank">${medals[ranks[i]] || (ranks[i] + 1)}</div>
                 <div class="v-result-name">${esc(p.name)}</div>
                 <span class="v-result-score">${p.totalScore}</span>
             </div>`;
@@ -2314,7 +2322,8 @@ function hostRunScoring() {
     // 6. Determine winner if final round
     if (H.currentRound >= H.roundsTarget) {
         const sorted = [...H.players].sort((a, b) => b.totalScore - a.totalScore);
-        H.winner  = sorted[0].name;
+        const top    = sorted.filter(p => p.totalScore === sorted[0].totalScore);
+        H.winner  = top.map(p => p.name).join(' & ');   // joint winners on a tie
         H.phase   = 'gameover';
     }
 
@@ -2432,10 +2441,11 @@ function renderResults() {
 
     // ── Leaderboard ──
     const medals = ['g', 's', 'b'];
+    const ranks = rankByScore(allPlayers, 'totalScore');   // ties share a place
     const leaderboard = allPlayers.map((p, i) => {
         const r = roundResults[p.name];
         return `<div class="lb-row${p.name === myName ? ' you' : ''}" style="--i:${i}">
-            <div class="lb-rank ${medals[i] || ''}">${i + 1}</div>
+            <div class="lb-rank ${medals[ranks[i]] || ''}">${ranks[i] + 1}</div>
             <div class="lb-name">${esc(p.name)}${p.name === myName ? ' (you)' : ''}</div>
             <div>
                 <span class="lb-pts">${p.totalScore}</span>
@@ -2505,9 +2515,11 @@ function renderGameOver() {
             : [];
 
     const medals = ['g', 's', 'b'];
+    const ranks = rankByScore(allPlayers, 'totalScore');   // ties share a place
+    const emoji = ['🥇','🥈','🥉'];
     const rankings = allPlayers.map((p, i) =>
         `<div class="lb-row${p.name === myName ? ' you' : ''}" style="--i:${i}">
-            <div class="lb-rank ${medals[i] || ''}">${['🥇','🥈','🥉'][i] || (i + 1)}</div>
+            <div class="lb-rank ${medals[ranks[i]] || ''}">${emoji[ranks[i]] || (ranks[i] + 1)}</div>
             <div class="lb-name">${esc(p.name)}</div>
             <div class="lb-pts">${p.totalScore}</div>
         </div>`

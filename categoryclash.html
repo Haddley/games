@@ -238,9 +238,12 @@
         .pod .pname { font-size: 2.4vmin; margin-bottom: .8vmin; }
         .pod .pscore { font-size: 2vmin; color: var(--letter); margin-bottom: .8vmin; font-family: 'Orbitron', sans-serif; }
         .pod .block { border-radius: 1.5vmin 1.5vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.3vmin; font-size: 3.2vmin; width: 17vmin; }
-        .pod.p1 .block { height: 21vmin; background: linear-gradient(180deg, #ffe97a, #9a7a00); }
-        .pod.p2 .block { height: 14vmin; background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
-        .pod.p3 .block { height: 9.5vmin; background: linear-gradient(180deg, #e8a06a, #9c5a33); }
+        .pod.p1 .block { height: 21vmin; }
+        .pod.p2 .block { height: 14vmin; }
+        .pod.p3 .block { height: 9.5vmin; }
+        .pod.mrank-0 .block { background: linear-gradient(180deg, #ffe97a, #9a7a00); }
+        .pod.mrank-1 .block { background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
+        .pod.mrank-2 .block { background: linear-gradient(180deg, #e8a06a, #9c5a33); }
         .awards-row { display: flex; gap: 1.5vmin; justify-content: center; flex-wrap: wrap; padding-bottom: 2vmin; }
         .award { background: var(--panel); border: 1px solid var(--border); border-radius: 1.5vmin; padding: 1.3vmin 2vmin; font-weight: 800; font-size: 1.8vmin; text-align: center; }
         .award .aw-t { color: var(--letter); font-weight: 900; }
@@ -1463,13 +1466,20 @@ function verdictOf(e, letter) {
     return { cls: 'ok', txt: e.allit ? '✨ +' + e.pts : '✓ +' + e.pts, ansCls: '' };
 }
 
+// Competition ranking (1-2-2-4): equal scores share a place, so tied players
+// get the SAME medal. Input list must already be sorted by score descending.
+function rankByScore(list, key = 'score') {
+    let rank = 0;
+    return list.map((p, i) => { if (i > 0 && p[key] < list[i - 1][key]) rank = i; return rank; });
+}
 function standingsHTML(players, deltas) {
     const medals = ['🥇', '🥈', '🥉'];
     const st = players.slice().sort((a, b) => b.score - a.score);
+    const ranks = rankByScore(st, 'score');
     return `<div class="card standings"><div class="slbl">Scores</div>${
         st.map((p, i) => `
         <div class="player-row">
-            <span style="width:22px;text-align:center">${medals[i] || (i + 1)}</span>
+            <span style="width:22px;text-align:center">${medals[ranks[i]] || (ranks[i] + 1)}</span>
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
             <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--letter)">(you)</span>' : ''}</div>
             <div class="sc">${p.score}${deltas && p.delta ? `<span class="delta">+${p.delta}</span>` : ''}</div>
@@ -1833,14 +1843,16 @@ function renderViewerJudge() {
 
 function renderViewerPodium() {
     const st = vD.standings || [];
-    const podOrder = [st[1], st[0], st[2]].filter(Boolean);
+    const medals = ['🥇', '🥈', '🥉'];
+    const ranks = rankByScore(st, 'score');   // ties share a place → joint medals
+    const wm = st.map((p, i) => ({ ...p, medal: medals[ranks[i]] || '', mr: ranks[i] }));
+    const podOrder = [wm[1], wm[0], wm[2]].filter(Boolean);
     const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
-    const medal = { p1: '🥇', p2: '🥈', p3: '🥉' };
     const pods = podOrder.map((p, i) => `
-        <div class="pod ${cls[i]}" style="animation-delay:${i * 0.18}s">
+        <div class="pod ${cls[i]} mrank-${Math.min(p.mr, 2)}" style="animation-delay:${i * 0.18}s">
             <div class="pname"><span class="pdot" style="background:${p.color};color:${p.color};display:inline-block;vertical-align:middle;margin-right:.6vmin"></span>${esc(p.name)}</div>
             <div class="pscore">${p.score} pts</div>
-            <div class="block">${medal[cls[i]]}</div>
+            <div class="block">${p.medal}</div>
         </div>`).join('');
     const rest = st.slice(3).map((p, i) =>
         `<div class="rail-row"><span>${i + 4}.</span><span class="rdot" style="background:${p.color}"></span><span class="rname">${esc(p.name)}</span><span class="rsc">${p.score}</span></div>`).join('');

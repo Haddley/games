@@ -232,15 +232,18 @@
         .pod .pname { font-size: 2.3vmin; margin-bottom: .8vmin; }
         .pod .pscore { font-size: 1.9vmin; color: var(--gold); margin-bottom: .8vmin; }
         .pod .block { border-radius: 1.5vmin 1.5vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.3vmin; font-size: 3.2vmin; width: 17vmin; }
-        .pod.p1 .block { height: 21vmin; background: linear-gradient(180deg, #ffd97a, #96601a); position: relative; overflow: hidden; }
+        .pod.p1 .block { height: 21vmin; position: relative; overflow: hidden; }
         .pod.p1 .block::after {
             content: ''; position: absolute; inset: 0; pointer-events: none;
             background: linear-gradient(115deg, transparent 36%, rgba(255,255,255,.55) 50%, transparent 64%);
             transform: translateX(-120%); animation: podShine 2.4s 1s ease-in-out infinite;
         }
         @keyframes podShine { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(120%); } }
-        .pod.p2 .block { height: 14vmin; background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
-        .pod.p3 .block { height: 9.5vmin; background: linear-gradient(180deg, #e8a06a, #9c5a33); }
+        .pod.p2 .block { height: 14vmin; }
+        .pod.p3 .block { height: 9.5vmin; }
+        .pod.mrank-0 .block { background: linear-gradient(180deg, #ffd97a, #96601a); }
+        .pod.mrank-1 .block { background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
+        .pod.mrank-2 .block { background: linear-gradient(180deg, #e8a06a, #9c5a33); }
         .awards-row { display: flex; gap: 1.5vmin; justify-content: center; flex-wrap: wrap; padding-bottom: 1.5vmin; }
         .award { background: var(--panel); border: 1px solid var(--border); border-radius: 1.5vmin; padding: 1.3vmin 2vmin; font-weight: 800; font-size: 1.8vmin; text-align: center; }
         .award .aw-t { color: var(--gold); font-weight: 900; }
@@ -1582,12 +1585,19 @@ function railRowsHTML(players, showDone) {
         </div>`).join('');
 }
 
+// Competition ranking (1-2-2-4): equal scores share a place, so tied players
+// get the SAME medal. Input list must already be sorted by score descending.
+function rankByScore(list, key = 'score') {
+    let rank = 0;
+    return list.map((p, i) => { if (i > 0 && p[key] < list[i - 1][key]) rank = i; return rank; });
+}
 function standingsHTML(st) {
     const medals = ['🥇', '🥈', '🥉'];
+    const ranks = rankByScore(st, 'score');
     return `<div class="card standings"><div class="slbl">Scores</div>${
         st.map((p, i) => `
         <div class="player-row">
-            <span style="width:22px;text-align:center">${medals[i] || (i + 1)}</span>
+            <span style="width:22px;text-align:center">${medals[ranks[i]] || (ranks[i] + 1)}</span>
             <div class="pav">${esc(p.avatar)}</div>
             <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--pink)">(you)</span>' : ''}</div>
             <div class="sc">${p.score}${p.delta ? `<span class="delta">+${p.delta}</span>` : ''}</div>
@@ -1978,15 +1988,17 @@ function renderViewerReveal() {
 
 function renderViewerPodium() {
     const st = vD.standings || [];
-    const podOrder = [st[1], st[0], st[2]].filter(Boolean);
+    const medals = ['🥇', '🥈', '🥉'];
+    const ranks = rankByScore(st, 'score');   // ties share a place → joint medals
+    const wm = st.map((p, i) => ({ ...p, medal: medals[ranks[i]] || '', mr: ranks[i] }));
+    const podOrder = [wm[1], wm[0], wm[2]].filter(Boolean);
     const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
-    const medal = { p1: '🥇', p2: '🥈', p3: '🥉' };
     const pods = podOrder.map((p, i) => `
-        <div class="pod ${cls[i]}" style="animation-delay:${i * 0.18}s">
+        <div class="pod ${cls[i]} mrank-${Math.min(p.mr, 2)}" style="animation-delay:${i * 0.18}s">
             <div class="pav-big">${esc(p.avatar)}</div>
             <div class="pname">${esc(p.name)}</div>
             <div class="pscore">${p.score} pts</div>
-            <div class="block">${medal[cls[i]]}</div>
+            <div class="block">${p.medal}</div>
         </div>`).join('');
     const rest = st.slice(3).map((p, i) =>
         `<div class="rail-row"><span>${i + 4}.</span><span class="rav">${esc(p.avatar)}</span><span class="rname">${esc(p.name)}</span><span class="rsc">${p.score}</span></div>`).join('');

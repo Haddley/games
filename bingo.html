@@ -1593,11 +1593,19 @@ function renderGame() {
     <div id="drive-zone">${driveZoneHTML(D)}</div>`;
 }
 
+// Competition ranking (1-2-2-4): equal scores share a place, so tied players
+// get the SAME medal. Input list must already be sorted by score descending.
+function rankByScore(list, key = 'score') {
+    let rank = 0;
+    return list.map((p, i) => { if (i > 0 && p[key] < list[i - 1][key]) rank = i; return rank; });
+}
 function renderResults() {
     const r = D.results || {};
+    const medals = ['🥇', '🥈', '🥉'];
+    const ranks = rankByScore(r.tally || [], 'score');   // ties share a place → joint medals
     const rows = (r.tally || []).map((p, i) => `
         <div class="player-row" style="--i:${i}">
-            <span style="width:22px;text-align:center">${['🥇', '🥈', '🥉'][i] || (i + 1)}</span>
+            <span style="width:22px;text-align:center">${medals[ranks[i]] || (ranks[i] + 1)}</span>
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
             <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--gold)">(you)</span>' : ''}</div>
             <div style="font-weight:900">${p.score}</div>

@@ -568,9 +568,13 @@
             transform-origin: bottom;
         }
         @keyframes podRise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-        .pod-1 { height: 130px; background: linear-gradient(180deg, #ffc93c, #b8860b); color: #241500; box-shadow: 0 0 30px rgba(255,201,60,.4); }
-        .pod-2 { height: 96px;  background: linear-gradient(180deg, #cbd5e1, #64748b); color: #101623; animation-delay: .15s; }
-        .pod-3 { height: 72px;  background: linear-gradient(180deg, #e59a5c, #92400e); color: #240f00; animation-delay: .3s; }
+        /* height/timing is podium staging; colour follows the medal RANK so joint places match */
+        .pod-1 { height: 130px; }
+        .pod-2 { height: 96px;  animation-delay: .15s; }
+        .pod-3 { height: 72px;  animation-delay: .3s; }
+        .pod-mrank-0 { background: linear-gradient(180deg, #ffc93c, #b8860b); color: #241500; box-shadow: 0 0 30px rgba(255,201,60,.4); }
+        .pod-mrank-1 { background: linear-gradient(180deg, #cbd5e1, #64748b); color: #101623; }
+        .pod-mrank-2 { background: linear-gradient(180deg, #e59a5c, #92400e); color: #240f00; }
         .winner-name {
             text-align: center; font-family: 'Orbitron', sans-serif; font-weight: 900;
             font-size: clamp(1.4rem, 7vw, 2rem); letter-spacing: 3px;
@@ -2691,23 +2695,31 @@ function renderResults() {
 }
 
 // ── Game over (phone) ──
+// Competition ranking (1-2-2-4): equal scores share a place, so tied players
+// get the SAME medal. Input list must already be sorted by score descending.
+function rankByScore(list, key = 'score') {
+    let rank = 0;
+    return list.map((p, i) => { if (i > 0 && p[key] < list[i - 1][key]) rank = i; return rank; });
+}
 function renderGameOver() {
     const res = isHost ? H.results : D?.results;
     const winner = isHost ? H.winner : D?.winner;
     const ranked = res ? res.players : [];
+    const medals = ['🥇', '🥈', '🥉'];
+    const ranks = rankByScore(ranked, 'score');   // ties share a place → joint medals
     const podium = ranked.slice(0, 3);
     const order = [1, 0, 2]; // silver, gold, bronze display order
     const cols = order.filter(i => podium[i]).map(i => {
         const p = podium[i];
-        const medal = ['🥇', '🥈', '🥉'][i];
+        const medal = medals[ranks[i]] || (ranks[i] + 1);
         return `<div class="pod-col">
             <div class="pod-medal">${medal}</div>
             <div class="pod-name" style="color:${esc(p.color)}">${esc(p.name)}</div>
-            <div class="pod-block pod-${i + 1}">${p.score}</div>
+            <div class="pod-block pod-${i + 1} pod-mrank-${Math.min(ranks[i], 2)}">${p.score}</div>
         </div>`;
     }).join('');
     const rest = ranked.slice(3).map((p, i) =>
-        `<div class="lb-row"><div class="lb-rank">${i + 4}</div>
+        `<div class="lb-row"><div class="lb-rank">${ranks[i + 3] + 1}</div>
          <div class="lb-name" style="color:${esc(p.color)}">${esc(p.name)}</div>
          <div class="lb-pts">${p.score}</div></div>`).join('');
     const hall = (res?.hall || []).map((w, i) => {

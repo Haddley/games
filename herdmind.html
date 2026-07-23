@@ -224,9 +224,13 @@
         .pod .pname { font-size: 2.4vmin; margin-bottom: 1vmin; }
         .pod .pscore { font-size: 2vmin; color: var(--sun); margin-bottom: 1vmin; }
         .pod .block { border-radius: 1.6vmin 1.6vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.4vmin; font-size: 3.4vmin; width: 18vmin; }
-        .pod.p1 .block { height: 22vmin; background: linear-gradient(180deg, #86efac, #15803d); }
-        .pod.p2 .block { height: 15vmin; background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
-        .pod.p3 .block { height: 10vmin; background: linear-gradient(180deg, #f9a8d4, #be3d86); }
+        /* height is podium staging (centre tallest); colour follows the medal RANK so joint places match */
+        .pod.p1 .block { height: 22vmin; }
+        .pod.p2 .block { height: 15vmin; }
+        .pod.p3 .block { height: 10vmin; }
+        .pod.mrank-0 .block { background: linear-gradient(180deg, #86efac, #15803d); }   /* gold */
+        .pod.mrank-1 .block { background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }   /* silver */
+        .pod.mrank-2 .block { background: linear-gradient(180deg, #f9a8d4, #be3d86); }   /* bronze */
         .pod .pav-big { font-size: 5vmin; }
         .awards-row { display: flex; gap: 1.6vmin; justify-content: center; flex-wrap: wrap; }
         .award {
@@ -289,22 +293,91 @@
         #app.fresh .card.verdict.cow { animation: cardIn .35s cubic-bezier(.2,.8,.3,1) both, cowWobble .8s .38s ease-in-out both; }
         @keyframes podRise { from { transform: translateY(35%); opacity: 0; } to { transform: none; opacity: 1; } }
 
-        /* meadow strip — sheep graze back and forth along the bottom of the TV */
-        #meadow { position: fixed; left: 0; right: 0; bottom: 0; height: 7vmin; z-index: 5; pointer-events: none; display: none; overflow: hidden; }
+        /* meadow — a little CSS-drawn flock grazing a green paddock along the bottom of the TV */
+        #meadow { position: fixed; left: 0; right: 0; bottom: 0; height: 12vmin; z-index: 0; pointer-events: none; display: none; overflow: hidden; }
         body.viewer-mode #meadow { display: block; }
-        #meadow .grazer {
-            position: absolute; bottom: .5vmin; left: 0; font-size: var(--sz, 3vmin); opacity: .5;
-            animation: graze var(--d, 60s) linear var(--dl, 0s) infinite;
+        .tv { position: relative; z-index: 1; }   /* keep the show above the paddock */
+        /* rolling grass the flock stands on */
+        #meadow .ground {
+            position: absolute; left: -2%; right: -2%; bottom: 0; height: 4.6vmin;
+            border-radius: 50% 50% 0 0 / 2.2vmin 2.2vmin 0 0;
+            background:
+              repeating-linear-gradient(86deg, transparent 0 1vmin, rgba(160,224,150,.10) 1vmin 1.3vmin),
+              linear-gradient(180deg, rgba(52,150,70,.28), rgba(20,86,40,.6));
         }
-        #meadow .grazer .hop { display: inline-block; animation: grazeBob 1.15s ease-in-out infinite alternate; }
-        @keyframes graze {
-            0%   { transform: translateX(-8vmin) scaleX(1); }
-            48%  { transform: translateX(96vw) scaleX(1); }
-            50%  { transform: translateX(96vw) scaleX(-1); }
-            98%  { transform: translateX(-8vmin) scaleX(-1); }
-            100% { transform: translateX(-8vmin) scaleX(1); }
+        #meadow .blade {
+            position: absolute; bottom: .4vmin; width: .5vmin; height: var(--h, 2vmin);
+            background: linear-gradient(180deg, rgba(170,230,160,0), rgba(74,170,80,.6));
+            border-radius: 50% 50% 0 0; transform-origin: bottom center;
+            animation: sway 3.4s ease-in-out infinite alternate var(--dl, 0s);
         }
-        @keyframes grazeBob { from { transform: translateY(0) rotate(-2deg); } to { transform: translateY(-.45vmin) rotate(2deg); } }
+        @keyframes sway { from { transform: rotate(-9deg); } to { transform: rotate(9deg); } }
+        /* — a woolly ewe — */
+        .ewe { position: absolute; transform-origin: bottom center; filter: brightness(var(--br, 1)); }
+        .ewe .wool {
+            position: relative; width: 6.4vmin; height: 4.1vmin; border-radius: 3.3vmin 3.5vmin 2.6vmin 2.6vmin;
+            background: radial-gradient(125% 135% at 42% 28%, #ffffff 0%, #edecf3 70%, #dad9e4 100%);
+            box-shadow:
+                -2.3vmin -.3vmin 0 -.7vmin #f3f2f9,
+                -.9vmin -1.55vmin 0 -.55vmin #fbfbff,
+                 1.15vmin -1.6vmin 0 -.5vmin #edeef6,
+                 2.5vmin -.2vmin 0 -.8vmin #f3f2f9,
+                 0 .5vmin .8vmin rgba(0,0,0,.3);
+            animation: eweBob var(--bob, 2.6s) ease-in-out infinite var(--dl, 0s);
+        }
+        .ewe .wool::before {   /* two front legs (a back pair mirrored by box-shadow) */
+            content: ''; position: absolute; bottom: -1.6vmin; left: 1.3vmin;
+            width: .72vmin; height: 1.75vmin; background: #39323f; border-radius: 0 0 .2vmin .2vmin;
+            box-shadow: 3.1vmin 0 0 #39323f;
+        }
+        .ewe .head {   /* dark grazing face */
+            position: absolute; z-index: 2; right: -1.7vmin; top: .2vmin;
+            width: 2.4vmin; height: 2.7vmin; border-radius: 52% 52% 46% 46%;
+            background: linear-gradient(155deg, #4c4048, #29232b);
+            transform-origin: 45% 90%;
+            animation: eweGraze var(--gz, 5s) ease-in-out infinite var(--dl, 0s);
+        }
+        .ewe .head::before {   /* ear */
+            content: ''; position: absolute; top: .5vmin; left: -.5vmin;
+            width: 1.5vmin; height: .85vmin; background: #29232b; border-radius: 50%; transform: rotate(-22deg);
+        }
+        .ewe .head::after {    /* eye glint */
+            content: ''; position: absolute; top: .95vmin; right: .55vmin;
+            width: .5vmin; height: .5vmin; border-radius: 50%; background: #fff; box-shadow: 0 0 0 .12vmin rgba(0,0,0,.3);
+        }
+        @keyframes eweBob { 0%, 100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-.5vmin) rotate(1deg); } }
+        @keyframes eweGraze { 0%, 70%, 100% { transform: rotate(7deg); } 84% { transform: rotate(40deg); } }
+        /* — a border collie trotting the line, keeping the flock together — */
+        .collie { position: absolute; bottom: 2.6vmin; left: 0; transform-origin: bottom center; z-index: 12;
+                  animation: trot var(--d, 26s) linear infinite var(--dl, 0s); }
+        .collie .cbody {
+            position: relative; width: 5vmin; height: 2.3vmin; border-radius: 1.3vmin 1.7vmin 1vmin 1vmin;
+            background: linear-gradient(160deg, #2a2a2e 0 52%, #f6f6fa 52% 100%);
+            box-shadow: 0 .4vmin .6vmin rgba(0,0,0,.3);
+        }
+        .collie .cbody::before {   /* legs */
+            content: ''; position: absolute; bottom: -1.3vmin; left: .7vmin; width: .6vmin; height: 1.4vmin;
+            background: #2a2a2e; box-shadow: 1.5vmin 0 0 #f0f0f4, 2.6vmin 0 0 #2a2a2e;
+        }
+        .collie .cbody::after {    /* wagging tail */
+            content: ''; position: absolute; left: -1.5vmin; top: -.4vmin; width: 1.8vmin; height: .8vmin;
+            background: #2a2a2e; border-radius: 1vmin; transform-origin: right center;
+            animation: wag .4s ease-in-out infinite alternate;
+        }
+        .collie .chead {
+            position: absolute; right: -1.9vmin; top: -1.1vmin; width: 2.4vmin; height: 2.1vmin;
+            border-radius: 55% 60% 45% 45%; background: #2a2a2e; animation: dogNod .5s ease-in-out infinite;
+        }
+        .collie .chead::before { content: ''; position: absolute; right: -.3vmin; bottom: -.1vmin; width: 1.4vmin; height: 1.2vmin; background: #f6f6fa; border-radius: 50%; }
+        .collie .chead::after  { content: ''; position: absolute; left: .3vmin; top: -.5vmin; width: .9vmin; height: 1.1vmin; background: #2a2a2e; border-radius: 50% 50% 40% 40%; }
+        @keyframes trot { 0% { transform: translateX(-9vmin) translateY(0); } 24% { transform: translateX(24vw) translateY(-.4vmin); } 50% { transform: translateX(54vw) translateY(0); } 76% { transform: translateX(82vw) translateY(-.4vmin); } 100% { transform: translateX(110vw) translateY(0); } }
+        @keyframes wag { from { transform: rotate(14deg); } to { transform: rotate(-18deg); } }
+        @keyframes dogNod { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(.3vmin); } }
+        /* butterflies & a bee flit above the grass */
+        #meadow .flutter { position: absolute; left: 0; font-size: var(--sz, 2.2vmin); opacity: .9; animation: flit var(--d, 26s) linear var(--dl, 0s) infinite; }
+        #meadow .flutter .wing { display: inline-block; animation: flitBob var(--fb, .5s) ease-in-out infinite alternate; }
+        @keyframes flit  { 0% { transform: translateX(-6vmin); } 100% { transform: translateX(104vw); } }
+        @keyframes flitBob { from { transform: translateY(0); } to { transform: translateY(-2.4vmin); } }
 
         /* herd avatars stampede into the row; winning row gets a green shine sweep */
         .herd-row { position: relative; overflow: hidden; }
@@ -361,11 +434,7 @@
         <span style="--x:90%;--d:33s;--dl:-13s;--s:1.8rem">🌿</span>
     </div>
     <div id="app"></div>
-    <div id="meadow" aria-hidden="true">
-        <span class="grazer" style="--d:58s;--dl:-12s;--sz:3vmin"><span class="hop">🐑</span></span>
-        <span class="grazer" style="--d:76s;--dl:-40s;--sz:2.4vmin"><span class="hop">🐑</span></span>
-        <span class="grazer" style="--d:66s;--dl:-25s;--sz:2.8vmin"><span class="hop">🐐</span></span>
-    </div>
+    <div id="meadow" aria-hidden="true"></div>
     <canvas id="confetti-cv"></canvas>
     <div id="sound-togs">
         <button id="tog-music" title="Music on/off" onclick="toggleMusic()">🎵</button>
@@ -963,6 +1032,39 @@ function emojiRain(chars, n) {
         }, i * 160);
     }
 }
+
+// Build the CSS-drawn flock once — a paddock of woolly ewes grazing along the
+// bottom of the TV, a border collie trotting the line, swaying grass & butterflies.
+// (CSS handles motion; under prefers-reduced-motion the animations are killed but
+// the flock still stands there, so we always build it.)
+function buildMeadow() {
+    const m = document.getElementById('meadow');
+    if (!m || m.dataset.built) return;
+    m.dataset.built = '1';
+    let html = '<div class="ground"></div>';
+    for (let i = 0; i < 16; i++) {
+        html += `<div class="blade" style="left:${(Math.random() * 100).toFixed(1)}%;--h:${(1.2 + Math.random() * 1.7).toFixed(1)}vmin;--dl:${(-Math.random() * 3).toFixed(2)}s"></div>`;
+    }
+    const N = 8;
+    for (let i = 0; i < N; i++) {
+        const left = (i / (N - 1)) * 92 + 3 + (Math.random() * 4 - 2);
+        const sc = 0.7 + Math.random() * 0.5;             // depth: smaller = further back
+        const br = 0.72 + sc * 0.28;                       // dimmer further back
+        const bottom = 2.2 + (1 - sc) * 3.4;
+        const bob = (2.2 + Math.random() * 1.3).toFixed(2);
+        const gz = (4 + Math.random() * 4.5).toFixed(2);
+        const dl = (-Math.random() * 3).toFixed(2);
+        html += `<div class="ewe" style="left:${left.toFixed(1)}%;bottom:${bottom.toFixed(1)}vmin;`
+            + `transform:scale(${sc.toFixed(2)});--br:${br.toFixed(2)};z-index:${Math.round(sc * 10)}">`
+            + `<div class="wool" style="--bob:${bob}s;--dl:${dl}s"></div>`
+            + `<div class="head" style="--gz:${gz}s;--dl:${dl}s"></div></div>`;
+    }
+    html += `<div class="collie" style="--d:27s;--dl:-4s"><div class="cbody"><div class="chead"></div></div></div>`;
+    html += `<div class="flutter" style="--d:23s;--dl:-6s;bottom:8vmin"><span class="wing">🦋</span></div>`;
+    html += `<div class="flutter" style="--d:30s;--dl:-17s;bottom:9.6vmin;--sz:1.9vmin;--fb:.42s"><span class="wing">🐝</span></div>`;
+    m.innerHTML = html;
+}
+buildMeadow();
 
 // ═══════════════════════════════════════════
 // STATE
@@ -1572,13 +1674,20 @@ function railRowsHTML(players, showLocked) {
         </div>`).join('');
 }
 
+// Competition ranking (1-2-2-4): equal scores share a place, so tied players
+// get the SAME medal. `st` must already be sorted by score descending.
+function rankByScore(st) {
+    let rank = 0;
+    return st.map((p, i) => { if (i > 0 && p.score < st[i - 1].score) rank = i; return rank; });
+}
 function standingsHTML(st) {
     const medals = ['🥇', '🥈', '🥉'];
+    const ranks = rankByScore(st);   // ties share a place → joint medals
     const target = D?.target ?? D?.settings?.target;
     return `<div class="card standings"><div class="slbl">Scores${target ? ` — first to ${esc(String(target))} without the cow` : ''}</div>${
         st.map((p, i) => `
         <div class="player-row" style="--i:${i}">
-            <span style="width:22px;text-align:center">${medals[i] || (i + 1)}</span>
+            <span style="width:22px;text-align:center">${medals[ranks[i]] || (ranks[i] + 1)}</span>
             <div class="pav">${esc(p.avatar)}</div>
             <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:#d9488f">(you)</span>' : ''} ${p.hasCow ? '🐄' : ''}</div>
             <div class="sc">${p.score}${p.delta ? `<span class="delta">+${p.delta}</span>` : ''}</div>
@@ -1978,15 +2087,17 @@ function renderViewerReveal() {
 
 function renderViewerPodium() {
     const st = vD.standings || [];
-    const podOrder = [st[1], st[0], st[2]].filter(Boolean);
+    const medals = ['🥇', '🥈', '🥉'];
+    const ranks = rankByScore(st);   // ties share a place → joint medals
+    const wm = st.map((p, i) => ({ ...p, medal: medals[ranks[i]] || '', mr: ranks[i] }));
+    const podOrder = [wm[1], wm[0], wm[2]].filter(Boolean);
     const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
-    const medal = { p1: '🥇', p2: '🥈', p3: '🥉' };
     const pods = podOrder.map((p, i) => `
-        <div class="pod ${cls[i]}" style="animation-delay:${i * 0.18}s">
+        <div class="pod ${cls[i]} mrank-${Math.min(p.mr, 2)}" style="animation-delay:${i * 0.18}s">
             <div class="pav-big">${esc(p.avatar)}</div>
             <div class="pname">${esc(p.name)} ${p.hasCow ? '🐄' : ''}</div>
             <div class="pscore">${p.score} pts</div>
-            <div class="block">${medal[cls[i]]}</div>
+            <div class="block">${p.medal}</div>
         </div>`).join('');
     const awards = (vD.awards || []).map(a =>
         `<div class="award">${a.emoji} <span class="aw-t">${esc(a.title)}</span><br>${esc(a.name)} — ${esc(a.detail)}</div>`).join('');

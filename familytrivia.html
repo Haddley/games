@@ -249,9 +249,12 @@
         .pod .pname { font-size: 2.4vmin; margin-bottom: 1vmin; }
         .pod .pscore { font-size: 2vmin; color: var(--gold); margin-bottom: 1vmin; }
         .pod .block { border-radius: 1.6vmin 1.6vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.4vmin; font-size: 3.4vmin; width: 18vmin; }
-        .pod.p1 .block { height: 22vmin; background: linear-gradient(180deg, #ffd58a, #b58032); }
-        .pod.p2 .block { height: 15vmin; background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
-        .pod.p3 .block { height: 10vmin; background: linear-gradient(180deg, #e8a06a, #9c5a33); }
+        .pod.p1 .block { height: 22vmin; }
+        .pod.p2 .block { height: 15vmin; }
+        .pod.p3 .block { height: 10vmin; }
+        .pod.mrank-0 .block { background: linear-gradient(180deg, #ffd58a, #b58032); }
+        .pod.mrank-1 .block { background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
+        .pod.mrank-2 .block { background: linear-gradient(180deg, #e8a06a, #9c5a33); }
         .pod .pav-big { font-size: 5vmin; }
         .awards-row { display: flex; gap: 1.6vmin; justify-content: center; flex-wrap: wrap; }
         .award {
@@ -1606,12 +1609,19 @@ function railRowsHTML(players, showLocked) {
         </div>`).join('');
 }
 
+// Competition ranking (1-2-2-4): equal scores share a place, so tied players
+// get the SAME medal. Input list must already be sorted by score descending.
+function rankByScore(list, key = 'score') {
+    let rank = 0;
+    return list.map((p, i) => { if (i > 0 && p[key] < list[i - 1][key]) rank = i; return rank; });
+}
 function standingsHTML(st) {
     const medals = ['🥇', '🥈', '🥉'];
+    const ranks = rankByScore(st, 'score');
     return `<div class="card standings"><div class="slbl">Scores</div>${
         st.map((p, i) => `
         <div class="player-row">
-            <span style="width:22px;text-align:center">${medals[i] || (i + 1)}</span>
+            <span style="width:22px;text-align:center">${medals[ranks[i]] || (ranks[i] + 1)}</span>
             <div class="pav">${esc(p.avatar)}</div>
             <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--ember)">(you)</span>' : ''}</div>
             <div class="sc">${p.score}${p.delta ? `<span class="delta">+${p.delta}</span>` : ''}</div>
@@ -2051,16 +2061,18 @@ function renderViewerReveal() {
 
 function renderViewerPodium() {
     const st = vD.standings || [];
-    const podOrder = [st[1], st[0], st[2]].filter(Boolean);
+    const medals = ['🥇', '🥈', '🥉'];
+    const ranks = rankByScore(st, 'score');   // ties share a place → joint medals
+    const wm = st.map((p, i) => ({ ...p, medal: medals[ranks[i]] || '', mr: ranks[i] }));
+    const podOrder = [wm[1], wm[0], wm[2]].filter(Boolean);
     const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
-    const medal = { p1: '🥇', p2: '🥈', p3: '🥉' };
     const podDelay = { p1: '1s', p2: '.5s', p3: '0s' };
     const pods = podOrder.map((p, i) => `
-        <div class="pod ${cls[i]}" style="animation-delay:${podDelay[cls[i]]}">
+        <div class="pod ${cls[i]} mrank-${Math.min(p.mr, 2)}" style="animation-delay:${podDelay[cls[i]]}">
             <div class="pav-big">${esc(p.avatar)}</div>
             <div class="pname">${esc(p.name)}</div>
             <div class="pscore">${p.score} pts</div>
-            <div class="block">${medal[cls[i]]}</div>
+            <div class="block">${p.medal}</div>
         </div>`).join('');
     const rest = st.slice(3).map((p, i) =>
         `<div class="rail-row"><span>${i + 4}.</span><span class="rav">${esc(p.avatar)}</span><span class="rname">${esc(p.name)}</span><span class="rsc">${p.score}</span></div>`).join('');
