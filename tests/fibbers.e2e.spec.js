@@ -38,7 +38,7 @@ test('TV-first: truth bonus, lies, votes, reveal theatre, podium', async ({ brow
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/fibbers.html');
     await shot(tv, 'fibbers-01-home');
-    await tv.getByRole('button', { name: /Create the game on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
     await expect(tv.locator('.qr-side .room-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);

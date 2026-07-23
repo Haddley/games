@@ -50,7 +50,7 @@ test('TV-first: pick, stroke streaming, guesses, turn end, podium', async ({ bro
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/doodleparty.html');
     await shot(tv, 'doodle-01-home');
-    await tv.getByRole('button', { name: /Create the game on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
     await expect(tv.locator('.qr-side .room-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);

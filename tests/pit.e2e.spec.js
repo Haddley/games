@@ -39,7 +39,7 @@ test('TV-first: trade, corner bell, bear penalty, podium', async ({ browser }) =
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/pit.html');
     await shot(tv, 'pit-01-home');
-    await tv.getByRole('button', { name: /Open the pit on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
     await expect(tv.locator('.qr-side .room-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);

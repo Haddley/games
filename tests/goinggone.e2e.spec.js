@@ -39,7 +39,7 @@ test('TV-first: bidding war, gavel, valuation, podium', async ({ browser }) => {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/goinggone.html');
     await shot(tv, 'gavel-01-home');
-    await tv.getByRole('button', { name: /Open the auction on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
     await expect(tv.locator('.qr-side .room-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);

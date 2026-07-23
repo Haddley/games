@@ -46,7 +46,7 @@ test('TV-first: daub a line, false call locks out, full house wins', async ({ br
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/bingo.html');
     await shot(tv, 'bingo-01-home');
-    await tv.getByRole('button', { name: /Run the bingo hall on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
     await expect(tv.locator('.qr-side .room-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);
