@@ -300,10 +300,26 @@
         #app.fresh .pod { animation: podRise .55s cubic-bezier(.2,.8,.3,1) both; }
         #app.fresh .award { animation: cardIn .5s .6s both; }
 
-        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+        /* ── themed ambient background: drifting question marks, coins & wagers ── */
+        #ambient { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+        .amb { position: absolute; top: 100%; line-height: 1; user-select: none; -webkit-user-select: none;
+            font-family: 'Orbitron', sans-serif; font-weight: 900;
+            animation: ambRise var(--d, 24s) linear infinite; animation-delay: var(--delay, 0s); }
+        @keyframes ambRise {
+            0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+            8%   { opacity: var(--op, .12); }
+            92%  { opacity: var(--op, .12); }
+            100% { transform: translateY(-118vh) translateX(var(--sway, 0)) rotate(var(--rot, 30deg)); opacity: 0; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+            #ambient { display: none; }
+        }
     </style>
 </head>
 <body>
+    <div id="ambient" aria-hidden="true"></div>
     <div id="app"></div>
     <canvas id="confetti-cv"></canvas>
     <div id="sound-togs">
@@ -834,6 +850,37 @@ function popText(x, y, text, cls = 'good') {
     el.style.top = y + 'px';
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 1150);
+}
+
+// ── Themed ambient background: question marks, coins & wagers drifting upward.
+// Styled glyphs (?, $, %) are tinted in the palette; coin/dice emoji keep their
+// own colour. Built once on load, never rebuilt on render, skipped for
+// reduced-motion. Purely decorative. ──
+function buildAmbient() {
+    if (REDUCED) return;
+    const host = $id('ambient');
+    if (!host) return;
+    const items = [
+        { c: '?', col: '#2dd4bf' }, { c: '?', col: '#fbbf24' }, { c: '$', col: '#fbbf24' },
+        { c: '%', col: '#f472b6' }, { c: '#', col: '#34d399' }, { c: '🪙' }, { c: '💰' }, { c: '🎲' },
+    ];
+    let html = '';
+    for (let i = 0; i < 20; i++) {
+        const it = items[Math.floor(Math.random() * items.length)];
+        const size = 18 + Math.random() * 36;
+        const dur = 18 + Math.random() * 18;
+        const delay = -(Math.random() * dur);
+        const left = Math.random() * 100;
+        const sway = (Math.random() * 90 - 45).toFixed(0);
+        const rot = (Math.random() * 100 - 50).toFixed(0);
+        const op = (0.06 + Math.random() * 0.1).toFixed(2);
+        const tint = it.col
+            ? `color:${it.col};text-shadow:0 0 ${(size * 0.4).toFixed(0)}px ${it.col};`
+            : '';
+        html += `<span class="amb" style="left:${left.toFixed(1)}%;font-size:${size.toFixed(0)}px;${tint}` +
+            `--d:${dur.toFixed(1)}s;--delay:${delay.toFixed(1)}s;--sway:${sway}px;--rot:${rot}deg;--op:${op}">${it.c}</span>`;
+    }
+    host.innerHTML = html;
 }
 
 // ═══════════════════════════════════════════
@@ -2078,6 +2125,7 @@ function simRestart() {
 }
 
 (function boot() {
+    buildAmbient();
     const params = new URLSearchParams(location.search);
     if (!fAvatar) fAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
     if (!musicOn) $id('tog-music').classList.add('off');

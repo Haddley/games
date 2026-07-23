@@ -80,10 +80,10 @@
             display: inline-flex; align-items: center; justify-content: center; gap: 8px;
             font-family: inherit; font-weight: 900; font-size: .92rem; letter-spacing: .4px;
             padding: 13px 18px; border: none; border-radius: 13px; cursor: pointer;
-            transition: filter .12s, opacity .12s, box-shadow .12s; user-select: none; -webkit-user-select: none;
+            transition: filter .12s, opacity .12s, box-shadow .12s, transform .1s; user-select: none; -webkit-user-select: none;
             color: var(--text);
         }
-        .btn:active { filter: brightness(1.15); }
+        .btn:active { filter: brightness(1.15); transform: scale(.97); }
         .btn-p { background: linear-gradient(180deg, #c4b5fd, #8b5cf6); color: #1c1040; box-shadow: 0 5px 0 #5b3fa8, 0 10px 22px rgba(139,92,246,.35); }
         .btn-p:active { box-shadow: 0 2px 0 #5b3fa8; }
         .btn-moon { background: linear-gradient(180deg, #f9edc8, #e5c96b); color: #3a2c05; box-shadow: 0 5px 0 #9a832f, 0 10px 22px rgba(229,201,107,.3); }
@@ -282,10 +282,46 @@
         @keyframes pulseNum { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.28); color: #ef4444; } }
         #day-num.low, #tv-day-num.low { animation: pulseNum .9s ease-in-out infinite; display: inline-block; }
 
-        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+        /* ── ambient night: drifting crescent moons, twinkles & a passing wolf ── */
+        #ambient { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+        #ambient .amb {
+            position: absolute; top: var(--y, 40%); left: var(--x, 50%);
+            font-size: var(--sz, 3rem); line-height: 1; opacity: 0; will-change: transform;
+            filter: drop-shadow(0 0 10px rgba(245,230,184,.35));
+            animation: ambFloat var(--d, 40s) ease-in-out var(--dl, 0s) infinite;
+        }
+        #ambient .amb.wolf { filter: drop-shadow(0 0 8px rgba(0,0,0,.6)); }
+        #ambient .amb.twinkle {
+            filter: none;
+            animation: ambTwinkle var(--d, 5s) ease-in-out var(--dl, 0s) infinite;
+        }
+        @keyframes ambFloat {
+            0%   { opacity: 0; transform: translate3d(0, 10px, 0) rotate(var(--r0, -6deg)) scale(.94); }
+            16%  { opacity: var(--o, .18); }
+            50%  { transform: translate3d(var(--dx, 24px), -16px, 0) rotate(var(--r1, 8deg)) scale(1.03); }
+            84%  { opacity: var(--o, .18); }
+            100% { opacity: 0; transform: translate3d(0, 10px, 0) rotate(var(--r0, -6deg)) scale(.94); }
+        }
+        @keyframes ambTwinkle {
+            0%, 100% { opacity: 0; transform: scale(.5); }
+            50%      { opacity: var(--o, .5); transform: scale(1.15); }
+        }
+        body.viewer-mode #ambient .amb { font-size: var(--tsz, var(--sz, 4vmin)); }
+
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } #ambient { display: none; } }
     </style>
 </head>
 <body>
+    <div id="ambient" aria-hidden="true">
+        <span class="amb" style="--x:11%;--y:14%;--sz:3.4rem;--tsz:6vmin;--d:44s;--dl:-4s;--dx:30px;--r0:-10deg;--r1:8deg;--o:.2">🌙</span>
+        <span class="amb" style="--x:84%;--y:20%;--sz:2.6rem;--tsz:5vmin;--d:52s;--dl:-18s;--dx:-26px;--r0:8deg;--r1:-10deg;--o:.15">🌙</span>
+        <span class="amb twinkle" style="--x:30%;--y:30%;--sz:1.6rem;--tsz:3vmin;--d:5.5s;--dl:-1s;--o:.55">✨</span>
+        <span class="amb twinkle" style="--x:64%;--y:16%;--sz:1.3rem;--tsz:2.6vmin;--d:6.5s;--dl:-3s;--o:.5">✨</span>
+        <span class="amb twinkle" style="--x:48%;--y:44%;--sz:1.4rem;--tsz:2.8vmin;--d:7s;--dl:-5s;--o:.45">⭐</span>
+        <span class="amb twinkle" style="--x:90%;--y:52%;--sz:1.2rem;--tsz:2.4vmin;--d:6s;--dl:-2.5s;--o:.5">✨</span>
+        <span class="amb wolf" style="--x:20%;--y:82%;--sz:2.8rem;--tsz:5vmin;--d:58s;--dl:-12s;--dx:40px;--r0:-4deg;--r1:4deg;--o:.12">🐺</span>
+        <span class="amb wolf" style="--x:74%;--y:76%;--sz:2.4rem;--tsz:4.4vmin;--d:64s;--dl:-30s;--dx:-34px;--r0:4deg;--r1:-4deg;--o:.1">🐺</span>
+    </div>
     <div id="app"></div>
     <canvas id="confetti-cv"></canvas>
     <div id="sound-togs">

@@ -67,7 +67,8 @@
             transition: filter .12s, opacity .12s, box-shadow .12s; user-select: none; -webkit-user-select: none;
             color: var(--text);
         }
-        .btn:active { filter: brightness(1.15); }
+        .btn { transition: filter .12s, opacity .12s, box-shadow .12s, transform .1s; }
+        .btn:active { filter: brightness(1.15); transform: scale(.97); }
         .btn-p { background: linear-gradient(180deg, var(--gold2), #c99334); color: #2a1a05; box-shadow: 0 5px 0 #8a6220, 0 10px 22px rgba(232,183,90,.3); }
         .btn-p:active { box-shadow: 0 2px 0 #8a6220; }
         .btn-g { background: rgba(160,130,190,.14); box-shadow: inset 0 0 0 2px var(--border2); }
@@ -281,10 +282,44 @@
         @keyframes goingPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: .72; } }
         #going-lbl.low, #v-going.low { animation: goingPulse .55s ease-in-out infinite; }
 
-        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+        /* ── ambient auction-house backdrop: drifting gavels, price-tags & coins ── */
+        #ambient { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+        #ambient .amb {
+            position: absolute; top: var(--y, 50%); left: var(--x, 50%);
+            font-size: var(--sz, 3rem); line-height: 1; opacity: 0; will-change: transform;
+            filter: drop-shadow(0 3px 8px rgba(0,0,0,.4));
+            animation: ambDrift var(--d, 30s) ease-in-out var(--dl, 0s) infinite;
+        }
+        #ambient .amb.coin {
+            width: var(--sz, 2.4rem); height: var(--sz, 2.4rem); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: calc(var(--sz, 2.4rem) * .5);
+            font-family: 'Playfair Display', serif; font-weight: 900; color: #5a3d10;
+            background: radial-gradient(circle at 36% 30%, var(--gold2) 0%, var(--gold) 55%, #9c7420 100%);
+            box-shadow: inset 0 0 0 2px rgba(255,255,255,.35), inset 0 -4px 8px rgba(0,0,0,.25);
+        }
+        @keyframes ambDrift {
+            0%   { opacity: 0; transform: translate3d(0, 12px, 0) rotate(var(--r0, -8deg)) scale(.9); }
+            14%  { opacity: var(--o, .16); }
+            50%  { transform: translate3d(var(--dx, 20px), -18px, 0) rotate(var(--r1, 10deg)) scale(1.04); }
+            86%  { opacity: var(--o, .16); }
+            100% { opacity: 0; transform: translate3d(0, 12px, 0) rotate(var(--r0, -8deg)) scale(.9); }
+        }
+        body.viewer-mode #ambient .amb { font-size: var(--tsz, var(--sz, 4vmin)); }
+
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } #ambient { display: none; } }
     </style>
 </head>
 <body>
+    <div id="ambient" aria-hidden="true">
+        <span class="amb" style="--x:8%;--y:16%;--sz:3.2rem;--tsz:6vmin;--d:26s;--dl:-3s;--dx:34px;--r0:-14deg;--r1:12deg;--o:.15">🔨</span>
+        <span class="amb" style="--x:82%;--y:22%;--sz:2.6rem;--tsz:5vmin;--d:32s;--dl:-11s;--dx:-30px;--r0:10deg;--r1:-8deg;--o:.13">🏷️</span>
+        <span class="amb coin" style="--x:26%;--y:70%;--sz:2.8rem;--tsz:5vmin;--d:30s;--dl:-7s;--dx:26px;--r0:-6deg;--r1:8deg;--o:.2">$</span>
+        <span class="amb" style="--x:68%;--y:62%;--sz:3rem;--tsz:5.6vmin;--d:34s;--dl:-19s;--dx:-38px;--r0:12deg;--r1:-10deg;--o:.12">💰</span>
+        <span class="amb" style="--x:46%;--y:34%;--sz:2.4rem;--tsz:4.6vmin;--d:29s;--dl:-14s;--dx:30px;--r0:-10deg;--r1:14deg;--o:.11">🔨</span>
+        <span class="amb coin" style="--x:92%;--y:78%;--sz:2.2rem;--tsz:4.2vmin;--d:33s;--dl:-24s;--dx:-22px;--r0:8deg;--r1:-6deg;--o:.18">$</span>
+        <span class="amb" style="--x:14%;--y:88%;--sz:2.6rem;--tsz:5vmin;--d:31s;--dl:-9s;--dx:28px;--r0:-8deg;--r1:10deg;--o:.12">🏷️</span>
+        <span class="amb coin" style="--x:58%;--y:12%;--sz:2rem;--tsz:3.8vmin;--d:28s;--dl:-17s;--dx:-24px;--r0:6deg;--r1:-10deg;--o:.16">$</span>
+    </div>
     <div id="app"></div>
     <canvas id="confetti-cv"></canvas>
     <div id="sound-togs">

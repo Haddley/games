@@ -65,10 +65,10 @@
             display: inline-flex; align-items: center; justify-content: center; gap: 8px;
             font-family: inherit; font-weight: 900; font-size: .92rem; letter-spacing: .5px;
             padding: 13px 18px; border: none; border-radius: 14px; cursor: pointer;
-            transition: filter .12s, opacity .12s, box-shadow .12s; user-select: none; -webkit-user-select: none;
+            transition: filter .12s, opacity .12s, box-shadow .12s, transform .1s; user-select: none; -webkit-user-select: none;
             color: var(--text);
         }
-        .btn:active { filter: brightness(1.15); }
+        .btn:active { filter: brightness(1.15); transform: scale(.97); }
         .btn-p { background: linear-gradient(180deg, #ff8fc0, #ff5fa2); color: #3d0a22; box-shadow: 0 5px 0 #a92e63, 0 10px 22px rgba(255,95,162,.35); }
         .btn-p:active { box-shadow: 0 2px 0 #a92e63; }
         .btn-t { background: linear-gradient(180deg, #5eead4, #14b8a6); color: #032620; box-shadow: 0 5px 0 #0d6e63, 0 10px 22px rgba(45,212,191,.3); }
@@ -293,10 +293,45 @@
         #app.fresh .tv-results .winline { animation: cardIn .5s .35s cubic-bezier(.2,.8,.3,1) both; }
         #app.fresh .tv-results .rail-row { animation: cardIn .4s cubic-bezier(.2,.8,.3,1) both; animation-delay: calc(.55s + var(--i, 0) * 80ms); }
 
-        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+        /* ── ambient backdrop: numbered bingo balls floating up the blower ── */
+        #ambient { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+        #ambient .ball {
+            position: absolute; left: var(--x, 50%); bottom: -18vh;
+            width: var(--sz, 52px); height: var(--sz, 52px); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Baloo 2', sans-serif; font-weight: 800; color: #2a1533;
+            font-size: calc(var(--sz, 52px) * .42); opacity: 0; will-change: transform;
+            background: radial-gradient(circle at 34% 28%, #fff 0%, var(--bc, #ff9ec7) 46%, var(--bc2, #d63384) 100%);
+            box-shadow: inset 0 0 0 2px rgba(255,255,255,.4), inset 0 -6px 10px rgba(0,0,0,.22), 0 4px 12px rgba(0,0,0,.35);
+            animation: ballFloat var(--d, 30s) linear var(--dl, 0s) infinite;
+        }
+        #ambient .ball span {
+            display: flex; align-items: center; justify-content: center;
+            width: 68%; height: 68%; border-radius: 50%;
+            background: rgba(255,255,255,.82); box-shadow: inset 0 1px 2px rgba(0,0,0,.15);
+        }
+        @keyframes ballFloat {
+            0%   { opacity: 0; transform: translateY(0) translateX(0) rotate(0deg); }
+            10%  { opacity: var(--o, .16); }
+            50%  { transform: translateY(-62vh) translateX(var(--dx, 20px)) rotate(180deg); }
+            90%  { opacity: var(--o, .16); }
+            100% { opacity: 0; transform: translateY(-124vh) translateX(0) rotate(360deg); }
+        }
+
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } #ambient { display: none; } }
     </style>
 </head>
 <body>
+    <div id="ambient" aria-hidden="true">
+        <span class="ball" style="--x:7%;--sz:56px;--d:30s;--dl:-2s;--dx:22px;--bc:#ff9ec7;--bc2:#d63384;--o:.15"><span>7</span></span>
+        <span class="ball" style="--x:24%;--sz:44px;--d:38s;--dl:-14s;--dx:-18px;--bc:#7ee8dc;--bc2:#0f9e8e;--o:.14"><span>21</span></span>
+        <span class="ball" style="--x:41%;--sz:62px;--d:34s;--dl:-8s;--dx:26px;--bc:#ffd97a;--bc2:#e0a80c;--o:.13"><span>44</span></span>
+        <span class="ball" style="--x:58%;--sz:48px;--d:42s;--dl:-22s;--dx:-24px;--bc:#ff9ec7;--bc2:#d63384;--o:.15"><span>63</span></span>
+        <span class="ball" style="--x:73%;--sz:52px;--d:32s;--dl:-5s;--dx:20px;--bc:#7ee8dc;--bc2:#0f9e8e;--o:.14"><span>16</span></span>
+        <span class="ball" style="--x:88%;--sz:46px;--d:40s;--dl:-17s;--dx:-16px;--bc:#ffd97a;--bc2:#e0a80c;--o:.13"><span>88</span></span>
+        <span class="ball" style="--x:33%;--sz:40px;--d:36s;--dl:-26s;--dx:18px;--bc:#ffd97a;--bc2:#e0a80c;--o:.12"><span>2</span></span>
+        <span class="ball" style="--x:65%;--sz:42px;--d:44s;--dl:-33s;--dx:-22px;--bc:#ff9ec7;--bc2:#d63384;--o:.12"><span>90</span></span>
+    </div>
     <div id="app"></div>
     <canvas id="confetti-cv"></canvas>
     <div id="sound-togs">

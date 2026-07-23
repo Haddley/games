@@ -33,6 +33,30 @@
         }
         body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
 
+        /* ── Ambient drifting doodles (crayons, brushes, sparkles) behind everything ── */
+        #doodle-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+        #doodle-bg span {
+            position: absolute; bottom: -12vh; left: var(--x); font-size: var(--s, 2rem); opacity: 0;
+            animation: doodleFloat var(--d, 20s) linear var(--dl, 0s) infinite;
+            filter: drop-shadow(0 4px 10px rgba(0,0,0,.25));
+        }
+        @keyframes doodleFloat {
+            0%   { transform: translateY(0) rotate(-12deg); opacity: 0; }
+            10%  { opacity: .16; }
+            90%  { opacity: .16; }
+            100% { transform: translateY(-124vh) rotate(16deg); opacity: 0; }
+        }
+        body.viewer-mode #doodle-bg span { opacity: 0; animation-name: doodleFloatTv; }
+        @keyframes doodleFloatTv {
+            0%   { transform: translateY(0) rotate(-12deg); opacity: 0; }
+            10%  { opacity: .1; }
+            90%  { opacity: .1; }
+            100% { transform: translateY(-124vh) rotate(16deg); opacity: 0; }
+        }
+        /* falling art-emoji rain for the podium */
+        .fall-emoji { position: fixed; top: -8vh; z-index: 61; pointer-events: none; font-size: var(--sz, 3rem); animation: fallDown var(--t, 3.2s) linear forwards; }
+        @keyframes fallDown { to { transform: translateY(118vh) rotate(var(--rot, 60deg)); } }
+
         h1.logo {
             font-family: 'Fredoka', sans-serif; font-weight: 700; letter-spacing: 1px;
             font-size: clamp(1.7rem, 7vw, 2.5rem); text-align: center;
@@ -285,6 +309,16 @@
     </style>
 </head>
 <body>
+    <div id="doodle-bg" aria-hidden="true">
+        <span style="--x:6%;--d:21s;--dl:0s;--s:2rem">🎨</span>
+        <span style="--x:20%;--d:26s;--dl:-11s;--s:1.5rem">✏️</span>
+        <span style="--x:34%;--d:18s;--dl:-5s;--s:2.3rem">🖌️</span>
+        <span style="--x:48%;--d:24s;--dl:-14s;--s:1.4rem">✨</span>
+        <span style="--x:60%;--d:20s;--dl:-3s;--s:2rem">🖍️</span>
+        <span style="--x:73%;--d:28s;--dl:-17s;--s:1.7rem">🌈</span>
+        <span style="--x:86%;--d:22s;--dl:-8s;--s:2.1rem">🖼️</span>
+        <span style="--x:94%;--d:19s;--dl:-13s;--s:1.5rem">✏️</span>
+    </div>
     <div id="app"></div>
     <canvas id="confetti-cv"></canvas>
     <div id="sound-togs">
@@ -770,6 +804,23 @@ function popText(x, y, text, cls = 'good') {
     el.style.top = y + 'px';
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 1150);
+}
+// Falling art-emoji rain — podium garnish on top of the confetti
+function emojiRain(chars, n) {
+    if (REDUCED) return;
+    for (let i = 0; i < n; i++) {
+        setTimeout(() => {
+            const el = document.createElement('div');
+            el.className = 'fall-emoji';
+            el.textContent = chars[Math.floor(Math.random() * chars.length)];
+            el.style.left = (Math.random() * 96) + '%';
+            el.style.setProperty('--sz', (2 + Math.random() * 2.4) + 'rem');
+            el.style.setProperty('--t', (2.6 + Math.random() * 2.4) + 's');
+            el.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 5200);
+        }, i * 120);
+    }
 }
 
 // ═══════════════════════════════════════════
@@ -1550,7 +1601,7 @@ function applyMsg(msg) {
             ui = 'podium';
             setMusic('over');
             render();
-            sWin(); startConfetti(3600);
+            sWin(); startConfetti(3600); emojiRain(['🎨','✏️','🖍️','🖌️','✨','🌈'], 22);
             break;
     }
 }
@@ -1627,7 +1678,7 @@ function applyViewerMsg(msg) {
             vD = msg; stopClientTimer();
             setMusic('over');
             render();
-            if (prevType !== 'viewer_podium') { sWin(); startConfetti(5200); }
+            if (prevType !== 'viewer_podium') { sWin(); startConfetti(5200); emojiRain(['🎨','✏️','🖍️','🖌️','✨','🌈'], 30); }
             break;
     }
 }

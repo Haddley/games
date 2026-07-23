@@ -451,6 +451,18 @@
         .player.score-pop { animation: scorePop .6s cubic-bezier(.34,1.56,.64,1); }
         @keyframes scorePop { 0% { transform: scale(1); } 40% { transform: scale(1.22); } 100% { transform: scale(1); } }
 
+        /* ── Ambient drifting X / O glyphs behind the app ──
+           low-opacity, non-interactive, generated once on load */
+        #ttt-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+        #ttt-bg .g { position: absolute; opacity: .06; will-change: transform; }
+        #ttt-bg .g svg { display: block; width: 100%; height: 100%; }
+        #ttt-bg .g.x { color: var(--x-color); }
+        #ttt-bg .g.o { color: var(--o-color); }
+        body.day #ttt-bg .g { opacity: .09; }
+        @keyframes tttFloat1 { 0% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(26px,-34px) rotate(60deg); } 100% { transform: translate(0,0) rotate(120deg); } }
+        @keyframes tttFloat2 { 0% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(-32px,28px) rotate(-48deg); } 100% { transform: translate(0,0) rotate(-96deg); } }
+        @keyframes tttFloat3 { 0% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(22px,32px) rotate(42deg); } 100% { transform: translate(0,0) rotate(84deg); } }
+
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation: none !important; transition: none !important; }
             /* pieces normally appear via the draw animation — show them outright */
@@ -471,6 +483,7 @@
         <button id="tog-music" title="Music on/off" onclick="toggleMusic()">&#x1F3B5;</button>
         <button id="tog-sfx" title="Sound effects on/off" onclick="toggleSfx()">&#x1F50A;</button>
     </div>
+    <div id="ttt-bg" aria-hidden="true"></div>
     <div id="app">
         <div class="hdr">
             <h1>TIC TAC TOE</h1>
@@ -1573,6 +1586,24 @@
         };
 
         App.init();
+
+        // Ambient drifting X / O glyphs behind the app — built once on load.
+        // Decorative only; the reduced-motion media query freezes the drift.
+        (function initTttBg() {
+            const bg = document.getElementById('ttt-bg');
+            if (!bg) return;
+            const X = `<svg viewBox="0 0 24 24" fill="none"><line x1="5" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><line x1="19" y1="5" x2="5" y2="19" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>`;
+            const O = `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="3"/></svg>`;
+            const anims = ['tttFloat1', 'tttFloat2', 'tttFloat3'];
+            const pos = [[6,12],[20,60],[33,28],[48,78],[62,18],[74,52],[86,80],[92,34],[14,86],[54,45]];
+            bg.innerHTML = pos.map(([left, top], i) => {
+                const isX  = i % 2 === 0;
+                const size = 42 + (i * 13) % 46;
+                const dur  = 20 + (i * 3.3) % 16;
+                const delay = -(i * 2.4);
+                return `<div class="g ${isX ? 'x' : 'o'}" style="left:${left}%;top:${top}%;width:${size}px;height:${size}px;animation:${anims[i % 3]} ${dur}s ${delay}s ease-in-out infinite">${isX ? X : O}</div>`;
+            }).join('');
+        })();
 
         // Boot routing: self-playing demo modes (bots vs bots, looping)
         (function () {

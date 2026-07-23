@@ -33,6 +33,21 @@
         }
         body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
 
+        /* faint drifting sky behind the phone screens (TV keeps its own #meadow) */
+        #sky-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+        body.viewer-mode #sky-bg { display: none; }
+        #sky-bg span {
+            position: absolute; bottom: -12vh; left: var(--x); font-size: var(--s, 2rem); opacity: 0;
+            filter: drop-shadow(0 3px 9px rgba(0,0,0,.28));
+            animation: skyFloat var(--d, 34s) linear var(--dl, 0s) infinite;
+        }
+        @keyframes skyFloat {
+            0%   { transform: translateY(0) rotate(-8deg); opacity: 0; }
+            12%  { opacity: .07; }
+            88%  { opacity: .07; }
+            100% { transform: translateY(-126vh) rotate(10deg); opacity: 0; }
+        }
+
         h1.logo {
             font-family: 'Baloo 2', sans-serif; font-weight: 800; letter-spacing: 1px;
             font-size: clamp(1.7rem, 7vw, 2.6rem); text-align: center; color: var(--grass);
@@ -338,6 +353,13 @@
     </style>
 </head>
 <body>
+    <div id="sky-bg" aria-hidden="true">
+        <span style="--x:9%;--d:36s;--dl:0s;--s:2rem">☁️</span>
+        <span style="--x:31%;--d:46s;--dl:-18s;--s:1.5rem">🐑</span>
+        <span style="--x:54%;--d:30s;--dl:-9s;--s:2.3rem">☁️</span>
+        <span style="--x:73%;--d:42s;--dl:-24s;--s:1.6rem">🦋</span>
+        <span style="--x:90%;--d:33s;--dl:-13s;--s:1.8rem">🌿</span>
+    </div>
     <div id="app"></div>
     <div id="meadow" aria-hidden="true">
         <span class="grazer" style="--d:58s;--dl:-12s;--sz:3vmin"><span class="hop">🐑</span></span>

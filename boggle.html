@@ -93,6 +93,37 @@
             pointer-events: none; z-index: -1;
         }
 
+        /* ── Ambient drifting Boggle tiles behind everything (subtlety via rgba alpha,
+              so a light letter on a faint box reads in both dark and day themes) ── */
+        #tilefield { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+        #tilefield .tf {
+            position: absolute; bottom: -16vh; left: var(--x);
+            width: var(--s, 3rem); height: var(--s, 3rem); line-height: calc(var(--s, 3rem) - 4px);
+            text-align: center; font-family: 'Orbitron', sans-serif; font-weight: 900;
+            font-size: calc(var(--s, 3rem) * 0.5);
+            border-radius: 14px; opacity: 0; will-change: transform;
+            background: rgba(255,255,255,0.04);
+            border: 1.5px solid rgba(245,158,11,0.32);
+            color: rgba(255,255,255,0.55);
+            animation: tileDrift var(--d, 22s) linear var(--dl, 0s) infinite;
+        }
+        /* day/light theme: dark letter + warmer border read on the cream page */
+        body.day:not(.viewer-mode) #tilefield .tf {
+            background: rgba(0,0,0,0.03);
+            border-color: rgba(217,119,6,0.4);
+            color: rgba(26,26,42,0.42);
+        }
+        @keyframes tileDrift {
+            0%   { transform: translateY(0) rotate(-14deg); opacity: 0; }
+            12%  { opacity: 1; }
+            88%  { opacity: 1; }
+            100% { transform: translateY(-132vh) rotate(12deg); opacity: 0; }
+        }
+        /* The TV's .v-layout paints the same #05050a as the body behind it — make it
+           transparent so the ambient tile field (z-index:-1) shows through. Visually
+           identical background, no layout/DOM change. */
+        body.viewer-mode .v-layout { background: transparent; }
+
         #app { width: 100%; max-width: 480px; }
 
         /* ── Header ── */
@@ -751,6 +782,7 @@
     </style>
 </head>
 <body>
+<div id="tilefield" aria-hidden="true"></div>
 <div id="app"></div>
 <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Toggle day/night mode">&#x2600;&#xFE0F;</button>
 <div id="sound-togs">
@@ -2399,6 +2431,23 @@ function hostNewGame() {
 }
 
 // ── Confetti ──
+// Ambient drifting letter tiles — decorative only, generated once at boot.
+function spawnTileField() {
+    const tf = document.getElementById('tilefield');
+    if (!tf) return;
+    const chars = 'ABCDEFGHILMNOPRSTUW';
+    let html = '';
+    for (let i = 0; i < 14; i++) {
+        const c = chars[Math.floor(Math.random() * chars.length)];
+        const x = Math.random() * 100;
+        const s = 2.2 + Math.random() * 2.6;
+        const d = 18 + Math.random() * 20;
+        const dl = -Math.random() * d;
+        html += `<span class="tf" style="--x:${x}vw;--s:${s}rem;--d:${d}s;--dl:${dl}s">${c}</span>`;
+    }
+    tf.innerHTML = html;
+}
+
 function confetti() {
     const colors = ['#f59e0b','#ef4444','#4ade80','#60a5fa','#a78bfa'];
     for (let i = 0; i < 80; i++) {
@@ -2625,6 +2674,7 @@ function simRestart() {
     const params = new URLSearchParams(location.search);
     const mode = (params.get('mode') || '').toLowerCase();
     const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (!REDUCED) spawnTileField();
     if (mode === 'playersimulation') { startSimulation(simPlayers, 'player'); return; }
     if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
     render();

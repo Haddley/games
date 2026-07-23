@@ -41,6 +41,36 @@
         }
         body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
 
+        /* drifting pasture ambience — sheep & clouds floating behind everything */
+        #sheep-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+        #sheep-bg span {
+            position: absolute; bottom: -12vh; left: var(--x); font-size: var(--s, 2rem); opacity: 0;
+            filter: drop-shadow(0 3px 9px rgba(0,0,0,.3));
+            animation: sheepFloat var(--d, 30s) linear var(--dl, 0s) infinite;
+        }
+        @keyframes sheepFloat {
+            0%   { transform: translateY(0) rotate(-8deg); opacity: 0; }
+            12%  { opacity: .08; }
+            88%  { opacity: .08; }
+            100% { transform: translateY(-126vh) rotate(10deg); opacity: 0; }
+        }
+        /* TV-only grazing meadow strip — sheep amble back and forth along the bottom */
+        #meadow { position: fixed; left: 0; right: 0; bottom: 0; height: 7vmin; z-index: 5; pointer-events: none; display: none; overflow: hidden; }
+        body.viewer-mode #meadow { display: block; }
+        #meadow .grazer {
+            position: absolute; bottom: .5vmin; left: 0; font-size: var(--sz, 3vmin); opacity: .5;
+            animation: graze var(--gd, 60s) linear var(--gdl, 0s) infinite;
+        }
+        #meadow .grazer .hop { display: inline-block; animation: grazeBob 1.15s ease-in-out infinite alternate; }
+        @keyframes graze {
+            0%   { transform: translateX(-8vmin) scaleX(1); }
+            48%  { transform: translateX(96vw) scaleX(1); }
+            50%  { transform: translateX(96vw) scaleX(-1); }
+            98%  { transform: translateX(-8vmin) scaleX(-1); }
+            100% { transform: translateX(-8vmin) scaleX(1); }
+        }
+        @keyframes grazeBob { from { transform: translateY(0) rotate(-2deg); } to { transform: translateY(-.45vmin) rotate(2deg); } }
+
         h1.logo {
             font-family: 'Fredoka', sans-serif; font-weight: 700; letter-spacing: 1px;
             font-size: clamp(1.7rem, 7vw, 2.5rem); text-align: center; color: var(--lantern);
@@ -239,7 +269,13 @@
         .pod .pname { font-size: 2.4vmin; margin-bottom: 1vmin; }
         .pod .pscore { font-size: 2vmin; color: var(--lantern); margin-bottom: 1vmin; }
         .pod .block { border-radius: 1.6vmin 1.6vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.4vmin; font-size: 3.4vmin; width: 18vmin; }
-        .pod.p1 .block { height: 22vmin; background: linear-gradient(180deg, #fcd34d, #96660c); }
+        .pod.p1 .block { height: 22vmin; background: linear-gradient(180deg, #fcd34d, #96660c); position: relative; overflow: hidden; }
+        .pod.p1 .block::after {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background: linear-gradient(115deg, transparent 36%, rgba(255,255,255,.55) 50%, transparent 64%);
+            transform: translateX(-120%); animation: podShine 2.4s 1s ease-in-out infinite;
+        }
+        @keyframes podShine { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(120%); } }
         .pod.p2 .block { height: 15vmin; background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
         .pod.p3 .block { height: 10vmin; background: linear-gradient(180deg, #e8a06a, #9c5a33); }
         .pod .pav-big { font-size: 5vmin; }
@@ -331,6 +367,21 @@
     </style>
 </head>
 <body>
+    <div id="sheep-bg" aria-hidden="true">
+        <span style="--x:7%;--d:31s;--dl:0s;--s:2.1rem">🐑</span>
+        <span style="--x:20%;--d:44s;--dl:-16s;--s:1.5rem">☁️</span>
+        <span style="--x:33%;--d:27s;--dl:-7s;--s:2.4rem">🐑</span>
+        <span style="--x:46%;--d:38s;--dl:-20s;--s:1.6rem">🌿</span>
+        <span style="--x:58%;--d:29s;--dl:-10s;--s:2rem">☁️</span>
+        <span style="--x:70%;--d:41s;--dl:-26s;--s:1.7rem">🐑</span>
+        <span style="--x:83%;--d:25s;--dl:-5s;--s:2.3rem">🌾</span>
+        <span style="--x:94%;--d:35s;--dl:-18s;--s:1.6rem">🐑</span>
+    </div>
+    <div id="meadow" aria-hidden="true">
+        <span class="grazer" style="--gd:58s;--gdl:-12s;--sz:3vmin"><span class="hop">🐑</span></span>
+        <span class="grazer" style="--gd:76s;--gdl:-40s;--sz:2.4vmin"><span class="hop">🐑</span></span>
+        <span class="grazer" style="--gd:66s;--gdl:-25s;--sz:2.8vmin"><span class="hop">🐐</span></span>
+    </div>
     <div id="app"></div>
     <canvas id="confetti-cv"></canvas>
     <div id="sound-togs">

@@ -323,13 +323,27 @@
         @keyframes podRise { from { transform: translateY(35%); opacity: 0; } to { transform: none; opacity: 1; } }
         .award { animation: cardIn .5s 1.6s both; }
 
+        /* ── themed ambient background: storybook motes drifting up over the campfire glow ── */
+        #ambient { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+        .amb { position: absolute; top: 100%; line-height: 1; user-select: none; -webkit-user-select: none;
+            filter: drop-shadow(0 0 6px rgba(255,150,60,.35));
+            animation: ambRise var(--d, 24s) linear infinite; animation-delay: var(--delay, 0s); }
+        @keyframes ambRise {
+            0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+            8%   { opacity: var(--op, .12); }
+            92%  { opacity: var(--op, .12); }
+            100% { transform: translateY(-118vh) translateX(var(--sway, 0)) rotate(var(--rot, 30deg)); opacity: 0; }
+        }
+
         @media (max-width: 480px) { .ans-grid { grid-template-columns: 1fr 1fr; } }
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation: none !important; transition: none !important; }
+            #ambient { display: none; }
         }
     </style>
 </head>
 <body>
+    <div id="ambient" aria-hidden="true"></div>
     <div id="app"></div>
     <canvas id="confetti-cv"></canvas>
     <div id="sound-togs">
@@ -823,6 +837,30 @@ function popText(x, y, text, cls = 'good') {
     el.style.top = y + 'px';
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 1150);
+}
+
+// ── Themed ambient background: warm storybook motes (stars, pages, ?) drifting
+// upward over the campfire glow. Built once on load, never rebuilt on render,
+// and skipped entirely under reduced-motion. Purely decorative. ──
+function buildAmbient() {
+    if (REDUCED) return;
+    const host = $id('ambient');
+    if (!host) return;
+    const glyphs = ['📖', '✨', '⭐', '📜', '🔖', '❔'];
+    let html = '';
+    for (let i = 0; i < 20; i++) {
+        const g = glyphs[Math.floor(Math.random() * glyphs.length)];
+        const size = 16 + Math.random() * 30;
+        const dur = 18 + Math.random() * 18;
+        const delay = -(Math.random() * dur);
+        const left = Math.random() * 100;
+        const sway = (Math.random() * 90 - 45).toFixed(0);
+        const rot = (Math.random() * 100 - 50).toFixed(0);
+        const op = (0.07 + Math.random() * 0.11).toFixed(2);
+        html += `<span class="amb" style="left:${left.toFixed(1)}%;font-size:${size.toFixed(0)}px;` +
+            `--d:${dur.toFixed(1)}s;--delay:${delay.toFixed(1)}s;--sway:${sway}px;--rot:${rot}deg;--op:${op}">${g}</span>`;
+    }
+    host.innerHTML = html;
 }
 
 // ═══════════════════════════════════════════
@@ -2140,6 +2178,7 @@ function simRestart() {
 }
 
 (function boot() {
+    buildAmbient();
     const params = new URLSearchParams(location.search);
     if (!fAvatar) fAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
     if (!musicOn) $id('tog-music').classList.add('off');

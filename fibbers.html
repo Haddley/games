@@ -34,6 +34,20 @@
         }
         body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
 
+        /* drifting bluff-room ambience — masks & speech bubbles behind everything */
+        #fib-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+        #fib-bg span {
+            position: absolute; bottom: -12vh; left: var(--x); font-size: var(--s, 2rem); opacity: 0;
+            filter: drop-shadow(0 3px 9px rgba(0,0,0,.35));
+            animation: fibFloat var(--d, 27s) linear var(--dl, 0s) infinite;
+        }
+        @keyframes fibFloat {
+            0%   { transform: translateY(0) rotate(-12deg); opacity: 0; }
+            12%  { opacity: .075; }
+            88%  { opacity: .075; }
+            100% { transform: translateY(-124vh) rotate(14deg); opacity: 0; }
+        }
+
         h1.logo {
             font-family: 'Fraunces', serif; font-weight: 900; letter-spacing: 1px;
             font-size: clamp(1.7rem, 7vw, 2.6rem); text-align: center; color: var(--gold);
@@ -218,7 +232,13 @@
         .pod .pname { font-size: 2.3vmin; margin-bottom: .8vmin; }
         .pod .pscore { font-size: 1.9vmin; color: var(--gold); margin-bottom: .8vmin; }
         .pod .block { border-radius: 1.5vmin 1.5vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.3vmin; font-size: 3.2vmin; width: 17vmin; }
-        .pod.p1 .block { height: 21vmin; background: linear-gradient(180deg, #ffd97a, #96601a); }
+        .pod.p1 .block { height: 21vmin; background: linear-gradient(180deg, #ffd97a, #96601a); position: relative; overflow: hidden; }
+        .pod.p1 .block::after {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background: linear-gradient(115deg, transparent 36%, rgba(255,255,255,.55) 50%, transparent 64%);
+            transform: translateX(-120%); animation: podShine 2.4s 1s ease-in-out infinite;
+        }
+        @keyframes podShine { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(120%); } }
         .pod.p2 .block { height: 14vmin; background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
         .pod.p3 .block { height: 9.5vmin; background: linear-gradient(180deg, #e8a06a, #9c5a33); }
         .awards-row { display: flex; gap: 1.5vmin; justify-content: center; flex-wrap: wrap; padding-bottom: 1.5vmin; }
@@ -295,6 +315,16 @@
     </style>
 </head>
 <body>
+    <div id="fib-bg" aria-hidden="true">
+        <span style="--x:6%;--d:27s;--dl:0s;--s:2rem">🎭</span>
+        <span style="--x:18%;--d:33s;--dl:-12s;--s:1.5rem">💬</span>
+        <span style="--x:30%;--d:24s;--dl:-6s;--s:2.4rem">🤥</span>
+        <span style="--x:44%;--d:30s;--dl:-18s;--s:1.7rem">🗨️</span>
+        <span style="--x:57%;--d:26s;--dl:-9s;--s:2.1rem">🃏</span>
+        <span style="--x:69%;--d:35s;--dl:-22s;--s:1.6rem">🕵️</span>
+        <span style="--x:81%;--d:23s;--dl:-4s;--s:2.3rem">💬</span>
+        <span style="--x:93%;--d:31s;--dl:-15s;--s:1.8rem">🎭</span>
+    </div>
     <div id="app"></div>
     <canvas id="confetti-cv"></canvas>
     <div id="sound-togs">

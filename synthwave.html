@@ -247,16 +247,59 @@
         }
         .health-board.hurt { animation: hurt-flash 0.45s ease-out; }
 
+        /* Ambient neon horizon glow behind the arena (page depth). */
+        #sw-amb {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+        }
+        #sw-amb::before {
+            content: ''; position: absolute; left: -10%; right: -10%; bottom: -20%;
+            height: 70%;
+            background: radial-gradient(ellipse 60% 100% at 50% 100%,
+                rgba(255,68,204,0.18), rgba(120,40,200,0.08) 45%, transparent 72%);
+            animation: swPulse 6s ease-in-out infinite;
+            will-change: opacity;
+        }
+        @keyframes swPulse { 0%,100% { opacity: .7; } 50% { opacity: 1; } }
+        .game-container { position: relative; z-index: 1; }
+
+        /* Floating neon score text. */
+        .sw-pop {
+            position: fixed; z-index: 60; pointer-events: none;
+            font-family: 'Orbitron', monospace; font-weight: 800; font-size: 1.5rem;
+            color: #ffddff; text-shadow: 0 0 10px #ff44ff, 0 0 4px #ff99ff;
+            white-space: nowrap; transform: translate(-50%, 0);
+            animation: swPopUp 1.15s cubic-bezier(.2,.8,.3,1) forwards;
+        }
+        @keyframes swPopUp {
+            0%   { transform: translate(-50%, 0) scale(.5); opacity: 0; }
+            15%  { transform: translate(-50%, -16px) scale(1.25); opacity: 1; }
+            100% { transform: translate(-50%, -90px) scale(1); opacity: 0; }
+        }
+
+        /* Overlay confetti + emoji celebration. */
+        #confetti-cv { position: fixed; inset: 0; z-index: 55; pointer-events: none; }
+        .fall-emoji {
+            position: fixed; top: -8vh; z-index: 54; pointer-events: none;
+            font-size: var(--sz, 3vmin);
+            animation: emFall var(--t, 3s) linear forwards;
+        }
+        @keyframes emFall {
+            to { transform: translateY(112vh) rotate(var(--rot, 180deg)); opacity: .2; }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after {
                 animation: none !important;
                 transition: none !important;
             }
             body::after { display: none; }
+            #sw-amb, .sw-pop, #confetti-cv, .fall-emoji { display: none !important; }
         }
     </style>
 </head>
 <body>
+<div id="sw-amb" aria-hidden="true"></div>
+<canvas id="confetti-cv" aria-hidden="true"></canvas>
 <div class="game-container">
     <div class="canvas-wrap" id="canvasWrap">
         <canvas id="gameCanvas" width="1100" height="750"></canvas>
@@ -290,6 +333,116 @@
         let score = 0;
         let health = 5;
         let frame = 0;
+
+        // ---------- DECORATIVE FX (additive only — no gameplay impact) ----------
+        const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        // Precomputed starfield for the upper sky (built once).
+        const SW_STARS = [];
+        for (let i = 0; i < 80; i++) {
+            SW_STARS.push({
+                x: Math.random() * 1100,
+                y: Math.random() * 380,
+                r: Math.random() * 1.4 + 0.3,
+                ph: Math.random() * Math.PI * 2,
+                sp: 0.02 + Math.random() * 0.05,
+            });
+        }
+        let fxParticles = [];              // decorative burst particles
+        let swLastMilestone = 0;           // score milestones already celebrated
+        let fxGameOverDone = false;        // one-shot game-over celebration guard
+
+        function fxBurst(x, y, colors, n) {
+            if (REDUCED) return;
+            for (let i = 0; i < n; i++) {
+                const a = Math.random() * Math.PI * 2;
+                const s = 2 + Math.random() * 5;
+                fxParticles.push({
+                    x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 1,
+                    life: 1, size: 2 + Math.random() * 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                });
+            }
+        }
+        function updateFxParticles() {
+            for (let i = 0; i < fxParticles.length; i++) {
+                const p = fxParticles[i];
+                p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.life -= 0.02;
+                if (p.life <= 0) { fxParticles.splice(i, 1); i--; }
+            }
+        }
+        function drawFxParticles() {
+            for (const p of fxParticles) {
+                ctx.globalAlpha = Math.max(0, p.life);
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fillStyle = p.color; ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+        // Map a canvas point to page coordinates (canvas scales responsively).
+        function swCanvasPoint(px, py) {
+            const r = canvas.getBoundingClientRect();
+            return { x: r.left + px * r.width / 1100, y: r.top + py * r.height / 750 };
+        }
+        function swPopText(px, py, text) {
+            if (REDUCED) return;
+            const pt = swCanvasPoint(px, py);
+            const el = document.createElement('div');
+            el.className = 'sw-pop';
+            el.textContent = text;
+            el.style.left = pt.x + 'px';
+            el.style.top = pt.y + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1200);
+        }
+        function emojiRain(chars, n) {
+            if (REDUCED) return;
+            for (let i = 0; i < n; i++) {
+                setTimeout(() => {
+                    const el = document.createElement('div');
+                    el.className = 'fall-emoji';
+                    el.textContent = chars[Math.floor(Math.random() * chars.length)];
+                    el.style.left = (Math.random() * 94) + '%';
+                    el.style.setProperty('--t', (2.6 + Math.random() * 1.9) + 's');
+                    el.style.setProperty('--sz', (2.6 + Math.random() * 2.4) + 'vmin');
+                    el.style.setProperty('--rot', ((Math.random() - 0.5) * 260) + 'deg');
+                    document.body.appendChild(el);
+                    setTimeout(() => el.remove(), 5000);
+                }, i * 150);
+            }
+        }
+        const _cf = { parts: [], running: false, until: 0 };
+        function startConfetti(ms) {
+            if (REDUCED) return;
+            const cv = document.getElementById('confetti-cv');
+            if (!cv) return;
+            const cctx = cv.getContext('2d');
+            cv.width = innerWidth; cv.height = innerHeight;
+            _cf.until = performance.now() + (ms || 2600);
+            const cols = ['#ff44cc', '#ff88ff', '#66ffff', '#aa66ff', '#ffddff', '#ff66aa'];
+            for (let i = 0; i < 130; i++) {
+                _cf.parts.push({
+                    x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5,
+                    vx: (Math.random() - 0.5) * 2.4, vy: 2 + Math.random() * 3.6,
+                    rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.25,
+                    w: 6 + Math.random() * 7, h: 4 + Math.random() * 5,
+                    col: cols[Math.floor(Math.random() * cols.length)],
+                });
+            }
+            if (_cf.running) return;
+            _cf.running = true;
+            (function frameFn(t) {
+                cctx.clearRect(0, 0, cv.width, cv.height);
+                _cf.parts = _cf.parts.filter(p => p.y < cv.height + 30);
+                for (const p of _cf.parts) {
+                    p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+                    cctx.save(); cctx.translate(p.x, p.y); cctx.rotate(p.rot);
+                    cctx.fillStyle = p.col; cctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                    cctx.restore();
+                }
+                if (t < _cf.until || _cf.parts.length) requestAnimationFrame(frameFn);
+                else { _cf.running = false; cctx.clearRect(0, 0, cv.width, cv.height); }
+            })(performance.now());
+        }
         
         // player
         const PLAYER_RADIUS = 16;
@@ -1028,17 +1181,84 @@
             lastBeatFrame = 0;
             beatCounter = 0;
             player.x = width/2; player.y = height/2;
+            fxParticles = [];
+            swLastMilestone = 0;
+            fxGameOverDone = false;
             updateUI();
         }
         
         // DRAWING (condensed)
         function drawSynthBackground(){
-            const grad = ctx.createLinearGradient(0,0,width,height);
-            grad.addColorStop(0, '#0a001f'); grad.addColorStop(1, '#1a0533');
-            ctx.fillStyle = grad; ctx.fillRect(0,0,width,height);
-            for(let i=0;i<width+height;i+=55){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(0,i); ctx.strokeStyle = '#ff33cc20'; ctx.stroke(); }
-            for(let i=0;i<width;i+=55){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,height); ctx.strokeStyle = '#aa44ff30'; ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(width,i); ctx.stroke(); }
+            const horizon = height * 0.52;
+            // Sky gradient (deep space → magenta glow at horizon)
+            const grad = ctx.createLinearGradient(0,0,0,horizon);
+            grad.addColorStop(0, '#0a001f');
+            grad.addColorStop(0.7, '#1a0533');
+            grad.addColorStop(1, '#3a0a4a');
+            ctx.fillStyle = grad; ctx.fillRect(0,0,width,horizon);
+
+            // Twinkling starfield (upper sky)
+            for(const s of SW_STARS){
+                if(s.y > horizon - 4) continue;
+                const tw = REDUCED ? 0.5 : 0.35 + Math.abs(Math.sin(frame * s.sp + s.ph)) * 0.5;
+                ctx.globalAlpha = tw * 0.7;
+                ctx.fillStyle = '#ffd6ff';
+                ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+
+            // Retro sun with horizontal scan bands, sitting on the horizon
+            const sunX = width/2, sunR = 150, sunCY = horizon - 30;
+            const sunGlow = ctx.createRadialGradient(sunX, sunCY, 20, sunX, sunCY, sunR*1.6);
+            sunGlow.addColorStop(0, 'rgba(255,120,200,0.35)');
+            sunGlow.addColorStop(1, 'rgba(255,120,200,0)');
+            ctx.fillStyle = sunGlow;
+            ctx.beginPath(); ctx.arc(sunX, sunCY, sunR*1.6, 0, Math.PI*2); ctx.fill();
+            ctx.save();
+            ctx.beginPath(); ctx.arc(sunX, sunCY, sunR, 0, Math.PI*2); ctx.clip();
+            const sg = ctx.createLinearGradient(0, sunCY - sunR, 0, sunCY + sunR);
+            sg.addColorStop(0, '#ffec6a'); sg.addColorStop(0.5, '#ff77bb'); sg.addColorStop(1, '#c02a9a');
+            ctx.fillStyle = sg; ctx.globalAlpha = 0.55;
+            ctx.fillRect(sunX - sunR, sunCY - sunR, sunR*2, sunR*2);
+            // scan-band cutouts (thicker toward the bottom)
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = '#1a0533';
+            for(let b = 0; b < 8; b++){
+                const by = sunCY + 6 + b * 13;
+                const bh = 3 + b * 1.4;
+                ctx.fillRect(sunX - sunR, by, sunR*2, bh);
+            }
+            ctx.restore();
+            ctx.globalAlpha = 1;
+
+            // Ground gradient
+            const gg = ctx.createLinearGradient(0, horizon, 0, height);
+            gg.addColorStop(0, '#2a0640'); gg.addColorStop(1, '#08010f');
+            ctx.fillStyle = gg; ctx.fillRect(0, horizon, width, height - horizon);
+
+            // Glowing horizon line
+            ctx.save();
+            ctx.shadowBlur = 16; ctx.shadowColor = '#ff44dd';
+            ctx.strokeStyle = '#ff77ee'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, horizon); ctx.lineTo(width, horizon); ctx.stroke();
+            ctx.restore();
+
+            // Perspective floor grid (converging verticals + forward-scrolling rows)
+            ctx.strokeStyle = 'rgba(255,68,221,0.28)'; ctx.lineWidth = 1;
+            for(let gx = -10; gx <= 10; gx++){
+                const bx = sunX + gx * (width * 0.13);
+                ctx.beginPath(); ctx.moveTo(sunX, horizon); ctx.lineTo(bx, height); ctx.stroke();
+            }
+            const span = height - horizon;
+            for(let k = 0; k < 12; k++){
+                const scroll = REDUCED ? 0 : (frame * 0.6);
+                let t = ((k * 34 + scroll) % 420) / 420;   // 0 at horizon → 1 near viewer
+                const y = horizon + span * t * t;
+                ctx.globalAlpha = Math.min(1, t * 1.4);
+                ctx.strokeStyle = 'rgba(120,220,255,0.35)';
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
         }
         function drawLaserWarnings(){
             for(let warn of laserWarnings){
@@ -1088,6 +1308,14 @@
             }
         }
         
+        function celebrateGameOver(){
+            if(fxGameOverDone) return;
+            fxGameOverDone = true;
+            fxBurst(player.x, player.y, ['#ff44cc','#ff88ff','#66ffff','#ffddff'], 40);
+            startConfetti(3600);
+            emojiRain(['💿','⚡','🌀','✨','🎵'], 10);
+        }
+
         function gameLoop(){
             if(gameRunning && health > 0){
                 trySpawnOnBeat(frame, player);
@@ -1097,13 +1325,24 @@
                 updateLasersAndDamage();
                 updateParticles();
                 updateScoreAndDifficulty();
+                // Score milestone flourish (every 250, while scoring)
+                if(musicEnabled && Math.floor(score / 250) > swLastMilestone){
+                    swLastMilestone = Math.floor(score / 250);
+                    swPopText(player.x, player.y - 40, Math.floor(score) + '!');
+                    fxBurst(player.x, player.y, ['#ffec6a','#ff77bb','#66ffff'], 18);
+                    canvasWrap.classList.add('beat-glow');
+                    setTimeout(() => canvasWrap.classList.remove('beat-glow'), 180);
+                }
                 if(health <= 0) gameRunning = false;
             } else { updateParticles(); }
+            updateFxParticles();
+            if(!gameRunning && health <= 0) celebrateGameOver();
             drawSynthBackground();
             drawLaserWarnings();
             drawLasers();
             drawProjectiles();
             drawParticles();
+            drawFxParticles();
             drawPlayerSynth();
             drawGameOverlay();
             frame++;

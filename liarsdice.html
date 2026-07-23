@@ -671,6 +671,14 @@
         #app.fresh .v-lobby-chip { animation: cardIn .35s ease-out both; animation-delay: calc(var(--i, 0) * 45ms); }
         #app.fresh .v-reveal-player { animation: cardIn .4s ease-out both; animation-delay: calc(.25s + var(--i, 0) * 90ms); }
 
+        /* ── Ambient drifting-dice backdrop behind the phone screens ──
+           (viewer mode has its own #v-bg; this is hidden there) */
+        #ld-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+        #ld-bg .ld-die { position: absolute; opacity: .05; will-change: transform; }
+        #ld-bg .ld-die svg { display: block; }
+        body.viewer-mode #ld-bg { display: none; }
+        body.day #ld-bg .ld-die { opacity: .04; }
+
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation: none !important; transition: none !important; }
         }
@@ -682,6 +690,7 @@
     <button id="tog-music" title="Music on/off" onclick="toggleMusic()">🎵</button>
     <button id="tog-sfx" title="Sound effects on/off" onclick="toggleSfx()">🔊</button>
 </div>
+<div id="ld-bg" aria-hidden="true"></div>
 <div id="app"></div>
 <script>
 // TURN relay (Metered) so players on restrictive/remote networks can connect,
@@ -2476,6 +2485,23 @@ function simDoAction(p, kind, bid) {
 // ═══════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════
+// Ambient drifting dice behind the phone screens — built once on load.
+// Decorative only; the reduced-motion media query freezes its animation.
+(function initPhoneBg() {
+    const bg = document.getElementById('ld-bg');
+    if (!bg) return;
+    const anims = ['flt1', 'flt2', 'flt3'];
+    const pos = [[7,14],[22,62],[35,30],[50,80],[63,20],[78,55],[90,78],[15,88],[46,46]];
+    bg.innerHTML = pos.map(([left, top], i) => {
+        const anim  = anims[i % 3];
+        const dur   = 20 + (i * 3.3) % 16;
+        const delay = -(i * 2.4);
+        const size  = 46 + (i * 15) % 56;
+        const face  = (i % 6) + 1;
+        return `<div class="ld-die" style="left:${left}%;top:${top}%;animation:${anim} ${dur}s ${delay}s linear infinite">${dieSVG(face, {size})}</div>`;
+    }).join('');
+})();
+
 const _params  = new URLSearchParams(location.search);
 const _simMode = (_params.get('mode') || '').toLowerCase();
 const _simN    = parseInt(_params.get('players'), 10) || 4;

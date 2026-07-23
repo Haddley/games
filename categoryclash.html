@@ -316,10 +316,26 @@
 
         .award { animation: cardIn .5s 1s both; }
 
-        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+        /* ── themed ambient background: neon alphabet letters drifting upward ── */
+        #ambient { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+        .amb { position: absolute; top: 100%; line-height: 1; user-select: none; -webkit-user-select: none;
+            font-family: 'Orbitron', sans-serif; font-weight: 900;
+            animation: ambRise var(--d, 24s) linear infinite; animation-delay: var(--delay, 0s); }
+        @keyframes ambRise {
+            0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+            8%   { opacity: var(--op, .12); }
+            92%  { opacity: var(--op, .12); }
+            100% { transform: translateY(-118vh) translateX(var(--sway, 0)) rotate(var(--rot, 30deg)); opacity: 0; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+            #ambient { display: none; }
+        }
     </style>
 </head>
 <body>
+    <div id="ambient" aria-hidden="true"></div>
     <div id="app"></div>
     <canvas id="confetti-cv"></canvas>
     <div id="sound-togs">
@@ -770,6 +786,36 @@ function popText(x, y, text, cls = 'good') {
     el.style.top = y + 'px';
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 1150);
+}
+
+// ── Themed ambient background: neon alphabet letters drifting slowly upward,
+// tinted in the game palette. Built once on load, never rebuilt on render, and
+// skipped under reduced-motion. Purely decorative. ──
+function buildAmbient() {
+    if (REDUCED) return;
+    const host = $id('ambient');
+    if (!host) return;
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const cols = [
+        ['#ffe14d', 'rgba(255,225,77,.5)'], ['#f472b6', 'rgba(244,114,182,.5)'],
+        ['#22d3ee', 'rgba(34,211,238,.5)'], ['#4ade80', 'rgba(74,222,128,.45)'],
+    ];
+    let html = '';
+    for (let i = 0; i < 20; i++) {
+        const g = alphabet[Math.floor(Math.random() * alphabet.length)];
+        const c = cols[Math.floor(Math.random() * cols.length)];
+        const size = 20 + Math.random() * 40;
+        const dur = 18 + Math.random() * 18;
+        const delay = -(Math.random() * dur);
+        const left = Math.random() * 100;
+        const sway = (Math.random() * 90 - 45).toFixed(0);
+        const rot = (Math.random() * 100 - 50).toFixed(0);
+        const op = (0.06 + Math.random() * 0.1).toFixed(2);
+        html += `<span class="amb" style="left:${left.toFixed(1)}%;font-size:${size.toFixed(0)}px;` +
+            `color:${c[0]};text-shadow:0 0 ${(size * 0.4).toFixed(0)}px ${c[1]};` +
+            `--d:${dur.toFixed(1)}s;--delay:${delay.toFixed(1)}s;--sway:${sway}px;--rot:${rot}deg;--op:${op}">${g}</span>`;
+    }
+    host.innerHTML = html;
 }
 
 // ═══════════════════════════════════════════
@@ -1914,6 +1960,7 @@ function simRestart() {
 }
 
 (function boot() {
+    buildAmbient();
     const params = new URLSearchParams(location.search);
     $id('tog-music').classList.toggle('off', !musicOn);
     $id('tog-sfx').classList.toggle('off', !sfxOn);
