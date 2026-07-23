@@ -1818,12 +1818,111 @@ window.addEventListener('resize', () => {
     if (cv && _cf.running) { cv.width = innerWidth; cv.height = innerHeight; }
 });
 
+// ═══════════════════════════════════════════
+// SIMULATION MODES — ?mode=tvsimulation | playersimulation  (&players=N)
+// Self-driving demos with no PeerJS and no real people. Bots are counted as
+// "connected" via stub guestConns so the normal host flow drives everything.
+//   • tvsimulation     — watch the big-screen scoreboard play itself
+//   • playersimulation — watch a phone racer ("You") play itself
+// (?mode=simulation stays as an alias for tvsimulation.)
+// ═══════════════════════════════════════════
+let simTimer = null, simMode = 'tv';
+const SIM_NAMES = ['Ace', 'Bux', 'Cash', 'Duke', 'Edie', 'Fox', 'Gwen', 'Hawk'];
+const SIM_SUFFIX = ['amson', 'erry', 'onzo', 'ippo', 'otter', 'umble', 'azzle', 'indle', 'oodle', 'anana'];
+function simWord(L) { return L + SIM_SUFFIX[Math.floor(Math.random() * SIM_SUFFIX.length)]; }
+
+function startSimulation(nPlayers, mode) {
+    simMode = mode === 'player' ? 'player' : 'tv';
+    roomCode = 'DEMO';
+    H.settings.rounds = 2;
+    H.settings.timerSecs = 90;       // races end early once every bot is done
+    H.players = []; guestConns = {}; viewerConns = {};
+    const n = Math.max(MIN_PLAYERS, Math.min(nPlayers || 4, MAX_PLAYERS));
+    if (simMode === 'tv') {
+        isHost = true; isTvHost = true; myId = '__sim_host__';
+        document.body.classList.add('viewer-mode');
+    } else {
+        isHost = true; isTvHost = false; myName = 'You'; myId = '__you__';
+        hostAddPlayer(myId, myName);                  // you are racer #1 (the host)
+    }
+    for (let i = H.players.length; i < n; i++) {
+        const id = '__bot_' + i;
+        hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length]);
+        guestConns[id] = { peer: id, send() {} };     // stub so bots count as present
+    }
+    broadcastLobby();
+    simTimer = setTimeout(simStart, 2400);
+}
+
+function simStart() {
+    if (H.phase !== 'lobby') return;
+    hostStartGame();                                  // phase 'race', round 1
+    simTimer = setTimeout(simRace, 2400);
+}
+
+function simRace() {
+    if (H.phase !== 'race' || !H.cur) return;
+    const L = H.cur.letter;
+    let delay = 500;
+    H.players.forEach(p => {
+        if (simMode === 'player' && p.id === myId) return;
+        const d = delay; delay += 450 + Math.random() * 550;
+        setTimeout(() => simBotRace(p, L), d);
+    });
+    if (simMode === 'player') { const dY = delay; delay += 600; setTimeout(simYouRace, dY); }
+    simTimer = setTimeout(simAfterRace, delay + 1800);
+}
+
+function simBotRace(p, L) {
+    if (H.phase !== 'race' || !H.cur) return;
+    const ans = H.cur.categories.map(() => Math.random() < 0.15 ? '' : simWord(L));
+    hostReceiveAnswers(p, ans, H.round, true);        // fill answers + mark done
+}
+
+function simYouRace() {
+    if (H.phase !== 'race' || !H.cur) return;
+    const me = H.players.find(p => p.id === myId);
+    if (!me) return;
+    const L = H.cur.letter;
+    const ans = H.cur.categories.map(() => Math.random() < 0.85 ? simWord(L) : '');
+    if (ui === 'race') {
+        ans.forEach((v, i) => onAns(i, v));           // through the real inputs (animates)
+        setTimeout(() => { if (!myDone) tapDone(); }, 550);
+    } else {
+        hostReceiveAnswers(me, ans, H.round, true);
+    }
+}
+
+function simAfterRace() {
+    if (H.phase === 'race') endRace();                // force judge if anyone stalled
+    if (H.phase === 'judge') simTimer = setTimeout(simJudgeStep, 1400);
+}
+
+function simJudgeStep() {
+    if (H.phase !== 'judge') {
+        if (H.phase === 'race') simTimer = setTimeout(simRace, 1800);        // next round
+        else if (H.phase === 'podium') simTimer = setTimeout(simRestart, 7000);
+        return;
+    }
+    hostNextCategory();                               // score this category, advance
+    simTimer = setTimeout(simJudgeStep, 1300);
+}
+
+function simRestart() {
+    hostNewGame();                                    // → lobby
+    simTimer = setTimeout(simStart, 2600);
+}
+
 (function boot() {
     const params = new URLSearchParams(location.search);
-    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
-    if (room) fCode = room;
     $id('tog-music').classList.toggle('off', !musicOn);
     $id('tog-sfx').classList.toggle('off', !sfxOn);
+    const mode = (params.get('mode') || '').toLowerCase();
+    const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (mode === 'playersimulation') { startSimulation(simPlayers, 'player'); return; }
+    if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
     render();
 })();
 </script>

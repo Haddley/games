@@ -1944,12 +1944,85 @@ window.addEventListener('resize', () => {
     if (cv && _cf.running) { cv.width = innerWidth; cv.height = innerHeight; }
 });
 
+// ═══════════════════════════════════════════
+// SIMULATION MODES — ?mode=tvsimulation | playersimulation  (&players=N)
+// Self-driving demos with no PeerJS and no real people. Bots are counted as
+// "connected" via stub guestConns so the normal host auction flow drives itself.
+//   • tvsimulation     — watch the big-screen AUCTION HOUSE play itself
+//   • playersimulation — watch a phone BIDDER ("You") play itself
+// (?mode=simulation stays as an alias for tvsimulation.)
+// ═══════════════════════════════════════════
+let simTimer = null, simMode = 'tv', simActive = false, simLotKey = '', simBidsLeft = 0;
+const SIM_NAMES = ['Ace', 'Bux', 'Cash', 'Duke', 'Edie', 'Fox', 'Gwen', 'Hawk'];
+
+function startSimulation(nPlayers, mode) {
+    simMode = mode === 'player' ? 'player' : 'tv';
+    simActive = true;
+    roomCode = 'DEMO';
+    H.settings.lotCount = 5;                          // shorter auctions for the demo loop
+    H.players = []; guestConns = {}; viewerConns = {};
+    const n = Math.max(MIN_PLAYERS, Math.min(nPlayers || 4, MAX_PLAYERS));
+    if (simMode === 'tv') {
+        isHost = true; isTvHost = true; myId = '__sim_host__';
+        document.body.classList.add('viewer-mode');
+    } else {
+        isHost = true; isTvHost = false; myName = 'You'; myId = '__you__';
+        hostAddPlayer(myId, myName);                  // you are bidder #1 (the host)
+    }
+    for (let i = H.players.length; i < n; i++) {
+        const id = '__bot_' + i;
+        hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length]);
+        guestConns[id] = { peer: id, send() {} };     // stub so bots count as present
+    }
+    broadcastLobby();                                 // show the lobby first
+    simTimer = setTimeout(() => { hostStartAuction(); simLoop(); }, 2400);
+}
+
+// The host auction timers (lot_intro → bidding → sold → … → valuation → podium)
+// run on their own; the loop just injects a few bot bids per lot and restarts.
+function simLoop() {
+    if (!simActive) return;
+    if (H.phase === 'podium') { simTimer = setTimeout(simRestart, 6500); return; }
+    if (H.phase === 'bidding') simBidStep();
+    simTimer = setTimeout(simLoop, 650 + Math.random() * 450);
+}
+
+function simBidStep() {
+    if (!H.bid) return;
+    const key = 'L' + H.lotIndex;
+    if (key !== simLotKey) { simLotKey = key; simBidsLeft = 2 + Math.floor(Math.random() * 4); }
+    if (simBidsLeft <= 0 || Math.random() < 0.28) return;   // let the gavel fall
+    const price = H.bid.price;
+    const cands = H.players.filter(p => p.id !== H.bid.leaderId && p.coins >= price + RAISES[0]);
+    if (!cands.length) { simBidsLeft = 0; return; }
+    const bidder = cands[Math.floor(Math.random() * cands.length)];
+    const affordable = RAISES.filter(r => bidder.coins >= price + r);
+    const raise = affordable[Math.floor(Math.random() * affordable.length)];
+    if (simMode === 'player' && bidder.id === myId) {
+        // drive You through the real phone bid button so the lead/outbid FX fire
+        if (D && D.phase === 'bidding' && D.bid && !D.bid.youLead && D.myCoins >= D.bid.price + raise) sendBid(raise);
+    } else {
+        hostBid(bidder, raise);
+    }
+    simBidsLeft--;
+}
+
+function simRestart() {
+    if (!simActive) return;
+    hostNewGame();
+    simTimer = setTimeout(() => { hostStartAuction(); simLoop(); }, 2400);
+}
+
 (function boot() {
     const params = new URLSearchParams(location.search);
-    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
-    if (room) fCode = room;
     if (!musicOn) $id('tog-music').classList.add('off');
     if (!sfxOn) $id('tog-sfx').classList.add('off');
+    const mode = (params.get('mode') || '').toLowerCase();
+    const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (mode === 'playersimulation') { startSimulation(simPlayers, 'player'); return; }
+    if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
     render();
 })();
 </script>

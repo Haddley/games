@@ -705,6 +705,7 @@ let peer = null;
 let myId = '';
 let myName = '';
 let isHost = false;
+let isTvHost = false;     // sim: host that renders the TV/viewer UI
 let roomCode = '';
 let hostConn = null;      // guest → host connection
 let guestConns = {};      // host: {peerId: DataConnection}
@@ -1014,6 +1015,15 @@ function hostBroadcast(isNewRound) {
     Object.values(viewerConns).forEach(conn => {
         send(conn, {type:'viewer_state', vd});
     });
+
+    // TV-sim host renders the spectator UI directly from its own state
+    if (isTvHost) {
+        const prevVD = vD;
+        vD = vd;
+        ui = 'viewer';
+        render();
+        fxOnState(prevVD, vD);
+    }
 }
 
 function broadcastLobby() {
@@ -1028,6 +1038,12 @@ function broadcastLobby() {
 
     // Also send to viewers
     Object.values(viewerConns).forEach(c => send(c, {type:'viewer_lobby', players, roomCode}));
+
+    // TV-sim host mirrors the lobby into the spectator UI
+    if (isTvHost) {
+        vD = {phase: 'lobby', players, roomCode};
+        ui = 'viewer';
+    }
 
     render();
 }
@@ -2336,15 +2352,143 @@ if (localStorage.getItem('liarsdice-theme') !== 'dark') {
 }
 
 // ═══════════════════════════════════════════════
+//  SIMULATION MODES — ?mode=tvsimulation | playersimulation  (&players=N)
+//  Self-driving demos with no PeerJS and no real people. Bots are counted as
+//  "connected" via stub guestConns so the normal host flow drives everything.
+//    • tvsimulation     — watch the big-screen TAVERN TABLE play itself
+//    • playersimulation — watch a phone player ("You") bid & challenge itself
+//  (?mode=simulation stays as an alias for tvsimulation.)
+// ═══════════════════════════════════════════════
+let simTimer = null, simMode = 'tv', simCount = 4;
+const SIM_NAMES = ['Ace', 'Bux', 'Cash', 'Duke', 'Edie', 'Fox', 'Gwen', 'Hawk'];
+
+function startSimulation(nPlayers, mode) {
+    simMode = mode === 'player' ? 'player' : 'tv';
+    simCount = Math.max(2, Math.min(nPlayers || 4, SIM_NAMES.length));
+    roomCode = 'DEMO';
+    simSetup();
+    simTimer = setTimeout(simBegin, 2400);
+}
+
+function simSetup() {
+    H = { players:[], activePlayers:[], phase:'lobby', bidderIdx:0,
+          currentBid:null, bidHistory:[], wildOnes:fWild,
+          challengeResult:null, winner:null, eliminated:[], rankings:[] };
+    guestConns = {}; viewerConns = {};
+    isHost = true;
+    if (simMode === 'tv') {
+        isTvHost = true; isViewer = true; myId = '__sim_host__'; myName = '';
+        document.body.classList.add('viewer-mode');
+        for (let i = 0; i < simCount; i++) {
+            const id = '__bot_' + i;
+            hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length]);
+            guestConns[id] = { peer: id, send() {} };   // stub so bots count as present
+        }
+    } else {
+        isTvHost = false; isViewer = false; myName = 'You'; myId = '__you__';
+        hostAddPlayer(myId, 'You');                       // you are player #1 (the host)
+        for (let i = 1; i < simCount; i++) {
+            const id = '__bot_' + i;
+            hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length]);
+            guestConns[id] = { peer: id, send() {} };
+        }
+        ui = 'lobby_h';
+    }
+    broadcastLobby();                                    // show the lobby first
+}
+
+function simBegin() {
+    if (simMode !== 'tv') ui = 'game';
+    hostStartGame();                                     // deal + phase 'bidding'
+    simTimer = setTimeout(simStep, 1800);
+}
+
+function simRestart() {
+    simSetup();
+    simTimer = setTimeout(simBegin, 2400);
+}
+
+// One driver tick: a bidder acts, a reveal is acknowledged, or the game loops.
+function simStep() {
+    simTimer = null;
+    if (H.phase === 'gameover') { simTimer = setTimeout(simRestart, 6500); return; }
+    if (H.phase === 'reveal') {
+        hostContinue(H.players[0].id);                   // -> next round or gameover
+        simTimer = setTimeout(simStep, H.phase === 'gameover' ? 3200 : 1600);
+        return;
+    }
+    if (H.phase === 'bidding') {
+        simBidderAction();
+        // linger on a reveal so the die-flip animation reads
+        const d = H.phase === 'reveal' ? 2600 : 800 + Math.random() * 700;
+        simTimer = setTimeout(simStep, d);
+    }
+}
+
+// The current bidder either challenges a shaky standing bid or raises it.
+function simBidderAction() {
+    if (H.phase !== 'bidding') return;
+    const p = H.players[H.activePlayers[H.bidderIdx]];
+    const total = totalDice();
+    const cur = H.currentBid;
+    if (cur) {
+        const per = (H.wildOnes && cur.face !== 1) ? 2 / 6 : 1 / 6;
+        const expected = total * per;
+        let pch = 0.05;
+        if (cur.qty > expected) pch = Math.min(0.9, 0.2 + (cur.qty - expected) * 0.35);
+        if (cur.qty >= total) pch = 0.97;
+        if (Math.random() < pch) { simDoAction(p, 'challenge'); return; }
+    }
+    simDoAction(p, 'bid', simMakeBid(p, cur, total));
+}
+
+// Build a valid, escalating bid biased toward the dice the bot actually holds.
+function simMakeBid(p, cur, total) {
+    const counts = [0, 0, 0, 0, 0, 0, 0];
+    p.dice.forEach(d => counts[d]++);
+    const held = f => counts[f] + ((H.wildOnes && f !== 1) ? counts[1] : 0);
+    if (!cur) {
+        let best = 0, bf = 2 + Math.floor(Math.random() * 5);
+        for (let f = 2; f <= 6; f++) { if (held(f) > best) { best = held(f); bf = f; } }
+        const qty = Math.min(Math.max(2, best), Math.max(2, Math.floor(total * 0.4)));
+        return { qty, face: bf };
+    }
+    // same qty, one pip higher — cheapest raise
+    if (cur.face < 6 && Math.random() < 0.5) return { qty: cur.qty, face: cur.face + 1 };
+    // otherwise bump quantity (any face is then valid) toward our strongest face
+    let best = 0, bf = cur.face;
+    for (let f = 1; f <= 6; f++) { if (held(f) > best) { best = held(f); bf = f; } }
+    return { qty: cur.qty + 1, face: bf };
+}
+
+// Apply a bot action via the host handlers; "You" goes through the real phone
+// actions so the selection/animation paths fire in player mode.
+function simDoAction(p, kind, bid) {
+    const isYou = simMode === 'player' && p.id === myId;
+    if (kind === 'challenge') {
+        if (isYou) actChallenge(); else hostChallenge(p.id);
+    } else {
+        if (isYou) { bQty = bid.qty; bFace = bid.face; actBid(); }
+        else hostBid(p.id, bid.qty, bid.face);
+    }
+}
+
+// ═══════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════
-// Check for viewer param
-const _viewParam = new URLSearchParams(location.search).get('view');
-if (_viewParam) {
+const _params  = new URLSearchParams(location.search);
+const _simMode = (_params.get('mode') || '').toLowerCase();
+const _simN    = parseInt(_params.get('players'), 10) || 4;
+const _viewParam = _params.get('view');
+if (_simMode === 'playersimulation') {
+    startSimulation(_simN, 'player');
+} else if (_simMode === 'tvsimulation' || _simMode === 'simulation') {
+    startSimulation(_simN, 'tv');
+} else if (_viewParam) {
     joinAsViewer(_viewParam);
 } else {
     // Pre-fill join code from URL
-    const _auto = new URLSearchParams(location.search).get('join');
+    const _auto = _params.get('join');
     if (_auto) { fCode = _auto; ui = 'home'; }
     render();
 }

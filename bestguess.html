@@ -1952,13 +1952,142 @@ window.addEventListener('resize', () => {
     if (cv && _cf.running) { cv.width = innerWidth; cv.height = innerHeight; }
 });
 
+// ═══════════════════════════════════════════
+// SIMULATION MODES — ?mode=tvsimulation | playersimulation  (&players=N)
+// Self-driving demos with no PeerJS and no real people. Bots are counted as
+// "connected" via stub guestConns so the normal host flow drives everything.
+//   • tvsimulation     — watch the big-screen betting board play itself
+//   • playersimulation — watch a phone guesser ("You") play itself
+// (?mode=simulation stays as an alias for tvsimulation.)
+// ═══════════════════════════════════════════
+let simTimer = null, simMode = 'tv';
+const SIM_NAMES = ['Ace', 'Bux', 'Cash', 'Duke', 'Edie', 'Fox', 'Gwen', 'Hawk'];
+function simGuessValue(answer) {
+    const a = Math.max(1, Math.abs(Number(answer) || 10));
+    const v = Math.round(a * (0.45 + Math.random() * 1.25));   // spread around the true answer
+    return Math.max(0, v);
+}
+
+function startSimulation(nPlayers, mode) {
+    simMode = mode === 'player' ? 'player' : 'tv';
+    roomCode = 'DEMO';
+    H.settings.qCount = 3;
+    H.players = []; guestConns = {}; viewerConns = {};
+    const n = Math.max(2, Math.min(nPlayers || 4, MAX_PLAYERS));
+    if (simMode === 'tv') {
+        isHost = true; isTvHost = true; myId = '__sim_host__';
+        document.body.classList.add('viewer-mode');
+    } else {
+        isHost = true; isTvHost = false; myName = 'You'; myId = '__you__';
+        hostAddPlayer(myId, myName);                  // you are guesser #1 (the host)
+    }
+    for (let i = H.players.length; i < n; i++) {
+        const id = '__bot_' + i;
+        hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length]);
+        guestConns[id] = { peer: id, send() {} };     // stub so bots count as present
+    }
+    broadcastLobby();
+    simTimer = setTimeout(simStart, 2400);
+}
+
+function simStart() {
+    if (H.phase !== 'lobby') return;
+    hostStartGame();                                  // phase 'guess'
+    simTimer = setTimeout(simGuess, 2600);
+}
+
+function simGuess() {
+    if (H.phase !== 'guess' || !H.cur) return;
+    let delay = 400;
+    H.players.forEach(p => {
+        if (simMode === 'player' && p.id === myId) return;
+        const d = delay; delay += 380 + Math.random() * 460;
+        setTimeout(() => simBotGuess(p), d);
+    });
+    if (simMode === 'player') { const dY = delay; delay += 500; setTimeout(simYouGuess, dY); }
+    simTimer = setTimeout(simAfterGuess, delay + 1700);
+}
+
+function simBotGuess(p) {
+    if (H.phase !== 'guess' || !H.cur || p.guess !== null) return;
+    hostGuess(p, H.cur.qid, simGuessValue(H.cur.a));
+}
+
+function simYouGuess() {
+    if (H.phase !== 'guess' || !H.cur) return;
+    const me = H.players.find(p => p.id === myId);
+    if (!me || me.guess !== null) return;
+    const val = simGuessValue(H.cur.a);
+    if (ui === 'guess') { numEntry = String(val); lockGuess(); }   // through the real keypad
+    if (me.guess === null) hostGuess(me, H.cur.qid, val);
+}
+
+function simAfterGuess() {
+    if (H.phase === 'guess') closeGuessing();          // force board build if anyone stalled
+    if (H.phase === 'bet') simTimer = setTimeout(simBet, 1400);
+}
+
+function simBet() {
+    if (H.phase !== 'bet' || !H.slots) return;
+    const nSlots = H.slots.length;
+    let delay = 400;
+    H.players.forEach(p => {
+        if (simMode === 'player' && p.id === myId) {
+            for (let c = p.bets.length; c < CHIPS_PER_ROUND; c++) {
+                const d = delay; delay += 500;
+                setTimeout(() => simYouBet(), d);
+            }
+            return;
+        }
+        for (let c = p.bets.length; c < CHIPS_PER_ROUND; c++) {
+            const d = delay; delay += 260 + Math.random() * 340;
+            setTimeout(() => simBotBet(p, nSlots), d);
+        }
+    });
+    simTimer = setTimeout(simAfterBet, delay + 1700);
+}
+
+function simBotBet(p, nSlots) {
+    if (H.phase !== 'bet' || !H.cur || p.bets.length >= CHIPS_PER_ROUND) return;
+    hostBet(p, H.cur.qid, Math.floor(Math.random() * nSlots));
+}
+
+function simYouBet() {
+    if (H.phase !== 'bet' || !H.cur) return;
+    const me = H.players.find(p => p.id === myId);
+    if (!me || me.bets.length >= CHIPS_PER_ROUND) return;
+    const slot = Math.floor(Math.random() * H.slots.length);
+    if (ui === 'bet' && D && D.chipsLeft > 0) placeChip(slot);   // through the real board
+    else hostBet(me, H.cur.qid, slot);
+}
+
+function simAfterBet() {
+    if (H.phase === 'bet') closeBetting();              // force payout if anyone stalled
+    if (H.phase === 'payout') simTimer = setTimeout(simNext, 3600);
+}
+
+function simNext() {
+    if (H.phase === 'payout') nextQuestion();           // → next guess, or podium
+    if (H.phase === 'guess') simTimer = setTimeout(simGuess, 2600);
+    else if (H.phase === 'podium') simTimer = setTimeout(simRestart, 7000);
+}
+
+function simRestart() {
+    hostNewGame();                                      // → lobby
+    simTimer = setTimeout(simStart, 2600);
+}
+
 (function boot() {
     const params = new URLSearchParams(location.search);
-    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
-    if (room) fCode = room;
     if (!fAvatar) fAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
     if (!musicOn) $id('tog-music').classList.add('off');
     if (!sfxOn) $id('tog-sfx').classList.add('off');
+    const mode = (params.get('mode') || '').toLowerCase();
+    const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (mode === 'playersimulation') { startSimulation(simPlayers, 'player'); return; }
+    if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
     render();
 })();
 </script>

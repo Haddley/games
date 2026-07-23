@@ -1697,12 +1697,105 @@ window.addEventListener('resize', () => {
     if (cv && _cf.running) { cv.width = innerWidth; cv.height = innerHeight; }
 });
 
+// ═══════════════════════════════════════════
+// SIMULATION MODES — ?mode=tvsimulation | playersimulation  (&players=N)
+// Self-driving demos with no PeerJS and no real people. Bots are counted as
+// "connected" via stub guestConns so the normal host caller flow drives itself.
+//   • tvsimulation     — watch the big-screen BINGO HALL play itself
+//   • playersimulation — watch a phone PLAYER ("You") daub + shout BINGO itself
+// (?mode=simulation stays as an alias for tvsimulation.)
+// ═══════════════════════════════════════════
+let simTimer = null, simMode = 'tv', simActive = false, simForced = false;
+const SIM_NAMES = ['Ace', 'Bux', 'Cash', 'Duke', 'Edie', 'Fox', 'Gwen', 'Hawk'];
+
+function startSimulation(nPlayers, mode) {
+    simMode = mode === 'player' ? 'player' : 'tv';
+    simActive = true;
+    roomCode = 'DEMO';
+    H.settings.interval = 1;                          // snappy caller for the demo loop
+    autoDaub = true;                                  // You daubs automatically
+    H.players = []; guestConns = {}; viewerConns = {};
+    const n = Math.max(2, Math.min(nPlayers || 4, MAX_PLAYERS));
+    if (simMode === 'tv') {
+        isHost = true; isTvHost = true; myId = '__sim_host__';
+        document.body.classList.add('viewer-mode');
+    } else {
+        isHost = true; isTvHost = false; myName = 'You'; myId = '__you__';
+        hostAddPlayer(myId, myName);                  // you are player #1 (the host)
+    }
+    for (let i = H.players.length; i < n; i++) {
+        const id = '__bot_' + i;
+        hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length]);
+        guestConns[id] = { peer: id, send() {} };     // stub so bots count as present
+    }
+    broadcastLobby();                                 // show the lobby first
+    simTimer = setTimeout(() => { simForced = false; hostStartGame(); simLoop(); }, 2400);
+}
+
+// The host caller ticks numbers on its own; the loop makes bots (and You) shout
+// BINGO the instant a line or full house lands, and forces a house so it finishes.
+function simLoop() {
+    if (!simActive) return;
+    if (H.phase === 'results') { simTimer = setTimeout(simRestart, 7000); return; }
+    if (H.phase === 'playing') {
+        // once enough balls are out, guarantee a finish by front-loading a
+        // random player's remaining ticket numbers into the call order.
+        if (!simForced && H.called.length >= 8) { simForced = true; simForceHouse(); }
+        simClaimStep();
+    }
+    simTimer = setTimeout(simLoop, 700 + Math.random() * 400);
+}
+
+// Returns 'house' | 'line' | null for what this player could validly claim now.
+function simClaimable(p) {
+    if (!p.ticket || p.lockUntil > H.called.length) return null;
+    const calledSet = new Set(H.called);
+    const nums = new Set(ticketNums(p.ticket).filter(n => calledSet.has(n)));
+    const rows = p.ticket.map(r => r.filter(n => n !== null));
+    if (rows.flat().every(n => nums.has(n))) return 'house';
+    if (!H.prizes.line && rows.some(r => r.every(n => nums.has(n)))) return 'line';
+    return null;
+}
+
+function simClaimStep() {
+    // one claim per tick: prefer a house (ends the game), else a line
+    let houser = H.players.find(p => simClaimable(p) === 'house');
+    let liner = houser ? null : H.players.find(p => simClaimable(p) === 'line');
+    const p = houser || liner;
+    if (!p) return;
+    if (simMode === 'player' && p.id === myId) {
+        sendBingo();                                  // real phone BINGO! button path
+    } else {
+        hostClaim(p, ticketNums(p.ticket).filter(n => H.called.includes(n)));
+    }
+}
+
+function simForceHouse() {
+    const target = H.players[Math.floor(Math.random() * H.players.length)];
+    if (!target.ticket) return;
+    const need = ticketNums(target.ticket).filter(n => !H.called.includes(n));
+    const done = H.callOrder.slice(0, H.called.length);
+    const rest = H.callOrder.slice(H.called.length).filter(n => !need.includes(n));
+    H.callOrder = [...done, ...need, ...rest];        // target completes within `need` calls
+}
+
+function simRestart() {
+    if (!simActive) return;
+    simForced = false;
+    hostStartGame();
+    simLoop();
+}
+
 (function boot() {
     const params = new URLSearchParams(location.search);
-    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
-    if (room) fCode = room;
     if (!musicOn) $id('tog-music').classList.add('off');
     if (!sfxOn) $id('tog-sfx').classList.add('off');
+    const mode = (params.get('mode') || '').toLowerCase();
+    const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (mode === 'playersimulation') { startSimulation(simPlayers, 'player'); return; }
+    if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
     render();
 })();
 </script>

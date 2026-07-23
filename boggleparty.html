@@ -3022,12 +3022,141 @@ function patchViewer(st) {
 }
 
 // ═══════════════════════════════════════════
+// SIMULATION MODES — ?mode=tvsimulation | playersimulation  (&players=N)
+// Self-driving demos with no PeerJS and no real people. Bots are counted as
+// "connected" via stub guestConns so the normal host flow drives everything.
+//   • tvsimulation     — watch the big-screen party play itself (isTvHost view)
+//   • playersimulation — watch a phone player ("You") swipe words automatically
+// (?mode=simulation stays as an alias for tvsimulation.)
+// ═══════════════════════════════════════════
+let simTimer = null, simMode = 'tv', simActive = false, simPool = [];
+const SIM_NAMES = ['Ace', 'Bux', 'Cash', 'Duke', 'Edie', 'Fox', 'Gwen', 'Hawk'];
+
+function startSimulation(nPlayers, mode) {
+    simMode = mode === 'player' ? 'player' : 'tv';
+    simActive = true;
+    roomCode = 'DEMO';
+    H.roundsTarget = 2;
+    H.duration = 14;                 // short rounds so the demo loops briskly
+    H.players = []; guestConns = {}; viewerConns = {};
+    const n = Math.max(2, Math.min(nPlayers || 4, 8));
+    if (simMode === 'tv') {
+        isHost = true; isTvHost = true; myId = '__sim_host__';
+        document.body.classList.add('viewer-mode');
+    } else {
+        isHost = true; isTvHost = false; myName = 'You'; myId = '__you__';
+        hostAddPlayer(myId, myName);                  // you are player #1 (the host)
+    }
+    for (let i = H.players.length; i < n; i++) {
+        const id = '__bot_' + i;
+        hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length]);
+        guestConns[id] = { peer: id, send() {} };     // stub so bots count as present
+    }
+    loadDictionary();
+    setMusic('lobby');
+    broadcastLobby();                                 // show the lobby first
+    simWaitDict(() => { simTimer = setTimeout(simRound, 1800); });
+}
+
+// Bots want real words, which need the dictionary; wait (with a cap) for it.
+function simWaitDict(cb, tries) {
+    tries = tries || 0;
+    if (!simActive) return;
+    if (dictionary !== null || tries > 40) { cb(); return; }
+    simTimer = setTimeout(() => simWaitDict(cb, tries + 1), 300);
+}
+
+function simRound() {
+    if (!simActive) return;
+    hostStartRound();                                 // rolls board, phase 'playing', countdown + timer
+    simPool = (dictionary instanceof Set) ? solveBoard(H.board, H.n) : [];
+    simPool.sort((a, b) => a.length - b.length || Math.random() - 0.5);
+    simTimer = setTimeout(simFeed, 3800);             // let the 3-2-1-GO overlay finish
+}
+
+// While the round is live, bots (and You, in player mode) keep finding words.
+function simFeed() {
+    if (!simActive) return;
+    if (H.phase !== 'playing') { simAfterRound(); return; }
+    simBotWords();
+    if (simMode === 'player' && Math.random() < 0.55) simYouWord();
+    simTimer = setTimeout(simFeed, 450 + Math.random() * 500);
+}
+
+function simPickWord(player) {
+    if (simPool.length) {
+        for (let t = 0; t < 8; t++) {
+            const w = simPool[Math.floor(Math.random() * simPool.length)];
+            if (!player.words.find(x => x.word === w)) return w;
+        }
+        return null;
+    }
+    // Dictionary unavailable: assemble a short string from the board (validation is
+    // skipped when the dictionary failed to load, so these still count).
+    const letters = H.board.map(t => t.toLowerCase());
+    let w = '';
+    for (let i = 0; i < 3 + Math.floor(Math.random() * 2); i++)
+        w += letters[Math.floor(Math.random() * letters.length)];
+    return w;
+}
+
+function simBotWords() {
+    const bots = H.players.filter(p => !(simMode === 'player' && p.id === myId));
+    if (!bots.length) return;
+    const k = 1 + Math.floor(Math.random() * Math.min(3, bots.length));
+    for (let i = 0; i < k; i++) {
+        const bot = bots[Math.floor(Math.random() * bots.length)];
+        const w = simPickWord(bot);
+        if (w) hostJudge(bot, w);
+    }
+    broadcastState();
+}
+
+// You (phone demo): submit a word through the host judge path so the +score
+// pop, sounds and word pills all animate, just like a real tap.
+function simYouWord() {
+    const me = H.players.find(p => p.id === myId);
+    if (!me || H.phase !== 'playing') return;
+    const w = simPickWord(me);
+    if (!w) return;
+    const res = hostJudge(me, w);
+    if (res.ok) { myWords.push({ word: w, pts: res.pts }); myTokens = res.tokens; myMeter = res.meter; }
+    wordFeedback(res.ok, w, res.reason, res.pts, res.tokenEarned);
+    broadcastState();
+    if (ui === 'game') { renderWordPills(); renderPrankBar(); }
+}
+
+// The round timer flips us to 'results' on its own; from there advance to the
+// next round, then the podium, then loop the whole game.
+function simAfterRound() {
+    if (!simActive) return;
+    if (H.phase === 'results') {
+        if (H.results && H.results.final)
+            simTimer = setTimeout(() => { hostShowPodium(); simTimer = setTimeout(simRestart, 7000); }, 4200);
+        else
+            simTimer = setTimeout(simRound, 4200);
+    } else {
+        simTimer = setTimeout(simAfterRound, 500);
+    }
+}
+
+function simRestart() {
+    if (!simActive) return;
+    hostNewGame();
+    simTimer = setTimeout(simRound, 2600);
+}
+
+// ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
 window.addEventListener('resize', () => { if (ui === 'game') updateTrail(); });
 
 (function init() {
     const params = new URLSearchParams(location.search);
+    const mode = (params.get('mode') || '').toLowerCase();
+    const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (mode === 'playersimulation') { spawnLetterField(); startSimulation(simPlayers, 'player'); return; }
+    if (mode === 'tvsimulation' || mode === 'simulation') { spawnLetterField(); startSimulation(simPlayers, 'tv'); return; }
     const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
     if (room) fCode = room;
     spawnLetterField();

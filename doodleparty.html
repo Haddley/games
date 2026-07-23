@@ -2080,6 +2080,88 @@ function renderViewerPodium() {
 }
 
 // ═══════════════════════════════════════════
+// SIMULATION MODES — ?mode=tvsimulation | playersimulation  (&players=N)
+// Self-driving demos with no PeerJS and no real people. Bots are counted as
+// "connected" via stub guestConns so the normal host flow drives everything.
+//   • tvsimulation     — watch the big-screen studio play itself
+//   • playersimulation — watch a phone doodler ("You") play itself
+// (?mode=simulation stays as an alias for tvsimulation.)
+// Drawing is a human act, so the "drawer" bot scribbles a placeholder squiggle
+// and guessers instantly guess the word; the demo is about the pick → draw →
+// guess → turn-end → podium FLOW, not real art.
+// ═══════════════════════════════════════════
+let simTimer = null, simMode = 'tv', simRunning = false, _simSid = 0;
+const SIM_NAMES = ['Ace', 'Bux', 'Cash', 'Duke', 'Edie', 'Fox', 'Gwen', 'Hawk'];
+
+function simDelay() { return simMode === 'player' ? 950 : 800; }
+
+function startSimulation(nPlayers, mode) {
+    simMode = mode === 'player' ? 'player' : 'tv';
+    roomCode = 'DEMO';
+    H.settings = { cycles: 1, drawSecs: 24 };
+    H.players = []; guestConns = {}; viewerConns = {};
+    const n = Math.max(MIN_PLAYERS, Math.min(nPlayers || 4, MAX_PLAYERS));
+    if (simMode === 'tv') {
+        isHost = true; isTvHost = true; myId = '__sim_host__';
+        document.body.classList.add('viewer-mode');
+    } else {
+        isHost = true; isTvHost = false; myName = 'You'; myId = '__you__';
+        hostAddPlayer(myId, myName);                 // You are doodler #1 (the host)
+    }
+    for (let i = H.players.length; i < n; i++) {
+        const id = '__bot_' + i;
+        hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length]);
+        guestConns[id] = { peer: id, send() {} };    // stub so bots count as present
+    }
+    broadcastLobby();                                // show the lobby first
+    simTimer = setTimeout(() => { simRunning = true; simStartGame(); }, 2400);
+}
+
+function simStartGame() {
+    if (!simRunning) return;
+    hostStartGame();                                 // → nextTurn() → phase 'pick'
+    simTimer = setTimeout(simLoop, simMode === 'player' ? 1600 : 1200);
+}
+
+// One polling driver reads H.phase each tick and nudges the real host flow.
+function simLoop() {
+    if (!simRunning) return;
+    const ph = H.phase;
+    if (ph === 'pick') {
+        if (H.cur && H.cur.choices) hostPick(H.cur.choices[Math.floor(Math.random() * H.cur.choices.length)]);
+    } else if (ph === 'draw') {
+        simDrawerStroke();                           // the drawer scribbles a placeholder
+        const guessers = connectedPlayers().filter(p => p.id !== H.cur.drawerId && !H.guessed.some(g => g.id === p.id));
+        if (guessers.length) hostGuess(guessers[0], H.cur.word);   // one guesser gets it each tick
+        // maybeAllGuessed() ends the turn once everyone has guessed; else the draw timer does
+    } else if (ph === 'turnend') {
+        // endTurn() already scheduled nextTurn() on a timer — just wait
+    } else if (ph === 'podium') {
+        simRunning = false;                          // gameover: pause, then loop
+        simTimer = setTimeout(() => {
+            hostNewGame();
+            simTimer = setTimeout(() => { simRunning = true; simStartGame(); }, 2600);
+        }, 7000);
+        return;
+    }
+    simTimer = setTimeout(simLoop, simDelay());
+}
+
+function simDrawerStroke() {
+    if (H.phase !== 'draw' || !H.cur) return;
+    const color = DRAW_COLORS[Math.floor(Math.random() * DRAW_COLORS.length)];
+    const pts = [];
+    let x = 0.2 + Math.random() * 0.6, y = 0.2 + Math.random() * 0.6;
+    const n = 4 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < n; i++) {
+        x += (Math.random() - 0.5) * 0.3; y += (Math.random() - 0.5) * 0.3;
+        x = Math.min(1, Math.max(0, x)); y = Math.min(1, Math.max(0, y));
+        pts.push([x, y]);
+    }
+    hostStroke({ sid: 'sim' + (_simSid++), color, size: 0.014, pts });
+}
+
+// ═══════════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════════
 window.addEventListener('resize', () => {
@@ -2090,6 +2172,10 @@ window.addEventListener('resize', () => {
 
 (function boot() {
     const params = new URLSearchParams(location.search);
+    const mode = (params.get('mode') || '').toLowerCase();
+    const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (mode === 'playersimulation') { startSimulation(simPlayers, 'player'); return; }
+    if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
     const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
     if (room) fCode = room;
     if (!musicOn) $id('tog-music').classList.add('off');

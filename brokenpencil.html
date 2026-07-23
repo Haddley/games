@@ -2295,16 +2295,131 @@ function renderViewerPodium() {
     </div>`, '🏆 Final gallery');
 }
 
-// ═══════════════════════════════════════════
-// BOOT
-// ═══════════════════════════════════════════
 window.addEventListener('resize', () => {
     const cv = $id('confetti-cv');
     if (cv && _cf.running) { cv.width = innerWidth; cv.height = innerHeight; }
 });
 
+// ═══════════════════════════════════════════
+// SIMULATION MODES — ?mode=tvsimulation | playersimulation  (&players=N)
+// Self-driving demos with no PeerJS and no real people. Bots are counted as
+// "connected" via stub guestConns so the normal host flow drives everything.
+//   • tvsimulation     — watch the big-screen studio play itself
+//   • playersimulation — watch a phone artist ("You") play itself
+// (?mode=simulation stays as an alias for tvsimulation.)
+// Drawing is a human act, so bots submit trivial placeholder squiggles/guesses;
+// the demo is about the prompt → draw → describe → reveal → vote → podium FLOW.
+// ═══════════════════════════════════════════
+let simTimer = null, simMode = 'tv', simRunning = false;
+const SIM_NAMES = ['Ace', 'Bux', 'Cash', 'Duke', 'Edie', 'Fox', 'Gwen', 'Hawk'];
+const SIM_GUESSES = ['a happy dragon', 'dad dancing badly', 'a confused cat', 'pizza on the moon',
+    'a robot at a party', 'a sleepy sloth', 'total banana chaos', 'a shark in a hat',
+    'grandma on a skateboard', 'a duck reading news'];
+
+function simStrokes() {
+    const c = Math.floor(Math.random() * PENS.length);
+    const pts = [];
+    let x = 200 + Math.random() * 250, y = 200 + Math.random() * 200;
+    const n = 6 + Math.floor(Math.random() * 8);
+    for (let i = 0; i < n; i++) {
+        x += (Math.random() - 0.5) * 300; y += (Math.random() - 0.5) * 220;
+        x = Math.max(20, Math.min(CV_W - 20, x)); y = Math.max(20, Math.min(CV_H - 20, y));
+        pts.push(Math.round(x), Math.round(y));
+    }
+    return [{ c, p: pts }];
+}
+function simGuess() { return SIM_GUESSES[Math.floor(Math.random() * SIM_GUESSES.length)]; }
+function simDelay() { return simMode === 'player' ? 950 : 800; }
+
+function startSimulation(nPlayers, mode) {
+    simMode = mode === 'player' ? 'player' : 'tv';
+    roomCode = 'DEMO';
+    H.settings = { pace: 'brisk', shortCircuit: false };
+    H.players = []; guestConns = {}; viewerConns = {};
+    const n = Math.max(minPlayers(), Math.min(nPlayers || 4, MAX_PLAYERS));
+    if (simMode === 'tv') {
+        isHost = true; isTvHost = true; myId = '__sim_host__';
+        document.body.classList.add('viewer-mode');
+    } else {
+        isHost = true; isTvHost = false; myName = 'You'; myId = '__you__';
+        hostAddPlayer(myId, myName);                 // You are artist #1 (the host)
+    }
+    for (let i = H.players.length; i < n; i++) {
+        const id = '__bot_' + i;
+        hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length]);
+        guestConns[id] = { peer: id, send() {} };    // stub so bots count as present
+    }
+    broadcastLobby();                                // show the lobby first
+    simTimer = setTimeout(() => { simRunning = true; simStartGame(); }, 2400);
+}
+
+function simStartGame() {
+    if (!simRunning) return;
+    hostStartGame();                                 // → phase 'work', step 0
+    simTimer = setTimeout(simLoop, simMode === 'player' ? 1600 : 1200);
+}
+
+// One polling driver reads H.phase each tick and nudges the real host flow.
+function simLoop() {
+    if (!simRunning) return;
+    const ph = H.phase;
+    if (ph === 'work') {
+        const step = H.step;
+        const pending = H.players.filter(p => seatOf(p.id) >= 0 && !H.pending[p.id]);
+        if (pending.length) simSubmit(pending[0], step);
+        // maybeFinishStep auto-advances 500ms after the last submission
+    } else if (ph === 'reveal') {
+        hostNextBeat();                              // step through beats, then startVote()
+    } else if (ph === 'vote') {
+        const pending = H.players.filter(p => seatOf(p.id) >= 0 && H.votes[p.id] === undefined);
+        if (pending.length) simVote(pending[0]);
+        // maybeFinishVote auto-advances to 'voted'
+    } else if (ph === 'voted') {
+        hostNextChain();                             // → next chain reveal or podium
+    } else if (ph === 'podium') {
+        simRunning = false;                          // gameover: pause, then loop
+        simTimer = setTimeout(() => {
+            hostNewGame();
+            simTimer = setTimeout(() => { simRunning = true; simStartGame(); }, 2600);
+        }, 7000);
+        return;
+    }
+    simTimer = setTimeout(simLoop, simDelay());
+}
+
+function simSubmit(p, step) {
+    if (H.phase !== 'work' || H.step !== step || H.pending[p.id]) return;
+    const kind = stepKind(step);
+    if (simMode === 'player' && p.id === myId && D && ui === 'work' && !submitted) {
+        // drive You through the real phone submit so its animation fires
+        if (kind === 'draw') myStrokes = simStrokes(); else workText = simGuess();
+        submitWork();
+        return;
+    }
+    if (kind === 'draw') hostSubmit(p, { step, strokes: simStrokes() });
+    else hostSubmit(p, { step, text: simGuess() });
+}
+
+function simVote(p) {
+    if (H.phase !== 'vote') return;
+    const beats = H.chains[H.revealChain].beats;
+    const choices = [];
+    beats.forEach((b, i) => { if (b.author !== p.id) choices.push(i); });
+    if (!choices.length) return;
+    const beat = choices[Math.floor(Math.random() * choices.length)];
+    if (simMode === 'player' && p.id === myId && D && ui === 'vote' && !D.voted) { sendVote(beat); return; }
+    hostVote(p, beat);
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
 (function boot() {
     const params = new URLSearchParams(location.search);
+    const mode = (params.get('mode') || '').toLowerCase();
+    const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (mode === 'playersimulation') { startSimulation(simPlayers, 'player'); return; }
+    if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
     const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
     if (room) fCode = room;
     if (!fAvatar) fAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];

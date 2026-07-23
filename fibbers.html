@@ -1980,13 +1980,119 @@ window.addEventListener('resize', () => {
     if (cv && _cf.running) { cv.width = innerWidth; cv.height = innerHeight; }
 });
 
+// ═══════════════════════════════════════════
+// SIMULATION MODES — ?mode=tvsimulation | playersimulation  (&players=N)
+// Self-driving demos with no PeerJS and no real people. Bots are counted as
+// "connected" via stub guestConns so the normal host flow drives everything.
+//   • tvsimulation     — watch the big-screen game play itself
+//   • playersimulation — watch a phone fibber ("You") play itself
+// (?mode=simulation stays as an alias for tvsimulation.)
+// ═══════════════════════════════════════════
+let simTimer = null, simMode = 'tv';
+const SIM_NAMES = ['Ace', 'Bux', 'Cash', 'Duke', 'Edie', 'Fox', 'Gwen', 'Hawk'];
+const SIM_LIES = ['a small dragon', 'the moon', 'purple socks', 'a rubber duck',
+    'the number 7', 'a tiny wizard', 'left shoes', 'a jellybean', 'wet spaghetti', 'a grumpy owl'];
+
+function startSimulation(nPlayers, mode) {
+    simMode = mode === 'player' ? 'player' : 'tv';
+    roomCode = 'DEMO';
+    H.settings.qCount = 3;                          // short game so the demo loops
+    H.players = []; guestConns = {}; viewerConns = {};
+    const n = Math.max(MIN_PLAYERS, Math.min(nPlayers || 4, MAX_PLAYERS));
+    if (simMode === 'tv') {
+        isHost = true; isTvHost = true; myId = '__sim_host__';
+        document.body.classList.add('viewer-mode');
+    } else {
+        isHost = true; isTvHost = false; myName = 'You'; myId = '__you__';
+        myAvatar = AVATARS[0];
+        hostAddPlayer(myId, myName, myAvatar);      // You are fibber #1 / the host
+    }
+    for (let i = H.players.length; i < n; i++) {
+        const id = '__bot_' + i;
+        hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length], AVATARS[(i + 1) % AVATARS.length]);
+        guestConns[id] = { peer: id, send() {} };    // stub so bots count as present
+    }
+    broadcastLobby();
+    simTimer = setTimeout(() => { if (H.phase === 'lobby') { hostStartGame(); simDrive(); } }, 2400);
+}
+
+// Phase-driven driver: acts on the current phase, then reschedules itself.
+function simDrive() {
+    switch (H.phase) {
+        case 'lie':
+            simLieStep();
+            simTimer = setTimeout(simDrive, 700 + Math.random() * 300);
+            break;
+        case 'vote':
+            simVoteStep();
+            simTimer = setTimeout(simDrive, 700 + Math.random() * 300);
+            break;
+        case 'reveal':
+            simTimer = setTimeout(() => { if (H.phase === 'reveal') nextQuestion(); simDrive(); }, 3800);
+            break;
+        case 'podium':
+            simTimer = setTimeout(simRestart, 6800);
+            break;
+        default:
+            simTimer = setTimeout(simDrive, 900);
+    }
+}
+
+function simLieFor() {
+    let base = SIM_LIES[Math.floor(Math.random() * SIM_LIES.length)];
+    if (H.cur && norm(base) === norm(H.cur.a)) base += ' (probably)';
+    return base;
+}
+
+function simLieStep() {
+    if (H.phase !== 'lie') return;
+    const pending = H.players.filter(p => !p._lieDone);
+    if (!pending.length) return;
+    const p = pending[Math.floor(Math.random() * pending.length)];
+    if (simMode === 'player' && p.id === myId) {
+        const lie = simLieFor();
+        myLieText = lie;
+        const inp = $id('lie-input'); if (inp) inp.value = lie;
+        submitLie();                                 // through the real phone path
+        if (!p._lieDone) hostLie(p, H.cur.qid, lie, null);   // guaranteed fallback
+    } else {
+        hostLie(p, H.cur.qid, simLieFor(), null);
+    }
+}
+
+function simVoteStep() {
+    if (H.phase !== 'vote') return;
+    const pending = H.players.filter(p => p._vote === null);
+    if (!pending.length) return;
+    const p = pending[Math.floor(Math.random() * pending.length)];
+    const opts = H.cards.filter(c => !c.authors.includes(p.id));
+    if (!opts.length) return;
+    const truth = opts.find(c => c.isTruth);
+    const card = (truth && Math.random() < 0.4) ? truth : opts[Math.floor(Math.random() * opts.length)];
+    if (simMode === 'player' && p.id === myId) {
+        castVote(card.key);                          // through the real phone path
+        if (p._vote === null) hostVote(p, H.cur.qid, card.key, null);   // fallback
+    } else {
+        hostVote(p, H.cur.qid, card.key, null);
+    }
+}
+
+function simRestart() {
+    hostNewGame();
+    simTimer = setTimeout(() => { if (H.phase === 'lobby') { hostStartGame(); simDrive(); } }, 2600);
+}
+
 (function boot() {
     const params = new URLSearchParams(location.search);
+    $id('tog-music').classList.toggle('off', !musicOn);
+    $id('tog-sfx').classList.toggle('off', !sfxOn);
+    const mode = (params.get('mode') || '').toLowerCase();
+    const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (mode === 'playersimulation') { startSimulation(simPlayers, 'player'); return; }
+    if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
     const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
     if (room) fCode = room;
     if (!fAvatar) fAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
-    $id('tog-music').classList.toggle('off', !musicOn);
-    $id('tog-sfx').classList.toggle('off', !sfxOn);
     render();
 })();
 </script>

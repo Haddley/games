@@ -819,6 +819,7 @@ let fCode   = '';
 let fVCode  = '';
 let fRounds = 5;      // 3 | 5 | 10
 let isViewer = false;
+let simTvHost = false; // simulation: this screen runs the host flow but renders the TV view
 let vD       = null;  // viewer display state (driven by host)
 
 // ── Client display state (driven by host) ──
@@ -1185,6 +1186,8 @@ function popText(x, y, text, cls = 'good') {
 let _lastUi = '', _lastVPhase = '';
 function render() {
     const app = document.getElementById('app');
+    // In tv-simulation the host flow drives the game but the big screen always shows the TV view
+    if (simTvHost && ui !== 'home' && ui !== 'creating') ui = 'viewer';
     const vphase = ui === 'viewer' ? (vD?.phase || '') : '';
     const fresh = ui !== _lastUi || vphase !== _lastVPhase;
     _lastUi = ui; _lastVPhase = vphase;
@@ -2430,8 +2433,202 @@ if (localStorage.getItem('boggle-theme') !== 'dark') {
 if (!musicOn) document.getElementById('tog-music').classList.add('off');
 if (!sfxOn)   document.getElementById('tog-sfx').classList.add('off');
 
+// ═══════════════════════════════════════════
+// SIMULATION MODES — ?mode=tvsimulation | playersimulation  (&players=N)
+// Self-driving demos with no PeerJS and no real people. Bots are counted as
+// "connected" via stub guestConns so the normal host flow drives everything.
+//   • tvsimulation     — watch the big-screen BOGGLE play itself (TV view)
+//   • playersimulation — watch a phone player ("You") find words automatically
+// (?mode=simulation stays as an alias for tvsimulation.)
+// Boggle has no built-in TV-host mode, so tv mode sets `simTvHost` (which coerces
+// render() to the viewer screen) and pipes viewer broadcasts into a stub viewer
+// connection that mirrors the real viewer's data handler.
+// ═══════════════════════════════════════════
+let simTimer = null, simMode = 'tv', simActive = false, simPool = [];
+const SIM_NAMES = ['Ace', 'Bux', 'Cash', 'Duke', 'Edie', 'Fox', 'Gwen', 'Hawk'];
+
+function startSimulation(nPlayers, mode) {
+    simMode = mode === 'player' ? 'player' : 'tv';
+    simActive = true;
+    roomCode = 'DEMO';
+    H.roundsTarget = 2;
+    H.players = []; guestConns = {}; viewerConns = {};
+    const n = Math.max(2, Math.min(nPlayers || 4, 8));
+    if (simMode === 'tv') {
+        isHost = true; simTvHost = true; myId = '__sim_host__';
+        document.body.classList.add('viewer-mode');
+        viewerConns['__sim_viewer__'] = { peer: '__sim_viewer__', send: simViewerApply };
+        ui = 'viewer';
+    } else {
+        isHost = true; simTvHost = false; myName = 'You'; myId = '__you__';
+        hostAddPlayer(myId, myName);                  // you are player #1 (the host)
+        ui = 'lobby_h';
+    }
+    for (let i = H.players.length; i < n; i++) {
+        const id = '__bot_' + i;
+        hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length]);
+        guestConns[id] = { peer: id, send() {} };     // stub so bots count as present
+    }
+    loadDictionary();
+    setMusic('lobby');
+    broadcastLobby();                                 // show the lobby first
+    simWaitDict(() => { simTimer = setTimeout(simRound, 1800); });
+}
+
+// The stub TV connection: mirror the real viewer's data handler so vD, music
+// and stingers all behave exactly as they would on a remote scoreboard.
+function simViewerApply(msg) {
+    if (msg.type === 'viewer_lobby') {
+        vD = { phase: 'lobby', players: msg.players, roomCode: msg.roomCode };
+        ui = 'viewer'; document.body.classList.add('viewer-mode'); setMusic('lobby'); render();
+    } else if (msg.type === 'viewer_state') {
+        const prevPhase = vD?.phase, prevRound = vD?.currentRound;
+        vD = msg;
+        if (msg.phase === 'playing') { setMusic('game'); tickUrgency(msg.timeLeft ?? 0); }
+        else if (msg.phase === 'scoring' || msg.phase === 'results') setMusic('results');
+        else if (msg.phase === 'gameover') setMusic('over');
+        if (prevPhase === 'playing' && msg.phase === 'scoring') sRoundEnd();
+        if (prevPhase !== 'results' && msg.phase === 'results') sResults();
+        if (prevPhase !== 'gameover' && msg.phase === 'gameover') { sWin(); confetti(); }
+        if (msg.phase === 'playing' && prevRound !== msg.currentRound) showRoundFlash(msg.currentRound, msg.roundsTarget);
+        ui = 'viewer'; document.body.classList.add('viewer-mode'); render();
+    }
+}
+
+// Bots want real words, which need the dictionary; wait (with a cap) for it.
+function simWaitDict(cb, tries) {
+    tries = tries || 0;
+    if (!simActive) return;
+    if (dictionary !== null || tries > 40) { cb(); return; }
+    simTimer = setTimeout(() => simWaitDict(cb, tries + 1), 300);
+}
+
+// A compact Boggle solver (DFS over the 4×4 adjacency against the dictionary),
+// pre-filtered by available letters — mirrors boggleparty's solveBoard.
+function simSolve(board) {
+    if (!(dictionary instanceof Set)) return [];
+    const cells = board.map(t => t.toLowerCase());   // 'qu' stays a single cell
+    const nbrs = [];
+    for (let i = 0; i < 16; i++) {
+        const r = i >> 2, c = i & 3, a = [];
+        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+            if (!dr && !dc) continue;
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr < 4 && nc >= 0 && nc < 4) a.push(nr * 4 + nc);
+        }
+        nbrs.push(a);
+    }
+    const avail = {};
+    cells.forEach(t => { for (const ch of t) avail[ch] = (avail[ch] || 0) + 1; });
+    const maxLen = cells.join('').length;
+    const wordSet = new Set(), prefixes = new Set();
+    for (const w of dictionary) {
+        if (w.length > maxLen) continue;
+        let ok = true; const cnt = {};
+        for (const ch of w) { cnt[ch] = (cnt[ch] || 0) + 1; if (cnt[ch] > (avail[ch] || 0)) { ok = false; break; } }
+        if (!ok) continue;
+        wordSet.add(w);
+        for (let i = 1; i <= w.length; i++) prefixes.add(w.slice(0, i));
+    }
+    const used = new Array(16).fill(false), found = new Set();
+    const dfs = (i, word) => {
+        const w = word + cells[i];
+        if (!prefixes.has(w)) return;
+        if (w.length >= 3 && wordSet.has(w)) found.add(w);
+        used[i] = true;
+        for (const j of nbrs[i]) if (!used[j]) dfs(j, w);
+        used[i] = false;
+    };
+    for (let i = 0; i < 16; i++) dfs(i, '');
+    return [...found];
+}
+
+function simPickWord(player) {
+    if (simPool.length) {
+        for (let t = 0; t < 8; t++) {
+            const w = simPool[Math.floor(Math.random() * simPool.length)];
+            if (!player.words.includes(w)) return w;
+        }
+        return null;
+    }
+    // Dictionary unavailable: assemble a short board string (validation is skipped
+    // when the dictionary failed to load, so these still count).
+    const letters = H.board.map(t => t.toLowerCase());
+    let w = '';
+    for (let i = 0, k = 3 + Math.floor(Math.random() * 2); i < k; i++)
+        w += letters[Math.floor(Math.random() * letters.length)];
+    return w;
+}
+
+function simRound() {
+    if (!simActive) return;
+    hostStartGame();                                  // rolls board, phase 'playing', starts timer
+    H.timeLeft = 12;                                  // shorten the 180s round for the demo
+    simPool = simSolve(H.board);
+    simTimer = setTimeout(simFeed, 1600);             // let the round-flash play
+}
+
+// While the round is live, bots (and You, in player mode) keep finding words.
+// Each found word is also stashed in `_submitted` so end-of-round scoring has it.
+function simFeed() {
+    if (!simActive) return;
+    if (H.phase !== 'playing') { simAfterRound(); return; }
+    H.players.forEach(p => {
+        if (simMode === 'player' && p.id === myId) return;  // You is driven separately
+        if (Math.random() < 0.6) {
+            const w = simPickWord(p);
+            if (w) { p.words = [...new Set([...p.words, w])]; p._submitted = p.words; }
+        }
+    });
+    if (simMode === 'player' && Math.random() < 0.7) simYouWord();
+    broadcastGameState();
+    simTimer = setTimeout(simFeed, 480 + Math.random() * 420);
+}
+
+// You (phone demo): add a word and fire the same burst/pop/chime as a real tap.
+function simYouWord() {
+    if (H.phase !== 'playing') return;
+    const me = H.players.find(p => p.id === myId);
+    if (!me) return;
+    const w = simPickWord(me);
+    if (!w || myWords.includes(w)) return;
+    myWords = [...myWords, w];
+    me.words = myWords; me._submitted = myWords;
+    const pts = wordScore(w);
+    sGood(pts);
+    const btn = document.getElementById('btn-submit');
+    if (btn) {
+        const r = btn.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top;
+        burst(cx, cy, ['#f59e0b', '#ef4444', '#4ade80', '#60a5fa'], 8 + Math.min(14, pts * 2));
+        popText(cx, cy - 6, '+' + pts, pts >= 5 ? 'gold' : 'good');
+    }
+    render();
+}
+
+// The round timer flips us to 'scoring' → 'results'/'gameover' on its own; from
+// there advance to the next round, then loop the whole game.
+function simAfterRound() {
+    if (!simActive) return;
+    if (H.phase === 'results') simTimer = setTimeout(simRound, 4500);
+    else if (H.phase === 'gameover') simTimer = setTimeout(simRestart, 7000);
+    else simTimer = setTimeout(simAfterRound, 400);   // still 'scoring' — wait for the tally
+}
+
+function simRestart() {
+    if (!simActive) return;
+    hostNewGame();
+    simTimer = setTimeout(simRound, 2600);
+}
+
 // ── Init ──
-render();
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    const mode = (params.get('mode') || '').toLowerCase();
+    const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (mode === 'playersimulation') { startSimulation(simPlayers, 'player'); return; }
+    if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
+    render();
+})();
 </script>
 </body>
 </html>

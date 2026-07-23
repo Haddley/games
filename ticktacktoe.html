@@ -917,6 +917,32 @@
             });
         }
 
+        // Demo/attract AI: mostly-smart (win, block, center, corner) with a dash
+        // of randomness so self-play produces varied wins and the occasional draw.
+        function simPickMove(board, player) {
+            const opp = player === 'X' ? 'O' : 'X';
+            const empty = [];
+            for (let i = 0; i < 9; i++) if (!board[i]) empty.push(i);
+            if (!empty.length) return null;
+            const complete = (pl) => {
+                for (const [a, b, c] of WIN_LINES) {
+                    const cells = [a, b, c], marks = cells.map(i => board[i]);
+                    if (marks.filter(m => m === pl).length === 2 && marks.includes(''))
+                        return cells[marks.indexOf('')];
+                }
+                return -1;
+            };
+            if (Math.random() < 0.8) {
+                let m = complete(player); if (m >= 0) return m;   // take the win
+                m = complete(opp);        if (m >= 0) return m;   // block the loss
+                if (!board[4]) return 4;                          // grab center
+                const corners = [0, 2, 6, 8].filter(i => !board[i]);
+                if (corners.length && Math.random() < 0.7)
+                    return corners[Math.floor(Math.random() * corners.length)];
+            }
+            return empty[Math.floor(Math.random() * empty.length)];
+        }
+
         const App = {
             peer: null,
             connection: null,
@@ -1502,10 +1528,59 @@
                 setTimeout(() => {
                     this.elements.toast.classList.remove('show');
                 }, 2000);
+            },
+
+            // ── SELF-PLAYING DEMO (?mode=tvsimulation | playersimulation | simulation) ──
+            // No PeerJS, no players: two bots (X and O) play full games against each
+            // other right on the board, auto-restarting forever. This game has no
+            // spectator/player split, so both mode aliases run the same demo.
+            startSimulation() {
+                this._sim = true;
+                this.isHost = false;
+                this.connection = null;
+                this.myRole = null;               // neutral spectator: labels stay "Bot X/O"
+                this.playerName = 'Bot X';
+                this.opponentName = 'Bot O';
+                this.showScreen('game');
+                this.resetGame();
+                this.elements.playerX.querySelector('span').textContent = 'Bot X';
+                this.elements.playerO.querySelector('span').textContent = 'Bot O';
+                this.elements.connectionText.textContent = 'Demo';
+                this.elements.gameStatus.textContent = 'Bot X to move';
+                this._simT = setTimeout(() => this.simMove(), 900);
+            },
+
+            simMove() {
+                if (!this._sim) return;
+                const gs = this.gameState;
+                const idx = simPickMove(gs.board, gs.currentPlayer);
+                if (idx == null) return;
+                this.makeMove(idx);
+                if (gs.isGameOver) {
+                    clearTimeout(this._endModalT);          // no blocking modal in attract mode
+                    this._simT = setTimeout(() => {
+                        if (!this._sim) return;
+                        this.hideModal();
+                        this.resetGame();
+                        this.elements.gameStatus.textContent = 'New game — Bot X to move';
+                        this._simT = setTimeout(() => this.simMove(), 800);
+                    }, 2600);
+                } else {
+                    this.elements.gameStatus.textContent = 'Bot ' + gs.currentPlayer + ' to move';
+                    this._simT = setTimeout(() => this.simMove(), 700 + Math.random() * 450);
+                }
             }
         };
 
         App.init();
+
+        // Boot routing: self-playing demo modes (bots vs bots, looping)
+        (function () {
+            const _m = (new URLSearchParams(location.search).get('mode') || '').toLowerCase();
+            if (_m === 'tvsimulation' || _m === 'playersimulation' || _m === 'simulation') {
+                App.startSimulation();
+            }
+        })();
 
         // Reflect persisted sound preferences on the toggle buttons
         if (!musicOn) document.getElementById('tog-music').classList.add('off');
