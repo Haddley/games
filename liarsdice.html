@@ -7,59 +7,61 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230a0a0f' width='100' height='100' rx='20'/><rect x='12' y='12' width='76' height='76' rx='14' fill='%231e1e2e' stroke='%23f59e0b' stroke-width='4'/><circle cx='32' cy='32' r='8' fill='%23f59e0b'/><circle cx='50' cy='50' r='8' fill='%23f59e0b'/><circle cx='68' cy='68' r='8' fill='%23f59e0b'/></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@500;700;900&family=Pirata+One&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+        /* ── Davy Jones' Locker: candlelit hold of the Flying Dutchman ── */
         :root {
-            --bg: #0a0a0f;
-            --surface: #14141f;
-            --s2: #1a1a2a;
-            --border: #2a2a3a;
-            --text: #ffffff;
-            --muted: #6b6b8a;
-            --accent: #f59e0b;
-            --ag: rgba(245,158,11,0.2);
-            --danger: #ef4444;
-            --dg: rgba(239,68,68,0.2);
-            --success: #4ade80;
+            --bg: #060f0d;
+            --surface: #12201c;
+            --s2: #1a2b25;
+            --border: #33473d;
+            --text: #f2e8cf;
+            --muted: #8ba093;
+            --accent: #e0a83a;           /* brass / candle gold */
+            --ag: rgba(224,168,58,0.22);
+            --danger: #d8443a;           /* blood red */
+            --dg: rgba(216,68,58,0.22);
+            --success: #4bb98d;          /* sea-green */
+            --sea: #2c8f7c;              /* Davy Jones teal */
+            --bone: #e9dcbe;
+            --wood: #2a1d12;
+            --candle: #ffbf5a;
         }
 
         body.day {
-            --bg: #f5f4ef;
-            --surface: #ffffff;
-            --s2: #edede7;
-            --border: #d4d4cc;
-            --text: #1a1a2a;
-            --muted: #6b6b7a;
-            --accent: #d97706;
-            --ag: rgba(217,119,6,0.15);
-            --danger: #dc2626;
-            --dg: rgba(220,38,38,0.15);
-            --success: #16a34a;
+            --bg: #e9e0c8;               /* sun-bleached parchment / day at sea */
+            --surface: #f5efdc;
+            --s2: #ded2b2;
+            --border: #c3b590;
+            --text: #2a1d12;
+            --muted: #6b6350;
+            --accent: #a86a17;
+            --ag: rgba(168,106,23,0.16);
+            --danger: #b23026;
+            --dg: rgba(178,48,38,0.16);
+            --success: #2f8a5f;
+            --sea: #1f7a68;
+            --bone: #4a3a22;
+            --wood: #7a5a38;
+            --candle: #c98a2a;
         }
         body.day::before {
             background:
-                radial-gradient(ellipse at 15% 10%, rgba(217,119,6,0.05) 0%, transparent 55%),
-                radial-gradient(ellipse at 85% 90%, rgba(220,38,38,0.05) 0%, transparent 55%);
+                radial-gradient(ellipse at 50% -8%, rgba(168,106,23,0.10) 0%, transparent 55%),
+                radial-gradient(ellipse at 12% 100%, rgba(31,122,104,0.08) 0%, transparent 60%),
+                repeating-linear-gradient(93deg, rgba(122,90,56,0.05) 0 3px, transparent 3px 46px);
         }
-        body.day .hdr h1 {
-            filter: drop-shadow(0 0 12px rgba(217,119,6,0.2));
-        }
-        /* Viewer always stays dark */
+        body.day .hdr h1 { filter: drop-shadow(0 0 10px rgba(168,106,23,0.3)); }
+        /* Viewer always stays in the dark hold */
         body.day.viewer-mode {
-            --bg: #05050a;
-            --surface: #14141f;
-            --s2: #1a1a2a;
-            --border: #2a2a3a;
-            --text: #ffffff;
-            --muted: #6b6b8a;
-            --accent: #f59e0b;
-            --ag: rgba(245,158,11,0.2);
-            --danger: #ef4444;
-            --dg: rgba(239,68,68,0.2);
-            --success: #4ade80;
+            --bg: #040d0b; --surface: #12201c; --s2: #1a2b25; --border: #33473d;
+            --text: #f2e8cf; --muted: #8ba093; --accent: #e0a83a; --ag: rgba(224,168,58,0.22);
+            --danger: #d8443a; --dg: rgba(216,68,58,0.22); --success: #4bb98d;
+            --sea: #2c8f7c; --bone: #e9dcbe; --wood: #2a1d12; --candle: #ffbf5a;
         }
 
         /* ── Theme toggle button ── */
@@ -88,8 +90,11 @@
             content: '';
             position: fixed; inset: 0;
             background:
-                radial-gradient(ellipse at 15% 10%, rgba(245,158,11,0.07) 0%, transparent 55%),
-                radial-gradient(ellipse at 85% 90%, rgba(239,68,68,0.07) 0%, transparent 55%);
+                radial-gradient(ellipse 60% 45% at 50% -6%, rgba(255,191,90,0.12) 0%, transparent 60%),   /* swinging lantern */
+                radial-gradient(ellipse 55% 50% at 8% 108%, rgba(44,143,124,0.12) 0%, transparent 62%),   /* eerie sea glow */
+                radial-gradient(ellipse 55% 50% at 96% 106%, rgba(216,68,58,0.07) 0%, transparent 62%),
+                repeating-linear-gradient(91deg, rgba(0,0,0,0.28) 0 2px, transparent 2px 52px),           /* hull planks */
+                radial-gradient(ellipse 120% 120% at 50% 40%, transparent 55%, rgba(0,0,0,0.55) 100%);    /* vignette */
             pointer-events: none; z-index: -1;
         }
 
@@ -98,16 +103,17 @@
         /* ── Header ── */
         .hdr { text-align: center; margin-bottom: 20px; padding-top: 4px; }
         .hdr h1 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: clamp(1.4rem, 6vw, 2rem);
-            font-weight: 900;
-            letter-spacing: 4px;
-            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            font-family: 'Pirata One', 'Orbitron', sans-serif;
+            font-size: clamp(2.3rem, 10vw, 3.4rem);
+            font-weight: 400;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, #ffcf6e 0%, #e0a83a 45%, #2c8f7c 100%);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             background-clip: text;
-            filter: drop-shadow(0 0 16px rgba(245,158,11,0.3));
+            filter: drop-shadow(0 2px 10px rgba(0,0,0,.6)) drop-shadow(0 0 16px rgba(224,168,58,0.3));
+            line-height: 1;
         }
-        .hdr .sub { color: var(--muted); font-size: 0.7rem; letter-spacing: 2px; margin-top: 4px; text-transform: uppercase; }
+        .hdr .sub { color: var(--muted); font-size: 0.72rem; letter-spacing: 2px; margin-top: 2px; text-transform: uppercase; font-style: italic; }
 
         /* ── Card ── */
         .card {
@@ -301,7 +307,10 @@
 
         .v-screen {
             position: fixed; inset: 0;
-            background: #05050a;
+            background:
+                radial-gradient(ellipse 70% 50% at 50% -8%, rgba(255,191,90,0.10) 0%, transparent 60%),
+                radial-gradient(ellipse 80% 60% at 50% 120%, rgba(44,143,124,0.12) 0%, transparent 65%),
+                #040d0b;
             display: flex; flex-direction: column;
             overflow: hidden;
         }
@@ -343,12 +352,13 @@
             flex-shrink: 0; position: relative; z-index: 10;
         }
         .v-title {
-            font-family: 'Orbitron', sans-serif;
-            font-size: clamp(1.2rem, 3vw, 2rem);
-            font-weight: 900; letter-spacing: 4px;
-            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            font-family: 'Pirata One', 'Orbitron', sans-serif;
+            font-size: clamp(1.8rem, 4.5vw, 3rem);
+            font-weight: 400; letter-spacing: 2px;
+            background: linear-gradient(135deg, #ffcf6e 0%, #e0a83a 45%, #2c8f7c 100%);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             background-clip: text;
+            filter: drop-shadow(0 2px 8px rgba(0,0,0,.6));
         }
         .v-header-code {
             font-family: 'Orbitron', sans-serif;
@@ -469,7 +479,7 @@
         /* ── Phase overlays ── */
         .v-overlay {
             position: absolute; inset: 0; z-index: 50;
-            background: rgba(5,5,10,0.88);
+            background: radial-gradient(ellipse at 50% 40%, rgba(10,20,17,0.86), rgba(2,8,6,0.95));
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: clamp(12px, 2.5vh, 28px); padding: clamp(20px, 4vw, 60px);
         }
@@ -557,18 +567,23 @@
 
         /* Lobby viewer */
         .v-lobby-screen {
-            position: fixed; inset: 0; background: #05050a;
+            position: fixed; inset: 0;
+            background:
+                radial-gradient(ellipse 70% 50% at 50% -6%, rgba(255,191,90,0.10) 0%, transparent 60%),
+                radial-gradient(ellipse 80% 60% at 50% 120%, rgba(44,143,124,0.12) 0%, transparent 65%),
+                #040d0b;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            gap: clamp(16px, 3vh, 32px); padding: 40px;
+            gap: clamp(14px, 2.5vh, 26px); padding: 40px;
             z-index: 1;
         }
         .v-lobby-title {
-            font-family: 'Orbitron', sans-serif;
-            font-size: clamp(2rem, 7vw, 5rem);
-            font-weight: 900; letter-spacing: 6px;
-            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            font-family: 'Pirata One', 'Orbitron', sans-serif;
+            font-size: clamp(3rem, 9vw, 6.5rem);
+            font-weight: 400; letter-spacing: 3px;
+            background: linear-gradient(135deg, #ffcf6e 0%, #e0a83a 45%, #2c8f7c 100%);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             background-clip: text; text-align: center;
+            filter: drop-shadow(0 3px 12px rgba(0,0,0,.7));
         }
         .v-lobby-code {
             font-family: 'Orbitron', sans-serif;
@@ -679,8 +694,97 @@
         body.viewer-mode #ld-bg { display: none; }
         body.day #ld-bg .ld-die { opacity: .04; }
 
+        /* ══════════════════════════════════════════
+           PIRATE FLOURISHES — avatars, QR, LIAR drama, ambient
+        ══════════════════════════════════════════ */
+        /* pirate avatar tokens */
+        .pirate-av { display: inline-block; font-size: 1em; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+        .chip .pirate-av { font-size: .95rem; margin-right: 1px; }
+        .player-row .pirate-av, .rank-item .pirate-av { font-size: 1.15rem; }
+        .v-player-av { font-size: clamp(1.3rem, 2.6vw, 2.1rem); line-height: 1; filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+        .v-lobby-chip .pirate-av { margin-right: 4px; }
+
+        /* themed QR (weathered parchment) */
+        .qr-box { width: min(210px, 56vw); margin: 10px auto 12px; border-radius: 12px; overflow: hidden;
+            box-shadow: 0 8px 22px rgba(0,0,0,.5), 0 0 0 3px var(--wood); background: var(--bone); }
+        .qr-box svg { display: block; width: 100%; height: auto; }
+        .v-qr-box { width: clamp(160px, 22vw, 300px); border-radius: 1.4vmin; overflow: hidden;
+            box-shadow: 0 1vmin 3vmin rgba(0,0,0,.6), 0 0 0 .5vmin var(--wood); background: var(--bone); }
+        .v-qr-box svg { display: block; width: 100%; height: auto; }
+        .cap-hint { text-align: center; font-size: .72rem; color: var(--muted); font-style: italic; margin-top: 6px; }
+
+        /* full-screen "LIAR!" drama on a challenge */
+        #liar-flash {
+            position: fixed; inset: 0; z-index: 980; pointer-events: none;
+            display: flex; align-items: center; justify-content: center;
+            background: radial-gradient(ellipse at center, rgba(216,68,58,.28), rgba(3,8,6,.55) 70%);
+            animation: liarFlash 1.15s ease-out forwards;
+        }
+        @keyframes liarFlash { 0% { opacity: 0; } 8% { opacity: 1; } 78% { opacity: 1; } 100% { opacity: 0; } }
+        #liar-flash .liar-word {
+            font-family: 'Pirata One', 'Orbitron', sans-serif; font-weight: 400;
+            font-size: clamp(3.5rem, 20vw, 12rem); letter-spacing: 3px;
+            color: #ffdca0; text-transform: uppercase;
+            text-shadow: 0 0 6px #d8443a, 0 0 26px #d8443a, 0 6px 20px rgba(0,0,0,.8);
+            animation: liarWord 1.15s cubic-bezier(.2,.8,.3,1) forwards;
+        }
+        @keyframes liarWord {
+            0% { transform: scale(.2) rotate(-9deg); opacity: 0; }
+            18% { transform: scale(1.18) rotate(3deg); opacity: 1; }
+            34% { transform: scale(1) rotate(-1deg); }
+            80% { transform: scale(1.02) rotate(0deg); opacity: 1; }
+            100% { transform: scale(1.15); opacity: 0; }
+        }
+        @keyframes screenShake {
+            0%,100% { transform: translate(0,0); } 15% { transform: translate(-9px,4px); }
+            30% { transform: translate(8px,-6px); } 45% { transform: translate(-7px,-3px); }
+            60% { transform: translate(6px,5px); } 75% { transform: translate(-4px,2px); } 90% { transform: translate(3px,-2px); }
+        }
+        body.shake-screen #app { animation: screenShake .55s cubic-bezier(.36,.07,.19,.97) both; }
+
+        /* cannon-smoke puff (JS-spawned) */
+        .smoke {
+            position: fixed; z-index: 970; pointer-events: none; border-radius: 50%;
+            background: radial-gradient(circle at 40% 35%, rgba(230,230,220,.9), rgba(120,120,120,.5) 55%, rgba(60,60,60,0) 72%);
+            animation: smokePuff 1s ease-out forwards;
+        }
+        @keyframes smokePuff {
+            0% { transform: translate(-50%,-50%) scale(.2); opacity: .9; }
+            100% { transform: translate(calc(-50% + var(--sx,0px)), calc(-50% + var(--sy,-40px))) scale(2.4); opacity: 0; }
+        }
+
+        /* a lost die sinks into the locker */
+        @keyframes dieSink {
+            0% { transform: translateY(0) rotate(0); opacity: 1; }
+            100% { transform: translateY(90px) rotate(200deg); opacity: 0; }
+        }
+        .die-sink { animation: dieSink .8s cubic-bezier(.5,0,.9,.4) forwards; }
+
+        /* richer ambient: drifting bones/coins/skulls + rising bubbles */
+        #ld-bg .ld-bub {
+            position: absolute; border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, rgba(180,230,220,.5), rgba(44,143,124,.12) 60%, transparent 72%);
+            box-shadow: inset 0 0 4px rgba(255,255,255,.3);
+            animation: bubbleRise linear infinite;
+        }
+        @keyframes bubbleRise {
+            0%   { transform: translateY(0) translateX(0); opacity: 0; }
+            10%  { opacity: .5; }
+            90%  { opacity: .5; }
+            100% { transform: translateY(-108vh) translateX(var(--bx, 20px)); opacity: 0; }
+        }
+        #ld-bg .ld-em { position: absolute; opacity: .11; will-change: transform; }
+        body.day #ld-bg .ld-em { opacity: .08; }
+        #v-bg .vb-bub {
+            position: absolute; border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, rgba(180,230,220,.4), rgba(44,143,124,.1) 60%, transparent 72%);
+            animation: bubbleRise linear infinite;
+        }
+        #v-bg .vb-em { position: absolute; opacity: .06; }
+
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation: none !important; transition: none !important; }
+            #liar-flash, .smoke { display: none !important; }
         }
     </style>
 </head>
@@ -794,17 +898,45 @@ const PIP_MAP = {
     6:['tl','tr','ml','mr','bl','br'],
 };
 
+// Weathered BONE dice: ivory body, dark-brown pips, brass-gold glow when
+// highlighted (matches at the reveal), faded grey when dimmed.
 function dieSVG(face, {size=64, hi=false, dim=false, anim=false}={}) {
-    const r = size <= 48 ? 4 : 6;
-    const stroke = hi ? '#f59e0b' : (dim ? '#252535' : '#3a3a5a');
-    const fill   = hi ? '#f59e0b' : (dim ? '#252535' : '#e2e8f0');
-    const sw     = hi ? 3 : 2;
-    const cls    = anim ? ' class="die-svg roll"' : ' class="die-svg"';
-    const pips   = PIP_MAP[face].map(k => `<circle cx="${PIP_POS[k][0]}" cy="${PIP_POS[k][1]}" r="${r}" fill="${fill}"/>`).join('');
+    const r     = size <= 48 ? 4 : 6;
+    const body  = hi ? '#f2c451' : (dim ? '#565b4e' : '#e9dcbe');
+    const shade = hi ? '#c8922a' : (dim ? '#3c4037' : '#cdbd91');
+    const edge  = hi ? '#8a5e12' : (dim ? '#2b2f27' : '#8a7448');
+    const pip   = hi ? '#5a3d0c' : (dim ? '#2c3029' : '#3a2a16');
+    const sw    = hi ? 3 : 2.4;
+    const cls   = anim ? ' class="die-svg roll"' : ' class="die-svg"';
+    const glow  = hi ? '<rect x="1.5" y="1.5" width="85" height="85" rx="18" fill="none" stroke="#ffe08a" stroke-width="1.4" opacity=".75"/>' : '';
+    const pips  = PIP_MAP[face].map(k => `<circle cx="${PIP_POS[k][0]}" cy="${PIP_POS[k][1]}" r="${r}" fill="${pip}"/>`).join('');
     return `<svg${cls} width="${size}" height="${size}" viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="3" width="82" height="82" rx="16" fill="#1c1c2e" stroke="${stroke}" stroke-width="${sw}"/>
-      ${pips}
+      <rect x="3" y="3" width="82" height="82" rx="16" fill="${body}" stroke="${edge}" stroke-width="${sw}"/>
+      <rect x="3" y="48" width="82" height="37" rx="16" fill="${shade}" opacity=".5"/>
+      <rect x="9" y="8" width="70" height="24" rx="12" fill="#ffffff" opacity=".16"/>
+      ${glow}${pips}
     </svg>`;
+}
+
+// Deterministic pirate avatar + epithet from a name (like a crew roster)
+const PIRATE_AV = ['🏴‍☠️','💀','🐙','🦜','⚓','🗡️','🪝','🍺','🧭','☠️','🦑','🦀'];
+function pirateAvatar(name) {
+    let h = 0; const s = String(name || '');
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return PIRATE_AV[h % PIRATE_AV.length];
+}
+
+// Themed QR (bone parchment) for the join / TV lobby
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+        let rects = '';
+        for (let r = 0; r < n; r++) for (let c = 0; c < n; c++)
+            if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+            `<rect width="${size}" height="${size}" fill="#e9dcbe"/><g fill="#2a1d12">${rects}</g></svg>`;
+    } catch (e) { return ''; }
 }
 
 // ═══════════════════════════════════════════════
@@ -937,10 +1069,13 @@ function hostRestart(fromId) {
           challengeResult:null, winner:null, eliminated:[], rankings:[] };
     // Do NOT clear guestConns / viewerConns — PeerJS connections remain alive
 
-    ui = 'lobby_h';
     D = null;
-
-    hostAddPlayer(myId, myName);
+    if (isTvHost) {
+        ui = 'viewer';                       // TV host is not a player
+    } else {
+        ui = 'lobby_h';
+        hostAddPlayer(myId, myName);
+    }
     returning.forEach(({ id, name }) => hostAddPlayer(id, name));
 
     broadcastLobby();
@@ -1037,20 +1172,23 @@ function hostBroadcast(isNewRound) {
 
 function broadcastLobby() {
     const players = H.players.map(p => p.name);
+    const captain = isTvHost ? (players[0] || null) : null;
     const ls = {
         type: 'lobby',
         players,
         roomCode,
         wildOnes: H.wildOnes,
+        tvHost: isTvHost,
+        captain,
     };
     Object.values(guestConns).forEach(c => send(c, ls));
 
     // Also send to viewers
-    Object.values(viewerConns).forEach(c => send(c, {type:'viewer_lobby', players, roomCode}));
+    Object.values(viewerConns).forEach(c => send(c, {type:'viewer_lobby', players, roomCode, tvHost: isTvHost, captain}));
 
-    // TV-sim host mirrors the lobby into the spectator UI
+    // TV host mirrors the lobby into the spectator UI
     if (isTvHost) {
-        vD = {phase: 'lobby', players, roomCode};
+        vD = {phase: 'lobby', players, roomCode, tvHost: true, captain};
         ui = 'viewer';
     }
 
@@ -1076,7 +1214,7 @@ function setupGuestConn(conn) {
             viewerConns[conn.peer] = conn;
             // Send current state immediately
             if (H.phase === 'lobby') {
-                send(conn, {type:'viewer_lobby', players: H.players.map(p => p.name), roomCode});
+                send(conn, {type:'viewer_lobby', players: H.players.map(p => p.name), roomCode, tvHost: isTvHost, captain: isTvHost ? (H.players[0]?.name || null) : null});
             } else {
                 send(conn, {type:'viewer_state', vd: buildViewerDisplay(false)});
             }
@@ -1109,6 +1247,9 @@ function setupGuestConn(conn) {
             case 'challenge': hostChallenge(conn.peer); break;
             case 'continue':  hostContinue(conn.peer); break;
             case 'restart':   hostRestart(conn.peer); break;
+            case 'start':     // TV-host: only the captain (first player) may start
+                if (isTvHost && H.phase === 'lobby' && H.players[0]?.id === conn.peer) hostStartGame();
+                break;
         }
     });
     conn.on('close', () => {
@@ -1159,7 +1300,7 @@ function joinAsViewer(code, _attempt) {
             }
             if (msg.type === 'viewer_lobby') {
                 const prevN = vD && vD.phase === 'lobby' && vD.players ? vD.players.length : -1;
-                vD = {phase: 'lobby', players: msg.players, roomCode: msg.roomCode};
+                vD = {phase: 'lobby', players: msg.players, roomCode: msg.roomCode, tvHost: msg.tvHost, captain: msg.captain};
                 ui = 'viewer';
                 render();
                 if (prevN >= 0 && vD.players.length > prevN) sJoin();
@@ -1231,11 +1372,15 @@ function toggleFullscreen() {
     }
 }
 
-// Auto-enter fullscreen on first interaction after viewer mode is active
-document.addEventListener('click', function() {
-    if (isViewer && !document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
-    }
+// Auto-enter fullscreen once, on the first tap on the game area in viewer mode —
+// but NEVER from the sound / theme / fullscreen controls (tapping 🎵 must not
+// fullscreen the browser). The explicit ⛶ button still toggles it any time.
+let _autoFsDone = false;
+document.addEventListener('click', function(e) {
+    if (_autoFsDone || !isViewer || document.fullscreenElement) return;
+    if (e.target.closest('#sound-togs, #theme-btn, .v-fs-btn')) return;
+    _autoFsDone = true;
+    document.documentElement.requestFullscreen().catch(() => {});
 });
 
 // Update fullscreen button icon when browser fullscreen state changes externally (e.g. Esc key)
@@ -1279,6 +1424,33 @@ function createGame(name, wild) {
     });
 }
 
+// TV / big-screen host: the TV creates the room, shows a QR + scoreboard, and
+// the FIRST phone to join becomes Captain (H.players[0]) with the Start button.
+function hostOnTV() {
+    isTvHost = true; isViewer = true;
+    document.body.classList.add('viewer-mode');
+    ui = 'creating'; render();
+
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I/O
+    roomCode = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    peer = new Peer(roomCode, ICE_CFG);
+
+    peer.on('open', id => {
+        myId = id; isHost = true;
+        H.wildOnes = fWild;                        // TV host is NOT a player
+        vD = { phase: 'lobby', players: [], roomCode, tvHost: true, captain: null };
+        ui = 'viewer';
+        render();
+    });
+    peer.on('connection', conn => setupGuestConn(conn));
+    peer.on('error', e => {
+        uiErr = 'Connection error: ' + e.message;
+        isTvHost = false; isViewer = false;
+        document.body.classList.remove('viewer-mode');
+        ui = 'home'; render();
+    });
+}
+
 function joinGame(code, name) {
     myName = name.trim() || 'Player';
     localStorage.setItem('liarsdice-name', myName);
@@ -1305,7 +1477,7 @@ function joinGame(code, name) {
         hostConn.on('data', msg => {
             if (msg.type === 'lobby') {
                 const prevN = D && D.phase === 'lobby' && D.players ? D.players.length : -1;
-                D = {phase:'lobby', players: msg.players, roomCode: msg.roomCode, wildOnes: msg.wildOnes};
+                D = {phase:'lobby', players: msg.players, roomCode: msg.roomCode, wildOnes: msg.wildOnes, tvHost: msg.tvHost, captain: msg.captain};
                 ui = 'lobby_g';
                 render();
                 if (prevN >= 0 && D.players.length > prevN) sJoin();
@@ -1346,10 +1518,10 @@ function joinGame(code, name) {
 }
 
 // ═══════════════════════════════════════════════
-//  AUDIO — procedural pirate-tavern shanty + SFX
-//  (D-dorian sea-shanty sway, heavy swing for a
-//   6/8 lilt, accordion squares over hearty bass;
-//   gesture-started, music ~0.33 vol, SFX on top)
+//  AUDIO — cinematic "He's a Pirate" gallop + SFX
+//  (D-minor orchestral gallop: relentless staccato low strings, bold
+//   brass/string minor-arpeggio lead, timpani + cymbal crashes, detuned
+//   string-section doubling; gesture-started, music ~0.33 vol, SFX on top)
 // ═══════════════════════════════════════════════
 let AC = null, masterGain = null, musicGain = null, sfxGain = null, noiseBuf = null;
 let leadBus = null, musicDelay = null;
@@ -1423,44 +1595,63 @@ function sUi() {
 // Tankard clink — a new pirate walks into the tavern
 function sJoin() {
     if (!sfxOn || !AC) return;
+    // tankard clink
     tone(mf(74), 0.07, { type: 'triangle', vol: 0.22 });
     tone(mf(81), 0.18, { type: 'triangle', vol: 0.2, when: 0.06 });
     noiseHit(0.05, { vol: 0.06, hp: 8000 });
+    // a tiny "arr" growl
+    tone(mf(45), 0.16, { type: 'sawtooth', vol: 0.1, when: 0.16, slide: mf(43), lp: 900 });
 }
 // Dice shake: rattling bursts in the cup → cup slam → dice settle
 function sRoll() {
     if (!sfxOn || !AC) return;
-    [0, 0.08, 0.15, 0.24, 0.31].forEach((t, i) => {
-        noiseHit(0.05, { vol: 0.15 + (i % 2) * 0.05, when: t, hp: 2400 + (i % 3) * 900 });
-        tone(300 + (i * 67) % 140, 0.04, { type: 'square', vol: 0.05, when: t, lp: 1400 });
+    // bones rattling inside a wooden cup
+    [0, 0.06, 0.11, 0.17, 0.23, 0.29].forEach((t, i) => {
+        noiseHit(0.04, { vol: 0.13 + (i % 2) * 0.05, when: t, hp: 2000 + (i % 3) * 1100 });
+        tone(260 + (i * 83) % 180, 0.035, { type: 'square', vol: 0.05, when: t, lp: 1300 });
     });
-    tone(85, 0.22, { type: 'sine', vol: 0.5, when: 0.42, slide: 45 });   // cup slam
-    noiseHit(0.18, { vol: 0.28, when: 0.42, hp: 700 });
-    [0.56, 0.63, 0.71].forEach((t, i) => tone(520 + i * 90, 0.05, { type: 'triangle', vol: 0.13, when: t }));
+    // CUP SLAM on the table — low thud + wood knock
+    tone(78, 0.26, { type: 'sine', vol: 0.55, when: 0.4, slide: 40 });
+    noiseHit(0.05, { vol: 0.22, when: 0.4, hp: 1200 });
+    noiseHit(0.2, { vol: 0.3, when: 0.4, hp: 500 });
+    // bones settle
+    [0.52, 0.59, 0.67].forEach((t, i) => { noiseHit(0.03, { vol: 0.08, when: t, hp: 3000 }); tone(500 + i * 80, 0.04, { type: 'triangle', vol: 0.1, when: t }); });
 }
 // Wooden knock on the table — pitch climbs with the bid quantity
 function sBid(qty) {
     if (!sfxOn || !AC) return;
     const m = 48 + Math.min(qty || 1, 18);
-    tone(mf(m), 0.07, { type: 'triangle', vol: 0.3, lp: 1800 });
-    noiseHit(0.03, { vol: 0.1, hp: 1800 });
-    tone(mf(m + 3), 0.09, { type: 'triangle', vol: 0.24, when: 0.1, lp: 1800 });
-    noiseHit(0.03, { vol: 0.08, when: 0.1, hp: 2200 });
+    // firm wooden knock on the table
+    tone(mf(m), 0.07, { type: 'triangle', vol: 0.3, lp: 1600 });
+    noiseHit(0.03, { vol: 0.12, hp: 1600 });
+    // small ship-bell "ding" — brighter as the wager climbs
+    const bell = 700 + Math.min(qty || 1, 12) * 55;
+    tone(bell, 0.24, { type: 'sine', vol: 0.16, when: 0.05, attack: 0.002 });
+    tone(bell * 2.01, 0.16, { type: 'sine', vol: 0.08, when: 0.05, attack: 0.002 });
 }
 // Soft two-note nudge — the cup passes to you
 function sTurn() {
     if (!sfxOn || !AC) return;
-    tone(mf(62), 0.07, { type: 'square', vol: 0.1, lp: 2600 });
-    tone(mf(69), 0.12, { type: 'square', vol: 0.1, when: 0.08, lp: 2600 });
+    // bosun's whistle — a rising two-note pipe
+    tone(1400, 0.14, { type: 'sine', vol: 0.12, slide: 2100, attack: 0.02 });
+    tone(2100, 0.2, { type: 'sine', vol: 0.11, when: 0.14, slide: 1700, attack: 0.02 });
 }
 // LIAR! — thunderclap sting: low sawtooth cluster with a tritone snarl
 function sLiar() {
     if (!sfxOn || !AC) return;
-    duckMusic(1.2);
-    [50, 53, 56].forEach(m => tone(mf(m), 0.7, { type: 'sawtooth', vol: 0.13, lp: 1100 }));
-    tone(mf(38), 0.8, { type: 'sawtooth', vol: 0.2, lp: 500, slide: mf(36) });
-    tone(mf(74), 0.35, { type: 'square', vol: 0.11, when: 0.05, slide: mf(62), lp: 2400 });
-    noiseHit(0.5, { vol: 0.22, hp: 1400 });
+    duckMusic(1.6);
+    // CANNON BOOM — deep low drop + explosive noise body
+    tone(62, 0.5, { type: 'sine', vol: 0.55, slide: 26 });
+    noiseHit(0.35, { vol: 0.45, hp: 240 });
+    noiseHit(0.7, { vol: 0.22, when: 0.02, hp: 100 });
+    // metallic SWORD CLASH ring
+    [1568, 2093, 2637].forEach((f, i) => tone(f * (1 + (Math.random() - 0.5) * 0.01), 0.5, { type: 'sine', vol: 0.09 - i * 0.02, when: 0.06, attack: 0.002 }));
+    noiseHit(0.12, { vol: 0.15, when: 0.06, hp: 6000 });
+    // dissonant thunder snarl over the top
+    [50, 53, 56].forEach(m => tone(mf(m), 0.7, { type: 'sawtooth', vol: 0.13, when: 0.05, lp: 1100 }));
+    tone(mf(38), 0.85, { type: 'sawtooth', vol: 0.2, when: 0.05, lp: 500, slide: mf(36) });
+    // THUNDER rumble tail
+    noiseHit(0.9, { vol: 0.16, when: 0.3, hp: 85 });
 }
 // Reveal: counting ticks over the dice, then a mournful foghorn as the
 // loser drops a die overboard (+ whistle & splash if they're eliminated)
@@ -1475,21 +1666,34 @@ function sReveal(r, elim) {
     tone(mf(50), 0.9, { type: 'sawtooth', vol: 0.17, when: tHorn + 0.4, lp: 700, slide: mf(49) });
     tone(mf(38), 1.0, { type: 'sine', vol: 0.2, when: tHorn + 0.4 });
     if (elim) {
-        tone(880, 0.6, { type: 'sine', vol: 0.16, when: tHorn + 1.2, slide: 180 }); // man overboard…
-        noiseHit(0.45, { vol: 0.24, when: tHorn + 1.7, hp: 900 });                  // …splash
+        tone(1000, 0.5, { type: 'sine', vol: 0.14, when: tHorn + 1.1, slide: 200 });  // "man overboard!"
+        noiseHit(0.5, { vol: 0.3, when: tHorn + 1.55, hp: 600 });                      // big SPLASH
+        noiseHit(0.35, { vol: 0.2, when: tHorn + 1.62, hp: 2500 });
+        // low bell toll — down to Davy Jones' Locker
+        [0, 0.7].forEach(dt => {
+            tone(196, 1.4, { type: 'sine', vol: 0.2, when: tHorn + 2.0 + dt, attack: 0.004 });
+            tone(196 * 2.76, 1.0, { type: 'sine', vol: 0.08, when: tHorn + 2.0 + dt, attack: 0.004 });
+        });
     }
 }
 // Last pirate standing: quotes the tavern-shanty motif (lobby lead), then
 // a jig trill, full-crew chord + crash — the crew sings its own tune home
 function sWin() {
     if (!sfxOn || !AC) return;
-    duckMusic(1.6);
-    [62, 62, 62, 60, 62, 64, 65, 64].forEach((m, i) => tone(mf(m), 0.16, { type: 'square', vol: 0.22, when: i * 0.11, lp: 3200 }));
+    duckMusic(1.8);
+    // triumphant ship-bell peal
+    [0, 0.28, 0.56].forEach(dt => { tone(1046, 0.5, { type: 'sine', vol: 0.14, when: dt, attack: 0.002 }); tone(1568, 0.4, { type: 'sine', vol: 0.08, when: dt, attack: 0.002 }); });
+    // fanfare quoting the theme (brass)
+    [62, 62, 62, 60, 62, 64, 65, 64].forEach((m, i) => tone(mf(m), 0.16, { type: 'sawtooth', vol: 0.2, when: i * 0.11, lp: 3200 }));
     [74, 76, 74, 72, 74, 77].forEach((m, i) =>
         tone(mf(m), 0.09, { type: 'square', vol: 0.17, when: 0.95 + i * 0.07, lp: 3600 }));
     [50, 57, 62, 65, 69].forEach(m => tone(mf(m), 1.1, { type: 'triangle', vol: 0.11, when: 1.5 }));
     tone(mf(38), 1.1, { type: 'triangle', vol: 0.22, when: 1.5 });
     noiseHit(0.8, { vol: 0.2, when: 1.5, hp: 4500 });
+    // hearty crew "yo — HO!" with a shouted "hey!"
+    tone(mf(45), 0.22, { type: 'sawtooth', vol: 0.2, when: 2.05, lp: 900 });
+    tone(mf(43), 0.45, { type: 'sawtooth', vol: 0.24, when: 2.35, lp: 900, slide: mf(41) });
+    noiseHit(0.14, { vol: 0.18, when: 2.35, hp: 1800 });
 }
 // Duck the music briefly so big stingers read clearly (sidechain feel)
 function duckMusic(dur = 0.5) {
@@ -1504,81 +1708,87 @@ function duckMusic(dur = 0.5) {
 // D-dorian sea shanties. null = rest; numbers are midi notes.
 // swing ≈ 0.25 fakes a 6/8 lilt; waves picks the oscillator palette;
 // bassBars follows the pads' chords bar-to-bar; creak = hull groans.
+// "He's a Pirate" in spirit: D-minor cinematic GALLOP. Relentless staccato
+// low-string bass, bold brass/string lead of rising minor arpeggios + driving
+// repeated notes, timpani kicks, cymbal swells. orch = detuned string-section
+// doubling; bassStac = short galloping bass; crash = cymbal swell lane.
 const TRACKS = {
-    // Tavern shanty: hearty oom-pah, accordion chops — Dm C | F G
-    lobby: { bpm: 104, swing: 0.25, arp: 2, leadLp: 3400,
+    // Lobby: "Drunken Sailor" — hearty D-minor concertina shanty, oom-pah bass,
+    // reedy accordion melody, warm and singable (no harsh saws).
+    lobby: { bpm: 100, swing: 0.22, arp: 2, leadLp: 3000,
         waves: { bass: 'triangle', lead: 'square', stab: 'square', arpW: 'triangle' },
         bassBars: [
-            [38,null,null,null, 45,null,null,null, 38,null,null,null, 45,null,38,null, 36,null,null,null, 43,null,null,null, 36,null,null,null, 43,null,36,null],
-            [41,null,null,null, 48,null,null,null, 41,null,null,null, 48,null,41,null, 43,null,null,null, 50,null,null,null, 43,null,45,null, 47,null,48,null],
+            [38,null,45,null, 38,null,45,null, 38,null,45,null, 38,null,45,null, 36,null,43,null, 36,null,43,null, 36,null,43,null, 36,null,43,null],
+            [34,null,41,null, 34,null,41,null, 34,null,41,null, 34,null,41,null, 33,null,40,null, 33,null,40,null, 33,null,40,null, 33,null,45,null],
         ],
-        leads: [
-            [62,null,62,null, 62,null,60,null, 62,null,64,null, 65,null,64,null, 62,null,60,null, 57,null,60,null, 62,null,null,null, null,null,57,60],
-            [65,null,65,null, 65,null,64,null, 65,null,67,null, 69,null,67,null, 67,null,65,null, 64,null,62,null, 59,null,62,null, 62,null,null,null],
-            [74,null,72,null, 69,null,72,null, 74,null,76,null, 77,null,76,null, 74,null,72,null, 69,null,67,null, 69,null,72,null, 69,null,null,null],
-            [62,null,null,null, null,null,null,null, 60,null,62,null, 64,null,65,null, 67,null,65,null, 64,null,62,null, 60,null,59,null, 62,null,null,null],
+        leads: [ // "What shall we do with a drunk-en sail-or / ear-ly in the mor-ning"
+            [69,null,69,null, 69,null,71,null, 72,null,71,null, 69,null,null,null, 67,null,69,null, 71,null,72,null, 71,null,69,null, 69,null,null,null],
+            [74,null,74,null, 72,null,71,null, 69,null,71,null, 72,null,null,null, 71,null,69,null, 67,null,65,null, 67,null,69,null, 69,null,null,null],
+            [72,null,71,null, 69,null,67,null, 69,null,71,null, 72,null,74,null, 72,null,71,null, 69,null,67,null, 69,null,null,null, null,null,null,null],
         ],
-        hat:  [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,1,0],
-        kick: [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
-        stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
-        pads: [
-            { 0: [50,53,57], 16: [48,52,55] },
-            { 0: [53,57,60], 16: [55,59,62] },
-        ] },
-    // Squint-eyed wager: sparse pedal bass, hull creaks, Dm9 rub → A7
-    bidding: { bpm: 92, swing: 0.25, arp: 4, leadLp: 2400, hatHp: 2600,
-        waves: { bass: 'sine', lead: 'triangle', stab: 'sine', arpW: 'sine' },
-        bassBars: [
-            [38,null,null,null, null,null,null,null, 38,null,null,null, null,null,null,37, 38,null,null,null, null,null,null,null, 38,null,null,null, null,null,null,41],
-            [36,null,null,null, null,null,null,null, 36,null,null,null, null,null,null,38, 33,null,null,null, null,null,null,null, 34,null,null,null, 36,null,37,null],
-        ],
-        leads: [
-            [null,null,null,null, 62,null,null,null, null,null,61,null, 62,null,null,null, null,null,null,null, null,null,null,null, 65,null,64,null, 62,null,null,null],
-            [null,null,null,null, null,null,null,null, 57,null,null,null, 60,null,59,null, 57,null,null,null, null,null,null,null, null,null,53,null, 49,null,null,null],
-        ],
-        hat:  [0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,1,0],
-        kick: [1,0,0,1, 0,0,0,0, 0,0,0,0, 0,0,0,0, 1,0,0,1, 0,0,0,0, 0,0,0,0, 0,0,0,0],
-        stab: [0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,0,0],
-        creak: [0,0,0,0, 0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,1,0,0, 0,0,0,0],
-        pads: [
-            { 0: [50,53,57], 16: [50,52,57] },
-            { 0: [48,52,55], 16: [45,49,55] },
-        ] },
-    // Storm on deck (liar called / reveal): Dm C | Bb A driving saw bass
-    showdown: { bpm: 132, swing: 0.12, arp: 1, leadLp: 2800,
-        waves: { bass: 'sawtooth', lead: 'square', stab: 'sawtooth', arpW: 'square' },
-        bassBars: [
-            [38,null,38,38, null,38,null,38, 38,null,38,50, null,38,null,38, 36,null,36,36, null,36,null,36, 36,null,36,48, null,36,null,36],
-            [34,null,34,34, null,34,null,34, 34,null,34,46, null,34,null,34, 33,null,33,33, null,33,null,33, 33,null,33,45, null,33,37,null],
-        ],
-        leads: [
-            [74,null,null,null, 74,null,72,null, 74,null,77,null, 76,null,74,null, 72,null,null,null, 72,null,71,null, 72,null,76,null, 74,null,72,null],
-            [70,null,null,null, 70,null,69,null, 70,null,74,null, 72,null,70,null, 69,null,null,null, 69,null,68,null, 69,null,73,null, 76,null,73,null],
-        ],
-        hat:  [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,1],
+        hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,1],
         kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
         stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
         pads: [
             { 0: [50,53,57], 16: [48,52,55] },
             { 0: [46,50,53], 16: [45,49,52] },
         ] },
-    // Rum & glory (game over): lazy swaggering stroll — F C | Dm C
-    results: { bpm: 96, swing: 0.3, arp: 2, leadLp: 3600,
-        waves: { bass: 'triangle', lead: 'square', stab: 'triangle', arpW: 'triangle' },
+    // Bidding: brooding minor pedal — low D drone, sparse fiddle, hull creaks
+    bidding: { bpm: 78, swing: 0.2, arp: 4, leadLp: 2200, hatHp: 2400,
+        waves: { bass: 'triangle', lead: 'triangle', stab: 'triangle', arpW: 'sine' },
         bassBars: [
-            [41,null,null,null, 48,null,null,41, 48,null,41,null, 48,null,null,null, 36,null,null,null, 43,null,null,36, 43,null,36,null, 43,null,null,null],
-            [38,null,null,null, 45,null,null,38, 45,null,38,null, 45,null,null,null, 36,null,null,null, 43,null,null,null, 36,null,40,null, 41,null,43,null],
+            [38,null,null,null, null,null,null,null, 38,null,null,null, null,null,null,null, 38,null,null,null, null,null,null,null, 36,null,null,null, null,null,37,null],
+            [34,null,null,null, null,null,null,null, 34,null,null,null, null,null,null,38, 33,null,null,null, null,null,null,null, 34,null,null,null, 36,null,37,null],
         ],
         leads: [
-            [69,null,null,67, 65,null,67,null, 69,null,null,null, null,null,72,null, 67,null,null,64, 62,null,64,null, 67,null,null,null, null,null,null,null],
-            [65,null,null,64, 62,null,64,null, 65,null,null,null, null,null,69,null, 67,null,65,null, 64,null,62,null, 60,null,62,null, 60,null,null,null],
+            [null,null,null,null, 69,null,null,null, null,null,67,null, 69,null,null,null, null,null,null,null, null,null,null,null, 72,null,71,null, 69,null,null,null],
+            [null,null,null,null, null,null,null,null, 65,null,null,null, 67,null,65,null, 64,null,null,null, null,null,null,null, null,null,60,null, 62,null,null,null],
         ],
-        hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
-        kick: [1,0,0,0, 0,0,0,0, 1,0,1,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,1,0, 0,0,0,0],
+        hat:  [0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,1,0],
+        kick: [1,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+        stab: [0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,0,0],
+        creak: [0,0,0,0, 0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,1,0,0, 0,0,0,0],
+        pads: [
+            { 0: [38,45,50], 16: [38,45,50] },
+            { 0: [36,43,48], 16: [33,40,45] },
+        ] },
+    // Showdown / reveal: up-tempo driving D-minor shanty — rousing accordion,
+    // hearty oom-pah-pah, the crew stamping their boots. Warm, not harsh.
+    showdown: { bpm: 128, swing: 0.1, arp: 1, leadLp: 3000,
+        waves: { bass: 'triangle', lead: 'square', stab: 'square', arpW: 'triangle' },
+        bassBars: [
+            [38,null,38,45, 38,null,45,null, 38,null,38,45, 38,null,45,null, 36,null,36,43, 36,null,43,null, 36,null,36,43, 36,null,43,null],
+            [34,null,34,41, 34,null,41,null, 34,null,34,41, 34,null,41,null, 33,null,33,40, 33,null,40,null, 33,null,33,45, 45,null,45,null],
+        ],
+        leads: [
+            [69,null,69,null, 71,null,72,null, 74,null,72,null, 71,null,69,null, 67,null,69,null, 71,null,69,null, 67,null,65,null, 64,null,null,null],
+            [74,null,74,null, 76,null,77,null, 76,null,74,null, 72,null,71,null, 69,null,71,null, 72,null,74,null, 72,null,71,null, 69,null,null,null],
+        ],
+        hat:  [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,1],
+        kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,1,0],
+        stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        pads: [
+            { 0: [50,53,57], 16: [48,52,55] },
+            { 0: [46,50,53], 16: [45,49,52] },
+        ] },
+    // Results / gameover: "Blow the Man Down" — jaunty, triumphant F-major
+    // stroll, a hearty singalong to see the winning pirate home.
+    results: { bpm: 108, swing: 0.24, arp: 2, leadLp: 3400,
+        waves: { bass: 'triangle', lead: 'square', stab: 'square', arpW: 'triangle' },
+        bassBars: [
+            [41,null,48,null, 41,null,48,null, 41,null,48,null, 41,null,48,null, 48,null,43,null, 48,null,43,null, 48,null,43,null, 48,null,43,null],
+            [46,null,41,null, 46,null,41,null, 46,null,41,null, 46,null,41,null, 43,null,48,null, 43,null,48,null, 41,null,45,null, 48,null,48,null],
+        ],
+        leads: [
+            [72,null,72,72, 74,null,72,null, 70,null,69,null, 65,null,null,null, 69,null,69,null, 70,null,72,null, 74,null,null,null, null,null,null,null],
+            [77,null,77,77, 76,null,74,null, 72,null,70,null, 69,null,null,null, 72,null,74,null, 76,null,77,null, 72,null,null,null, null,null,null,null],
+        ],
+        hat:  [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+        kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
         stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
         pads: [
             { 0: [53,57,60], 16: [48,52,55] },
-            { 0: [50,53,57], 16: [48,52,55] },
+            { 0: [46,50,53], 16: [48,52,55] },
         ] },
 };
 let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
@@ -1595,7 +1805,11 @@ function playMusicStep(i, t, bar) {
     const full = musicIntensity >= 2 || musicUrgent;
     // Swing: push every off-16th late — the shanty sway
     const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
-    if (tr.kick[i]) tone(120, 0.24, { type: 'sine', vol: 0.46, when: rel, slide: 40, dest: musicGain }); // boot stomp
+    if (tr.kick[i]) { // timpani hit — low sine with a pitch drop + a soft thud
+        tone(155, 0.3, { type: 'sine', vol: 0.5, when: rel, slide: 42, dest: musicGain });
+        noiseHit(0.05, { vol: 0.06, when: rel, hp: 1600, dest: musicGain });
+    }
+    if (tr.crash && tr.crash[i]) noiseHit(0.5, { vol: 0.15, when: rel, hp: 5200, dest: musicGain }); // cymbal swell
     if (tr.hat[i]) {
         const hv = (i % 4 === 2 ? 0.12 : 0.06) * (0.8 + Math.random() * 0.4);
         noiseHit(tr.hatHp ? 0.07 : 0.045, { vol: hv, when: rel, hp: tr.hatHp || 9500, dest: musicGain });
@@ -1604,15 +1818,21 @@ function playMusicStep(i, t, bar) {
         tone(70 + Math.random() * 25, 0.6, { type: 'sawtooth', vol: 0.045, when: rel, slide: 55, lp: 380, dest: musicGain, attack: 0.08 }); // hull groan
     const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
     const b = bassArr[i];
-    if (b != null) tone(mf(b + k), stepDur * 1.6, { type: w.bass || 'triangle', vol: 0.28, when: rel, dest: musicGain, lp: 950, attack: 0.005 });
+    if (b != null) {
+        const bdur = tr.bassStac ? stepDur * 0.85 : stepDur * 1.6;   // galloping staccato
+        tone(mf(b + k), bdur, { type: w.bass || 'triangle', vol: 0.3, when: rel, dest: musicGain, lp: 1100, attack: 0.004 });
+        if (tr.orch) tone(mf(b + k) * 1.004, bdur, { type: 'sawtooth', vol: 0.12, when: rel, dest: musicGain, lp: 700, attack: 0.006 }); // detuned low-string body
+    }
     const pad = tr.pads[bar % tr.pads.length];
     const ch = i < 16 ? pad[0] : pad[16];
-    if (full && tr.stab && tr.stab[i] && ch) // accordion "pah" chop
+    if (full && tr.stab && tr.stab[i] && ch) // brass chord accent
         ch.forEach(m => tone(mf(m + 12 + k), stepDur * 0.9, { type: w.stab || 'square', vol: 0.03, when: rel, lp: 2600, dest: musicGain, attack: 0.004 }));
     let l = tr.leads[bar % tr.leads.length][i];
     if (l != null && (musicIntensity >= 1 || musicUrgent)) {
         if (musicUrgent) l += 12;
-        tone(mf(l + k), stepDur * 1.5, { type: w.lead || 'square', vol: 0.12 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3400, attack: 0.005 });
+        const lf = mf(l + k), lv = 0.12 * (0.9 + Math.random() * 0.2);
+        tone(lf, stepDur * 1.5, { type: w.lead || 'square', vol: lv, when: rel, dest: leadBus, lp: tr.leadLp || 3400, attack: 0.005 });
+        if (tr.orch) tone(lf * 1.006, stepDur * 1.5, { type: 'sawtooth', vol: lv * 0.55, when: rel, dest: leadBus, lp: tr.leadLp || 3400, attack: 0.009 }); // detuned string-section double
     }
     // Concertina shimmer above the pads
     if (full && tr.arp && i % tr.arp === 0 && ch)
@@ -1735,7 +1955,7 @@ function popText(x, y, text, cls = 'good') {
     setTimeout(() => el.remove(), 1150);
 }
 function celebrate() {
-    const cs = ['#f59e0b', '#ef4444', '#4ade80', '#facc15'];
+    const cs = ['#e0a83a', '#d8443a', '#4bb98d', '#ffdca0'];
     const cx = window.innerWidth / 2;
     const el = document.querySelector('.trophy .icon');
     let y = 170;
@@ -1743,6 +1963,30 @@ function celebrate() {
     burst(cx, y, cs, 18);
     setTimeout(() => burst(cx - 80, y + 40, cs, 12), 250);
     setTimeout(() => burst(cx + 80, y + 40, cs, 12), 500);
+}
+
+// The signature moment: a challenge is called — full-screen shout, cannon
+// smoke and a screen shake. "LIAR!" if the bid was a lie, "AYE, TRUE!" if it held.
+function liarDrama(r) {
+    if (REDUCED || !r) return;
+    const lie = !r.valid;
+    const fl = document.createElement('div');
+    fl.id = 'liar-flash';
+    fl.innerHTML = `<div class="liar-word">${lie ? 'LIAR!' : 'AYE, TRUE!'}</div>`;
+    document.body.appendChild(fl);
+    setTimeout(() => fl.remove(), 1200);
+    document.body.classList.add('shake-screen');
+    setTimeout(() => document.body.classList.remove('shake-screen'), 600);
+    const cx = innerWidth / 2, cy = innerHeight * 0.42;
+    for (let i = 0; i < 6; i++) {
+        const s = document.createElement('div'); s.className = 'smoke';
+        const size = 30 + Math.random() * 50;
+        s.style.cssText = `left:${cx + (Math.random() * 160 - 80)}px;top:${cy + (Math.random() * 80 - 40)}px;` +
+            `width:${size}px;height:${size}px;--sx:${(Math.random() * 80 - 40)}px;--sy:${-30 - Math.random() * 50}px`;
+        document.body.appendChild(s);
+        setTimeout(() => s.remove(), 1050);
+    }
+    burst(cx, cy, lie ? ['#d8443a', '#ffdca0', '#8a5e12'] : ['#4bb98d', '#e0a83a', '#ffdca0'], 20);
 }
 
 // ── State-diff FX: one function for host, guest and viewer paths ──
@@ -1766,6 +2010,7 @@ function fxOnState(prev, next) {
         const loserOut = !!(next.players || []).find(p => p.name === r.loserName && !p.active);
         sLiar();
         sReveal(r, loserOut);
+        liarDrama(r);
         if (prev && typeof next.myDiceCount === 'number' && typeof prev.myDiceCount === 'number'
             && next.myDiceCount < prev.myDiceCount) {
             const b = document.getElementById('result-banner');
@@ -1802,6 +2047,7 @@ function chipsHTML() {
                     : 'chip';
           const pips = Array.from({length: p.diceCount}, () => '<span class="pip"></span>').join('');
           return `<div class="${cls}">
+            <span class="pirate-av">${pirateAvatar(p.name)}</span>
             <span>${esc(p.name)}${p.name === myName ? ' (you)' : ''}</span>
             <div class="chip-pips">${pips}</div>
           </div>`;
@@ -1811,16 +2057,16 @@ function chipsHTML() {
 
 function bidBoxHTML() {
     if (!D?.currentBid) {
-        return `<div class="bid-box" id="bid-now"><div class="no-bid">No bid yet — you go first!</div></div>`;
+        return `<div class="bid-box" id="bid-now"><div class="no-bid">No wager yet — ye open the biddin'!</div></div>`;
     }
     const {qty,face,bidderName} = D.currentBid;
     return `<div class="bid-box" id="bid-now">
       <div>
-        <div class="lbl">Current Bid</div>
+        <div class="lbl">The Wager</div>
         <div class="bid-val">${dieSVG(face,{size:36,hi:true})} <span>${qty}× face&nbsp;${face}</span></div>
       </div>
       <div class="bid-by">by <strong>${esc(bidderName)}</strong><br>
-        <span style="font-size:.65rem">${D.totalDice} dice total</span>
+        <span style="font-size:.65rem">${D.totalDice} bones on the table</span>
       </div>
     </div>`;
 }
@@ -1848,13 +2094,13 @@ function bidBuilderHTML() {
       </div>
       <div class="act-row">
         <button class="btn btn-p" onclick="actBid()" ${valid?'':'disabled'}>
-          ✓ Bid ${bQty}×${bFace}
+          ☝ Wager ${bQty}×${bFace}
         </button>
         <button class="btn btn-d" onclick="actChallenge()" ${D?.currentBid?'':'disabled'}>
-          🤥 Liar!
+          ☠️ LIAR!
         </button>
       </div>
-      ${!valid && D?.currentBid ? `<div style="text-align:center;font-size:.7rem;color:var(--danger);margin-top:6px">Bid must be higher than current</div>` : ''}
+      ${!valid && D?.currentBid ? `<div style="text-align:center;font-size:.7rem;color:var(--danger);margin-top:6px">The wager must rise higher</div>` : ''}
     </div>`;
 }
 
@@ -1881,44 +2127,46 @@ function screenHome() {
     if (auto && !fCode) fCode = auto;
 
     return `
-    <div class="hdr"><h1>LIAR'S DICE</h1><div class="sub">Multiplayer · PeerJS</div></div>
+    <div class="hdr"><h1>Liar's Dice</h1><div class="sub">A wager aboard the Flying Dutchman</div></div>
     <div class="card">
       <form onsubmit="createGame(fName,fWild);return false">
-      <div class="slbl">Create a new game</div>
-      <div class="fg"><label>Your name</label>
-        <input id="cn" type="text" placeholder="e.g. Neil" value="${esc(fName)}" maxlength="16" oninput="fName=this.value">
+      <div class="slbl">Start a game on yer phone</div>
+      <div class="fg"><label>Yer name</label>
+        <input id="cn" type="text" placeholder="e.g. Bootstrap Bill" value="${esc(fName)}" maxlength="16" oninput="fName=this.value">
       </div>
       <div class="tog-row" style="margin-bottom:14px">
-        <div><div class="tog-label">Wild Ones</div><div class="tog-desc">1s count as any face (recommended)</div></div>
+        <div><div class="tog-label">Aces Wild</div><div class="tog-desc">1s count as any face (recommended)</div></div>
         <label class="tog"><input type="checkbox" ${fWild?'checked':''} onchange="fWild=this.checked"><span class="tog-track"></span></label>
       </div>
-      <button type="submit" class="btn btn-p btn-full">🎲 Create Game</button>
+      <button type="submit" class="btn btn-p btn-full">🎲 Roll out the barrel</button>
       </form>
     </div>
     <div class="card">
       <form onsubmit="joinGame(fCode,fName);return false">
-      <div class="slbl">Join a game</div>
+      <div class="slbl">Join a crew</div>
       <div class="fg"><label>Room code</label>
         <input id="jc" type="text" placeholder="e.g. ABCD" value="${esc(fCode)}" maxlength="4"
           oninput="fCode=this.value=this.value.toUpperCase()" autocomplete="off" autocapitalize="characters" style="letter-spacing:4px;font-size:1.1rem;text-transform:uppercase">
       </div>
-      <div class="fg"><label>Your name</label>
-        <input type="text" placeholder="e.g. Alice" value="${esc(fName)}" maxlength="16" oninput="fName=this.value">
+      <div class="fg"><label>Yer name</label>
+        <input type="text" placeholder="e.g. Will Turner" value="${esc(fName)}" maxlength="16" oninput="fName=this.value">
       </div>
-      <button type="submit" class="btn btn-g btn-full">→ Join Game</button>
+      <button type="submit" class="btn btn-g btn-full">☠️ Take a seat</button>
       ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
       </form>
     </div>
     <div class="card" style="margin-top:8px">
+      <div class="slbl">TV / Big Screen</div>
+      <button class="btn btn-p btn-full" onclick="hostOnTV()">📺 Host the party on this screen</button>
+      <div style="font-size:.72rem;color:var(--muted);margin:7px 0 12px">Shows a big QR code to join — the first pirate aboard becomes 🧭 Captain and gets the Start.</div>
+      <hr>
       <form onsubmit="joinAsViewer(fVCode);return false">
-      <div class="slbl">Join as Viewer</div>
-      <div style="font-size:.75rem;color:var(--muted);margin-bottom:10px">Watch the game on a TV or shared screen — no account needed.</div>
-      <div class="fg"><label>Room code</label>
+      <div class="fg"><label>…or open the scoreboard for an existing room</label>
         <input id="vc" type="text" placeholder="e.g. ABCD" value="${esc(fVCode)}" maxlength="4"
           autocomplete="off" autocapitalize="characters" style="letter-spacing:4px;font-size:1.1rem;text-transform:uppercase"
           oninput="fVCode=this.value=this.value.toUpperCase()">
       </div>
-      <button type="submit" class="btn btn-g btn-full">📺 Watch as Viewer</button>
+      <button type="submit" class="btn btn-g btn-full">📺 Open Scoreboard</button>
       </form>
     </div>`;
 }
@@ -1951,29 +2199,31 @@ function screenLobbyHost() {
     const names = H.players.map((p,i) =>
         `<div class="player-row${i===0?' host-row':''}" style="--i:${i}">
           <div class="dot"></div>
-          <span>${esc(p.name)}${i===0?' (host)':''}</span>
+          <span class="pirate-av">${pirateAvatar(p.name)}</span>
+          <span>${esc(p.name)}${i===0?' (you — Cap\'n)':''}</span>
         </div>`
     ).join('');
 
     return `
-    <div class="hdr"><h1>LIAR'S DICE</h1></div>
+    <div class="hdr"><h1>Liar's Dice</h1><div class="sub">Gather yer crew</div></div>
     <div class="card">
-      <div class="slbl">Room Code — share this!</div>
+      <div class="slbl">Scan to come aboard — or share the code</div>
+      <div class="qr-box">${qrSVG(url)}</div>
       <div class="room-code">${code}</div>
       <div class="share-row" style="grid-template-columns:1fr 1fr 1fr">
-        <button class="btn btn-g btn-sm" onclick="navigator.clipboard.writeText('${esc(code)}').then(()=>alert('Copied!'))">📋 Copy Code</button>
-        <button class="btn btn-g btn-sm" onclick="navigator.clipboard.writeText('${esc(url)}').then(()=>alert('Link copied!'))">🔗 Copy Link</button>
-        <button class="btn btn-g btn-sm" onclick="navigator.clipboard.writeText('${esc(viewUrl)}').then(()=>alert('Viewer link copied!'))">📺 Viewer Link</button>
+        <button class="btn btn-g btn-sm" onclick="navigator.clipboard.writeText('${esc(code)}').then(()=>alert('Copied!'))">📋 Code</button>
+        <button class="btn btn-g btn-sm" onclick="navigator.clipboard.writeText('${esc(url)}').then(()=>alert('Link copied!'))">🔗 Link</button>
+        <button class="btn btn-g btn-sm" onclick="navigator.clipboard.writeText('${esc(viewUrl)}').then(()=>alert('Scoreboard link copied!'))">📺 Scoreboard</button>
       </div>
-      <div class="slbl">Players (${count})</div>
+      <div class="slbl">Crew (${count})</div>
       <div class="player-list">${names}</div>
       <div class="tog-row" style="margin:10px 0 14px">
-        <div><div class="tog-label">Wild Ones</div><div class="tog-desc">1s count as any face</div></div>
+        <div><div class="tog-label">Aces Wild</div><div class="tog-desc">1s count as any face</div></div>
         <label class="tog"><input type="checkbox" ${fWild?'checked':''} onchange="fWild=this.checked;H.wildOnes=this.checked"><span class="tog-track"></span></label>
       </div>
-      <button class="btn btn-p btn-full" onclick="if(H.players.length>=2){ui='game';hostStartGame()}else{alert('Need at least 2 players')}"
+      <button class="btn btn-p btn-full" onclick="if(H.players.length>=2){ui='game';hostStartGame()}else{alert('Need at least 2 pirates')}"
         ${count>=2?'':'disabled'}>
-        🎲 Start Game ${count<2?'(need 2+)':'('+count+' players)'}
+        🎲 Roll the bones ${count<2?'(need 2+)':'('+count+' aboard)'}
       </button>
     </div>`;
 }
@@ -1981,24 +2231,26 @@ function screenLobbyHost() {
 function screenLobbyGuest() {
     const players = D?.players ?? [];
     const code    = (D?.roomCode ?? fCode).toUpperCase();
+    const isCaptain = !!(D?.tvHost && D?.captain && D.captain === myName);
+    const startBtn = isCaptain
+        ? `<button class="btn btn-p btn-full" style="margin-top:14px" onclick="sUi();send(hostConn,{type:'start'})" ${players.length>=2?'':'disabled'}>🎲 Roll the bones ${players.length<2?'(need 2+)':'('+players.length+' aboard)'}</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.8rem;margin-top:14px"><div class="spin" style="margin:0 auto 8px"></div>${D?.tvHost ? (D?.captain?`Waiting for 🧭 Captain ${esc(D.captain)}…`:'Waiting for the Captain…') : 'Waiting for the host to start…'}</div>`;
     return `
-    <div class="hdr"><h1>LIAR'S DICE</h1></div>
+    <div class="hdr"><h1>Liar's Dice</h1>${isCaptain?'<div class="sub">🧭 You are the Captain</div>':''}</div>
     <div class="card">
       <div class="slbl">Room</div>
       <div class="room-code" style="font-size:1.6rem;padding:12px">${code}</div>
-      <div class="slbl" style="margin-top:12px">Players (${players.length})</div>
+      <div class="slbl" style="margin-top:12px">Crew (${players.length})</div>
       <div class="player-list">
         ${players.map((name,i) =>
           `<div class="player-row${i===0?' host-row':''}" style="--i:${i}">
             <div class="dot"></div>
-            <span>${esc(name)}${i===0?' (host)':''}${name===myName?' (you)':''}</span>
+            <span class="pirate-av">${pirateAvatar(name)}</span>
+            <span>${esc(name)}${i===0?(D?.tvHost?' 🧭':' (host)'):''}${name===myName?' (you)':''}</span>
           </div>`
         ).join('')}
       </div>
-      <div style="text-align:center;color:var(--muted);font-size:.8rem;margin-top:14px">
-        <div class="spin" style="margin:0 auto 8px"></div>
-        Waiting for host to start…
-      </div>
+      ${startBtn}
     </div>`;
 }
 
@@ -2015,22 +2267,22 @@ function screenGame() {
 
     let statusHTML = '';
     if (isMyTurn) {
-        statusHTML = `<div class="status your-turn">⚡ YOUR TURN — Bid or call someone a liar!</div>`;
+        statusHTML = `<div class="status your-turn">⚔️ YER TURN — raise the wager, or cry LIAR!</div>`;
     } else {
-        statusHTML = `<div class="status">Waiting for <strong>${esc(currentBidderName)}</strong>…</div>`;
+        statusHTML = `<div class="status">Waiting on <strong>${esc(currentBidderName)}</strong>…</div>`;
     }
 
     return `
-    <div class="hdr" style="margin-bottom:12px"><h1>LIAR'S DICE</h1></div>
+    <div class="hdr" style="margin-bottom:12px"><h1>Liar's Dice</h1></div>
     ${chipsHTML()}
     ${statusHTML}
     <div class="card${isMyTurn?' highlight':''}">
-      <div class="slbl">Your Dice ${wildOnes?'<span class="wild">⚡ 1s wild</span>':''}</div>
+      <div class="slbl">Yer Bones ${wildOnes?'<span class="wild">⚡ Aces wild</span>':''}</div>
       <div class="dice-row" style="margin:10px 0 4px">${diceHTML}</div>
     </div>
     <div class="card">
       ${bidBoxHTML()}
-      ${isMyTurn ? bidBuilderHTML() : `<div style="text-align:center;color:var(--muted);font-size:.82rem">You cannot bid yet</div>`}
+      ${isMyTurn ? bidBuilderHTML() : `<div style="text-align:center;color:var(--muted);font-size:.82rem">Bide yer time, matey…</div>`}
       ${histHTML()}
     </div>`;
 }
@@ -2050,33 +2302,33 @@ function screenReveal() {
             })
         ).join('');
         return `<div class="reveal-player">
-          <div class="rev-name${isLoser?' loser':''}">${esc(pd.name)}${isLoser?' −1 die':''}</div>
+          <div class="rev-name${isLoser?' loser':''}">${pirateAvatar(pd.name)} ${esc(pd.name)}${isLoser?' −1 bone':''}</div>
           <div class="dice-row">${dice}</div>
         </div>`;
     }).join('');
 
     const detail = ok
-        ? `${r.actual} × face ${r.face} found — bid of ${r.qty} was correct. ${esc(r.challengerName)} loses a die.`
-        : `Only ${r.actual} × face ${r.face} found — bid of ${r.qty} was a lie. ${esc(r.bidderName)} loses a die.`;
+        ? `${r.actual} bones of face ${r.face} on the table — the wager of ${r.qty} holds. ${esc(r.challengerName)} loses a bone.`
+        : `Only ${r.actual} bones of face ${r.face} — ${r.qty} was a lie. ${esc(r.bidderName)} loses a bone.`;
 
     const wildNote = D.wildOnes
-        ? `<div style="margin-bottom:10px"><span class="wild">⚡ Highlighted = face ${r.face} + wild 1s</span></div>`
+        ? `<div style="margin-bottom:10px"><span class="wild">⚡ Lit = face ${r.face} + wild aces</span></div>`
         : '';
 
     const continueBtn = D.isHostPlayer
-        ? `<button class="btn btn-p btn-full" onclick="sUi();actContinue()">${D.winner?'🏆 See Results':'▶ Next Round'}</button>`
-        : `<div style="text-align:center;color:var(--muted);font-size:.8rem;margin-top:8px"><div class="spin" style="margin:0 auto 8px"></div>Waiting for host…</div>`;
+        ? `<button class="btn btn-p btn-full" onclick="sUi();actContinue()">${D.winner?'🏆 Claim the spoils':'▶ Roll again'}</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.8rem;margin-top:8px"><div class="spin" style="margin:0 auto 8px"></div>Waiting for the Cap'n…</div>`;
 
     return `
-    <div class="hdr" style="margin-bottom:12px"><h1>LIAR'S DICE</h1></div>
+    <div class="hdr" style="margin-bottom:12px"><h1>Liar's Dice</h1></div>
     ${chipsHTML()}
     <div class="card">
       <div class="result-banner ${ok?'ok':'fail'}" id="result-banner">
-        <div class="r-head">${ok ? `${esc(r.bidderName)}'s bid was CORRECT` : `${esc(r.bidderName)}'s bid was a LIE`}</div>
+        <div class="r-head">${ok ? `⚓ ${esc(r.bidderName)}'s wager holds!` : `☠️ ${esc(r.bidderName)} was lyin'!`}</div>
         <div class="r-detail">${detail}</div>
       </div>
       ${wildNote}
-      <div class="slbl">All Dice</div>
+      <div class="slbl">Show yer bones</div>
       ${playerPanels}
       <hr>
       ${continueBtn}
@@ -2090,22 +2342,23 @@ function screenGameOver() {
     const ranks  = (D.rankings ?? []).map((r,i) =>
         `<div class="rank-item" style="--i:${i}">
           <div class="rank-num ${cls[i]??''}">${medals[i]??i+1}</div>
+          <span class="pirate-av">${pirateAvatar(r.name??r)}</span>
           <div>${esc(r.name??r)}</div>
-          ${i===0?'<span class="wild">WINNER</span>':''}
+          ${i===0?'<span class="wild">CAP\'N</span>':''}
         </div>`
     ).join('');
 
     const btn = D.isHostPlayer
-        ? `<button class="btn btn-p btn-full" style="margin-top:14px" onclick="sUi();actRestart()">🎲 Play Again</button>`
-        : `<div style="text-align:center;color:var(--muted);font-size:.8rem;margin-top:14px"><div class="spin" style="margin:0 auto 8px"></div>Waiting for host…</div>`;
+        ? `<button class="btn btn-p btn-full" style="margin-top:14px" onclick="sUi();actRestart()">🎲 Sail again</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.8rem;margin-top:14px"><div class="spin" style="margin:0 auto 8px"></div>Waiting for the Cap'n…</div>`;
 
     return `
-    <div class="hdr" style="margin-bottom:12px"><h1>LIAR'S DICE</h1></div>
+    <div class="hdr" style="margin-bottom:12px"><h1>Liar's Dice</h1></div>
     <div class="card">
       <div class="trophy">
         <div class="icon">🏆</div>
         <div class="w-name">${esc(D.winner??'')}</div>
-        <div class="w-sub">Wins the game!</div>
+        <div class="w-sub">Last pirate standing!</div>
       </div>
       <div class="rankings">${ranks}</div>
       ${btn}
@@ -2126,18 +2379,24 @@ function screenViewer() {
     // Lobby view
     if (vD.phase === 'lobby') {
         const chips = (vD.players ?? []).map((n, ci) =>
-            `<div class="v-lobby-chip" style="--i:${ci}">${esc(n)}</div>`
+            `<div class="v-lobby-chip" style="--i:${ci}"><span class="pirate-av">${pirateAvatar(n)}</span>${esc(n)}</div>`
         ).join('');
+        const isTv = !!vD.tvHost;
+        const url = `${location.origin}${location.pathname}?join=${(vD.roomCode||'')}`;
+        const waiting = isTv
+            ? (vD.captain ? `🧭 Captain ${esc(vD.captain)} rolls the bones when ready` : 'First pirate aboard becomes 🧭 Captain')
+            : 'Waiting for the host to start…';
         return `<div class="v-lobby-screen">
           <div id="v-bg"></div>
-          <div class="v-lobby-title">LIAR'S DICE</div>
-          <div class="v-lobby-sub">Room Code</div>
+          <div class="v-lobby-title">Liar's Dice</div>
+          ${isTv ? `<div class="v-qr-box">${qrSVG(url)}</div>` : ''}
+          <div class="v-lobby-sub">${isTv ? 'Scan to come aboard · Room' : 'Room Code'}</div>
           <div class="v-lobby-code">${esc((vD.roomCode||'').toUpperCase())}</div>
-          <div class="v-lobby-sub" style="margin-top:8px">Players joined:</div>
-          <div class="v-lobby-players">${chips}</div>
+          <div class="v-lobby-sub" style="margin-top:8px">Crew aboard:</div>
+          <div class="v-lobby-players">${chips || '<span style="color:var(--muted);font-style:italic">Waiting for the first pirate…</span>'}</div>
           <div class="v-waiting">
             <div class="spin"></div>
-            <span>Waiting for host to start…</span>
+            <span>${waiting}</span>
           </div>
         </div>`;
     }
@@ -2150,9 +2409,10 @@ function screenViewer() {
         const isBidding = p.isBidding && vD.phase === 'bidding';
         const isElim = !p.active;
         return `<div class="v-player-wrap" style="--i:${pi}">
-          <div class="v-bidding-tag${isBidding ? '' : ' hidden'}">BIDDING</div>
+          <div class="v-bidding-tag${isBidding ? '' : ' hidden'}">WAGERING</div>
           <div class="v-player-card${isBidding ? ' bidding' : ''}${isElim ? ' elim' : ''}">
-            <div class="v-player-name">${esc(p.name)}</div>
+            <div class="v-player-av">${pirateAvatar(p.name)}</div>
+            <div class="v-player-name">${esc(p.name)}${isElim ? ' ☠️' : ''}</div>
             <div class="v-player-dice">${diceIcons}</div>
           </div>
         </div>`;
@@ -2164,16 +2424,16 @@ function screenViewer() {
         const {qty, face, bidderName} = vD.currentBid;
         const animId = `vbd-${vD.bidCount}`;
         bidContent = `
-          <div class="v-bid-label">CURRENT BID</div>
+          <div class="v-bid-label">THE WAGER</div>
           <div class="v-bid-face-wrap">
             <div id="${animId}" class="bid-bounce">${dieSVG(face, {size: 100, hi: true})}</div>
           </div>
           <div class="v-bid-qty">${qty}×</div>
-          <div class="v-bid-by">by <strong>${esc(bidderName)}</strong></div>
-          <div class="v-bid-total">${vD.totalDice} dice in play</div>`;
+          <div class="v-bid-by">by <strong>${pirateAvatar(bidderName)} ${esc(bidderName)}</strong></div>
+          <div class="v-bid-total">${vD.totalDice} bones on the table</div>`;
     } else {
-        bidContent = `<div class="v-bid-label">CURRENT BID</div>
-          <div class="v-no-bid">No bid yet — first player to bid!</div>`;
+        bidContent = `<div class="v-bid-label">THE WAGER</div>
+          <div class="v-no-bid">No wager yet — first pirate opens the biddin'!</div>`;
     }
 
     // Bid history feed (last 5)
@@ -2198,11 +2458,11 @@ function screenViewer() {
     if (vD.phase === 'reveal' && vD.challengeResult) {
         const r = vD.challengeResult;
         const ok = r.valid;
-        const headline = ok ? '✓ BID CORRECT!' : '🤥 LIAR CALLED!';
+        const headline = ok ? '⚓ THE WAGER HOLDS!' : '☠️ LIAR!';
         const headCls = ok ? 'correct' : 'liar';
         const detail = ok
-            ? `${r.actual} × face ${r.face} found — bid of ${r.qty} was correct`
-            : `Only ${r.actual} × face ${r.face} found — bid of ${r.qty} was a lie`;
+            ? `${r.actual} bones of face ${r.face} on the table — the wager of ${r.qty} holds true`
+            : `Only ${r.actual} bones of face ${r.face} — ${r.qty} was a filthy lie`;
 
         const revPlayers = (r.allDice ?? []).filter(pd => pd.active || pd.dice?.length).map((pd, ri) => {
             const isLoser = pd.name === r.loserName;
@@ -2214,7 +2474,7 @@ function screenViewer() {
                 })
             ).join('');
             return `<div class="v-reveal-player" style="--i:${ri}">
-              <div class="v-reveal-player-name${isLoser ? ' loser' : ''}">${esc(pd.name)}${isLoser ? ' −1 die' : ''}</div>
+              <div class="v-reveal-player-name${isLoser ? ' loser' : ''}">${pirateAvatar(pd.name)} ${esc(pd.name)}${isLoser ? ' −1 bone' : ''}</div>
               <div class="v-reveal-dice">${diceHTML}</div>
             </div>`;
         }).join('');
@@ -2223,20 +2483,21 @@ function screenViewer() {
           <div class="v-reveal-headline ${headCls}">${headline}</div>
           <div class="v-reveal-dice-row">${revPlayers}</div>
           <div class="v-reveal-detail">${detail}</div>
-          <div class="v-reveal-loser">${esc(r.loserName)} loses a die</div>
+          <div class="v-reveal-loser">${(r.allDice||[]).some(pd=>pd.name===r.loserName&&!pd.active) ? `☠️ ${esc(r.loserName)} is sent to Davy Jones' Locker` : `${esc(r.loserName)} loses a bone`}</div>
         </div>`;
     } else if (vD.phase === 'gameover') {
         const medals = ['🥇','🥈','🥉'];
         const rankChips = (vD.rankings ?? []).map((r, i) =>
             `<div class="v-rank-chip">
               <span class="v-rank-medal">${medals[i] ?? (i+1)+'.'}</span>
+              <span class="pirate-av">${pirateAvatar(r.name ?? r)}</span>
               <span>${esc(r.name ?? r)}</span>
             </div>`
         ).join('');
         overlay = `<div class="v-overlay">
           <div class="v-gameover-trophy">🏆</div>
           <div class="v-gameover-winner">${esc(vD.winner ?? '')}</div>
-          <div class="v-gameover-sub">Wins the Game!</div>
+          <div class="v-gameover-sub">Last Pirate Standing</div>
           <div class="v-gameover-rankings">${rankChips}</div>
         </div>`;
     }
@@ -2263,21 +2524,22 @@ function screenViewer() {
 // ── Viewer background dice ──
 function initViewerBg() {
     const bg = document.getElementById('v-bg');
-    if (!bg) return;
+    if (!bg || REDUCED) return;
+    let html = '';
+    for (let i = 0; i < 16; i++) {
+        const size = 8 + Math.random() * 30, left = Math.random() * 100;
+        const dur = 14 + Math.random() * 18, delay = -Math.random() * dur;
+        const bx = (Math.random() * 80 - 40) + 'px';
+        html += `<div class="vb-bub" style="width:${size}px;height:${size}px;left:${left}%;bottom:-5%;--bx:${bx};animation-duration:${dur}s;animation-delay:${delay}s"></div>`;
+    }
+    const EMO = ['🎲','💀','🪙','⚓','🦴','🗝️','🧭'];
     const anims = ['flt1','flt2','flt3'];
-    const positions = [
-        [5,8],[15,45],[25,75],[38,20],[50,60],[62,10],[72,85],[80,35],[90,55],[95,15]
-    ];
-    bg.innerHTML = positions.map(([left,top], i) => {
-        const anim = anims[i % 3];
-        const dur = 18 + (i * 3.7) % 14;
-        const delay = -(i * 2.1);
-        const size = 60 + (i * 17) % 60;
-        const face = (i % 6) + 1;
-        return `<div class="v-bg-die" style="left:${left}%;top:${top}%;opacity:0.04;animation:${anim} ${dur}s ${delay}s linear infinite">
-          ${dieSVG(face, {size})}
-        </div>`;
-    }).join('');
+    const positions = [[5,8],[15,45],[25,75],[38,20],[50,60],[62,10],[72,85],[80,35],[90,55],[95,15]];
+    positions.forEach(([left,top], i) => {
+        const anim = anims[i % 3], dur = 18 + (i * 3.7) % 14, delay = -(i * 2.1), size = 34 + (i * 11) % 40;
+        html += `<div class="vb-em" style="left:${left}%;top:${top}%;font-size:${size}px;animation:${anim} ${dur}s ${delay}s linear infinite">${EMO[i % EMO.length]}</div>`;
+    });
+    bg.innerHTML = html;
 }
 
 // ── Confetti ──
@@ -2489,17 +2751,24 @@ function simDoAction(p, kind, bid) {
 // Decorative only; the reduced-motion media query freezes its animation.
 (function initPhoneBg() {
     const bg = document.getElementById('ld-bg');
-    if (!bg) return;
+    if (!bg || REDUCED) return;
+    let html = '';
+    // rising bubbles from the deep
+    for (let i = 0; i < 14; i++) {
+        const size = 6 + Math.random() * 22, left = Math.random() * 100;
+        const dur = 12 + Math.random() * 16, delay = -Math.random() * dur;
+        const bx = (Math.random() * 60 - 30) + 'px';
+        html += `<div class="ld-bub" style="width:${size}px;height:${size}px;left:${left}%;bottom:-6%;--bx:${bx};animation-duration:${dur}s;animation-delay:${delay}s"></div>`;
+    }
+    // drifting treasure & bones
+    const EMO = ['🎲','💀','🪙','⚓','🦴','🗝️'];
     const anims = ['flt1', 'flt2', 'flt3'];
     const pos = [[7,14],[22,62],[35,30],[50,80],[63,20],[78,55],[90,78],[15,88],[46,46]];
-    bg.innerHTML = pos.map(([left, top], i) => {
-        const anim  = anims[i % 3];
-        const dur   = 20 + (i * 3.3) % 16;
-        const delay = -(i * 2.4);
-        const size  = 46 + (i * 15) % 56;
-        const face  = (i % 6) + 1;
-        return `<div class="ld-die" style="left:${left}%;top:${top}%;animation:${anim} ${dur}s ${delay}s linear infinite">${dieSVG(face, {size})}</div>`;
-    }).join('');
+    pos.forEach(([left, top], i) => {
+        const anim = anims[i % 3], dur = 20 + (i * 3.3) % 16, delay = -(i * 2.4), size = 22 + (i * 7) % 22;
+        html += `<div class="ld-em" style="left:${left}%;top:${top}%;font-size:${size}px;animation:${anim} ${dur}s ${delay}s linear infinite">${EMO[i % EMO.length]}</div>`;
+    });
+    bg.innerHTML = html;
 })();
 
 const _params  = new URLSearchParams(location.search);
