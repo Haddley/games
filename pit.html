@@ -126,6 +126,16 @@
         .pcard.inoffer::after { content: '📢'; position: absolute; top: 4px; right: 6px; font-size: .8rem; }
         .shout-bar { display: flex; gap: 9px; }
         .shout-bar .btn { flex: 1; font-size: 1.02rem; padding: 15px; }
+        /* keep the SHOUT / CORNER actions pinned to the bottom of the phone so
+           they never fall below the fold behind a tall hand or scores strip */
+        .game-actions {
+            position: sticky; bottom: 0; z-index: 30;
+            display: flex; flex-direction: column; gap: 9px;
+            padding: 12px 0 max(10px, env(safe-area-inset-bottom));
+            background: linear-gradient(to top, var(--bg) 62%, rgba(4,7,15,0));
+        }
+        .game-actions:empty { display: none; }
+        body.viewer-mode .game-actions { position: static; background: none; }
         .offer-banner {
             text-align: center; background: rgba(251,191,36,.1); border: 1px solid var(--border);
             border-radius: 13px; padding: 11px; font-weight: 800; color: var(--gold);
@@ -2036,16 +2046,18 @@ function renderGame() {
     return `
     <div class="scores-strip" id="scores-strip">${scoresStripHTML(D)}</div>
     <div id="trade-note" style="text-align:center;font-weight:800;color:var(--up);opacity:0;transition:opacity .4s;min-height:1.2em"></div>
-    <div id="corner-wrap">${cornerBtnHTML(D)}</div>
     <div class="card">
         <div class="slbl">Your hand — round ${D.round} · first to ${D.winScore}</div>
         <div class="hand-grid">${D.myHand.map((n, i) => handCardHTML(n, i)).join('')}</div>
     </div>
-    <div id="shout-zone">${shoutBarHTML()}</div>
-    <div id="offer-zone">${offerZoneHTML(D)}</div>
     <div class="card">
         <div class="slbl">Pit floor — ${'🤝 '}<span id="trade-count">${D.tradeCount}</span> trades</div>
         <div class="feed" id="feed">${feedHTML(D.feed)}</div>
+    </div>
+    <div class="game-actions">
+        <div id="corner-wrap">${cornerBtnHTML(D)}</div>
+        <div id="shout-zone">${shoutBarHTML()}</div>
+        <div id="offer-zone">${offerZoneHTML(D)}</div>
     </div>`;
 }
 
