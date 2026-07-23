@@ -46,7 +46,7 @@ function rankByScore(list, key = 'score') {
 // ──────────────────────────────────────────────────────────────────────────────
 const SCENE_CSS = `
 #meadow { position: fixed; left: 0; right: 0; bottom: 0; height: 15vmin; z-index: 0; pointer-events: none; display: none; overflow: hidden; }
-body.viewer-mode #meadow { display: block; }
+body.viewer-mode #meadow, body.tv-mode #meadow { display: block; }
 #meadow::before { content: ''; position: absolute; left: 0; right: 0; bottom: 3vmin; height: 11vmin; background: radial-gradient(120% 130% at 50% 100%, var(--glow, rgba(255,216,140,.22)), rgba(0,0,0,0) 62%); }
 #meadow .ground { position: absolute; left: -2%; right: -2%; bottom: 0; height: 6.4vmin; border-radius: 50% 50% 0 0 / 2.8vmin 2.8vmin 0 0; background: repeating-linear-gradient(86deg, transparent 0 1vmin, rgba(255,255,255,.07) 1vmin 1.3vmin), linear-gradient(180deg, var(--g1,#59c06d), var(--g2,#1f7a3a)); box-shadow: inset 0 .55vmin 0 rgba(255,255,255,.3), 0 -0.4vmin 1.4vmin rgba(0,0,0,.28); }
 #meadow .walker { position: absolute; bottom: var(--b, 2.6vmin); font-size: var(--sz, 5vmin); line-height: 1; filter: brightness(var(--br, 1)) drop-shadow(0 .4vmin .4vmin rgba(0,0,0,.4)); transform: translateX(0) scale(var(--sc, 1)); animation-duration: var(--walk, 30s); animation-timing-function: ease-in-out; animation-iteration-count: infinite; animation-delay: var(--dl, 0s); }
@@ -105,6 +105,7 @@ const SCENE_THEMES = {
     masks:    { g1: '#6a4a8a', g2: '#38254f', glow: 'rgba(255,120,200,.26)', walk: ['🤥','🎭','🕵️','🃏','🤥'], props: ['❓','💬','✨'], fly: ['🎈'] },
     mystery:  { g1: '#2f6a9a', g2: '#154a6a', glow: 'rgba(120,200,255,.26)', walk: ['🔮','💡','❓','🎯','🧠'], props: ['✨','⭐','💭'], fly: ['💭'] },
     market:   { g1: '#3a6a4a', g2: '#1c3f2a', glow: 'rgba(255,201,60,.24)', walk: ['🐂','🐻','💵','📈','📉'], props: ['💰','🪙','✨'], fly: ['💸'] },
+    tictactoe:{ g1: '#3a5a8a', g2: '#1b2c4f', glow: 'rgba(120,180,255,.26)', walk: ['❌','⭕','❌','⭕','❌'], props: ['✨','⭐','🏆'], fly: ['🎉'] },
 };
 
 function _rand(n) { return Math.random() * n; }
