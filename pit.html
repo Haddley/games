@@ -117,10 +117,14 @@
             box-shadow: 0 4px 0 rgba(0,0,0,.35), 0 8px 16px rgba(0,0,0,.35);
             transition: transform .1s, outline .1s, opacity .15s; position: relative;
         }
+        .pcard::before { content: ''; position: absolute; inset: 0; border-radius: 13px; pointer-events: none;
+            background: linear-gradient(157deg, rgba(255,255,255,.22), rgba(255,255,255,0) 44%); }
+        .pcard .big, .pcard .nm, .pcard .pt { position: relative; }
         .pcard .big { font-size: 1.5rem; font-weight: 800; line-height: 1.1; }
         .pcard .nm { font-size: .62rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
         .pcard .pt { font-size: .58rem; font-weight: 700; opacity: .8; }
-        .pcard.sel { outline: 3px solid #fff; outline-offset: 2px; transform: translateY(-4px); }
+        .pcard.sel { outline: 3px solid #fff; outline-offset: 2px; transform: translateY(-4px);
+            box-shadow: 0 8px 0 rgba(0,0,0,.3), 0 14px 26px rgba(0,0,0,.45), 0 0 22px rgba(255,255,255,.3); }
         .pcard.dim { opacity: .35; }
         .pcard.inoffer { opacity: .45; }
         .pcard.inoffer::after { content: '📢'; position: absolute; top: 4px; right: 6px; font-size: .8rem; }
@@ -136,6 +140,23 @@
         }
         .game-actions:empty { display: none; }
         body.viewer-mode .game-actions { position: static; background: none; }
+        /* floating "Traded!" toast — replaces the old reserved empty line */
+        .trade-toast {
+            position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+            z-index: 970; pointer-events: none; white-space: nowrap;
+            background: linear-gradient(180deg, #34d399, #16a34a); color: #03210f;
+            font-weight: 900; font-size: .92rem; letter-spacing: .3px;
+            padding: 9px 18px; border-radius: 999px;
+            box-shadow: 0 10px 26px rgba(0,0,0,.5), inset 0 0 0 2px rgba(255,255,255,.22);
+            animation: toastPop 1.5s cubic-bezier(.2,.8,.3,1) forwards;
+        }
+        @keyframes toastPop {
+            0%   { opacity: 0; transform: translate(-50%,-14px) scale(.7); }
+            12%  { opacity: 1; transform: translate(-50%,0) scale(1.06); }
+            24%  { transform: translate(-50%,0) scale(1); }
+            82%  { opacity: 1; }
+            100% { opacity: 0; transform: translate(-50%,-10px) scale(.96); }
+        }
         .offer-banner {
             text-align: center; background: rgba(251,191,36,.1); border: 1px solid var(--border);
             border-radius: 13px; padding: 11px; font-weight: 800; color: var(--gold);
@@ -1567,14 +1588,14 @@ function applyMsg(msg) {
 function tradeFlash(count) {
     sTrade(count);
     try { navigator.vibrate && navigator.vibrate(60); } catch (e) {}
-    const el = $id('trade-note');
-    if (el) {
-        el.textContent = '🤝 Traded ' + count + '!';
-        el.style.opacity = '1';
-        setTimeout(() => { el.style.opacity = '0'; }, 1600);
-        const r = el.getBoundingClientRect();
-        burst(r.left + r.width / 2, r.top + r.height / 2, ['#fbbf24', '#22d3ee', '#4ade80'], 10);
-    }
+    // floating toast — reserves no layout space (no dead gap in the hand view)
+    const t = document.createElement('div');
+    t.className = 'trade-toast';
+    t.textContent = '🤝 Traded ' + count + '!';
+    document.body.appendChild(t);
+    const r = t.getBoundingClientRect();
+    burst(r.left + r.width / 2, r.top + r.height / 2, ['#fbbf24', '#22d3ee', '#4ade80'], 12);
+    setTimeout(() => t.remove(), 1500);
 }
 
 // opening-bell countdown overlay (non-blocking)
@@ -2045,7 +2066,6 @@ function handCardHTML(name, i) {
 function renderGame() {
     return `
     <div class="scores-strip" id="scores-strip">${scoresStripHTML(D)}</div>
-    <div id="trade-note" style="text-align:center;font-weight:800;color:var(--up);opacity:0;transition:opacity .4s;min-height:1.2em"></div>
     <div class="card">
         <div class="slbl">Your hand — round ${D.round} · first to ${D.winScore}</div>
         <div class="hand-grid">${D.myHand.map((n, i) => handCardHTML(n, i)).join('')}</div>
