@@ -5,6 +5,11 @@ session doesn't have to re-research it. Each file is one topic.
 
 ## Index
 
+**Repo-wide conventions**
+- [simulation-modes.md](simulation-modes.md) — the `?mode=tvsimulation` / `?mode=playersimulation` self-playing demos on every game: URLs, the bot-driver pattern, coverage
+- [animation-conventions.md](animation-conventions.md) — the "house style" for animation & graphics: themed ambient backgrounds, entrance FX, win moments, the hard rules that keep tests green
+
+**Pit (trading game)**
 - [trading-hand-signals.md](trading-hand-signals.md) — open-outcry hand signals in London, New York & Chicago pits (buy/sell, quantity, price, months)
 - [pit-heritage.md](pit-heritage.md) — the LIFFE / CBOT / NYMEX trading-floor look: coloured firm jackets, badges, paper slips, the bell, when the pits closed
 - [pit-game-design.md](pit-game-design.md) — how `pit.html` translates that heritage into a party game: visuals, audio direction, simulation mode, rules
