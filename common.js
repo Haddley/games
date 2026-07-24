@@ -300,3 +300,88 @@ function mountScene(theme, contentSelector) {
 }
 
 function mountMeadow(contentSelector) { return mountScene('meadow', contentSelector); }
+
+// ─── Shared TV / viewer lobby ──────────────────────────────────────────────────
+// The "waiting for players" big-screen page, modelled on boggleparty's: title,
+// "scan to join", a big square QR on the left, ROOM CODE + settings on the right,
+// captain hint, player chips (or "Waiting for players…"), and a ⛶ button. It
+// renders its own QR (needs the qrcode-generator CDN) and injects its own scoped
+// stylesheet (`.cxl-*`). Colours follow the game via CSS vars with fallbacks, and
+// the title/code inherit the game's own font so it feels native. Usage:
+//   return tvLobby({ title:'HERD MIND', roomCode:vD.roomCode, isTvHost:vD.tvHost,
+//                    captainName:vD.captain, settings:'First to 12',
+//                    players:(vD.players||[]).map(p=>({name:p.name, avatar:p.avatar})) });
+function _cxlEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+function _cxlQr(url) {
+    try {
+        const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+        let rects = '';
+        for (let r = 0; r < n; r++) for (let c = 0; c < n; c++)
+            if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg"><rect width="${size}" height="${size}" fill="#ffffff"/><g fill="#0d0d1a">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+
+const TVLOBBY_CSS = `
+.cxl { position: fixed; inset: var(--tv-safe, 0); z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(12px, 2.6vh, 30px); padding: clamp(20px, 4vh, 48px); text-align: center; pointer-events: none; }
+.cxl > * { pointer-events: auto; }
+.cxl-title { font-size: clamp(2.1rem, 7vw, 5.4rem); font-weight: 900; letter-spacing: .1em; line-height: 1.02; color: var(--cxl-accent, var(--gold, #ffc93c)); filter: drop-shadow(0 0 30px rgba(0,0,0,.35)); }
+.cxl-hint { font-size: clamp(.7rem, 1.4vw, 1rem); color: var(--cxl-muted, var(--muted, #94a1b8)); text-transform: uppercase; letter-spacing: 3px; }
+.cxl-row { display: flex; align-items: center; gap: clamp(24px, 5vw, 70px); flex-wrap: wrap; justify-content: center; }
+.cxl-qr { width: clamp(200px, 40vmin, 460px); aspect-ratio: 1; flex-shrink: 0; border-radius: 14px; overflow: hidden; background: #fff; box-shadow: 0 0 0 10px #fff, 0 0 60px rgba(0,0,0,.45); }
+.cxl-qr svg { display: block; width: 100%; height: 100%; }
+.cxl-side { display: flex; flex-direction: column; gap: clamp(6px, 1.4vh, 14px); }
+.cxl-code { font-size: clamp(2.4rem, 9vw, 7rem); font-weight: 900; letter-spacing: .14em; color: var(--cxl-accent, var(--gold, #ffc93c)); filter: drop-shadow(0 0 24px rgba(255,201,60,.45)); }
+.cxl-chips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-width: 82vw; }
+.cxl-chip { padding: 8px 18px; border-radius: 22px; background: var(--s2, rgba(255,255,255,.07)); border: 1px solid var(--border, rgba(255,255,255,.16)); font-size: clamp(.75rem, 1.5vw, 1.05rem); font-weight: 700; display: flex; align-items: center; gap: 8px; animation: cxlPillIn .4s cubic-bezier(.34,1.56,.64,1) both; }
+.cxl-chip .cxl-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--success, #4bd07a); box-shadow: 0 0 8px currentColor; color: var(--success, #4bd07a); }
+.cxl-wait { color: var(--cxl-muted, var(--muted, #94a1b8)); font-weight: 700; font-size: clamp(.8rem, 1.6vw, 1.1rem); }
+.cxl-fs { position: fixed; top: calc(16px + var(--tv-safe, 0px)); right: calc(16px + var(--tv-safe, 0px)); z-index: 6; background: transparent; border: 1px solid var(--border, rgba(255,255,255,.22)); color: var(--muted, #94a1b8); font-size: clamp(1rem, 2vw, 1.3rem); width: 2.2em; height: 2.2em; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+.cxl-fs:hover { color: var(--cxl-accent, var(--gold, #ffc93c)); border-color: var(--cxl-accent, var(--gold, #ffc93c)); }
+@keyframes cxlPillIn { from { opacity: 0; transform: translateY(10px) scale(.9); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .cxl-chip { animation: none; } }
+`;
+
+function _ensureTvLobbyStyle() {
+    if (typeof document === 'undefined' || document.getElementById('cxl-style')) return;
+    const st = document.createElement('style'); st.id = 'cxl-style'; st.textContent = TVLOBBY_CSS;
+    document.head.appendChild(st);
+}
+
+function tvLobby(opts) {
+    _ensureTvLobbyStyle();
+    const o = opts || {};
+    const code = String(o.roomCode || '');
+    const url = o.joinUrl || (location.origin + location.pathname + '?room=' + code);
+    const players = o.players || [];
+    const chips = players.length
+        ? players.map((p, i) => {
+            const crown = (o.isTvHost && (p.captain || i === 0)) ? ' 👑' : '';
+            const av = p.avatar ? `<span>${_cxlEsc(p.avatar)}</span>` : `<span class="cxl-dot"${p.color ? ` style="background:${_cxlEsc(p.color)};color:${_cxlEsc(p.color)}"` : ''}></span>`;
+            return `<div class="cxl-chip" style="animation-delay:${i * 70}ms">${av}<span${p.color ? ` style="color:${_cxlEsc(p.color)}"` : ''}>${_cxlEsc(p.name)}${crown}</span></div>`;
+        }).join('')
+        : `<div class="cxl-wait">${_cxlEsc(o.waitingText || 'Waiting for players…')}</div>`;
+    let captainHint = '';
+    if (o.isTvHost) {
+        captainHint = o.captainName
+            ? `<div class="cxl-hint">👑 ${_cxlEsc(o.captainName)} is the captain — start from their phone</div>`
+            : `<div class="cxl-hint">👑 First player to join becomes the captain and starts the game</div>`;
+    }
+    return `<div class="cxl"${o.accent ? ` style="--cxl-accent:${_cxlEsc(o.accent)}"` : ''}>
+        <div class="cxl-title">${_cxlEsc(o.title || '')}</div>
+        <div class="cxl-hint">${_cxlEsc(o.scanHint || 'Scan with your phone to join')}</div>
+        <div class="cxl-row">
+            <div class="cxl-qr">${_cxlQr(url)}</div>
+            <div class="cxl-side">
+                <div class="cxl-hint">room code</div>
+                <div class="cxl-code">${_cxlEsc(code)}</div>
+                ${o.settings ? `<div class="cxl-hint" style="margin-top:.6vh">${_cxlEsc(o.settings)}</div>` : ''}
+            </div>
+        </div>
+        ${captainHint}
+        <div class="cxl-chips">${chips}</div>
+        <button class="cxl-fs" title="Fullscreen" onclick="document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(function(){})">⛶</button>
+    </div>`;
+}
