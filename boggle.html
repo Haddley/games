@@ -1775,30 +1775,14 @@ function renderViewer() {
     }
 
     if (vD.phase === 'lobby') {
-        const players = vD.players || [];
-        const chips = players.map(n =>
-            `<div class="v-lobby-chip">${esc(n)}${vD.tvHost && n === vD.captain ? ' \ud83d\udc51' : ''}</div>`
-        ).join('');
-        const url = joinURL(vD.roomCode);
-        const qr = qrSVG(url);
-        const waiting = players.length === 0
-            ? (vD.tvHost ? 'Scan to join \u2014 the first phone becomes \ud83d\udc51 Captain' : 'Waiting for players\u2026')
-            : players.length < 2
-                ? 'Need at least 2 players\u2026'
-                : vD.tvHost
-                    ? `Waiting for \ud83d\udc51 ${esc(vD.captain || 'the Captain')} to start\u2026`
-                    : 'Waiting for the host to start\u2026';
-        return `<div class="v-lobby-screen">
-            <div class="v-lobby-title">BOGGLE</div>
-            ${qr ? `<div class="v-lobby-qr">
-                <div class="slbl">Scan with your phone to join</div>
-                <div class="qr-wrap">${qr}</div>
-                <div class="v-lobby-code">${esc(vD.roomCode || '')}</div>
-                <div class="v-lobby-join-hint">${esc(location.host + location.pathname)}</div>
-            </div>` : `<div class="v-lobby-code">${esc(vD.roomCode || '')}</div>`}
-            <div class="v-lobby-waiting">${waiting}</div>
-            ${chips ? `<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:800px">${chips}</div>` : ''}
-        </div>`;
+        return tvLobby({
+            title: 'BOGGLE',
+            accent: '#f59e0b',
+            roomCode: vD.roomCode,
+            isTvHost: vD.tvHost,
+            captainName: vD.captain,
+            players: (vD.players || []).map(n => ({ name: n, captain: n === vD.captain })),
+        });
     }
 
     const board    = vD.board || [];

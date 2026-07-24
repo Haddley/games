@@ -1648,27 +1648,16 @@ function renderViewer() {
 }
 
 function renderViewerLobby() {
-    const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
-    const players = vD.players || [];
-    const cards = players.map((p, i) =>
-        `<div class="tv-pcard" style="--i:${i}"><div class="pdot" style="background:${p.color};color:${p.color}"></div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
-    return tvShell(`
-    <div class="tv-lobby">
-        <div class="qr-side">
-            <div class="slbl">Scan with your phone to join</div>
-            <div class="qr-wrap">${qrSVG(url)}</div>
-            <div class="room-code">${esc(vD.roomCode || '')}</div>
-            <div class="join-hint">${location.host}${location.pathname}</div>
-        </div>
-        <div class="tv-players">
-            <div class="tv-meta">Players — ${players.length}/${MAX_PLAYERS}</div>
-            <div class="tv-player-grid">${cards}</div>
-            <div class="tv-waiting">${players.length === 0
-                ? 'Waiting for the first phone… they become 👑 Captain'
-                : (vD.tvHost ? `Waiting for 👑 ${esc(vD.captain || '')} to start` : 'Waiting for the host to start')
-                  + ` · 🔴 a ball every ${(vD.settings || {}).interval}s`}</div>
-        </div>
-    </div>`, 'Lobby');
+    const s = vD.settings || {};
+    return tvLobby({
+        title: 'FULL HOUSE BINGO',
+        accent: '#ffc93c',
+        roomCode: vD.roomCode,
+        isTvHost: vD.tvHost,
+        captainName: vD.captain,
+        settings: `🔴 a ball every ${s.interval}s`,
+        players: (vD.players || []).map(p => ({ name: p.name, color: p.color, captain: p.name === vD.captain })),
+    });
 }
 
 function bigBallHTML(msg) {

@@ -1875,27 +1875,16 @@ function renderViewer() {
 }
 
 function renderViewerLobby() {
-    const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
-    const players = vD.players || [];
-    const cards = players.map((p, i) =>
-        `<div class="tv-pcard" style="--i:${i}"><div class="pav-big">${esc(p.avatar)}</div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
     const s = vD.settings || {};
-    return tvShell(`
-    <div class="tv-lobby">
-        <div class="qr-side">
-            <div class="slbl">Scan with your phone to join</div>
-            <div class="qr-wrap">${qrSVG(url)}</div>
-            <div class="room-code">${esc(vD.roomCode || '')}</div>
-            <div class="join-hint">${location.host}${location.pathname}</div>
-        </div>
-        <div class="tv-players">
-            <div class="tv-meta">Players — ${players.length}/${MAX_PLAYERS}</div>
-            <div class="tv-player-grid">${cards}</div>
-            <div class="tv-waiting">${players.length === 0
-                ? 'Waiting for the first phone… they become 👑 Captain'
-                : (vD.tvHost ? `Waiting for 👑 ${esc(vD.captain || '')} to start` : 'Waiting for the host to start') + ` · ${s.qCount} questions · 🪙 2 chips each`}</div>
-        </div>
-    </div>`, 'Lobby');
+    return tvLobby({
+        title: 'BEST GUESS',
+        accent: '#fbbf24',
+        roomCode: vD.roomCode,
+        isTvHost: vD.tvHost,
+        captainName: vD.captain,
+        settings: `${s.qCount} questions · 🪙 2 chips each`,
+        players: (vD.players || []).map(p => ({ name: p.name, avatar: p.avatar, captain: p.name === vD.captain })),
+    });
 }
 
 function renderViewerGuess() {

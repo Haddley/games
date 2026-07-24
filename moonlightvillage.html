@@ -2001,29 +2001,14 @@ function renderViewer() {
 }
 
 function renderViewerLobby() {
-    const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
     const players = vD.players || [];
-    const cards = players.map(p =>
-        `<div class="tv-pcard"><div class="pdot" style="background:${p.color};color:${p.color}"></div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
     const s = vD.settings || {};
-    return tvShell(`
-    <div class="tv-lobby">
-        <div class="qr-side">
-            <div class="slbl">Scan with your phone to join</div>
-            <div class="qr-wrap">${qrSVG(url)}</div>
-            <div class="room-code">${esc(vD.roomCode || '')}</div>
-            <div class="join-hint">${location.host}${location.pathname}</div>
-        </div>
-        <div class="tv-players">
-            <div class="tv-meta">Villagers — ${players.length}/${MAX_PLAYERS} (need ${MIN_PLAYERS}+)</div>
-            <div class="tv-player-grid">${cards}</div>
-            <div class="tv-waiting">${players.length === 0
-                ? 'Waiting for the first phone… they become 👑 Captain'
-                : (players.length < MIN_PLAYERS
-                    ? `Need ${MIN_PLAYERS - players.length} more to start…`
-                    : `${vD.tvHost ? `Waiting for 👑 ${esc(vD.captain || '')}` : 'Waiting for the host'} · 🐺×${vD.wolves} · 💊 ${s.healer ? 'on' : 'off'} · ☀️ ${s.daySecs}s`)}</div>
-        </div>
-    </div>`, 'Lobby');
+    return tvLobby({
+        title: 'MOONLIGHT VILLAGE', accent: '#f5e6b8',
+        roomCode: vD.roomCode, isTvHost: vD.tvHost, captainName: vD.captain,
+        settings: `🐺×${vD.wolves} · 💊 ${s.healer ? 'on' : 'off'} · ☀️ ${s.daySecs}s`,
+        players: players.map(p => ({ name: p.name, color: p.color, captain: p.name === vD.captain })),
+    });
 }
 
 // ═══════════════════════════════════════════

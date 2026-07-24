@@ -47,6 +47,9 @@ function rankByScore(list, key = 'score') {
 const SCENE_CSS = `
 #meadow { position: fixed; left: 0; right: 0; bottom: 0; height: 15vmin; z-index: 0; pointer-events: none; display: none; overflow: hidden; }
 body.viewer-mode #meadow, body.tv-mode #meadow { display: block; }
+/* on the big screen, move each game's sound/music toggles to the BOTTOM-right (like
+   boggleparty) so they never collide with the tvLobby ⛶ fullscreen button top-right */
+body.viewer-mode #sound-togs, body.tv-mode #sound-togs, body.viewer-mode .audio-togs, body.tv-mode .audio-togs { top: auto !important; bottom: calc(14px + var(--tv-safe, 0px)) !important; right: calc(14px + var(--tv-safe, 0px)) !important; left: auto !important; z-index: 6; }
 #meadow::before { content: ''; position: absolute; left: 0; right: 0; bottom: 3vmin; height: 11vmin; background: radial-gradient(120% 130% at 50% 100%, var(--glow, rgba(255,216,140,.22)), rgba(0,0,0,0) 62%); }
 #meadow .ground { position: absolute; left: -2%; right: -2%; bottom: 0; height: 6.4vmin; border-radius: 50% 50% 0 0 / 2.8vmin 2.8vmin 0 0; background: repeating-linear-gradient(86deg, transparent 0 1vmin, rgba(255,255,255,.07) 1vmin 1.3vmin), linear-gradient(180deg, var(--g1,#59c06d), var(--g2,#1f7a3a)); box-shadow: inset 0 .55vmin 0 rgba(255,255,255,.3), 0 -0.4vmin 1.4vmin rgba(0,0,0,.28); }
 #meadow .walker { position: absolute; bottom: var(--b, 2.6vmin); font-size: var(--sz, 5vmin); line-height: 1; filter: brightness(var(--br, 1)) drop-shadow(0 .4vmin .4vmin rgba(0,0,0,.4)); transform: translateX(0) scale(var(--sc, 1)); animation-duration: var(--walk, 30s); animation-timing-function: ease-in-out; animation-iteration-count: infinite; animation-delay: var(--dl, 0s); }

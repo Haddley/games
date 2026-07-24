@@ -1882,28 +1882,14 @@ function renderViewer() {
 }
 
 function renderViewerLobby() {
-    const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
     const players = vD.players || [];
-    const cards = players.map(p =>
-        `<div class="tv-pcard"><div class="pav-big">${esc(p.avatar)}</div>${esc(p.name)}${vD.tvHost && p.name === vD.captain ? ' 👑' : ''}</div>`).join('');
     const s = vD.settings || {};
-    return tvShell(`
-    <div class="tv-lobby">
-        <div class="qr-side">
-            <div class="slbl">Scan with your phone to join</div>
-            <div class="qr-wrap">${qrSVG(url)}</div>
-            <div class="room-code">${esc(vD.roomCode || '')}</div>
-            <div class="join-hint">${location.host}${location.pathname}</div>
-        </div>
-        <div class="tv-players">
-            <div class="rail-title">Players — ${players.length}/${MAX_PLAYERS}</div>
-            <div class="tv-player-grid">${cards}</div>
-            <div class="tv-waiting">${players.length === 0
-                ? 'Waiting for the first phone… they become 👑 Captain'
-                : (players.length < MIN_PLAYERS ? 'Need at least ' + MIN_PLAYERS + ' players…' :
-                    `${vD.tvHost ? `Waiting for 👑 ${esc(vD.captain || '')}` : 'Waiting for the host'} to start · ❓ ${s.qCount} questions`)}</div>
-        </div>
-    </div>`, 'Lobby');
+    return tvLobby({
+        title: 'FIBBERS!', accent: '#ffc857',
+        roomCode: vD.roomCode, isTvHost: vD.tvHost, captainName: vD.captain,
+        settings: `❓ ${s.qCount} questions`,
+        players: players.map(p => ({ name: p.name, avatar: p.avatar, captain: p.name === vD.captain })),
+    });
 }
 
 function renderViewerLie() {
