@@ -1166,6 +1166,14 @@
                     this.elements.tvLobbyScreen.classList.add('active');
                 }
 
+                // the body-level TV lobby is only visible on the tv-lobby screen; while it
+                // shows, hide #app (its header/inputs) so only the full-screen lobby is seen
+                // (the sound/theme toggles live outside #app, so they stay visible)
+                const tl = document.getElementById('ttt-tvlobby');
+                if (tl) tl.style.display = (screenName === 'tv-lobby') ? 'block' : 'none';
+                const appEl = document.getElementById('app');
+                if (appEl) appEl.style.display = (screenName === 'tv-lobby') ? 'none' : '';
+
                 // Big-screen styling whenever this browser is a TV host or scoreboard
                 document.body.classList.toggle('tv-mode', !!(this.isTvHost || this.isViewer));
 
@@ -1809,11 +1817,16 @@
                 if (!this.tvGameActive) this.renderTvLobby();
             },
 
-            // Shared boggleparty-style TV lobby (from common.js tvLobby)
+            // Shared boggleparty-style TV lobby (from common.js tvLobby). Rendered on
+            // document.body — NOT inside #app/.card — because ticktacktoe's card/screen
+            // uses filter/animation, which would trap the lobby's position:fixed.
             renderTvLobby() {
-                if (typeof tvLobby !== 'function' || !this.elements.tvLobbyScreen) return;
+                if (typeof tvLobby !== 'function') return;
+                if (this.elements.tvLobbyScreen) this.elements.tvLobbyScreen.innerHTML = '';   // drop old static markup
+                let host = document.getElementById('ttt-tvlobby');
+                if (!host) { host = document.createElement('div'); host.id = 'ttt-tvlobby'; document.body.appendChild(host); }
                 const players = (this.tvConns || []).map(c => ({ name: c._name || ('Player ' + c._role), avatar: c._role === 'X' ? '❌' : '⭕' }));
-                this.elements.tvLobbyScreen.innerHTML = tvLobby({
+                host.innerHTML = tvLobby({
                     title: 'TIC · TAC · TOE',
                     accent: '#8fd0ff',
                     roomCode: this.roomCode,
@@ -1824,6 +1837,7 @@
                     waitingText: 'Waiting for players…',
                     players,
                 });
+                host.style.display = 'block';
             },
 
             // First message on a fresh connection decides its kind:
