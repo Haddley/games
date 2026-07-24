@@ -143,6 +143,7 @@ const SCENE_THEMES = {
     mystery:  { g1: '#2f6a9a', g2: '#154a6a', glow: 'rgba(120,200,255,.26)', walk: ['🔮','💡','❓','🎯','🧠'], props: ['✨','⭐','💭'], fly: ['💭'] },
     market:   { g1: '#3a6a4a', g2: '#1c3f2a', glow: 'rgba(255,201,60,.24)', walk: ['🐂','🐻','💵','📈','📉'], props: ['💰','🪙','✨'], fly: ['💸'] },
     tictactoe:{ g1: '#3a5a8a', g2: '#1b2c4f', glow: 'rgba(120,180,255,.26)', walk: ['❌','⭕','❌','⭕','❌'], props: ['✨','⭐','🏆'], fly: ['🎉'] },
+    rps:      { g1: '#4a2f7a', g2: '#26124d', glow: 'rgba(150,120,255,.26)', walk: ['✊','✋','✌️','✊','✋'], props: ['⭐','✨','🏆'], fly: ['🎉'] },
 };
 
 function _rand(n) { return Math.random() * n; }

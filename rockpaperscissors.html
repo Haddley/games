@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Rock Paper Scissors Showdown</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%231a1030' width='100' height='100' rx='20'/><text x='50' y='70' font-size='54' text-anchor='middle'>✊</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="common.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #140a28; --surface: #221142; --s2: #2e1a55; --border: #4a2f7a;
+            --text: #f3ecff; --muted: #a58fd0; --accent: #c084fc; --a2: #8b5cf6;
+            --gold: #ffcf4a; --rock: #f97362; --paper: #56c7ff; --scissors: #ffd24a;
+            --good: #4bd08a; --bad: #f5566d; --ag: rgba(192,132,252,.3);
+        }
+        body {
+            font-family: 'Baloo 2', system-ui, sans-serif; background: var(--bg); color: var(--text);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 20px 16px 40px; overflow-x: hidden;
+        }
+        /* faint drifting electric backdrop */
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 60% 40% at 50% -6%, rgba(139,92,246,.22), transparent 60%),
+                radial-gradient(ellipse 70% 50% at 50% 116%, rgba(192,132,252,.14), transparent 65%);
+        }
+        #app { width: 100%; max-width: 480px; }
+
+        h1.logo {
+            font-family: 'Baloo 2', sans-serif; font-weight: 800; letter-spacing: .5px;
+            font-size: clamp(1.6rem, 6.5vw, 2.3rem); text-align: center; line-height: 1.05;
+            background: linear-gradient(90deg, var(--rock), var(--scissors), var(--paper));
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+            text-shadow: 0 2px 22px rgba(192,132,252,.25); padding: 0 46px;
+        }
+        .sub { color: var(--muted); font-size: .72rem; letter-spacing: 2.5px; text-transform: uppercase; margin: 6px 0 20px; text-align: center; font-weight: 700; }
+
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; margin-bottom: 14px; box-shadow: 0 6px 22px rgba(0,0,0,.3); }
+        .card.highlight { border-color: var(--accent); box-shadow: 0 0 0 2px var(--ag), 0 6px 22px rgba(0,0,0,.3); }
+        .slbl { font-size: .68rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); font-weight: 800; margin-bottom: 10px; }
+        .fg { margin-bottom: 12px; }
+        .fg label { display: block; font-size: .72rem; color: var(--muted); margin-bottom: 5px; font-weight: 700; }
+        input[type=text] {
+            width: 100%; padding: 13px 14px; font-size: 1rem; font-family: inherit; font-weight: 700;
+            background: var(--s2); border: 1px solid var(--border); border-radius: 11px; color: var(--text); outline: none;
+        }
+        input[type=text]:focus { border-color: var(--accent); }
+        .btn {
+            font-family: inherit; font-weight: 800; font-size: 1rem; border: none; border-radius: 12px;
+            padding: 14px 18px; cursor: pointer; transition: transform .1s, filter .15s; color: #fff;
+        }
+        .btn:active { transform: translateY(1px) scale(.99); }
+        .btn-full { width: 100%; }
+        .btn-p { background: linear-gradient(120deg, var(--a2), var(--accent)); box-shadow: 0 4px 16px var(--ag); color: #150a2a; }
+        .btn-g { background: var(--s2); color: var(--text); box-shadow: inset 0 0 0 2px var(--border); }
+        .btn-sm { padding: 10px 14px; font-size: .9rem; }
+        .btn:disabled { opacity: .5; cursor: default; }
+        .hint { text-align: center; color: var(--muted); font-size: .78rem; font-weight: 700; margin-top: 6px; }
+        .err { background: rgba(245,86,109,.14); border: 1px solid var(--bad); color: #ffb3c0; border-radius: 10px; padding: 10px 12px; font-size: .82rem; font-weight: 700; text-align: center; margin-bottom: 12px; }
+
+        /* header */
+        .hdr { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 4px; }
+
+        /* QR */
+        .qr-wrap { background: #fffdf2; border-radius: 14px; padding: 12px; width: min(62vw, 240px); margin: 0 auto 10px; }
+        .qr-wrap svg { width: 100%; display: block; }
+        .room-code { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 2.2rem; letter-spacing: 6px; text-align: center; color: var(--gold); }
+
+        /* player chips */
+        .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 6px; }
+        .chip { background: var(--s2); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px 6px 8px; font-weight: 800; font-size: .9rem; display: flex; align-items: center; gap: 6px; }
+        .chip .av { font-size: 1.1rem; }
+        .chip.out { opacity: .4; text-decoration: line-through; }
+        .chip.me { border-color: var(--accent); }
+
+        /* throw buttons (phone) */
+        .throw-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 8px 0; }
+        .throw-btn {
+            border: 2px solid var(--border); background: var(--s2); border-radius: 16px; cursor: pointer;
+            padding: 16px 4px 12px; font-family: inherit; color: var(--text); transition: transform .1s, border-color .15s, background .15s;
+        }
+        .throw-btn:active { transform: scale(.96); }
+        .throw-btn .ico { font-size: 2.8rem; line-height: 1; display: block; }
+        .throw-btn .lbl { font-size: .74rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
+        .throw-btn.sel { border-color: var(--accent); background: linear-gradient(150deg, var(--a2), var(--s2)); }
+        .throw-btn.sel .lbl { color: #fff; }
+        .locked-box { text-align: center; padding: 18px; }
+        .locked-box .big { font-size: 4rem; line-height: 1; }
+        .timer-num { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 2.4rem; text-align: center; color: var(--gold); }
+        .timer-num.low { color: var(--bad); }
+        .lockrow { text-align: center; color: var(--muted); font-weight: 800; font-size: .85rem; margin-top: 4px; }
+
+        /* reveal / results list */
+        .rlist { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+        .rrow { display: flex; align-items: center; gap: 10px; background: var(--s2); border: 1px solid var(--border); border-radius: 12px; padding: 9px 12px; }
+        .rrow .av { font-size: 1.3rem; }
+        .rrow .nm { flex: 1; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rrow .hand { font-size: 1.6rem; }
+        .rrow.win { border-color: var(--good); box-shadow: inset 0 0 0 1px var(--good); }
+        .rrow.lose { opacity: .55; }
+        .rrow .tag { font-size: .66rem; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; }
+        .rrow .tag.w { background: rgba(75,208,138,.2); color: var(--good); }
+        .rrow .tag.l { background: rgba(245,86,109,.2); color: var(--bad); }
+        .banner { text-align: center; font-weight: 900; font-size: 1.15rem; margin: 6px 0 2px; }
+        .banner.stale { color: var(--scissors); }
+
+        /* medals list */
+        .medal-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--s2); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 7px; }
+        .medal-row .rk { width: 26px; text-align: center; font-weight: 900; font-size: 1.1rem; }
+
+        /* ═══════ TV / viewer mode ═══════ */
+        body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
+        body.viewer-mode #app { max-width: none; width: 100vw; height: 100dvh; }
+        .tv { position: relative; z-index: 1; height: 100dvh; display: flex; flex-direction: column; padding: 4vmin 5vmin; gap: 2vmin; }
+        .tv-top { display: flex; align-items: center; justify-content: space-between; }
+        .tv-title { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 4vmin; background: linear-gradient(90deg, var(--rock), var(--scissors), var(--paper)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .tv-meta { color: var(--muted); font-weight: 800; font-size: 2.2vmin; letter-spacing: 2px; text-transform: uppercase; }
+        .tv-main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vmin; min-height: 0; }
+        .tv-lobby { display: flex; gap: 6vmin; align-items: center; justify-content: center; width: 100%; }
+        .tv-qr { background: #fffdf2; border-radius: 2vmin; padding: 2vmin; width: 34vmin; }
+        .tv-qr svg { width: 100%; display: block; }
+        .tv-code { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 9vmin; letter-spacing: 1.4vmin; color: var(--gold); text-shadow: 0 0 6vmin rgba(255,207,74,.4); }
+        .tv-scan { color: var(--muted); font-weight: 800; letter-spacing: .6vmin; text-transform: uppercase; font-size: 2vmin; }
+        .tv-players { display: flex; flex-wrap: wrap; gap: 1.6vmin; justify-content: center; max-width: 46vmin; }
+        .tv-chip { background: var(--s2); border: .3vmin solid var(--border); border-radius: 999px; padding: 1vmin 2.4vmin 1vmin 1.4vmin; font-weight: 800; font-size: 2.4vmin; display: flex; align-items: center; gap: 1vmin; }
+        .tv-chip .av { font-size: 3vmin; }
+        .tv-chip.out { opacity: .38; }
+        .tv-chip.crown { border-color: var(--gold); }
+
+        /* TV arena of hands */
+        .arena { display: flex; flex-wrap: wrap; gap: 2.4vmin; justify-content: center; align-content: center; }
+        .fighter { display: flex; flex-direction: column; align-items: center; gap: .6vmin; width: 18vmin; }
+        .fighter .hand {
+            width: 13vmin; height: 13vmin; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 7vmin; background: radial-gradient(circle at 38% 30%, #ffffff22, transparent 55%), var(--s2);
+            border: .4vmin solid var(--border); box-shadow: 0 1vmin 2vmin rgba(0,0,0,.35);
+        }
+        .fighter.locked .hand { border-color: var(--accent); }
+        .fighter.win .hand { border-color: var(--good); box-shadow: 0 0 4vmin rgba(75,208,138,.5); animation: pop .5s ease; }
+        .fighter.lose { opacity: .35; }
+        .fighter.lose .hand { filter: grayscale(1); }
+        .fighter .nm { font-weight: 800; font-size: 2.2vmin; max-width: 17vmin; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .fighter .av { font-size: 2.4vmin; }
+        @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.16); } 100% { transform: scale(1); } }
+        .tv-banner { font-weight: 900; font-size: 4.5vmin; text-align: center; }
+        .tv-banner.stale { color: var(--scissors); }
+        .tv-timer { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 7vmin; color: var(--gold); }
+        .tv-timer.low { color: var(--bad); }
+        .tv-hint { color: var(--muted); font-weight: 800; font-size: 2.2vmin; text-align: center; }
+
+        /* podium */
+        .podium-wrap { display: flex; align-items: flex-end; justify-content: center; gap: 2.4vmin; }
+        .pod { text-align: center; font-weight: 900; }
+        .pod .pav { font-size: 5vmin; }
+        .pod .pnm { font-size: 2.6vmin; margin-bottom: .8vmin; }
+        .pod .block { border-radius: 1.6vmin 1.6vmin 0 0; width: 18vmin; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.4vmin; font-size: 3.4vmin; }
+        .pod.p1 .block { height: 22vmin; background: linear-gradient(180deg, #ffe08a, #c9962a); }
+        .pod.p2 .block { height: 15vmin; background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
+        .pod.p3 .block { height: 10vmin; background: linear-gradient(180deg, #f0a875, #b5642f); }
+
+        /* sound toggles */
+        #sound-togs { position: fixed; top: 10px; right: 10px; z-index: 80; display: flex; gap: 6px; }
+        #sound-togs button { background: var(--surface); border: 1px solid var(--border); color: var(--text); width: 34px; height: 34px; border-radius: 9px; font-size: 1rem; cursor: pointer; }
+        #sound-togs button.off { opacity: .4; }
+        body.viewer-mode #sound-togs { top: auto; bottom: 14px; right: 14px; opacity: .6; }
+
+        .spin { width: 34px; height: 34px; border: 4px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin: 20px auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .connecting { text-align: center; color: var(--muted); font-weight: 800; padding: 30px 0; }
+
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <div id="sound-togs">
+        <button id="tog-music" title="Music on/off" onclick="toggleMusic()">🎵</button>
+        <button id="tog-sfx" title="Sound effects on/off" onclick="toggleSfx()">🔊</button>
+    </div>
+<script>
+'use strict';
+typeof mountScene === 'function' && mountScene('rps');   // ambient hands scene along the bottom of the TV
+
+// ═══════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════
+const PFX = 'RPSHOW-';
+const MAX_PLAYERS = 12, MIN_PLAYERS = 2;
+const AVATARS = ['🦊','🐼','🦁','🐸','🐵','🐯','🐨','🐷','🐹','🐙','🦄','🐝'];
+const THROW_SECS = 10, REVEAL_MS = 3600, STALE_MS = 2200;
+const SYMS = { rock: { ico: '✊', lbl: 'Rock' }, paper: { ico: '✋', lbl: 'Paper' }, scissors: { ico: '✌️', lbl: 'Scissors' } };
+const BEATS = { rock: 'scissors', scissors: 'paper', paper: 'rock' };  // key beats value
+
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function $id(x) { return document.getElementById(x); }
+
+// ═══════════════════════════════════════════
+// AUDIO (compact procedural SFX + light pad)
+// ═══════════════════════════════════════════
+let AC = null, musicGain = null, sfxGain = null, musicOn = true, sfxOn = true, padTimer = null;
+try { musicOn = localStorage.getItem('rps-music') !== '0'; sfxOn = localStorage.getItem('rps-sfx') !== '0'; } catch (_) {}
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function ac() {
+    if (AC) return AC;
+    try {
+        AC = new (window.AudioContext || window.webkitAudioContext)();
+        musicGain = AC.createGain(); musicGain.gain.value = 0.22; musicGain.connect(AC.destination);
+        sfxGain = AC.createGain(); sfxGain.gain.value = 0.5; sfxGain.connect(AC.destination);
+    } catch (_) {}
+    return AC;
+}
+function tone(freq, dur, type, when, gain, dest) {
+    if (!AC) return;
+    const o = AC.createOsc ? AC.createOsc() : AC.createOscillator();
+    const g = AC.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    const t = (when || AC.currentTime);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(gain || 0.3, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+    o.connect(g); g.connect(dest || sfxGain); o.start(t); o.stop(t + dur + 0.02);
+}
+function sClick() { if (!sfxOn || !ac()) return; tone(520, 0.09, 'square', AC.currentTime, 0.28); }
+function sLock() { if (!sfxOn || !ac()) return; tone(300, 0.08, 'square', AC.currentTime, 0.3); tone(600, 0.1, 'square', AC.currentTime + 0.06, 0.28); }
+function sReveal() { if (!sfxOn || !ac()) return; const t = AC.currentTime; [400, 520, 660].forEach((f, i) => tone(f, 0.14, 'triangle', t + i * 0.05, 0.26)); }
+function sElim() { if (!sfxOn || !ac()) return; const t = AC.currentTime; tone(220, 0.3, 'sawtooth', t, 0.28); tone(140, 0.4, 'sine', t + 0.02, 0.3); }
+function sStale() { if (!sfxOn || !ac()) return; tone(330, 0.16, 'sine', AC.currentTime, 0.24); tone(330, 0.16, 'sine', AC.currentTime + 0.18, 0.2); }
+function sWin() {
+    if (!sfxOn || !ac()) return; duck(1.4); const t = AC.currentTime;
+    [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.4, 'triangle', t + i * 0.1, 0.32));
+}
+function sTick() { if (!sfxOn || !ac()) return; tone(880, 0.05, 'square', AC.currentTime, 0.18); }
+function duck(sec) { if (!musicGain || !AC) return; const t = AC.currentTime; musicGain.gain.cancelScheduledValues(t); musicGain.gain.setValueAtTime(musicGain.gain.value, t); musicGain.gain.linearRampToValueAtTime(0.05, t + 0.05); musicGain.gain.linearRampToValueAtTime(0.22, t + sec); }
+function startPad() {
+    if (!musicOn || REDUCED || padTimer || !ac()) return;
+    const chords = [[196, 294, 370], [220, 330, 415], [174, 261, 330], [147, 220, 294]];
+    let ix = 0;
+    const step = () => {
+        if (!musicOn) return;
+        const t = AC.currentTime; const ch = chords[ix % chords.length];
+        ch.forEach(f => tone(f, 1.9, 'sine', t, 0.12, musicGain));
+        ix++; padTimer = setTimeout(step, 2000);
+    };
+    step();
+}
+function stopPad() { if (padTimer) { clearTimeout(padTimer); padTimer = null; } }
+function toggleMusic() { musicOn = !musicOn; try { localStorage.setItem('rps-music', musicOn ? '1' : '0'); } catch (_) {} $id('tog-music').classList.toggle('off', !musicOn); if (musicOn) startPad(); else stopPad(); }
+function toggleSfx() { sfxOn = !sfxOn; try { localStorage.setItem('rps-sfx', sfxOn ? '1' : '0'); } catch (_) {} $id('tog-sfx').classList.toggle('off', !sfxOn); }
+document.addEventListener('pointerdown', () => { ac(); if (AC && AC.state === 'suspended') AC.resume(); if (musicOn) startPad(); }, { once: true });
+
+// ═══════════════════════════════════════════
+// QR
+// ═══════════════════════════════════════════
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2; let rects = '';
+        for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg"><rect width="${size}" height="${size}" fill="#fffdf2"/><g fill="#26124d">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let peer = null, myId = '', myName = '', myAvatar = '', isHost = false, isTvHost = false, isViewer = false, roomCode = '';
+let hostConn = null, guestConns = {}, viewerConns = {};
+let ui = 'home', uiErr = '';
+let fName = '', fCode = '', fVCode = '';
+let D = null, vD = null;
+let throwTimer = null, phaseTimer = null;
+try { fName = localStorage.getItem('rps-name') || ''; } catch (_) {}
+
+let H = {
+    phase: 'lobby',           // lobby | throw | reveal | over
+    round: 0,
+    players: [],              // {id,name,avatar,alive,choice,out}
+    eliminated: [],           // ids in elimination order (earliest out first)
+    timeLeft: THROW_SECS,
+    result: null,             // {throws:[{id,choice}], distinct, stalemate, winSym, loserIds, championId}
+};
+
+function connectedPlayers() {
+    return H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+}
+function alivePlayers() { return H.players.filter(p => p.alive); }
+function captainId() { return isTvHost ? (connectedPlayers()[0]?.id || H.players[0]?.id || null) : null; }
+function captainName() { const c = H.players.find(p => p.id === captainId()); return c ? c.name : null; }
+
+function hostAddPlayer(id, name, avatar) {
+    if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
+    const taken = new Set(H.players.map(p => p.avatar));
+    const av = avatar && !taken.has(avatar) ? avatar : (AVATARS.find(a => !taken.has(a)) || '🖐️');
+    H.players.push({ id, name, avatar: av, alive: true, choice: null, out: false });
+}
+
+// ═══════════════════════════════════════════
+// MESSAGES
+// ═══════════════════════════════════════════
+function playersPublic() {
+    return H.players.map(p => ({ name: p.name, avatar: p.avatar, alive: p.alive, locked: p.choice !== null }));
+}
+function lobbyMsg() {
+    return { type: 'lobby', roomCode, players: H.players.map(p => ({ name: p.name, avatar: p.avatar })), tvHost: isTvHost, captain: captainName() };
+}
+function throwMsgFor(p) {
+    return {
+        type: 'throw', round: H.round, timeLeft: H.timeLeft,
+        aliveCount: alivePlayers().length, lockedCount: alivePlayers().filter(q => q.choice !== null).length,
+        myAlive: p ? p.alive : false, myChoice: p ? p.choice : null,
+        players: playersPublic(), tvHost: isTvHost, captain: captainName(),
+    };
+}
+function revealResult() {
+    // throws with names/avatars resolved
+    const throws = (H.result?.throws || []).map(t => {
+        const pl = H.players.find(p => p.id === t.id);
+        return { name: pl?.name || '?', avatar: pl?.avatar || '❔', choice: t.choice, win: !H.result.stalemate && !H.result.loserIds.includes(t.id), lose: !H.result.stalemate && H.result.loserIds.includes(t.id) };
+    });
+    return {
+        round: H.round, stalemate: !!H.result?.stalemate, winSym: H.result?.winSym || null,
+        loseSym: H.result?.loseSym || null, throws, aliveCount: alivePlayers().length,
+    };
+}
+function revealMsgFor(p) {
+    return {
+        type: 'reveal', ...revealResult(),
+        myOut: p ? (H.result?.loserIds || []).includes(p.id) : false,
+        myChoice: p ? p.choice : null, tvHost: isTvHost, captain: captainName(),
+    };
+}
+function standings() {
+    // champion first, then reverse elimination order
+    const champ = alivePlayers()[0];
+    const order = [];
+    if (champ) order.push(champ.id);
+    [...H.eliminated].reverse().forEach(id => { if (!order.includes(id)) order.push(id); });
+    H.players.forEach(p => { if (!order.includes(p.id)) order.push(p.id); });
+    return order.map(id => { const p = H.players.find(q => q.id === id); return { name: p?.name || '?', avatar: p?.avatar || '❔' }; });
+}
+function overMsg() {
+    const champ = alivePlayers()[0];
+    return { type: 'over', standings: standings(), champion: champ ? { name: champ.name, avatar: champ.avatar } : null, tvHost: isTvHost, captain: captainName() };
+}
+function phaseSnapshotFor(p) {
+    if (H.phase === 'throw') return throwMsgFor(p);
+    if (H.phase === 'reveal') return revealMsgFor(p);
+    if (H.phase === 'over') return overMsg();
+    return lobbyMsg();
+}
+function viewerSnapshot() {
+    if (H.phase === 'throw') return { ...throwMsgFor(null), type: 'viewer_throw' };
+    if (H.phase === 'reveal') return { ...revealMsgFor(null), type: 'viewer_reveal' };
+    if (H.phase === 'over') return { ...overMsg(), type: 'viewer_over' };
+    return { ...lobbyMsg(), type: 'viewer_lobby' };
+}
+function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('send err', e); } }
+function broadcastAll() {
+    H.players.forEach(p => { if (p.id === myId) return; const c = guestConns[p.id]; if (c) send(c, phaseSnapshotFor(p)); });
+    Object.values(viewerConns).forEach(c => send(c, viewerSnapshot()));
+    if (isTvHost) applyViewerMsg(viewerSnapshot());
+    else if (isHost) applyMsg(phaseSnapshotFor(H.players.find(p => p.id === myId)));
+}
+
+// ═══════════════════════════════════════════
+// HOST GAME FLOW
+// ═══════════════════════════════════════════
+function hostStartGame() {
+    if (connectedPlayers().length < MIN_PLAYERS) { uiErr = 'Need at least ' + MIN_PLAYERS + ' players.'; if (ui === 'lobby_h') render(); return; }
+    H.round = 0; H.eliminated = [];
+    H.players.forEach(p => { p.alive = true; p.out = false; p.choice = null; });
+    hostStartRound();
+}
+function hostStartRound() {
+    clearTimers();
+    H.round += 1;
+    H.result = null;
+    H.players.forEach(p => { p.choice = null; });
+    H.phase = 'throw';
+    H.timeLeft = THROW_SECS;
+    broadcastAll();
+    throwTimer = setInterval(() => {
+        H.timeLeft -= 1;
+        if (H.timeLeft <= 0) { hostResolve(); return; }
+        if (H.timeLeft <= 3) sTick();
+        broadcastAll();
+    }, 1000);
+}
+function hostChoose(player, sym) {
+    if (H.phase !== 'throw' || !player || !player.alive || player.choice !== null) return;
+    if (!SYMS[sym]) return;
+    player.choice = sym;
+    broadcastAll();
+    if (alivePlayers().every(p => p.choice !== null)) hostResolve();
+}
+function hostResolve() {
+    if (H.phase !== 'throw') return;
+    clearTimers();
+    const alive = alivePlayers();
+    // auto-random for anyone who didn't lock
+    const keys = Object.keys(SYMS);
+    alive.forEach(p => { if (p.choice === null) p.choice = keys[Math.floor(Math.random() * 3)]; });
+    const throws = alive.map(p => ({ id: p.id, choice: p.choice }));
+    const distinct = [...new Set(alive.map(p => p.choice))];
+
+    let stalemate = false, winSym = null, loseSym = null, loserIds = [];
+    if (distinct.length !== 2) {
+        stalemate = true;
+    } else {
+        const [a, b] = distinct;
+        winSym = BEATS[a] === b ? a : b;
+        loseSym = winSym === a ? b : a;
+        loserIds = alive.filter(p => p.choice === loseSym).map(p => p.id);
+    }
+    H.result = { throws, distinct, stalemate, winSym, loseSym, loserIds };
+    H.phase = 'reveal';
+
+    if (!stalemate) {
+        loserIds.forEach(id => { const p = H.players.find(q => q.id === id); if (p) { p.alive = false; p.out = true; H.eliminated.push(id); } });
+        sReveal(); setTimeout(() => { if (!isViewer || isTvHost) sElim(); }, 500);
+    } else {
+        sStale();
+    }
+    broadcastAll();
+
+    const survivors = alivePlayers();
+    const delay = stalemate ? STALE_MS : REVEAL_MS;
+    phaseTimer = setTimeout(() => {
+        if (survivors.length <= 1 && !stalemate) hostGameOver();
+        else hostStartRound();
+    }, delay);
+}
+function hostGameOver() {
+    clearTimers();
+    H.phase = 'over';
+    broadcastAll();
+    sWin();
+}
+function hostNewGame() {
+    clearTimers();
+    H.phase = 'lobby'; H.round = 0; H.eliminated = []; H.result = null;
+    H.players.forEach(p => { p.alive = true; p.out = false; p.choice = null; });
+    broadcastAll();
+}
+function clearTimers() { if (throwTimer) { clearInterval(throwTimer); throwTimer = null; } if (phaseTimer) { clearTimeout(phaseTimer); phaseTimer = null; } }
+
+function hostCtl(action) {
+    if (action === 'start' && H.phase === 'lobby') hostStartGame();
+    else if (action === 'again' && H.phase === 'over') hostNewGame();
+}
+function guestCtl(action) {
+    if (isHost && !isTvHost) { hostCtl(action); return; }
+    if (hostConn) send(hostConn, { type: 'ctl', action });
+}
+function myThrow(sym) {
+    sClick();
+    if (isHost && !isTvHost) { hostChoose(H.players.find(p => p.id === myId), sym); return; }
+    if (hostConn) send(hostConn, { type: 'choose', sym });
+}
+
+// ═══════════════════════════════════════════
+// CONNECTION
+// ═══════════════════════════════════════════
+function makeRoom(onOpen) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    roomCode = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    peer = new Peer(PFX + roomCode, ICE_CFG);
+    peer.on('open', id => { myId = id; isHost = true; onOpen(); });
+    peer.on('connection', conn => setupGuestConn(conn));
+    peer.on('disconnected', () => { try { if (peer && !peer.destroyed) peer.reconnect(); } catch (_) {} });
+    peer.on('error', e => {
+        if (e && (e.type === 'network' || e.type === 'disconnected' || e.type === 'server-error' || e.type === 'socket-error' || e.type === 'socket-closed')) {
+            try { if (peer && !peer.destroyed && peer.disconnected) peer.reconnect(); } catch (_) {} return;
+        }
+        uiErr = 'Connection error: ' + e.message; isHost = false; isTvHost = false;
+        document.body.classList.remove('viewer-mode'); ui = 'home'; render();
+    });
+}
+function hostGame(name) {
+    myName = name.trim().slice(0, 16) || 'Host';
+    myAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    try { localStorage.setItem('rps-name', myName); } catch (_) {}
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => { hostAddPlayer(myId, myName, myAvatar); ui = 'lobby_h'; render(); });
+}
+function hostOnTV() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => { isTvHost = true; document.body.classList.add('viewer-mode'); applyViewerMsg(viewerSnapshot()); });
+}
+function joinGame(code, name, _attempt) {
+    const attempt = _attempt || 1;
+    myName = name.trim().slice(0, 16) || 'Player';
+    myAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    try { localStorage.setItem('rps-name', myName); } catch (_) {}
+    uiErr = ''; ui = 'connecting'; render();
+    let connected = false, done = false;
+    const fail = () => {
+        if (connected || done) return; done = true;
+        if (attempt < 3) { try { peer.destroy(); } catch (_) {} peer = null; setTimeout(() => joinGame(code, name, attempt + 1), 700); return; }
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.'; ui = 'home'; render();
+    };
+    peer = new Peer(undefined, ICE_CFG);
+    peer.on('open', id => {
+        myId = id; isHost = false;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => { connected = true; send(hostConn, { type: 'join', name: myName, avatar: myAvatar }); });
+        hostConn.on('data', msg => applyMsg(msg));
+        hostConn.on('close', () => { if (connected) { uiErr = 'Disconnected from the game.'; ui = 'home'; D = null; render(); } });
+        hostConn.on('error', fail);
+    });
+    peer.on('error', fail);
+}
+function joinAsViewer(code, _attempt) {
+    const attempt = _attempt || 1;
+    isViewer = true; uiErr = ''; ui = 'connecting'; render();
+    peer = new Peer(undefined, ICE_CFG);
+    peer.on('open', id => {
+        myId = id;
+        hostConn = peer.connect(PFX + code.trim().toUpperCase(), { reliable: true });
+        hostConn.on('open', () => send(hostConn, { type: 'join_viewer' }));
+        hostConn.on('data', msg => applyViewerMsg(msg));
+        hostConn.on('close', () => { uiErr = 'Disconnected from the game.'; isViewer = false; vD = null; document.body.classList.remove('viewer-mode'); ui = 'home'; render(); });
+        hostConn.on('error', e => { uiErr = 'Could not connect: ' + e.message; isViewer = false; ui = 'home'; render(); });
+    });
+    peer.on('error', () => {
+        if (attempt < 2) { try { peer.destroy(); } catch (_) {} peer = null; setTimeout(() => joinAsViewer(code, 2), 600); return; }
+        uiErr = 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.'; isViewer = false; ui = 'home'; render();
+    });
+}
+function setupGuestConn(conn) {
+    conn.on('open', () => { conn._role = null; });
+    conn.on('data', msg => {
+        if (conn._role === null && msg.type === 'join_viewer') { conn._role = 'viewer'; viewerConns[conn.peer] = conn; send(conn, viewerSnapshot()); return; }
+        if (conn._role === null) { conn._role = 'player'; guestConns[conn.peer] = conn; }
+        const player = H.players.find(p => p.id === conn.peer);
+        switch (msg.type) {
+            case 'join': {
+                const name = String(msg.name || 'Player').slice(0, 16);
+                const zombie = H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
+                if (zombie) zombie.id = conn.peer;
+                else if (H.phase === 'lobby') hostAddPlayer(conn.peer, name, msg.avatar);
+                broadcastAll(); break;
+            }
+            case 'choose': if (player) hostChoose(player, msg.sym); break;
+            case 'ctl': if (isTvHost && player && player.id === captainId()) hostCtl(msg.action); break;
+        }
+    });
+    conn.on('close', () => {
+        delete guestConns[conn.peer]; delete viewerConns[conn.peer];
+        if (H.phase === 'lobby') { const pi = H.players.findIndex(p => p.id === conn.peer); if (pi >= 0) { H.players.splice(pi, 1); broadcastAll(); } }
+        else if (H.phase === 'throw') { const p = H.players.find(x => x.id === conn.peer); if (p && p.alive && alivePlayers().every(q => q.choice !== null)) hostResolve(); }
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+// ═══════════════════════════════════════════
+// CLIENT APPLY
+// ═══════════════════════════════════════════
+function applyMsg(msg) {
+    D = msg;
+    switch (msg.type) {
+        case 'lobby': ui = 'lobby_g'; break;
+        case 'throw': ui = 'throw'; break;
+        case 'reveal': ui = 'reveal'; break;
+        case 'over': ui = 'over'; break;
+    }
+    render();
+}
+function applyViewerMsg(msg) {
+    vD = msg; ui = 'viewer';
+    if (msg.type === 'viewer_over') { startConfetti(); }
+    render();
+}
+
+// ═══════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════
+let _lastUi = '', _lastVType = '';
+function render() {
+    const app = $id('app');
+    if (isTvHost || isViewer) ui = 'viewer';
+    const vt = ui === 'viewer' ? (vD?.type || '') : '';
+    const fresh = ui !== _lastUi || vt !== _lastVType;
+    _lastUi = ui; _lastVType = vt;
+    let html = '';
+    switch (ui) {
+        case 'home': html = renderHome(); break;
+        case 'creating': html = renderSpinner('Opening the arena…'); break;
+        case 'connecting': html = renderSpinner('Joining the showdown…'); break;
+        case 'lobby_h': html = renderLobbyH(); break;
+        case 'lobby_g': html = renderLobbyG(); break;
+        case 'throw': html = renderThrow(); break;
+        case 'reveal': html = renderReveal(); break;
+        case 'over': html = renderOver(); break;
+        case 'viewer': html = renderViewer(); break;
+        default: html = renderHome();
+    }
+    app.innerHTML = html;
+}
+function hdrHTML(sub) {
+    return `<div class="hdr"><h1 class="logo">✊✋✌️ RPS Showdown</h1></div><div class="sub">${esc(sub || 'last hand standing wins')}</div>`;
+}
+function renderSpinner(msg) { return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`; }
+function errHTML() { return uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''; }
+
+function renderHome() {
+    const fromQR = !!fCode;
+    return `${hdrHTML()}${errHTML()}
+    <div class="card">
+        <div class="slbl">Who are you?</div>
+        <div class="fg"><label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}" ${fromQR ? 'autofocus' : ''} oninput="fName=this.value"></div>
+    </div>
+    <div class="card${fromQR ? ' highlight' : ''}">
+        <div class="slbl">Join a Game</div>
+        <div class="fg"><label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fCode)}"
+                oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()"></div>
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">📱 Join with your phone</button>
+    </div>
+    <div class="card">
+        <div class="slbl">Start a Game</div>
+        <button class="btn btn-p btn-full" onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">✊ Host on this phone</button>
+        <div class="hint">2–12 players — put the arena on a TV with the room code</div>
+        <div class="divider"></div>
+        <button class="btn btn-g btn-full" style="margin-top:12px" onclick="hostOnTV()">📺 Host the party on this screen</button>
+        <div class="hint">Shows a big QR — the first phone to join becomes 👑 Captain</div>
+        <div class="fg" style="margin-top:12px"><label>…or open the arena for an existing room</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"></div>
+        <button class="btn btn-g btn-full btn-sm" onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code for the arena.';render()}">📺 Open Arena</button>
+    </div>`;
+}
+
+function renderLobbyH() {
+    const chips = H.players.map(p => `<div class="chip${p.id === myId ? ' me' : ''}"><span class="av">${p.avatar}</span>${esc(p.name)}</div>`).join('');
+    return `${hdrHTML('you are the host')}${errHTML()}
+    <div class="card highlight" style="text-align:center">
+        <div class="slbl">Scan to join</div>
+        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        <div class="room-code">${roomCode}</div>
+    </div>
+    <div class="card">
+        <div class="slbl">Players (${H.players.length}/${MAX_PLAYERS})</div>
+        <div class="chips">${chips}</div>
+    </div>
+    <button class="btn btn-p btn-full" ${H.players.length < MIN_PLAYERS ? 'disabled' : ''} onclick="hostStartGame()">✊✋✌️ Start showdown</button>
+    ${H.players.length < MIN_PLAYERS ? `<div class="hint">Waiting for at least ${MIN_PLAYERS} players…</div>` : ''}`;
+}
+function renderLobbyG() {
+    const players = (D && D.players) || [];
+    const chips = players.map(p => `<div class="chip${p.name === myName ? ' me' : ''}"><span class="av">${p.avatar}</span>${esc(p.name)}</div>`).join('');
+    return `${hdrHTML('you\'re in!')}
+    <div class="card" style="text-align:center">
+        <div class="slbl">Room ${esc(D?.roomCode || '')}</div>
+        <div class="chips">${chips}</div>
+    </div>
+    <div class="hint">${D?.tvHost ? (D.captain ? `👑 ${esc(D.captain)} starts the game` : 'First player is the captain') : 'Waiting for the host to start…'}</div>`;
+}
+
+function renderThrow() {
+    if (!D) return renderSpinner('…');
+    if (!D.myAlive) {
+        return `${hdrHTML('round ' + D.round)}
+        <div class="card" style="text-align:center">
+            <div class="big" style="font-size:3rem">💀</div>
+            <div style="font-weight:800;margin-top:6px">You're out — spectating</div>
+            <div class="hint" style="margin-top:8px">${D.aliveCount} still in it</div>
+        </div>`;
+    }
+    const low = D.timeLeft <= 3;
+    if (D.myChoice) {
+        return `${hdrHTML('round ' + D.round)}
+        <div class="card locked-box">
+            <div class="big">${SYMS[D.myChoice].ico}</div>
+            <div style="font-weight:800;margin-top:8px">Locked in ${SYMS[D.myChoice].lbl}!</div>
+            <div class="lockrow">${D.lockedCount}/${D.aliveCount} thrown</div>
+            <div class="timer-num ${low ? 'low' : ''}" id="tnum" style="margin-top:8px">${D.timeLeft}</div>
+        </div>`;
+    }
+    const btn = (k) => `<button class="throw-btn" onclick="myThrow('${k}')"><span class="ico">${SYMS[k].ico}</span><span class="lbl">${SYMS[k].lbl}</span></button>`;
+    return `${hdrHTML('round ' + D.round)}
+    <div class="card">
+        <div class="slbl" style="text-align:center">Throw your hand!</div>
+        <div class="timer-num ${low ? 'low' : ''}" id="tnum">${D.timeLeft}</div>
+        <div class="throw-grid">${btn('rock')}${btn('paper')}${btn('scissors')}</div>
+        <div class="lockrow">${D.lockedCount}/${D.aliveCount} thrown</div>
+    </div>`;
+}
+
+function renderReveal() {
+    if (!D) return renderSpinner('…');
+    const rows = D.throws.map(t => `
+        <div class="rrow ${t.win ? 'win' : ''} ${t.lose ? 'lose' : ''}">
+            <span class="av">${t.avatar}</span>
+            <span class="nm">${esc(t.name)}</span>
+            <span class="hand">${SYMS[t.choice].ico}</span>
+            ${!D.stalemate ? `<span class="tag ${t.win ? 'w' : 'l'}">${t.win ? 'safe' : 'out'}</span>` : ''}
+        </div>`).join('');
+    const banner = D.stalemate
+        ? `<div class="banner stale">🤝 Stalemate — throw again!</div>`
+        : `<div class="banner">${SYMS[D.winSym].ico} ${SYMS[D.winSym].lbl} beats ${SYMS[D.loseSym].lbl}!</div>`;
+    const mine = D.myOut ? `<div class="hint" style="color:var(--bad)">You were knocked out!</div>` : (D.myChoice ? `<div class="hint">You survive ✊</div>` : '');
+    return `${hdrHTML('round ' + D.round)}${banner}<div class="rlist">${rows}</div>${mine}`;
+}
+
+function renderOver() {
+    if (!D) return renderSpinner('…');
+    const medals = ['🥇', '🥈', '🥉'];
+    const rows = (D.standings || []).map((p, i) => `
+        <div class="medal-row"><span class="rk">${medals[i] || (i + 1)}</span><span class="av" style="font-size:1.3rem">${p.avatar}</span>
+        <span style="flex:1;font-weight:800">${esc(p.name)}${p.name === myName ? ' (you)' : ''}</span></div>`).join('');
+    return `${hdrHTML('final results')}
+    <div class="card" style="text-align:center">
+        <div style="font-size:3rem">🏆</div>
+        <div style="font-weight:900;font-size:1.3rem;color:var(--gold)">${esc(D.champion?.name || '')} wins!</div>
+    </div>
+    <div class="card">${rows}</div>
+    ${D.tvHost ? `<div class="hint">${D.captain ? `👑 ${esc(D.captain)}` : 'The captain'} can start a new game</div>` : `<button class="btn btn-p btn-full" onclick="guestCtl('again')">🔁 Play again</button>`}`;
+}
+
+// ═══════════════════════════════════════════
+// TV / VIEWER RENDER
+// ═══════════════════════════════════════════
+function tvShell(inner, meta) {
+    return `<div class="tv">
+        <div class="tv-top"><div class="tv-title">✊✋✌️ RPS Showdown</div><div class="tv-meta">${meta || ''}</div></div>
+        <div class="tv-main">${inner}</div>
+    </div>`;
+}
+function renderViewer() {
+    if (!vD) return renderSpinner('Connecting…');
+    switch (vD.type) {
+        case 'viewer_lobby': return renderViewerLobby();
+        case 'viewer_throw': return renderViewerThrow();
+        case 'viewer_reveal': return renderViewerReveal();
+        case 'viewer_over': return renderViewerOver();
+        default: return renderViewerLobby();
+    }
+}
+function renderViewerLobby() {
+    const players = vD.players || [];
+    const chips = players.map((p, i) => `<div class="tv-chip${vD.tvHost && i === 0 ? ' crown' : ''}"><span class="av">${p.avatar}</span>${esc(p.name)}${vD.tvHost && i === 0 ? ' 👑' : ''}</div>`).join('');
+    const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
+    return tvShell(`
+        <div class="tv-lobby">
+            <div style="text-align:center">
+                <div class="tv-scan">Scan to come in</div>
+                <div class="tv-qr">${qrSVG(url)}</div>
+            </div>
+            <div style="text-align:center">
+                <div class="tv-scan">Room</div>
+                <div class="tv-code">${esc(vD.roomCode || '')}</div>
+                <div class="tv-players" style="margin-top:2vmin">${chips || '<div class="tv-hint">Waiting for players…</div>'}</div>
+            </div>
+        </div>
+        <div class="tv-hint">${vD.tvHost ? (vD.captain ? `👑 ${esc(vD.captain)} is the captain — start from their phone` : '👑 First player to join becomes Captain') : 'Host starts the game'}</div>
+    `, players.length ? `${players.length} in` : '');
+}
+function renderViewerThrow() {
+    const alive = (vD.players || []).filter(p => p.alive);
+    const fighters = alive.map(p => `
+        <div class="fighter ${p.locked ? 'locked' : ''}">
+            <div class="hand">${p.locked ? '🔒' : '❔'}</div>
+            <div class="nm"><span class="av">${p.avatar}</span> ${esc(p.name)}</div>
+        </div>`).join('');
+    const low = vD.timeLeft <= 3;
+    return tvShell(`
+        <div class="tv-timer ${low ? 'low' : ''}" id="tv-timer">${vD.timeLeft}</div>
+        <div class="tv-hint">Throw on your phone — ${vD.lockedCount}/${vD.aliveCount} locked in</div>
+        <div class="arena">${fighters}</div>
+    `, 'Round ' + vD.round);
+}
+function renderViewerReveal() {
+    const fighters = (vD.throws || []).map(t => `
+        <div class="fighter ${t.win ? 'win' : ''} ${t.lose ? 'lose' : ''}">
+            <div class="hand">${SYMS[t.choice].ico}</div>
+            <div class="nm"><span class="av">${t.avatar}</span> ${esc(t.name)}</div>
+        </div>`).join('');
+    const banner = vD.stalemate
+        ? `<div class="tv-banner stale">🤝 Stalemate — throw again!</div>`
+        : `<div class="tv-banner">${SYMS[vD.winSym].ico} ${SYMS[vD.winSym].lbl} beats ${SYMS[vD.loseSym].lbl}</div>`;
+    return tvShell(`${banner}<div class="arena">${fighters}</div>`, 'Round ' + vD.round);
+}
+function renderViewerOver() {
+    const st = vD.standings || [];
+    const medals = ['🥇', '🥈', '🥉'];
+    const ranks = rankByScore(st.map((_, i) => ({ score: st.length - i })), 'score'); // strict placement
+    const wm = st.map((p, i) => ({ ...p, medal: medals[i] || '' }));
+    const podOrder = [wm[1], wm[0], wm[2]].filter(Boolean);
+    const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
+    const pods = podOrder.map((p, i) => `
+        <div class="pod ${cls[i]}">
+            <div class="pav">${p.avatar}</div>
+            <div class="pnm">${esc(p.name)}</div>
+            <div class="block">${p.medal}</div>
+        </div>`).join('');
+    return tvShell(`
+        <div style="font-size:6vmin">🏆</div>
+        <div class="tv-banner" style="color:var(--gold)">${esc(vD.champion?.name || '')} wins the showdown!</div>
+        <div class="podium-wrap">${pods}</div>
+        <div class="tv-hint">${vD.tvHost ? (vD.captain ? `👑 ${esc(vD.captain)}: "Play again" is on your phone` : 'Captain starts a new game') : 'Host starts a new game'}</div>
+    `, 'Final');
+}
+
+// ═══════════════════════════════════════════
+// CONFETTI (light)
+// ═══════════════════════════════════════════
+function startConfetti() {
+    if (REDUCED) return;
+    for (let i = 0; i < 40; i++) {
+        setTimeout(() => {
+            const el = document.createElement('div');
+            el.textContent = ['🎉', '✊', '✋', '✌️', '⭐'][Math.floor(Math.random() * 5)];
+            el.style.cssText = `position:fixed;top:-6vmin;left:${Math.random() * 96}%;font-size:${2 + Math.random() * 2.5}vmin;z-index:940;pointer-events:none;transition:transform 3.2s linear,opacity 3.2s;`;
+            document.body.appendChild(el);
+            requestAnimationFrame(() => { el.style.transform = `translateY(112vh) rotate(${(Math.random() - .5) * 720}deg)`; el.style.opacity = '0.2'; });
+            setTimeout(() => el.remove(), 3400);
+        }, i * 60);
+    }
+}
+
+// ═══════════════════════════════════════════
+// SIMULATION — ?mode=tvsimulation&players=N
+// ═══════════════════════════════════════════
+const SIM_NAMES = ['Ace', 'Bux', 'Cash', 'Duke', 'Edie', 'Fox', 'Gwen', 'Hawk', 'Ivy', 'Jax', 'Kit', 'Lux'];
+function startSimulation(nPlayers, mode) {
+    roomCode = 'DEMO';
+    H.players = []; guestConns = {}; viewerConns = {};
+    const n = Math.max(MIN_PLAYERS, Math.min(nPlayers || 4, MAX_PLAYERS));
+    isHost = true; isTvHost = true; myId = '__sim_host__';
+    document.body.classList.add('viewer-mode');
+    for (let i = 0; i < n; i++) {
+        const id = '__bot_' + i;
+        guestConns[id] = { send() {}, _sim: true };
+        hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length], AVATARS[i % AVATARS.length]);
+    }
+    applyViewerMsg(viewerSnapshot());
+    setTimeout(simTick, 1800);
+}
+function simTick() {
+    if (H.phase === 'lobby') { hostStartGame(); setTimeout(simTick, 1600); return; }
+    if (H.phase === 'throw') {
+        const keys = Object.keys(SYMS);
+        const alive = alivePlayers();
+        // stagger a couple of throws, resolve fills the rest
+        alive.forEach((p, i) => setTimeout(() => { if (H.phase === 'throw') hostChoose(p, keys[Math.floor(Math.random() * 3)]); }, 300 + i * 200));
+        setTimeout(simTick, 400 + alive.length * 200 + REVEAL_MS);
+        return;
+    }
+    if (H.phase === 'reveal') { setTimeout(simTick, 800); return; }
+    if (H.phase === 'over') { setTimeout(() => { hostNewGame(); setTimeout(simTick, 1600); }, 6500); return; }
+    setTimeout(simTick, 800);
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    if (!musicOn) $id('tog-music').classList.add('off');
+    if (!sfxOn) $id('tog-sfx').classList.add('off');
+    const mode = (params.get('mode') || '').toLowerCase();
+    const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
+    render();
+})();
+</script>
+</body>
+</html>
