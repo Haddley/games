@@ -706,10 +706,12 @@
         .v-lobby-chip .pirate-av { margin-right: 4px; }
 
         /* themed QR (weathered parchment) */
-        .qr-box { width: min(210px, 56vw); margin: 10px auto 12px; border-radius: 12px; overflow: hidden;
+        /* QR layout matched to pit.html: vmin-based square that scales with the screen
+           (never squished by a flex column), aspect-ratio + no-shrink as belt-and-braces */
+        .qr-box { width: min(210px, 58vw); aspect-ratio: 1; flex-shrink: 0; margin: 10px auto 12px; border-radius: 13px; overflow: hidden;
             box-shadow: 0 8px 22px rgba(0,0,0,.5), 0 0 0 3px var(--wood); background: var(--bone); }
         .qr-box svg { display: block; width: 100%; height: auto; }
-        .v-qr-box { width: clamp(160px, 22vw, 300px); border-radius: 1.4vmin; overflow: hidden;
+        .v-qr-box { width: 32vmin; aspect-ratio: 1; flex-shrink: 0; border-radius: 2.2vmin; overflow: hidden;
             box-shadow: 0 1vmin 3vmin rgba(0,0,0,.6), 0 0 0 .5vmin var(--wood); background: var(--bone); }
         .v-qr-box svg { display: block; width: 100%; height: auto; }
         .cap-hint { text-align: center; font-size: .72rem; color: var(--muted); font-style: italic; margin-top: 6px; }
