@@ -7,6 +7,12 @@ pass; this records what "good" looks like so future work stays consistent.
 
 ## The five pillars
 
+> **Update:** ambient decoration now has TWO layers — the per-game drifting **background**
+> below (pillar 1), *plus* a shared **[ambient scene](ambient-scenes.md)** engine
+> (`mountScene`) that walks themed figures along the very bottom of the TV screen (sheep,
+> cows, bingo balls, pirates, wolves, letters, …). The scene lives in `common.js`, not
+> per-game. Both coexist.
+
 1. **Themed ambient background layer.** A decorative, `pointer-events:none`, low-opacity
    layer BEHIND `#app` (z-index below content), built ONCE on load (never rebuilt on
    patches), gently drifting/floating, matched to the game's theme & palette. This was the

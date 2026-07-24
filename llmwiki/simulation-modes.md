@@ -37,6 +37,8 @@ Boot routing parses `?mode=` **before** the normal `?room` handling and calls
 
 - **Both modes:** pit, familytrivia, categoryclash, bestguess, herdmind, fibbers, oddsheep,
   brokenpencil, doodleparty, goinggone, bingo, moonlightvillage, boggleparty, boggle, liarsdice.
+- **rockpaperscissors** (newest game) ships `?mode=tvsimulation` (bots throw ✊✋✌️ each
+  round to a champion) — the fastest way to watch its elimination/stalemate flow.
 - **Single self-play** (no spectator/player split): ticktacktoe (two bots, both mode params
   do the same thing).
 - **Excluded:** skydive, synthwave — single-player real-time arcade, no host/phase model.
