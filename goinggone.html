@@ -332,7 +332,7 @@
     </div>
 <script>
 // ICE_CFG + rankByScore now come from common.js (loaded in <head>).
-mountScene('auction');   // themed ambient scene along the bottom of the TV
+typeof mountScene === 'function' && mountScene('auction');   // themed ambient scene along the bottom of the TV
 
 'use strict';
 

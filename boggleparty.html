@@ -870,7 +870,7 @@
     <canvas id="fireworks"></canvas>
 <script>
 // ICE_CFG + rankByScore now come from common.js (loaded in <head>).
-mountScene('letters');   // themed ambient scene along the bottom of the TV
+typeof mountScene === 'function' && mountScene('letters');   // themed ambient scene along the bottom of the TV
 
 // ═══════════════════════════════════════════
 // BOGGLE PARTY — phones are controllers, the

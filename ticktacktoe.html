@@ -667,7 +667,7 @@
     <script src="common.js"></script>
     <script>
         'use strict';
-        mountScene('tictactoe', 'body.tv-mode #app');   // ambient X/O scene along the bottom of the big screen
+        typeof mountScene === 'function' && mountScene('tictactoe', 'body.tv-mode #app');   // ambient X/O scene along the bottom of the big screen
 
         // ═══════════════════════════════════════════
         // AUDIO — procedural playground-duel chiptune + SFX
