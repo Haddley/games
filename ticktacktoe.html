@@ -1790,9 +1790,7 @@
                 this._xName = 'Player X';
                 this._oName = 'Player O';
 
-                this.elements.tvRoomCode.textContent = this.roomCode;
-                this.elements.tvQr.innerHTML = qrSVG(roomURL(this.roomCode));
-                this.updateTvCount();
+                this.renderTvLobby();
                 this.showScreen('tv-lobby');
 
                 this.peer = new Peer(this.roomCode, TTT_PEER_OPTS);
@@ -1808,8 +1806,24 @@
             },
 
             updateTvCount() {
-                const n = this.tvConns ? this.tvConns.length : 0;
-                this.elements.tvPlayersCount.innerHTML = '<b>' + n + '</b> / 2 players joined';
+                if (!this.tvGameActive) this.renderTvLobby();
+            },
+
+            // Shared boggleparty-style TV lobby (from common.js tvLobby)
+            renderTvLobby() {
+                if (typeof tvLobby !== 'function' || !this.elements.tvLobbyScreen) return;
+                const players = (this.tvConns || []).map(c => ({ name: c._name || ('Player ' + c._role), avatar: c._role === 'X' ? '❌' : '⭕' }));
+                this.elements.tvLobbyScreen.innerHTML = tvLobby({
+                    title: 'TIC · TAC · TOE',
+                    accent: '#8fd0ff',
+                    roomCode: this.roomCode,
+                    joinUrl: roomURL(this.roomCode),
+                    isTvHost: true,
+                    hint: '✌️ First two phones to join play as ❌ and ⭕',
+                    settings: `${players.length}/2 joined`,
+                    waitingText: 'Waiting for players…',
+                    players,
+                });
             },
 
             // First message on a fresh connection decides its kind:

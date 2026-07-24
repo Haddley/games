@@ -367,7 +367,9 @@ function tvLobby(opts) {
         }).join('')
         : `<div class="cxl-wait">${_cxlEsc(o.waitingText || 'Waiting for players…')}</div>`;
     let captainHint = '';
-    if (o.isTvHost) {
+    if (o.hint) {
+        captainHint = `<div class="cxl-hint">${_cxlEsc(o.hint)}</div>`;
+    } else if (o.isTvHost) {
         captainHint = o.captainName
             ? `<div class="cxl-hint">👑 ${_cxlEsc(o.captainName)} is the captain — start from their phone</div>`
             : `<div class="cxl-hint">👑 First player to join becomes the captain and starts the game</div>`;

@@ -2366,27 +2366,17 @@ function screenViewer() {
 
     // Lobby view
     if (vD.phase === 'lobby') {
-        const chips = (vD.players ?? []).map((n, ci) =>
-            `<div class="v-lobby-chip" style="--i:${ci}"><span class="pirate-av">${pirateAvatar(n)}</span>${esc(n)}</div>`
-        ).join('');
-        const isTv = !!vD.tvHost;
-        const url = `${location.origin}${location.pathname}?join=${(vD.roomCode||'')}`;
-        const waiting = isTv
-            ? (vD.captain ? `🧭 Captain ${esc(vD.captain)} rolls the bones when ready` : 'First pirate aboard becomes 🧭 Captain')
-            : 'Waiting for the host to start…';
-        return `<div class="v-lobby-screen">
-          <div id="v-bg"></div>
-          <div class="v-lobby-title">Liar's Dice</div>
-          ${isTv ? `<div class="v-qr-box">${qrSVG(url)}</div>` : ''}
-          <div class="v-lobby-sub">${isTv ? 'Scan to come aboard · Room' : 'Room Code'}</div>
-          <div class="v-lobby-code">${esc((vD.roomCode||'').toUpperCase())}</div>
-          <div class="v-lobby-sub" style="margin-top:8px">Crew aboard:</div>
-          <div class="v-lobby-players">${chips || '<span style="color:var(--muted);font-style:italic">Waiting for the first pirate…</span>'}</div>
-          <div class="v-waiting">
-            <div class="spin"></div>
-            <span>${waiting}</span>
-          </div>
-        </div>`;
+        return `<div id="v-bg"></div>` + tvLobby({
+            title: "LIAR'S DICE",
+            accent: '#e0a83a',
+            roomCode: (vD.roomCode || '').toUpperCase(),
+            joinUrl: `${location.origin}${location.pathname}?join=${vD.roomCode || ''}`,
+            isTvHost: !!vD.tvHost,
+            captainName: vD.captain,
+            scanHint: 'Scan to come aboard',
+            waitingText: 'Waiting for the first pirate…',
+            players: (vD.players ?? []).map(n => ({ name: n, avatar: pirateAvatar(n), captain: n === vD.captain })),
+        });
     }
 
     // Player cards

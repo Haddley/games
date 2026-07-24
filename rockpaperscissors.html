@@ -752,22 +752,14 @@ function renderViewer() {
 }
 function renderViewerLobby() {
     const players = vD.players || [];
-    const chips = players.map((p, i) => `<div class="tv-chip${vD.tvHost && i === 0 ? ' crown' : ''}"><span class="av">${p.avatar}</span>${esc(p.name)}${vD.tvHost && i === 0 ? ' 👑' : ''}</div>`).join('');
-    const url = location.origin + location.pathname + '?room=' + (vD.roomCode || '');
-    return tvShell(`
-        <div class="tv-lobby">
-            <div style="text-align:center">
-                <div class="tv-scan">Scan to come in</div>
-                <div class="tv-qr">${qrSVG(url)}</div>
-            </div>
-            <div style="text-align:center">
-                <div class="tv-scan">Room</div>
-                <div class="tv-code">${esc(vD.roomCode || '')}</div>
-                <div class="tv-players" style="margin-top:2vmin">${chips || '<div class="tv-hint">Waiting for players…</div>'}</div>
-            </div>
-        </div>
-        <div class="tv-hint">${vD.tvHost ? (vD.captain ? `👑 ${esc(vD.captain)} is the captain — start from their phone` : '👑 First player to join becomes Captain') : 'Host starts the game'}</div>
-    `, players.length ? `${players.length} in` : '');
+    return tvLobby({
+        title: 'RPS SHOWDOWN',
+        accent: '#b39cff',
+        roomCode: vD.roomCode,
+        isTvHost: vD.tvHost,
+        captainName: vD.captain,
+        players: players.map((p, i) => ({ name: p.name, avatar: p.avatar, captain: vD.tvHost && i === 0 })),
+    });
 }
 function renderViewerThrow() {
     const alive = (vD.players || []).filter(p => p.alive);
