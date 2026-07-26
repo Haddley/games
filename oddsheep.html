@@ -891,6 +891,21 @@ function capSync(prevId) {
     tvHostSync();
 }
 
+
+// A player IS their peer id, and a refresh mints a new one. Re-pointing their row in
+// H.players is not enough — the id is also a key in H.turnOrder and H.votes, and both would
+// carry on referring to a peer that no longer exists. The visible result is a stuck room:
+// the returning player never gets their clue turn, and their vote is orphaned so
+// `every(p => H.votes[p.id])` never becomes true and the round never tallies.
+// (Plump Trek had the same defect on H.turn — see its hostRekeyPlayer.)
+function hostRekeyPlayer(player, newId) {
+    const old = player.id;
+    if (!old || old === newId) return;
+    player.id = newId;
+    H.turnOrder = (H.turnOrder || []).map(id => (id === old ? newId : id));
+    if (H.votes && old in H.votes) { H.votes[newId] = H.votes[old]; delete H.votes[old]; }
+}
+
 function hostAddPlayer(id, name, avatar) {
     if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
     const taken = new Set(H.players.map(p => p.avatar));
@@ -1037,7 +1052,7 @@ function setupGuestConn(conn) {
                 const name = String(msg.name || 'Player').slice(0, 16);
                 const zombie = H.players.find(p => msg.cid && p.cid === msg.cid && p.id !== conn.peer && !guestConns[p.id])
                     || H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
-                if (zombie) zombie.id = conn.peer;
+                if (zombie) hostRekeyPlayer(zombie, conn.peer);
                 else hostAddPlayer(conn.peer, name, msg.avatar);
                 const p2 = H.players.find(p => p.id === conn.peer);
                 if (p2 && msg.cid) p2.cid = msg.cid;          // this device now owns the slot

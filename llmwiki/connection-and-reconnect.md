@@ -169,3 +169,46 @@ expires does the game end. The returning device is recognised from
 | Everything laggy for one player | They're on 📡 — every packet is going via the relay. |
 | No badge at all | Not in a room yet, or `?net=0` was used on this browser. |
 | Player vanished mid-game and came back as a duplicate | Zombie matching failed — cid missing (private mode) *and* the name changed. |
+
+## The id-rekey trap (found the hard way, July 2026)
+
+**A player IS their peer id.** A browser refresh gets them a *new* one, and the host matches
+them back to their seat by `cid` (device id) or name and re-points that row:
+
+```js
+if (zombie) zombie.id = conn.peer;      // ← not enough
+```
+
+That one line is only correct if `H.players` is the *only* place the id lives. In any game
+with turn order, a current player, a pending card, a vote map or a finish order, it isn't.
+Everything else carries on referring to a peer that no longer exists.
+
+**What it looks like in a real game.** Neil was captain in Plump Trek and it was his turn.
+His page reloaded, he rejoined, the crown moved to the other player and back — and his phone
+never offered the Roll button again. `me.myTurn` is `H.turn === p.id`, and `H.turn` still
+held the dead id. The host was waiting for a roll from nobody, the other player was waiting
+for Neil, and the room could not move. Nothing logged an error.
+
+**The fix** is `hostRekeyPlayer(player, newId)`: rewrite every stored reference in one go.
+In Plump Trek that is `H.turn`, `H.turnOrder`, `H.order`, `H.finishOrder`, `H.moved.id`,
+`H.card.who`, `H.choice.who`, `H.finale.who`, and inside `H.finaleState` the `a`/`b`/`who`/
+`last` fields plus the id-keyed `picks`, `votes`, `rolls` and `flips` — including a vote cast
+*for* the returning player, which has to follow them too. In The Odd Sheep it is `turnOrder`
+and the `votes` map (an orphaned vote means `every(p => H.votes[p.id])` never comes true and
+the round never tallies).
+
+**Which games are affected.** Only the ones that store an id somewhere else:
+
+| pattern | example | vulnerable? |
+|---|---|---|
+| id in turn order / current-player | plumptrek `H.turn`, oddsheep `H.turnOrder` | **yes** — both fixed |
+| id as a map key | oddsheep `H.votes` | **yes** — fixed |
+| object *reference* to the player | lastlaugh `H.judge = H.players[i]` | no — the reference survives an id change |
+| *index* into the players array | liarsdice `H.activePlayers`, `bidderIdx` | no — indices don't change |
+| nothing but `H.players` | most of the rest | no |
+
+**The guard.** `unit/plumptrek.test.js` greps the engine for fields that get assigned a
+player id and asserts `hostRekeyPlayer` mentions each one. It caught `H.moved` within a
+minute of being written — a field I had missed. Add a new id-keyed field and the test fails
+until you handle it. `tests/plumptrek.e2e.spec.js` and `tests/oddsheep.e2e.spec.js` both
+drive a real refresh mid-round and check the player gets their turn and their vote back.

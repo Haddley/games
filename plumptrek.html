@@ -1240,6 +1240,49 @@ function hostAddPlayer(id, name, seat) {
                      mods: [], route: 0, done: false, gates: {} });
 }
 
+// A player IS their peer id, and a refresh mints a new one. Re-pointing their row in
+// H.players is not enough: the id is ALSO the key in a dozen other places, and every one of
+// them would carry on referring to a peer that no longer exists.
+//
+// The way this shows up in a real game is nasty and silent. Neil refreshed on his own turn,
+// rejoined, and his phone no longer offered him the Roll button — because `me.myTurn` is
+// `H.turn === p.id` and H.turn still held the dead id. The host was waiting for a roll from
+// nobody, the other player was waiting for Neil, and the room could not move. Not an error
+// anywhere.
+//
+// So: when a returning device takes over a seat, rewrite EVERY reference at once. If you add
+// a new place that stores a player id, add it here too — a test walks this function's source
+// and fails if it finds an id-keyed field it doesn't mention.
+function hostRekeyPlayer(player, newId) {
+    const old = player.id;
+    if (!old || old === newId) return;
+    player.id = newId;
+    const swap = id => (id === old ? newId : id);
+
+    if (H.turn === old) H.turn = newId;                       // ← the one that stuck the room
+    H.turnOrder = (H.turnOrder || []).map(swap);
+    H.order = (H.order || []).map(swap);
+    H.finishOrder = (H.finishOrder || []).map(swap);
+    if (H.moved && H.moved.id === old) H.moved.id = newId;   // the pawn the TV is animating
+    if (H.card && H.card.who === old) H.card.who = newId;
+    if (H.choice && H.choice.who === old) H.choice.who = newId;
+    if (H.finale && H.finale.who === old) H.finale.who = newId;
+
+    const st = H.finaleState;
+    if (st) {
+        ['a', 'b', 'who', 'last'].forEach(k => { if (st[k] === old) st[k] = newId; });
+        // the mini-games key their answers by player id as well
+        ['picks', 'votes'].forEach(k => {
+            if (!st[k]) return;
+            if (old in st[k]) { st[k][newId] = st[k][old]; delete st[k][old]; }
+            // a vote CAST FOR the returning player has to follow them too
+            Object.keys(st[k]).forEach(v => { if (st[k][v] === old) st[k][v] = newId; });
+        });
+        if (Array.isArray(st.rolls)) st.rolls.forEach(r => { if (r.id === old) r.id = newId; });
+        if (Array.isArray(st.flips)) st.flips.forEach(f => { if (f.id === old) f.id = newId; });
+    }
+}
+
 // ═══════════════════════════════════════════
 // CONSTANTS + HOST STATE
 // ═══════════════════════════════════════════
@@ -1358,7 +1401,7 @@ function setupGuestConn(conn) {
                 const name = String(msg.name || 'Player').slice(0, 16);
                 const zombie = H.players.find(p => msg.cid && p.cid === msg.cid && p.id !== conn.peer && !guestConns[p.id])
                     || H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
-                if (zombie) zombie.id = conn.peer;
+                if (zombie) hostRekeyPlayer(zombie, conn.peer);
                 else hostAddPlayer(conn.peer, name, msg.seat);
                 const p2 = H.players.find(p => p.id === conn.peer);
                 if (p2 && msg.cid) p2.cid = msg.cid;          // this device now owns the slot

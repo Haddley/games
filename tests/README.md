@@ -64,3 +64,17 @@ Screenshots land in `screenshots/` (gitignored):
   host-side, so the test can use fixed words on any rolled board).
 - The round is fast-forwarded by setting the host's `H.timeLeft` — no
   90-second waits.
+
+## The reconnect id-rekey tests
+
+A player's identity is their peer id, and a refresh mints a new one. Three tests cover the
+class of bug that follows (see `llmwiki/connection-and-reconnect.md`):
+
+- `unit/plumptrek.test.js` → *"hostRekeyPlayer rewrites every place a player id is stored"* —
+  greps the engine for fields assigned a player id and fails if the rekey doesn't mention
+  one. This is the one that stops the bug coming back; it caught a missed field immediately.
+- `tests/plumptrek.e2e.spec.js` → *"a refresh on your own turn…"* — the actual reported
+  scenario: captain, own turn, page reloads, rejoins, must get the Roll button back and the
+  game must move on.
+- `tests/oddsheep.e2e.spec.js` → *"a refresh keeps your place in the clue order and your vote
+  counted"* — the same defect in the other game that stores ids.

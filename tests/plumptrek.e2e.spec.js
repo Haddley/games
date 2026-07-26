@@ -1216,3 +1216,80 @@ test('a new game wipes every mood', async ({ browser }) => {
     expect(await tv.evaluate(() => [moodOf('t0'), moodOf('t1')])).toEqual([0, 0]);
     await tv.close();
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RECONNECT MID-TURN
+// ═══════════════════════════════════════════════════════════════════════════════
+// Straight from a real game: Neil was captain, it was his turn, his page reloaded, he
+// rejoined — and his phone no longer thought it was his turn. The other player sat waiting
+// for a roll that could never come, and the room was stuck with nobody able to move.
+//
+// The cause is that a player's identity IS their peer id, and a refresh gets them a new
+// one. `H.players` is re-pointed at the new id on rejoin, but the id is also stored in
+// H.turn, H.turnOrder, H.card.who, H.choice.who, H.order… — everywhere else it kept
+// pointing at a peer that no longer exists.
+test('a refresh on your own turn gives you your turn back, and the room keeps moving', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html');
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
+    const code = await tv.evaluate(() => roomCode);
+
+    const pages = {};
+    for (const n of ['Ava', 'Ben']) pages[n] = await joinPhone(browser, code, n);
+    await expect.poll(() => tv.evaluate(() => H.players.length), { timeout: 30_000 }).toBe(2);
+    // Ava joined first, so Ava is captain
+    await pages.Ava.getByRole('button', { name: /Start the trek/ }).click();
+    await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 20_000 }).toBe('turn');
+
+    // make sure it's Ava's turn — the captain's own turn is the case that broke
+    await tv.evaluate(() => {
+        const ava = H.players.find(p => p.name === 'Ava');
+        // beginTurn advances to the NEXT player, so wind back one to land on Ava
+        const n = H.turnOrder.length;
+        H.turnIdx = (H.turnOrder.indexOf(ava.id) - 1 + n) % n;
+        beginTurn();
+    });
+    await expect.poll(() => tv.evaluate(() => (H.players.find(p => p.id === H.turn) || {}).name),
+        { timeout: 20_000 }).toBe('Ava');
+    await expect(pages.Ava.getByRole('button', { name: /ROLL/i })).toBeVisible({ timeout: 15_000 });
+    const oldId = await tv.evaluate(() => H.turn);
+
+    // …and the page reloads out from under her
+    await pages.Ava.reload({ waitUntil: 'load' });
+    // wait for her to be back in her seat: same two players, both with a live connection
+    await expect.poll(() => tv.evaluate(() =>
+        H.players.filter(p => guestConns[p.id]).length), { timeout: 30_000 }).toBe(2);
+    expect(await tv.evaluate(() => H.players.length), 'she took her old seat, not a new one').toBe(2);
+    const newId = await tv.evaluate(() => (H.players.find(p => p.name === 'Ava') || {}).id);
+    expect(newId, 'a refresh really does mint a new peer id').not.toBe(oldId);
+
+    // THE BUG: every other place that stored her id still points at the dead peer
+    const dangling = await tv.evaluate(old => {
+        const bad = [];
+        if (H.turn === old) bad.push('H.turn');
+        if ((H.turnOrder || []).includes(old)) bad.push('H.turnOrder');
+        if (H.card && H.card.who === old) bad.push('H.card.who');
+        if (H.choice && H.choice.who === old) bad.push('H.choice.who');
+        if ((H.order || []).includes(old)) bad.push('H.order');
+        return bad;
+    }, oldId);
+    expect(dangling, `these still point at the peer that went away: ${dangling.join(', ')}`).toEqual([]);
+
+    // …so what the room actually needs: it is still Ava's turn, and she can roll
+    expect(await tv.evaluate(() => (H.players.find(p => p.id === H.turn) || {}).name),
+        'the host still thinks it is Ava\'s turn').toBe('Ava');
+    await expect(pages.Ava.getByRole('button', { name: /ROLL/i }),
+        'and her phone gives her the button back').toBeVisible({ timeout: 20_000 });
+    await expect(pages.Ben.getByRole('button', { name: /ROLL/i }),
+        'while Ben still cannot roll for her').toHaveCount(0);
+
+    // and the game genuinely moves on from there
+    await pages.Ava.getByRole('button', { name: /ROLL/i }).click();
+    await expect.poll(() => tv.evaluate(() => H.roll), { timeout: 20_000 }).toBeGreaterThan(0);
+    await expect.poll(() => tv.evaluate(() => (H.players.find(p => p.name === 'Ava') || {}).pos),
+        { timeout: 25_000 }).toBeGreaterThan(0);
+
+    for (const p of Object.values(pages)) await p.close();
+    await tv.close();
+});

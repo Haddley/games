@@ -648,3 +648,59 @@ test('the shipped sheets are the ones CREDITS.md vouches for', () => {
             `sprites/${f} hashes to ${sum}, which CREDITS.md does not record — rebuild the docs`);
     }
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RECONNECT: a player IS their peer id
+// ═══════════════════════════════════════════════════════════════════════════════
+// A refresh mints a new peer id, so every place the host stored the old one has to be
+// rewritten at once. Miss one and the room silently stops: Neil refreshed on his own turn
+// and his phone never offered the Roll button again, because `me.myTurn` is
+// `H.turn === p.id` and H.turn still held the dead id.
+//
+// This is the test that stops it coming back. It reads the ENGINE for fields that hold a
+// player id and asserts hostRekeyPlayer mentions each one — the same trick the card-deck
+// integrity tests use, and for the same reason: a new id-keyed field would otherwise be a
+// stuck room that no test notices.
+test('hostRekeyPlayer rewrites every place a player id is stored', () => {
+    const rekey = grab('function hostRekeyPlayer(player, newId) {', '\n}');
+
+    // it must move the id itself, and H.turn is the one that stuck the room
+    assert.match(rekey, /player\.id = newId/, 'the player row has to be re-pointed');
+    assert.match(rekey, /H\.turn\b/, 'H.turn is the field that broke a real game');
+
+    // every `H.<field>` the engine assigns a player id to must appear in the rekey
+    const stores = new Set();
+    // a real assignment, not `===` or `=>` — `H.phase === 'card' && … player.id` is not a store
+    const ASSIGN = "H\\.(\\w+)\\s*(?<![=!<>])=(?![=>])\\s*";
+    for (const m of SCRIPT.matchAll(new RegExp(ASSIGN + "[^;\\n]*\\bplayer\\.id\\b", 'g'))) stores.add(m[1]);
+    for (const m of SCRIPT.matchAll(new RegExp(ASSIGN + "H\\.players\\.map\\(\\s*p\\s*=>\\s*p\\.id\\s*\\)", 'g'))) stores.add(m[1]);
+    for (const m of SCRIPT.matchAll(/H\.(\w+)\.push\(\s*p(?:layer)?\.id\s*\)/g)) stores.add(m[1]);
+    for (const m of SCRIPT.matchAll(new RegExp(ASSIGN + "\\{[^}]*\\bwho:\\s*player\\.id", 'g'))) stores.add(m[1]);
+    assert.ok(stores.size >= 4, `only found ${stores.size} id-holding fields — has the engine changed shape?`);
+    stores.forEach(f => assert.match(rekey, new RegExp('H\\.' + f + '\\b'),
+        `H.${f} holds a player id, but hostRekeyPlayer never rewrites it — a refresh would strand it`));
+
+    // …and the ones nested inside H.finaleState, which the regexes above can't see
+    // (quoted in a key list, or reached directly as st.<field> — either counts)
+    ['a', 'b', 'who', 'last', 'picks', 'votes', 'rolls', 'flips'].forEach(k =>
+        assert.match(rekey, new RegExp("'" + k + "'|st\\." + k + "\\b"),
+            `finaleState.${k} is keyed by player id, but hostRekeyPlayer never touches it`));
+
+    // the rejoin path must actually call it, not just define it
+    assert.match(SCRIPT, /if \(zombie\) hostRekeyPlayer\(zombie, conn\.peer\)/,
+        'the join handler must rekey rather than only re-pointing zombie.id');
+    assert.doesNotMatch(SCRIPT, /zombie\.id = conn\.peer/,
+        'the old one-line re-point is what caused the bug; it must be gone');
+});
+
+test('The Odd Sheep rekeys its id-keyed state too', () => {
+    // Same defect, found by auditing the other games: turnOrder holds ids and votes is keyed
+    // by id, so a refresh orphaned your vote and `every(p => H.votes[p.id])` never came true.
+    const sheep = fs.readFileSync(path.join(__dirname, '..', 'oddsheep.html'), 'utf8');
+    assert.match(sheep, /function hostRekeyPlayer\(player, newId\)/, 'oddsheep needs the same fix');
+    const fn = sheep.slice(sheep.indexOf('function hostRekeyPlayer'), sheep.indexOf('\n}', sheep.indexOf('function hostRekeyPlayer')));
+    assert.match(fn, /H\.turnOrder/, 'turnOrder holds player ids');
+    assert.match(fn, /H\.votes/, 'votes is keyed by player id');
+    assert.match(sheep, /if \(zombie\) hostRekeyPlayer\(zombie, conn\.peer\)/);
+    assert.doesNotMatch(sheep, /zombie\.id = conn\.peer/);
+});

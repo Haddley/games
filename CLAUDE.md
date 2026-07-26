@@ -91,6 +91,19 @@ The P2P pattern is identical across `boggle.html`, `cornerthemarket.html`, `lett
 - **Two client roles**, decided by the first message on a connection: `{type:'join', name}` → player (tracked in `guestConns{}`), `{type:'join_viewer'}` → TV/scoreboard (tracked in `viewerConns{}`). Viewers get their own `viewer_*` message variants with spectator-shaped payloads.
 - **TV-host mode**: the big screen itself can create the room. It runs the authoritative host logic but renders the viewer UI (`isTvHost`), and the **first player to join becomes captain** — their phone drives settings/start/next via `{type:'ctl', action}` messages that the host only accepts from `H.players[0]`.
 - **Rendering** is string-built `innerHTML` from a `render()` switch on a global `ui` state string. High-frequency updates (timer ticks, counters) **patch DOM nodes by id** instead of re-rendering, so in-progress touch interaction is never interrupted.
+- **A player IS their peer id, and a refresh mints a new one.** Re-pointing their row in
+  `H.players` is *not enough* — the id is also the key in every other place the host stored
+  it (`H.turn`, `H.turnOrder`, `H.order`, `H.card.who`, `H.choice.who`, `H.moved.id`,
+  `H.votes[id]`, finale mini-game state…). Miss one and the room **silently stops**: Neil
+  refreshed on his own turn in Plump Trek, rejoined, and his phone never offered the Roll
+  button again, because `me.myTurn` is `H.turn === p.id` and `H.turn` still held the dead
+  peer. No error anywhere; the host was waiting for a roll from nobody. The rejoin path
+  therefore calls **`hostRekeyPlayer(zombie, conn.peer)`**, which rewrites them all at once
+  (`plumptrek.html`, and `oddsheep.html` for its `turnOrder`/`votes`). **If you add a field
+  that stores a player id, add it to that function** — a unit test greps the engine for
+  id-holding fields and fails if the rekey doesn't mention one. Games that keep an *object
+  reference* (lastlaugh's `H.judge`) or an *index* (liarsdice's `activePlayers`) are immune
+  by construction; games that keep an id are not.
 - **Reconnects**: three layers. (1) The host keeps a dropped player's slot: a rejoining `join` takes over the "zombie" slot, matched on `msg.cid` (the device id from `clientId()`) first and the name second (`zombie.id = conn.peer`). (2) The phone/TV *re-joins itself* — `joinPeer` raises the shared curtain on a mid-game close and retries 10× (0.6s → 4s backoff) before giving up. (3) A browser refresh walks back in via `savedRoom()` in each game's `boot()`. The **host/TV is never remembered** — `H` can't survive a reload, so re-creating an empty room would be a lie; that's the one unrecoverable failure.
 - **👑 Captain = first CONNECTED player** (`capPlayer()` = `connectedPlayers()[0] || H.players[0]`), never plain `H.players[0]` — otherwise a captain whose phone sleeps freezes the room with nobody able to press Start/Next. When the crown moves, `capSync(prevCapId)` (called deferred from both `case 'join'` and `conn.on('close')`) re-syncs only the two phones involved plus the TV — never a full broadcast, which would interrupt everyone else mid-interaction. Whatever a captain can drive, their own phone must actually show: check the podium/"play again" screen too.
 - **QR joining**: host/TV lobbies render a QR of `?room=XXXX`; the page pre-fills the join form from that query param on load.

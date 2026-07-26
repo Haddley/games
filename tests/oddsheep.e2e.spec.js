@@ -180,3 +180,57 @@ test('phone-first: host phone + TV viewer, first clue lands on the wall', async 
 
     await Promise.all([tv, neil, jess, archie].map(p => p.close()));
 });
+
+// A refresh mints a new peer id. The host re-points that player's row in H.players, but the
+// id is ALSO a key in H.turnOrder and H.votes — so before the fix a refresh left the
+// returning player out of the clue rotation and orphaned their vote, and since the tally
+// waits for `every(p => H.votes[p.id])` the round could never end. Same defect Plump Trek
+// had on H.turn; found by auditing the other games after Neil hit it there.
+test('a refresh keeps your place in the clue order and your vote counted', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/oddsheep.html');
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
+    const code = await tv.evaluate(() => roomCode);
+
+    const karen = await joinPhone(browser, code, 'Karen');
+    const ben = await joinPhone(browser, code, 'Ben');
+    const ollie = await joinPhone(browser, code, 'Ollie');
+    await expect(tv.locator('.cxl-chip')).toHaveCount(3, { timeout: 30_000 });
+    await karen.getByRole('button', { name: /Start the game/ }).click();
+    await expect(tv.locator('.tv-wgrid')).toBeVisible({ timeout: 15_000 });
+    await rig(tv, 0, 0, 'Ollie', ['Karen', 'Ben', 'Ollie']);
+
+    const oldId = await tv.evaluate(() => H.players.find(p => p.name === 'Ben').id);
+    expect(await tv.evaluate(() => H.turnOrder.length)).toBe(3);
+
+    // Ben's page reloads mid-round
+    await ben.reload({ waitUntil: 'load' });
+    await expect.poll(() => tv.evaluate(() =>
+        H.players.filter(p => guestConns[p.id]).length), { timeout: 30_000 }).toBe(3);
+    const newId = await tv.evaluate(() => H.players.find(p => p.name === 'Ben').id);
+    expect(newId, 'a refresh really does mint a new peer id').not.toBe(oldId);
+    expect(await tv.evaluate(() => H.players.length), 'he took his old seat').toBe(3);
+
+    // his place in the clue order followed him
+    expect(await tv.evaluate(o => H.turnOrder.includes(o), oldId),
+        'the dead id must not still be in the rotation').toBe(false);
+    expect(await tv.evaluate(n => H.turnOrder.includes(n), newId),
+        'and he must still have a turn to give a clue').toBe(true);
+    expect(await tv.evaluate(() => H.turnOrder.length), 'still three clues to come').toBe(3);
+
+    // …and a vote survives the NEXT refresh too — cast it under the id he holds now, then
+    // put him through another rejoin
+    await tv.evaluate(n => { H.votes = { [n]: 'Ollie' }; }, newId);
+    await tv.evaluate(() => {
+        const ben = H.players.find(p => p.name === 'Ben');
+        hostRekeyPlayer(ben, 'brand-new-peer');
+    });
+    const votes = await tv.evaluate(() => ({ ...H.votes }));
+    expect(votes['brand-new-peer'], 'the vote follows the player to their new id').toBe('Ollie');
+    expect(Object.keys(votes), 'and the orphan is gone, so the tally can complete')
+        .toEqual(['brand-new-peer']);
+
+    for (const p of [karen, ben, ollie]) await p.close();
+    await tv.close();
+});
