@@ -409,3 +409,197 @@ test('Sabotage! makes the drawer pick a victim, who then misses a turn', async (
     for (const p of Object.values(pages)) await p.close();
     await tv.close();
 });
+
+// ── player tokens ─────────────────────────────────────────────────────────────
+// They used to be ~20px emoji clipped to the bottom edge of a square, and two players
+// sharing one square just sat side by side getting smaller. Now they STACK: a tower with
+// the active player on top, leaning and riffling so every animal gets seen — and it has
+// to hold up to a dozen of them on one 90px square.
+async function pileUp(tv, n, square = 5) {
+    return tv.evaluate(({ count, sq }) => {
+        clearInterval(simTimer); clearTimeout(simTimer); clearHostTimers();
+        H.players = [];
+        for (let i = 0; i < count; i++) {
+            hostAddPlayer('t' + i, 'P' + (i + 1), AVATARS[i % AVATARS.length]);
+            guestConns['t' + i] = { peer: 't' + i, send() {} };
+        }
+        H.players.forEach(p => { p.pos = sq; });
+        H.turn = H.players[count - 1].id;       // last player is mid-turn
+        H.phase = 'turn';
+        applyViewerMsg(viewerStateMsg());
+        return H.players[count - 1].name;
+    }, { count: n, sq: square });
+}
+const tokenGeo = tv => tv.evaluate(() => {
+    const sqr = document.getElementById('sq-5').getBoundingClientRect();
+    return [...document.querySelectorAll('#sq-5 .tok')].map(e => {
+        const r = e.getBoundingClientRect();
+        return {
+            p: e.dataset.p, up: e.classList.contains('up'),
+            w: Math.round(r.width), z: Number(getComputedStyle(e).zIndex) || 0,
+            cx: Math.round(r.left + r.width / 2 - sqr.left),
+            cy: Math.round(r.top + r.height / 2 - sqr.top),
+        };
+    });
+});
+
+test('tokens stack, stay distinct, and shrink politely as the pile grows', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+
+    const widths = {};
+    for (const n of [1, 2, 4, 8, 12]) {
+        await pileUp(tv, n);
+        await tv.waitForTimeout(250);
+        const toks = await tokenGeo(tv);
+        expect(toks.length, `all ${n} players are on the square`).toBe(n);
+        widths[n] = toks[0].w;
+
+        // every token is somewhere different — nobody is completely hidden
+        for (let i = 0; i < toks.length; i++) {
+            for (let j = i + 1; j < toks.length; j++) {
+                const d = Math.hypot(toks[i].cx - toks[j].cx, toks[i].cy - toks[j].cy);
+                expect(d, `tokens ${i} and ${j} of ${n} sit on top of each other`).toBeGreaterThan(6);
+            }
+        }
+        // it's a STACK: each one sits higher than the one below it
+        if (n > 1) {
+            for (let i = 1; i < toks.length; i++) {
+                expect(toks[i].cy, `token ${i} of ${n} is above token ${i - 1}`).toBeLessThan(toks[i - 1].cy);
+            }
+        }
+        // and it doesn't run off up the screen
+        const tall = toks[0].cy - toks[toks.length - 1].cy;
+        expect(tall, `a pile of ${n} stays under ~1.6 squares tall`).toBeLessThan(150);
+    }
+    expect(widths[1], 'a lone token is the biggest').toBeGreaterThan(widths[12]);
+    expect(widths[12], 'even twelve deep they stay legible').toBeGreaterThan(28);
+    await tv.close();
+});
+
+test('the player whose turn it is sits on top of the pile', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+
+    await pileUp(tv, 6);
+    await tv.waitForTimeout(250);
+    const toks = await tokenGeo(tv);
+    const top = toks.find(t => t.up);
+    expect(top, 'the active player is marked').toBeTruthy();
+    expect(Math.max(...toks.map(t => t.z))).toBe(top.z, 'and painted above everyone else');
+    expect(top.cy).toBe(Math.min(...toks.map(t => t.cy)), 'and is the highest in the stack');
+    expect(top.w).toBeGreaterThanOrEqual(Math.max(...toks.filter(t => !t.up).map(t => t.w)));
+    await tv.close();
+});
+
+test('a token slides from its old square to the new one', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+    await pileUp(tv, 2);
+    await tv.waitForTimeout(300);
+
+    // move one player several squares along and re-render the way a real move does
+    const moved = await tv.evaluate(() => {
+        const p = H.players[0];
+        p.pos = 12;
+        applyViewerMsg(viewerStateMsg());
+        // the FLIP runs on the token's inner element, right after the render
+        const el = document.querySelector(`.tok[data-p="${p.id}"] .tk`);
+        return el ? el.getAnimations().length : -1;
+    });
+    expect(moved, 'the move is animated, not a teleport').toBeGreaterThan(0);
+
+    // and it ends up on the new square
+    await tv.waitForTimeout(900);
+    const where = await tv.evaluate(() => {
+        const el = document.querySelector('.tok[data-p="t0"]');
+        const sq = document.getElementById('sq-12').getBoundingClientRect();
+        const r = el.getBoundingClientRect();
+        return Math.abs((r.left + r.width / 2) - (sq.left + sq.width / 2));
+    });
+    expect(where, 'and lands on square 13').toBeLessThan(40);
+    await tv.close();
+});
+
+test('tokens stop moving under prefers-reduced-motion', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV, reducedMotion: 'reduce' });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+    await pileUp(tv, 6);
+    await tv.waitForTimeout(300);
+    const running = await tv.evaluate(() =>
+        [...document.querySelectorAll('#sq-5 .sqp, #sq-5 .tok, #sq-5 .tb')]
+            .reduce((n, el) => n + el.getAnimations().length, 0));
+    expect(running, 'nothing is animating').toBe(0);
+    await tv.close();
+});
+
+// Emoji can't act — 🐰 is one fixed glyph — so the tokens are drawn instead, and each
+// player is dealt a walk and a mood from their name so they move and emote differently.
+test('every creature has a face, and no two neighbours behave the same', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+    await pileUp(tv, 12);
+    await tv.waitForTimeout(300);
+
+    const cast = await tv.evaluate(() => [...document.querySelectorAll('#sq-5 .tok')].map(t => ({
+        walk: (t.querySelector('.tb').className.match(/w-[a-z]+/) || [])[0],
+        mood: (t.querySelector('.trk').className.match(/m-[a-z]+/) || [])[0],
+        colour: getComputedStyle(t).getPropertyValue('--pc').trim(),
+        eyes: t.querySelectorAll('.ey').length,
+        brows: t.querySelectorAll('.br').length,
+        mouth: t.querySelectorAll('.mo').length,
+        feet: t.querySelectorAll('.ft').length,
+        badge: (t.querySelector('.badge') || {}).textContent,
+        blink: getComputedStyle(t.querySelector('.ey')).animationDuration,
+    })));
+
+    expect(cast.length).toBe(12);
+    cast.forEach((c, i) => {
+        expect(c.eyes, `#${i} has two eyes`).toBe(2);
+        expect(c.brows, `#${i} has two brows`).toBe(2);
+        expect(c.mouth, `#${i} has a mouth`).toBe(1);
+        expect(c.feet, `#${i} has feet`).toBe(2);
+        expect(c.badge, `#${i} still shows its animal, so the board matches the rail`).toBeTruthy();
+        expect(c.walk, `#${i} has a walk`).toBeTruthy();
+        expect(c.mood, `#${i} has a mood`).toBeTruthy();
+    });
+    // the repertoire is actually used, not one animation for everybody
+    expect(new Set(cast.map(c => c.walk)).size, 'several different walks').toBeGreaterThan(2);
+    expect(new Set(cast.map(c => c.mood)).size, 'several different moods').toBeGreaterThan(2);
+    expect(new Set(cast.map(c => c.blink)).size, 'and nobody blinks in time with anybody else').toBeGreaterThan(4);
+    // twelve players, twelve colours — this used to key off name LENGTH, so Mum/Dad/Ben
+    // all came out identical
+    expect(new Set(cast.map(c => c.colour)).size, 'twelve distinct colours').toBe(12);
+    await tv.close();
+});
+
+test('a player keeps the same colour, walk and mood wherever they are', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+    await pileUp(tv, 4);
+    await tv.waitForTimeout(200);
+
+    const before = await tv.evaluate(() => {
+        const t = document.querySelector('.tok[data-p="t1"]');
+        return { c: getComputedStyle(t).getPropertyValue('--pc').trim(),
+                 w: t.querySelector('.tb').className, m: t.querySelector('.trk').className };
+    });
+    // move them, and shuffle who is mid-turn, so their slot in the pile changes
+    await tv.evaluate(() => { H.players[1].pos = 14; H.turn = H.players[1].id; applyViewerMsg(viewerStateMsg()); });
+    await tv.waitForTimeout(300);
+    const after = await tv.evaluate(() => {
+        const t = document.querySelector('.tok[data-p="t1"]');
+        return { c: getComputedStyle(t).getPropertyValue('--pc').trim(),
+                 w: t.querySelector('.tb').className, m: t.querySelector('.trk').className };
+    });
+    expect(after.c, 'same colour').toBe(before.c);
+    expect(after.w.match(/w-[a-z]+/)[0], 'same walk').toBe(before.w.match(/w-[a-z]+/)[0]);
+    expect(after.m.match(/m-[a-z]+/)[0], 'same mood').toBe(before.m.match(/m-[a-z]+/)[0]);
+    await tv.close();
+});
