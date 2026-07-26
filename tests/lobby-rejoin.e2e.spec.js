@@ -31,27 +31,29 @@ const TV = { width: 1920, height: 1080 };
 
 // How each game's lobby is reached. Everything else is uniform enough to share.
 const GAMES = [
-    { g: 'letterstorm', join: /Join a Party/ },
-    { g: 'familytrivia', join: /Join a Game/ },
-    { g: 'fibbers', join: /Join a Game/ },
-    { g: 'doodleparty', join: /Join a Game/ },
-    { g: 'oddsheep', join: /Join a Flock/ },
-    { g: 'herdmind', join: /Join a Game/ },
-    { g: 'categoryclash', join: /Join a Game/ },
-    { g: 'bestguess', join: /Join a Game/ },
-    { g: 'brokenpencil', join: /Join a Game/ },
-    { g: 'moonlightvillage', join: /Join a Village/ },
-    { g: 'goinggone', join: /Join an Auction/ },
-    { g: 'bingo', join: /Join a Game/ },
-    { g: 'liarsdice', join: /Join a crew/, name: 'input[placeholder="e.g. Bootstrap Bill"]' },
-    { g: 'cornerthemarket', join: /Join a Market/ },
+    { g: 'letterstorm', join: /Join with your phone/ },
+    { g: 'familytrivia', join: /Join with your phone/ },
+    { g: 'fibbers', join: /Join with your phone/ },
+    { g: 'doodleparty', join: /Join with your phone/ },
+    { g: 'oddsheep', join: /Join with your phone/ },
+    { g: 'herdmind', join: /Join with your phone/ },
+    { g: 'categoryclash', join: /Join with your phone/ },
+    { g: 'bestguess', join: /Join with your phone/ },
+    { g: 'brokenpencil', join: /Join with your phone/ },
+    { g: 'moonlightvillage', join: /Join with your phone/ },
+    { g: 'goinggone', join: /Join with your phone/ },
+    { g: 'bingo', join: /Join with your phone/ },
+    // liarsdice takes ?join= rather than ?room=, and has its own code field to fill
+    { g: 'liarsdice', join: /Take a seat/, param: 'join', codeSel: '#jc',
+      name: 'input[placeholder="e.g. Will Turner"]' },
+    { g: 'cornerthemarket', join: /Join with your phone/ },
+    { g: 'rockpaperscissors', join: /Join with your phone/ },
+    { g: 'lastlaugh', join: /Join with your phone/ },
+    { g: 'buzzin', join: /Join with your phone/ },
+    { g: 'plumptrek', join: /Join with your phone/ },
     { g: 'ticktacktoe', hostBtn: '#tv-host-btn', code: () => App.roomCode,
       nameSel: '#player-name-input', joinSel: '#join-game-btn',
       seats: () => (App.tour ? App.tour.seats.map(s => s.name) : []) },
-    { g: 'rockpaperscissors', join: /Join a Game/ },
-    { g: 'lastlaugh', join: /Join a Game/ },
-    { g: 'buzzin', join: /Join a Game/ },
-    { g: 'plumptrek', join: /Join a Game/ },
 ];
 
 // open a TV-hosted room and return its code
@@ -76,7 +78,8 @@ async function openRoom(browser, spec) {
 async function joinFresh(browser, spec, code, name) {
     const ctx = await browser.newContext({ viewport: PHONE });
     const p = await ctx.newPage();
-    await p.goto(`/${spec.g}.html?room=${code}`);
+    await p.goto(`/${spec.g}.html?${spec.param || 'room'}=${code}`);
+    if (spec.codeSel) await p.locator(spec.codeSel).fill(code);
     await p.locator(spec.nameSel || spec.name || 'input[placeholder="Enter name"]').first().fill(name);
     if (spec.joinSel) await p.locator(spec.joinSel).click();
     else await p.getByRole('button', { name: spec.join }).first().click();
@@ -125,3 +128,84 @@ for (const spec of GAMES.filter(x => COVERED.includes(x.g))) {
         await tv.close();
     });
 }
+
+// ── mid-GAME, not just the lobby ─────────────────────────────────────────────
+// "Can you leave and rejoin as many times as you like while others are playing? Once you
+// miss your roll, do you have to wait until everyone goes back to the lobby?"
+//
+// The answers this pins: yes, as many times as you like; and no, missing your turn does not
+// lock you out — you are skipped while you're gone and back in the rotation the moment your
+// phone speaks again.
+test('plumptrek: leave and rejoin over and over mid-game, keeping your place every time',
+    async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html');
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await expect.poll(() => tv.evaluate(() => roomCode || ''), { timeout: 30_000 }).toMatch(/^[A-Z]{4}$/);
+    const code = await tv.evaluate(() => roomCode);
+
+    const spec = GAMES.find(x => x.g === 'plumptrek');   // use the table, not a guess
+    const ava = await joinFresh(browser, spec, code, 'Ava');
+    let ben = await joinFresh(browser, spec, code, 'Ben');
+    await expect.poll(() => tv.evaluate(() => H.players.length), { timeout: 30_000 }).toBe(2);
+    await ava.page.getByRole('button', { name: /Start the trek/ }).click();
+    await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 20_000 }).toBe('turn');
+
+    // give Ben something worth keeping
+    await tv.evaluate(() => {
+        const b = H.players.find(p => p.name === 'Ben');
+        b.pos = 7; b.hand = [{ t: 'Sprint!', x: '+3 on your next roll' }];
+        broadcastAll();
+    });
+
+    // …and now restart his browser three times in a row, mid-game
+    for (let i = 1; i <= 3; i++) {
+        await ben.ctx.close();
+        // the seat has to go quiet before a NEW device id can claim it by name — that is the
+        // rule that stops a second real "Ben" stealing a seat from the first
+        await tv.evaluate(() => {
+            const b = H.players.find(p => p.name === 'Ben');
+            if (b) { b.seen = 0; delete guestConns[b.id]; }
+        });
+        ben = await joinFresh(browser, spec, code, 'Ben');
+        await expect.poll(() => tv.evaluate(() => H.players.length),
+            { timeout: 30_000, message: `restart ${i} created a ghost` }).toBe(2);
+        const b = await tv.evaluate(() => {
+            const x = H.players.find(p => p.name === 'Ben');
+            return { pos: x.pos, cards: (x.hand || []).length, away: !!x.away };
+        });
+        expect(b, `restart ${i}: Ben must come back to the same square with his cards`)
+            .toEqual({ pos: 7, cards: 1, away: false });
+    }
+    expect(await tv.evaluate(() => H.players.map(p => p.name).sort())).toEqual(['Ava', 'Ben']);
+
+    // and missing a turn does NOT lock him out until the lobby: mark him away the way a
+    // missed roll does, then let his phone speak again
+    await tv.evaluate(() => {
+        const b = H.players.find(p => p.name === 'Ben');
+        b.away = true;
+        H.turnOrder = H.players.map(p => p.id);
+        broadcastAll();
+    });
+    expect(await tv.evaluate(() => {
+        // while away, the pack steps over him
+        const seen = [];
+        for (let i = 0; i < 6; i++) { beginTurn(); seen.push((H.players.find(p => p.id === H.turn) || {}).name); }
+        return [...new Set(seen)];
+    }), 'an away player is skipped, not waited for').toEqual(['Ava']);
+
+    await tv.evaluate(() => {
+        const b = H.players.find(p => p.name === 'Ben');
+        b.away = false; guestConns[b.id] = guestConns[b.id] || { peer: b.id, send() {} };
+    });
+    const back = await tv.evaluate(() => {
+        const seen = [];
+        for (let i = 0; i < 6; i++) { beginTurn(); seen.push((H.players.find(p => p.id === H.turn) || {}).name); }
+        return [...new Set(seen)].sort();
+    });
+    expect(back, 'and he is back in the rotation at once — no waiting for the lobby')
+        .toEqual(['Ava', 'Ben']);
+
+    await ben.ctx.close(); await ava.ctx.close();
+    await tv.close();
+});
