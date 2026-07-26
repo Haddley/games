@@ -108,3 +108,63 @@ for (const spec of GAMES) {
         await tv.close();
     });
 }
+
+// From a Buzzin' final scoreboard: "Neil (you)" on 1 point, and "Neil (you)" again on 0.
+// The duplicate was made MID-GAME — the lobby rule had been relaxed but the mid-game one
+// still insisted the old seat go quiet first, and a phone that reconnects is back well inside
+// the presence window. So a reconnecting player was handed a brand-new row with a fresh score
+// while their real one sat above it.
+//
+// Asked of every game, because every game can be rejoined mid-play.
+for (const spec of GAMES) {
+    test(`${spec.g}: reconnecting MID-GAME rejoins your row, it does not add a second one`,
+        async ({ browser }) => {
+        const { tv, code } = await openRoom(browser, spec);
+        const open = [];
+        const join = async n => { const j = await joinFresh(browser, spec, code, n); open.push(j); return j; };
+
+        const ava = await join('Ava');
+        const neil = await join('Neil');
+        await expect.poll(() => seatNames(tv, spec), { timeout: 30_000 })
+            .toEqual(expect.arrayContaining(['Ava', 'Neil']));
+
+        // get the room out of the lobby however this game does it, then give Neil something
+        // to lose — a duplicate row is only obviously wrong once it has a score of its own
+        await tv.evaluate(() => {
+            try { if (typeof hostStartGame === 'function') hostStartGame(); } catch (e) {}
+            try { if (typeof H !== 'undefined' && H) {
+                const n = H.players.find(p => p.name === 'Neil');
+                if (n && 'score' in n) n.score = 7;
+            } } catch (e) {}
+        });
+
+        // The room MUST have left the lobby, or this test silently exercises the lobby rule
+        // and passes against the bug — which the first version of it did.
+        const phase = await tv.evaluate(() => (typeof H !== 'undefined' && H ? H.phase : null));
+        if (phase !== null) {
+            expect(phase, `${spec.g}: still in the lobby, so this is not a mid-game reconnect`)
+                .not.toBe('lobby');
+        }
+
+        // his phone reconnects immediately — no waiting for any presence window
+        await ava.page.waitForTimeout(200);
+        await neil.page.evaluate(() => { if (typeof stopHeartbeat === 'function') stopHeartbeat(); });
+        await join('Neil');
+
+        await expect.poll(() => seatNames(tv, spec).then(n => n.filter(x => x === 'Neil').length),
+            { timeout: 30_000, message: `${spec.g}: a mid-game reconnect made a second "Neil"` })
+            .toBe(1);
+        const names = await seatNames(tv, spec);
+        expect(names.length, `${spec.g}: ended with ${JSON.stringify(names)}`).toBe(2);
+        // and it is HIS row he came back to, score intact
+        const score = await tv.evaluate(() => {
+            if (typeof H === 'undefined' || !H) return null;
+            const n = H.players.find(p => p.name === 'Neil');
+            return n && 'score' in n ? n.score : null;
+        });
+        if (score !== null) expect(score, `${spec.g}: he came back to a fresh row, not his own`).toBe(7);
+
+        for (const o of open) await o.ctx.close();
+        await tv.close();
+    });
+}

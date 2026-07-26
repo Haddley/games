@@ -608,19 +608,23 @@ function claimSeat(players, msg, newId, conns, inLobby) {
         if (sameDevice) return sameDevice;
     }
     if (!name) return null;
-    // IN THE LOBBY a matching name always takes the seat, without waiting for the old one to
-    // go quiet. Somebody restarting their browser is back in about five seconds — well
-    // inside PRESENCE_MS — so making them wait it out is what produced a lobby reading
-    // "Neil, Karen, Karen, Karen", every ghost showing a green dot. And in a lobby there is
-    // nothing to steal: no score, no position, no hand. The worst case is two real people
-    // who both typed "Karen", and one of them retypes their name.
-    if (inLobby) {
-        const sameName = players.find(p => p.name === name && p.id !== newId);
-        if (sameName) return sameName;
-    }
-    // MID-GAME the same shortcut would hand somebody else's score away, so a name only
-    // reclaims a seat nobody has been heard from lately.
-    return players.find(p => p.name === name && p.id !== newId && !isPresent(p, conns)) || null;
+    // A NAME ALWAYS reclaims its seat — in the lobby and mid-game alike.
+    //
+    // This was the last hole, and it produced a Buzzin' scoreboard with "Neil (you)" twice on
+    // it, on 1 point and 0. The lobby got the simple rule; mid-game still insisted the old
+    // seat had gone quiet first, and somebody whose phone reconnects is back inside the
+    // presence window — so they were handed a brand-new player with a fresh score while their
+    // real one sat there.
+    //
+    // The trade is deliberate. Two DIFFERENT people who both type "Neil" will now share a
+    // seat, which is visible in the lobby and fixed by one of them retyping their name. The
+    // alternative was a game that quietly breaks every time anyone's phone reconnects — far
+    // worse, and invisible until the final scores. In a family party game, one name is one
+    // person.
+    //
+    // (`inLobby` is no longer needed to make this decision. It is kept because every game
+    // passes it and it costs nothing to accept.)
+    return players.find(p => p.name === name && p.id !== newId) || null;
 }
 
 // ── who is actually here ────────────────────────────────────────────────────

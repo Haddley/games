@@ -82,21 +82,25 @@ test('a restarted browser has a NEW device id, so the name has to carry it', () 
     // the reported Tic Tac Toe case.
     const players = [{ id: 'old', name: 'Neil', cid: 'dev1', seen: 1000 }];
     const conns = { old: {} };                     // the ghost connection, still listed
-    // straight away, the old seat still looks alive, so we do NOT steal it
-    assert.strictEqual(at(2000).claimSeat(players, { cid: 'dev2', name: 'Neil' }, 'new', conns), null);
-    // once it has gone quiet, the returning Neil takes his seat back rather than making a ghost
-    const got = at(1000 + 14000).claimSeat(players, { cid: 'dev2', name: 'Neil' }, 'new', conns);
-    assert.strictEqual(got, players[0], 'the same name + a silent seat = the same person coming back');
+    // …and it does not matter how quickly he comes back. Requiring the old seat to go quiet
+    // first is what put "Neil (you)" on a Buzzin' scoreboard twice, on 1 point and 0.
+    assert.strictEqual(at(2000).claimSeat(players, { cid: 'dev2', name: 'Neil' }, 'new', conns),
+        players[0], 'straight back = same person');
+    assert.strictEqual(at(1000 + 14000).claimSeat(players, { cid: 'dev2', name: 'Neil' }, 'new', conns),
+        players[0], 'back later = still the same person');
 });
 
-test('two different people called Ben both get a seat', () => {
-    // The reason a name match is weaker than a cid match: families do have two Bens, and the
-    // second one must not be handed the first one's score.
+test('one name is one person — the deliberate trade', () => {
+    // Two different people who both type "Ben" now SHARE a seat. That is a real cost, and it
+    // is the lesser one: it is visible in the lobby and fixed by retyping a name, whereas the
+    // alternative broke the game invisibly every time anyone's phone reconnected mid-play.
     const { claimSeat } = at(1000);
     const players = [{ id: 'ben1', name: 'Ben', cid: 'dev1', seen: 1000 }];
     const conns = { ben1: {} };
-    assert.strictEqual(claimSeat(players, { cid: 'dev2', name: 'Ben' }, 'ben2', conns), null,
-        'the first Ben is present, so the second Ben is a new player');
+    assert.strictEqual(claimSeat(players, { cid: 'dev2', name: 'Ben' }, 'ben2', conns), players[0],
+        'a second Ben takes the first Ben\'s seat rather than making a duplicate');
+    // a DIFFERENT name is still a different person
+    assert.strictEqual(claimSeat(players, { cid: 'dev2', name: 'Bea' }, 'bea', conns), null);
 });
 
 test('claimSeat never matches the joiner to themselves, and copes with nonsense', () => {
@@ -140,9 +144,9 @@ test('in the LOBBY a matching name takes its seat back at once — no waiting it
     const players = [{ id: 'old', name: 'Karen', cid: 'dev1', seen: 1000 }];
     const conns = { old: {} };                       // still looks perfectly present
     assert.strictEqual(claimSeat(players, { cid: 'dev2', name: 'Karen' }, 'new', conns, true),
-        players[0], 'in a lobby there is nothing to steal, so the name is enough');
-    assert.strictEqual(claimSeat(players, { cid: 'dev2', name: 'Karen' }, 'new', conns, false), null,
-        'but mid-game the same shortcut would hand over somebody else\'s score');
+        players[0], 'in a lobby');
+    assert.strictEqual(claimSeat(players, { cid: 'dev2', name: 'Karen' }, 'new', conns, false),
+        players[0], 'and mid-game too — a reconnect must not mint a second scoreboard row');
 });
 
 test('every game tells claimSeat whether it is in the lobby', () => {
