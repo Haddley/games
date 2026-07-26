@@ -6,7 +6,7 @@ session doesn't have to re-research it. Each file is one topic.
 ## Index
 
 **Repo-wide conventions**
-- [connection-and-reconnect.md](connection-and-reconnect.md) — **how devices find each other** (host / STUN / TURN, and the 🏠 🌐 📡 badge that says which) and **what happens when one drops** (seat held by device id, self-rejoin behind the curtain, refresh recovery, the captain rule)
+- [connection-and-reconnect.md](connection-and-reconnect.md) — **how devices find each other** (host / STUN / TURN, and the 🏠 🌐 📡 badge that says which) and **what happens when one drops** (seat held by device id, self-rejoin behind the curtain, refresh recovery, the captain rule) — plus the two things measurement proved wrong: **a refresh mints a new peer id** and every place that stored the old one must be rekeyed, and **`conn.on('close')` never fires when a tab closes**, so `guestConns` lies about who is present
 - [shared-core.md](shared-core.md) — **`common.js`**: the shared first-party file every game loads (`ICE_CFG`, `rankByScore`, `mountScene`, `tvLobby`) + the stale-cache **guard convention**
 - [ambient-scenes.md](ambient-scenes.md) — **`mountScene`**: themed figures ambling along the bottom of the TV (sheep, cows, bingo balls, pirates, wolves, …) — themes & how to add one
 - [tv-lobby.md](tv-lobby.md) — **`tvLobby`**: letterstorm's "waiting for players" big-screen layout, now shared across every game (always-square QR, room code, chips, ⛶)

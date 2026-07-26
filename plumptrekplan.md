@@ -175,3 +175,18 @@ take a step or flinch. They're now frames off one CC0 sprite sheet, with:
 
 There is no emoji avatar any more; the sprite is the piece. Full reference:
 `llmwiki/sprites-and-licensing.md`.
+
+**Staying on board.** The plan said "nothing may stall the room" and listed the timeouts;
+playing it for real found three ways it stalled anyway, all now fixed and tested:
+
+- a **refresh mints a new peer id**, and `H.turn` (plus a dozen other fields) still held the
+  old one — so a player who refreshed on their own turn never got the Roll button back and
+  the room waited forever. `hostRekeyPlayer` rewrites them all.
+- **`conn.on('close')` does not fire when a tab closes**, so `guestConns` still listed a
+  phone that was gone and `beginTurn`'s skip-the-absent check never triggered. The room paid
+  the full 70s idle-roll *every lap*. The idle-roll now also sets `p.away`.
+- there was **no way to tidy up** after someone who was not coming back. The captain now gets
+  "Continue without X" and "Back to the lobby", both guarded on `MIN_PLAYERS` in the host —
+  and both optional, because the room still recovers on its own.
+
+See `llmwiki/connection-and-reconnect.md`.

@@ -12,7 +12,7 @@ screenshots every screen so you can eyeball the UI.
 | `relay.e2e.spec.js` | the connection path against the **real** TURN server: forced `iceTransportPolicy:'relay'` must light 📡 on both ends; a normal link reports 🏠/🌐; `?net=0` hides the badge |
 | `shared.e2e.spec.js` | what common.js promises EVERY game: the control strip on all of them, day/night and your name carrying between games, `setHTML` keeping focus + caret, every `?mode=tvsimulation` attract mode playing itself cleanly, every launcher card resolving |
 | `dice.e2e.spec.js` | the shared die on its own: every value lands on its face, throws vary in length, no scale pop, `settleDie` snaps mid-throw, `onTick`/`onLand` fire in order |
-| `plumptrek.e2e.spec.js` | the board game end to end: Build card → a real phone roll → each Gimmick flavour (a movement card, a dare with its Done button, a kept card) → a rigged Finale → podium; plus the fork, and the self-playing demo |
+| `plumptrek.e2e.spec.js` | the board game end to end: Build card → a real phone roll → each Gimmick flavour (a movement card, a dare with its Done button, a kept card) → a rigged Finale → podium; plus the fork and the self-playing demo. Then the two big areas that grew afterwards: **the sprite pieces** (sheet loads at the size the CSS assumes, whole-frame animation, walking between squares, reactions, mood, the 30-piece picker and its collision rule, reduced motion) and **staying on board** (refresh mid-turn, a phone that never returns, the captain's tidy-up controls and their minimum-players guard) |
 
 `unit/` alongside holds the fast, browser-free tests (`npm run test:unit`): the shared
 files' pure helpers, and Plump Trek's board maths and deck integrity.
@@ -78,3 +78,19 @@ class of bug that follows (see `llmwiki/connection-and-reconnect.md`):
   game must move on.
 - `tests/oddsheep.e2e.spec.js` → *"a refresh keeps your place in the clue order and your vote
   counted"* — the same defect in the other game that stores ids.
+
+## The "keep everyone on board" tests
+
+These are rare paths and they are exactly what people judge a party game on: if the room ever
+sits waiting for a phone that isn't coming back, or somebody can't get back in, the evening
+is over. All of them drive real rooms over real PeerJS.
+
+| test | what would break without it |
+|---|---|
+| a refresh on your own turn | you never get the Roll button back; the room waits forever (this is the bug that was actually reported) |
+| a phone that vanishes: quick back / gone for good | quick: the idle-roll safety net is gone for that turn. Gone: the room waits the full 70s **every lap**, because `conn.on('close')` never fired |
+| the captain can continue without someone — but never below the minimum | a room drops itself to one player and ends |
+| dropping the player whose turn it is | the room is left waiting on a player who no longer exists |
+| back to the lobby reopens the room | the people who dropped out can't get back in |
+| two players, one leaves | the only two controls offered would both end the game |
+| a player tidied away who reconnects | they land on a dead screen with no way in |

@@ -60,3 +60,26 @@ pass; this records what "good" looks like so future work stays consistent.
 Use the [simulation modes](simulation-modes.md): load `?mode=tvsimulation` /
 `?mode=playersimulation`, watch the game auto-play, screenshot, iterate. Confirm zero
 `pageerror`s in both modes before shipping.
+
+## The exception: sprites (Plump Trek's player pieces)
+
+Everything above describes animating **drawn** things — CSS shapes, transforms, keyframes on
+properties. Plump Trek's player pieces do not work that way and deliberately break several of
+the conventions on this page, so don't "fix" them to match:
+
+- **The animation is a flipbook, not a tween.** Every idle, the walk cycle and each reaction
+  is a fixed sequence of whole frames off one sprite sheet, stepped with `step-end`. A
+  half-frame is a rendering bug, not a smooth interpolation — a unit test asserts every
+  keyframe lands on a whole frame.
+- **`animation-duration` is a multiplier, not a value.** Mood scales each piece's own
+  name-derived tempo (`calc(var(--idle) * var(--mf))`), so a fed-up trekker still moves like
+  itself, just heavily.
+- **Two animations on one element is normal here.** Where an idle both steps frames and moves
+  the piece, the frames run on `step-end` and the transform on `ease` — one animation can't
+  do both without either sliding the sheet through half-frames or making the motion snap.
+
+It obeys the two rules that actually matter, though: everything early-returns on `REDUCED`
+and the reduced-motion media query kills the lot, balloons included; and high-frequency
+updates still patch by id rather than re-rendering.
+
+Full reference: [sprites-and-licensing.md](sprites-and-licensing.md).
