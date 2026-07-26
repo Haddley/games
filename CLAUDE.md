@@ -6,6 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Multiplayer browser games served by GitHub Pages at https://haddley.github.io/games/ — published straight from the `main` branch root (`.nojekyll`). **There is no build, lint, or bundle step.** Each game is one (almost) self-contained HTML file with all CSS/JS inline; the shared dependencies are CDN scripts (PeerJS 1.5.4, qrcode-generator 1.4.4), Google Fonts, a Metered TURN relay (see "Connection transport" below), and **six small first-party shared files** at the repo root — **`common.js`**, **`p2p.js`**, **`fx.js`**, **`dice.js`**, **`audio.js`** and **`ambient.js`** (see **Shared files** below). The core is **`common.js`**, which every P2P game loads via `<script src="common.js">`. It provides `ICE_CFG` (TURN config), the `rankByScore` podium helper, the shared **day/night theme + player-name prefs** and the injected top-right **control strip** (⛶ fullscreen · 🌙 day/night · 🎵 music · 🔊 sound), the shared **TV "waiting for players" lobby** (`tvLobby`), and an **ambient-scene engine** (`mountScene(theme)` / `mountMeadow()`): a themed CSS scene of figures ambling along the bottom of the TV/viewer screen (shown only under `body.viewer-mode`). Each game opts in with one line — **always guarded**: `typeof mountScene === 'function' && mountScene('pirates');` (the call sits at the TOP of the game's inline script; without the guard, a browser serving a *stale cached common.js* without `mountScene` throws a ReferenceError that halts the whole script → blank page, no QR. Keep the guard on every `mountScene`/`mountMeadow` call). Themes live in `SCENE_THEMES` in common.js (`meadow` = the CSS-drawn woolly flock for the farm games; the rest are themed emoji casts — `pirates`, `night`, `letters`, `library`, `carnival`, `art`, `bingo`, `auction`, `masks`, `mystery`, `market`, `tictactoe`, `rps`). `bingo` and `cows` are CSS-drawn actors (not emoji), like `meadow`'s flock. The scene shows under `body.viewer-mode` **or** `body.tv-mode` (ticktacktoe uses the latter). ticktacktoe loads common.js for `mountScene`, the control strip and the reconnect helpers — but still uses its own inline `TTT_PEER_OPTS` for connections, not `ICE_CFG`/`rankByScore`. index.html doesn't load common.js.
 
+**Licence.** The repo is **Business Source License 1.1** (`LICENSE`) — source-available,
+non-commercial production use granted, converting to Apache 2.0 on 2030-07-26. `sprites/`
+is explicitly **carved out**: that art is Kenney's, CC0 1.0 public domain, and stays that
+way (`sprites/LICENSE`, `sprites/CREDITS.md`). Adding third-party assets means doing all
+four evidence steps in `llmwiki/sprites-and-licensing.md` — upstream licence verbatim, a
+local copy of the licence text, provenance with the source archive's SHA-256, and a script
+that reproduces our derived files byte-for-byte.
+
 `index.html` is the launcher grid — add a card there when adding a game. Each game has a companion plan (`letterstormplan.md`, `familytrivia.md`, …) written before the game was built; keep these as the reference for game rules and protocol design.
 
 ## Shared files (repo root)
@@ -150,6 +158,27 @@ couple of goes to get right — copy them rather than reinventing:
   end rather than the die settling. The duration the component picks is always under
   `DIE_WAIT`, the beat the host holds before walking the pawn, so the die has landed
   before the piece moves.
+
+- **The player pieces are SPRITES**, and they're the only third-party art in the repo:
+  Kenney's CC0 New Platformer Pack + Emotes Pack, repacked into `sprites/trekkers.png`
+  (9 poses × 5 characters) and `sprites/emotes.png` (12 balloons). Every animation is a
+  fixed frame sequence stepped with `step-end`, never a tween — a flipbook. Five characters
+  cover **30 pieces** via a CSS `hue-rotate`, of which the **first 12 are the auto-assigned,
+  best-spread pool**. Players pick a piece on the home screen (`fSeat`, `trek-seat`); the
+  host grants it (`hostAddPlayer`) and hands out a random free one from the first 12 if it's
+  gone; the lobby re-shows the picker with taken pieces crossed out (`lobbyMsg.taken`,
+  `hostSetSeat`). There is no emoji avatar — the sprite IS the piece.
+  - **A sheet's grid is a contract with the CSS.** The `?v=9x5` token on the background URL
+    exists because a browser holding the old PNG against new CSS shows each window across
+    *two* frames — sliced trekkers, no error, no clue. Rebuild a sheet with a different row
+    or column count and you MUST bump the token.
+  - **Mood** (`MOOD`, `MOOD_LOOK`, `REACTIONS`): each trekker carries −3…+3, derived on the
+    client by diffing snapshots (nothing on the wire), fading a step each time the turn comes
+    round to them. It bends their idle tempo, posture and colour, and — the point — the same
+    event reacts differently depending on the mood it lands on. The reaction reads the mood
+    the event **landed on**, not the one it leaves behind (`moodPass` snapshots before
+    `bumpMood`), or nobody ever gets a first-time reaction.
+  - Full reference: **`llmwiki/sprites-and-licensing.md`**.
 
 Inspired by Chungus Odyssey 2 (TTS) — mechanics only; the cast, cards and art are ours,
 and the source pack is gitignored, not in the repo. See `plumptrekplan.md`.

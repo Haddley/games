@@ -73,3 +73,24 @@ The `*plan.md` files are the implementation plans the games were built from.
 This folder was moved out of the [haddley.github.io](https://github.com/Haddley/haddley.github.io)
 repo (`public/games/`) into its own project repo; GitHub Pages publishes it from the `main`
 branch root (`.nojekyll`, no build step) so the original `/games/...` URLs are unchanged.
+
+## Licence
+
+The games are licensed under the **[Business Source License 1.1](LICENSE)**: you may copy,
+modify and redistribute them, and make production use for **non-commercial, educational,
+personal, research and evaluation** purposes. Commercial use needs a separate licence —
+neil@haddley.com. On **2030-07-26** the licence converts to **Apache 2.0**.
+
+Two things that licence does *not* cover:
+
+- **`sprites/`** — the Plump Trek player pieces are derived from [Kenney](https://kenney.nl)
+  asset packs released under **CC0 1.0** (public domain). They stay public domain: take them
+  and use them for anything. See [`sprites/LICENSE`](sprites/LICENSE) and
+  [`sprites/CREDITS.md`](sprites/CREDITS.md) for provenance, the upstream licence texts, and
+  a script that rebuilds both sheets from the original packs byte-for-byte.
+- **CDN dependencies**, which aren't redistributed here: PeerJS (MIT), qrcode-generator
+  (MIT), Google Fonts, and the Metered TURN relay.
+
+Several games' *rules* are inspired by commercial games, credited on the launcher page.
+Nothing is affiliated with or endorsed by their publishers, and no actual content — card
+text, word lists, question banks — is copied; only mechanics.

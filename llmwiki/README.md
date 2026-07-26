@@ -13,6 +13,7 @@ session doesn't have to re-research it. Each file is one topic.
 - [podium-and-scoring.md](podium-and-scoring.md) — tie-aware podiums: `rankByScore` (competition ranking) + `mrank-*` block colours so equal scores share a place
 - [simulation-modes.md](simulation-modes.md) — the `?mode=tvsimulation` / `?mode=playersimulation` self-playing demos on every game: URLs, the bot-driver pattern, coverage
 - [animation-conventions.md](animation-conventions.md) — the "house style" for animation & graphics: themed ambient backgrounds, entrance FX, win moments, the hard rules that keep tests green
+- [sprites-and-licensing.md](sprites-and-licensing.md) — the **only third-party art in the repo** (Plump Trek's player pieces, Kenney, **CC0 1.0**): why we may use it, the four kinds of **compliance evidence** kept in `sprites/`, and how the sprite flipbook / piece-picking / stacking system works
 
 **Pit (trading game)**
 - [trading-hand-signals.md](trading-hand-signals.md) — open-outcry hand signals in London, New York & Chicago pits (buy/sell, quantity, price, months)

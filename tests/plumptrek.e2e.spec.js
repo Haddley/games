@@ -420,7 +420,7 @@ async function pileUp(tv, n, square = 5) {
         clearInterval(simTimer); clearTimeout(simTimer); clearHostTimers();
         H.players = [];
         for (let i = 0; i < count; i++) {
-            hostAddPlayer('t' + i, 'P' + (i + 1), AVATARS[i % AVATARS.length]);
+            hostAddPlayer('t' + i, 'P' + (i + 1), i);      // seat i → a known piece and colour
             guestConns['t' + i] = { peer: 't' + i, send() {} };
         }
         H.players.forEach(p => { p.pos = sq; });
@@ -437,13 +437,47 @@ const tokenGeo = tv => tv.evaluate(() => {
         return {
             p: e.dataset.p, up: e.classList.contains('up'),
             w: Math.round(r.width), z: Number(getComputedStyle(e).zIndex) || 0,
-            cx: Math.round(r.left + r.width / 2 - sqr.left),
+            // measured from the square's CENTRE, so the sign says which tower it's in
+            cx: Math.round(r.left + r.width / 2 - (sqr.left + sqr.width / 2)),
             cy: Math.round(r.top + r.height / 2 - sqr.top),
         };
     });
 });
 
-test('tokens stack, stay distinct, and shrink politely as the pile grows', async ({ browser }) => {
+// ═══════════════════════════════════════════════════════════════════════════════
+// THE TREKKERS — sprite pieces
+// ═══════════════════════════════════════════════════════════════════════════════
+// The pieces are windows onto one CC0 sprite sheet (see sprites/CREDITS.md) and every
+// animation is a fixed frame sequence, not a tween. That buys the tests something a drawn
+// token never gave them: a frame is a NUMBER, so "did it walk?" and "did it flinch?" are
+// things a browser can be asked, instead of eyeballed. These read `background-position`.
+//
+// Frame map: 0 idle · 1 walk_a · 2 walk_b · 3 jump · 4 hit · 5 duck · 6 front ·
+//            7 climb_a · 8 climb_b  — all nine the source pack ships.
+// One frame is 100%/8 of the sheet's travel, so frame f sits at f × 12.5%.
+const FRAME = f => +(f * 100 / 8).toFixed(2);
+// what frame is this sprite showing right now?
+const frameOf = bgx => Math.round(parseFloat(bgx) / (100 / 8));
+
+test('the sprite sheets load, at the size the CSS assumes', async ({ page }) => {
+    await page.goto('/plumptrek.html');          // needs an origin to resolve /sprites/… from
+    // A 404 here would leave every piece an invisible empty box, and a mis-sized sheet
+    // would show two half-trekkers per token — neither throws a page error, so nothing
+    // else in the suite would notice.
+    for (const [file, w, h] of [['sprites/trekkers.png', 756, 510], ['sprites/emotes.png', 768, 76]]) {
+        const res = await page.request.get('/' + file);
+        expect(res.status(), `${file} is served`).toBe(200);
+        const size = await page.evaluate(src => new Promise(done => {
+            const i = new Image();
+            i.onload = () => done([i.naturalWidth, i.naturalHeight]);
+            i.onerror = () => done([0, 0]);
+            i.src = src;
+        }), '/' + file);
+        expect(size, `${file} is ${w}×${h} — the CSS background-size depends on it`).toEqual([w, h]);
+    }
+});
+
+test('tokens stack in towers, every face visible, shrinking politely as the pile grows', async ({ browser }) => {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
     await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
@@ -463,14 +497,33 @@ test('tokens stack, stay distinct, and shrink politely as the pile grows', async
                 expect(d, `tokens ${i} and ${j} of ${n} sit on top of each other`).toBeGreaterThan(6);
             }
         }
-        // it's a STACK: each one sits higher than the one below it
-        if (n > 1) {
-            for (let i = 1; i < toks.length; i++) {
-                expect(toks[i].cy, `token ${i} of ${n} is above token ${i - 1}`).toBeLessThan(toks[i - 1].cy);
+        // Above four they split into two towers side by side, so a dozen players are a
+        // crowd about a square and a half tall rather than a skyscraper. (A couple of
+        // percent of jitter is not a column — pieces never land perfectly square.)
+        const side = t => (t.cx < -8 ? 'l' : t.cx > 8 ? 'r' : 'c');
+        const sides = new Set(toks.map(side));
+        if (n <= 4) {
+            expect([...sides], `${n} in a pile is one tower`).toEqual(['c']);
+        } else {
+            expect([...sides].sort(), `${n} in a pile is two towers`).toEqual(['l', 'r']);
+            const per = Math.ceil(n / 2);
+            expect(toks.filter(t => side(t) === 'l').length, 'the towers are even').toBe(per);
+        }
+
+        // THE FACE TEST: within a tower each piece must clear the helmet of the one below,
+        // or the pile is a heap of legs. A helmet is a bit under half the sprite's height —
+        // 0.35 rather than 0.45 because the token box is square while the sprite is not.
+        const towers = n <= 4 ? [toks.slice()] : [toks.filter(t => side(t) === 'l'), toks.filter(t => side(t) === 'r')];
+        for (const col of towers) {
+            col.sort((a, b) => b.cy - a.cy);        // bottom of the tower first
+            for (let i = 1; i < col.length; i++) {
+                const gap = col[i - 1].cy - col[i].cy;
+                expect(gap, `${n} in a pile: only ${gap}px between faces, needs ~${Math.round(0.35 * col[i].w)}`)
+                    .toBeGreaterThanOrEqual(Math.round(0.35 * col[i].w));
             }
         }
         // and it doesn't run off up the screen
-        const tall = toks[0].cy - toks[toks.length - 1].cy;
+        const tall = Math.max(...toks.map(t => t.cy)) - Math.min(...toks.map(t => t.cy));
         expect(tall, `a pile of ${n} stays under ~1.6 squares tall`).toBeLessThan(150);
     }
     expect(widths[1], 'a lone token is the biggest').toBeGreaterThan(widths[12]);
@@ -494,7 +547,8 @@ test('the player whose turn it is sits on top of the pile', async ({ browser }) 
     await tv.close();
 });
 
-test('a token slides from its old square to the new one', async ({ browser }) => {
+// The whole reason for a sprite: a piece crossing the board WALKS it.
+test('a token walks from its old square to the new one, facing the way it goes', async ({ browser }) => {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
     await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
@@ -506,21 +560,139 @@ test('a token slides from its old square to the new one', async ({ browser }) =>
         const p = H.players[0];
         p.pos = 12;
         applyViewerMsg(viewerStateMsg());
-        // the FLIP runs on the token's inner element, right after the render
-        const el = document.querySelector(`.tok[data-p="${p.id}"] .tk`);
-        return el ? el.getAnimations().length : -1;
+        const tok = document.querySelector(`.tok[data-p="${p.id}"]`);
+        const trk = tok.querySelector('.trk');
+        // which way IS square 13 from square 6? The board snakes, so work it out rather
+        // than assume — the answer changes with BOARD_RUN.
+        const from = document.getElementById('sq-5').getBoundingClientRect();
+        const to = document.getElementById('sq-12').getBoundingClientRect();
+        return {
+            slide: tok.querySelector('.tk').getAnimations().length,
+            walking: trk.classList.contains('walking'),
+            frame: getComputedStyle(trk).backgroundPositionX,
+            dir: tok.querySelector('.tb').style.getPropertyValue('--dir'),
+            wentRight: to.left > from.left,
+        };
     });
-    expect(moved, 'the move is animated, not a teleport').toBeGreaterThan(0);
+    expect(moved.slide, 'the move is animated, not a teleport').toBeGreaterThan(0);
+    expect(moved.walking, 'and the sprite is on its walk cycle while it travels').toBe(true);
+    expect([1, 2], 'showing a walk frame, not standing still').toContain(frameOf(moved.frame));
+    expect(moved.dir, `and facing the way it is going (${moved.wentRight ? 'right' : 'left'})`)
+        .toBe(moved.wentRight ? '1' : '-1');
 
-    // and it ends up on the new square
+    // the walk stops when the journey does, and it lands on the new square
     await tv.waitForTimeout(900);
-    const where = await tv.evaluate(() => {
+    const landed = await tv.evaluate(() => {
         const el = document.querySelector('.tok[data-p="t0"]');
+        const trk = el.querySelector('.trk');
         const sq = document.getElementById('sq-12').getBoundingClientRect();
         const r = el.getBoundingClientRect();
-        return Math.abs((r.left + r.width / 2) - (sq.left + sq.width / 2));
+        return { off: Math.abs((r.left + r.width / 2) - (sq.left + sq.width / 2)),
+                 walking: trk.classList.contains('walking'),
+                 dir: el.querySelector('.tb').style.getPropertyValue('--dir') };
     });
-    expect(where, 'and lands on square 13').toBeLessThan(40);
+    expect(landed.off, 'and lands on square 13').toBeLessThan(40);
+    expect(landed.walking, 'and stops walking once it is there').toBe(false);
+    expect(landed.dir, 'and faces forward again').toBe('');
+    await tv.close();
+});
+
+// Reactions are worked out by comparing snapshots, so the host never sends anything extra
+// — which also means the phone and the TV react to the same events on their own.
+test('trekkers react to what the game does to them, on the board AND in the rail', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+    await pileUp(tv, 4);
+    await tv.waitForTimeout(300);
+    // start everyone neutral: the whole point of mood is that the SAME event reads
+    // differently from a different starting place, so an unpinned mood makes this flaky
+    await tv.evaluate(() => resetMoods());
+
+    // each case: what changes about a player → the pose and balloon it should earn
+    const cases = [
+        ['sent backwards',   p => { p.pos = 1; },                  'hit',  'angry'],
+        ['made to miss a turn', p => { p.skip = 2; },              'duck', 'sleep'],
+        ['boosted a long way', p => { p.pos = p.pos + 9; },        'jump', 'laugh'],
+        // ↑ this one also proves the pose waits for the walk: a held frame kills the walk
+        //   cycle, so if it fired immediately the piece would slide across frozen mid-jump.
+        // a player who's home leaves the BOARD, so only their rail portrait celebrates
+        ['home first',       p => { p.done = true; },              'jump', 'star', 1],
+    ];
+    for (const [what, mutate, wantPose, wantEmote, copies = 2] of cases) {
+        const got = await tv.evaluate(({ i }) => {
+            const before = JSON.parse(JSON.stringify(vD));
+            return { before, id: H.players[i].id };
+        }, { i: 1 });
+        // fire it, and read the balloon straight away — that pops immediately
+        const balloons = await tv.evaluate(({ before, id, src }) => {
+            resetMoods();          // …and not a moment earlier: putting a player back to
+                                   // their old square is itself a backwards move, which the
+                                   // mood pass quite rightly counts as a knock
+            const p = H.players.find(x => x.id === id);
+            // eslint-disable-next-line no-new-func
+            new Function('p', src)(p);
+            const events = moodPass(before, viewerStateMsg());
+            applyViewerMsg(viewerStateMsg());
+            playReactions(events);
+            return [...document.querySelectorAll(`[data-p="${id}"]`)].map(el => {
+                const m = el.querySelector('.emo');
+                return { where: el.classList.contains('tok') ? 'board' : 'rail',
+                         pop: m.classList.contains('pop'), e: m.style.getPropertyValue('--e') };
+            });
+        }, { before: got.before, id: got.id, src: '(' + mutate.toString() + ')(p)' });
+
+        expect(balloons.length, `${what}: expected ${copies} cop(y|ies) on screen`).toBeGreaterThanOrEqual(copies);
+        expect(new Set(balloons.map(r => r.where)).size, `${what}: ${copies} distinct place(s)`).toBe(copies);
+        const wantE = String(await tv.evaluate(k => EMO[k], wantEmote));
+        for (const r of balloons) {
+            expect(r.pop, `${what}: a balloon pops over the ${r.where} trekker`).toBe(true);
+            expect(r.e, `${what}: the balloon is "${wantEmote}"`).toBe(wantE);
+        }
+
+        // the POSE lands a beat later — it waits for any walk to finish, because a held
+        // frame stops the walk cycle and a piece must never slide across frozen mid-jump
+        await tv.waitForTimeout(850);
+        const poses = await tv.evaluate(id => [...document.querySelectorAll(`[data-p="${id}"]`)].map(el => {
+            const t = el.querySelector('.trk');
+            return { where: el.classList.contains('tok') ? 'board' : 'rail',
+                     rx: t.classList.contains('rx'), f: t.style.getPropertyValue('--f'),
+                     walking: t.classList.contains('walking') };
+        }), got.id);
+        const wantF = String(await tv.evaluate(k => POSE[k], wantPose));
+        for (const r of poses) {
+            expect(r.walking, `${what}: the ${r.where} sprite has finished travelling`).toBe(false);
+            expect(r.rx, `${what}: the ${r.where} sprite holds a reaction pose`).toBe(true);
+            expect(r.f, `${what}: the ${r.where} sprite shows the ${wantPose} frame`).toBe(wantF);
+        }
+
+        // put them back for the next case
+        await tv.evaluate(() => { H.players[1].pos = 5; H.players[1].skip = 0; H.players[1].done = false;
+                                  applyViewerMsg(viewerStateMsg()); });
+        await tv.waitForTimeout(80);
+    }
+    await tv.close();
+});
+
+test('a reaction wears off and the trekker goes back to idling', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+    await pileUp(tv, 3);
+    await tv.waitForTimeout(200);
+
+    await tv.evaluate(() => pawnReact(H.players[0].id, EMO.angry, POSE.hit, 400));
+    expect(await tv.evaluate(() =>
+        document.querySelector('.tok[data-p="t0"] .trk').classList.contains('rx'))).toBe(true);
+    await tv.waitForTimeout(700);
+    const after = await tv.evaluate(() => {
+        const t = document.querySelector('.tok[data-p="t0"] .trk');
+        return { rx: t.classList.contains('rx'), f: t.style.getPropertyValue('--f'),
+                 anims: t.getAnimations().length };
+    });
+    expect(after.rx, 'the pose is released').toBe(false);
+    expect(after.f, 'and the inline frame is cleared, so the idle owns it again').toBe('');
+    expect(after.anims, 'and the idle is running again').toBeGreaterThan(0);
     await tv.close();
 });
 
@@ -531,75 +703,500 @@ test('tokens stop moving under prefers-reduced-motion', async ({ browser }) => {
     await pileUp(tv, 6);
     await tv.waitForTimeout(300);
     const running = await tv.evaluate(() =>
-        [...document.querySelectorAll('#sq-5 .sqp, #sq-5 .tok, #sq-5 .tb')]
+        [...document.querySelectorAll('#sq-5 .sqp, #sq-5 .tok, #sq-5 .tb, #sq-5 .trk, #sq-5 .emo')]
             .reduce((n, el) => n + el.getAnimations().length, 0));
     expect(running, 'nothing is animating').toBe(0);
+    // and a reaction fired anyway must not start one
+    await tv.evaluate(() => pawnReact(H.players[0].id, EMO.angry, POSE.hit, 800));
+    expect(await tv.evaluate(() =>
+        document.querySelector('.tok[data-p="t0"] .trk').classList.contains('rx')),
+        'reactions are motion too').toBe(false);
     await tv.close();
 });
 
-// Emoji can't act — 🐰 is one fixed glyph — so the tokens are drawn instead, and each
-// player is dealt a walk and a mood from their name so they move and emote differently.
-test('every creature has a face, and no two neighbours behave the same', async ({ browser }) => {
+// Emoji can't act — 🐰 is one fixed glyph — so the pieces are sprites, and each player is
+// dealt a character, a colour, an idle and an emote from their name and seat.
+test('every trekker is a real window onto the sheet, and no two behave the same', async ({ browser }) => {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
     await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
     await pileUp(tv, 12);
     await tv.waitForTimeout(300);
 
-    const cast = await tv.evaluate(() => [...document.querySelectorAll('#sq-5 .tok')].map(t => ({
-        walk: (t.querySelector('.tb').className.match(/w-[a-z]+/) || [])[0],
-        mood: (t.querySelector('.trk').className.match(/m-[a-z]+/) || [])[0],
-        colour: getComputedStyle(t).getPropertyValue('--pc').trim(),
-        eyes: t.querySelectorAll('.ey').length,
-        brows: t.querySelectorAll('.br').length,
-        mouth: t.querySelectorAll('.mo').length,
-        feet: t.querySelectorAll('.ft').length,
-        badge: (t.querySelector('.badge') || {}).textContent,
-        blink: getComputedStyle(t.querySelector('.ey')).animationDuration,
-    })));
+    const cast = await tv.evaluate(() => [...document.querySelectorAll('#sq-5 .tok')].map(t => {
+        const trk = t.querySelector('.trk'), emo = t.querySelector('.emo');
+        const cs = getComputedStyle(trk);
+        return {
+            idle: (trk.className.match(/i-[a-z]+/) || [])[0],
+            row: trk.style.getPropertyValue('--row'),
+            hue: trk.style.getPropertyValue('--hue'),
+            frame: cs.backgroundPositionX,
+            sheet: cs.backgroundImage,
+            size: cs.backgroundSize,
+            colour: getComputedStyle(t).getPropertyValue('--pc').trim(),
+            beat: trk.style.getPropertyValue('--dl'),
+            emote: emo ? emo.style.getPropertyValue('--e') : null,
+            emoteEvery: emo ? emo.style.getPropertyValue('--eDur') : null,
+            anims: trk.getAnimations().length,
+        };
+    }));
 
     expect(cast.length).toBe(12);
     cast.forEach((c, i) => {
-        expect(c.eyes, `#${i} has two eyes`).toBe(2);
-        expect(c.brows, `#${i} has two brows`).toBe(2);
-        expect(c.mouth, `#${i} has a mouth`).toBe(1);
-        expect(c.feet, `#${i} has feet`).toBe(2);
-        expect(c.badge, `#${i} still shows its animal, so the board matches the rail`).toBeTruthy();
-        expect(c.walk, `#${i} has a walk`).toBeTruthy();
-        expect(c.mood, `#${i} has a mood`).toBeTruthy();
+        expect(c.sheet, `#${i} is drawn from the sheet`).toContain('trekkers.png');
+        expect(c.size, `#${i} windows onto 9 poses × 5 characters`).toBe('900% 500%');
+        expect(+c.row, `#${i} sits on a real sheet row`).toBeGreaterThanOrEqual(0);
+        expect(+c.row, `#${i} sits on a real sheet row`).toBeLessThanOrEqual(4);
+        expect(c.idle, `#${i} has an idle`).toBeTruthy();
+        expect(c.anims, `#${i} is actually animating`).toBeGreaterThan(0);
+        expect(c.emote, `#${i} has an emote to pull out`).toBeTruthy();
+        // whatever frame it happens to be on, it must be a WHOLE frame — never a slice of
+        // two, which is what a tweened background-position would give you
+        const f = parseFloat(c.frame) / (100 / 8);
+        expect(Math.abs(f - Math.round(f)), `#${i} is showing half of two frames (${c.frame})`)
+            .toBeLessThan(0.02);
+        expect(Math.round(f), `#${i} is on a frame that exists`).toBeLessThanOrEqual(8);
     });
     // the repertoire is actually used, not one animation for everybody
-    expect(new Set(cast.map(c => c.walk)).size, 'several different walks').toBeGreaterThan(2);
-    expect(new Set(cast.map(c => c.mood)).size, 'several different moods').toBeGreaterThan(2);
-    expect(new Set(cast.map(c => c.blink)).size, 'and nobody blinks in time with anybody else').toBeGreaterThan(4);
+    expect(new Set(cast.map(c => c.idle)).size, 'several different idles').toBeGreaterThan(2);
+    expect(new Set(cast.map(c => c.beat)).size, 'and nobody moves in time with anybody else').toBeGreaterThan(4);
+    expect(new Set(cast.map(c => c.emote)).size, 'and they do not all pull the same face').toBeGreaterThan(2);
+    // all five characters get used, so a full table isn't twelve of the same creature
+    expect(new Set(cast.map(c => c.row)).size, 'the whole cast shows up').toBeGreaterThanOrEqual(4);
     // twelve players, twelve colours — this used to key off name LENGTH, so Mum/Dad/Ben
     // all came out identical
     expect(new Set(cast.map(c => c.colour)).size, 'twelve distinct colours').toBe(12);
+    // …and the colour on the disc is the colour the sprite has been rotated to
+    const mismatch = await tv.evaluate(() => {
+        const bad = [];
+        [...document.querySelectorAll('#sq-5 .tok')].forEach(t => {
+            const want = PAWN_COLS.indexOf(getComputedStyle(t).getPropertyValue('--pc').trim());
+            const hue = t.querySelector('.trk').style.getPropertyValue('--hue');
+            if (want < 0 || hue !== TREK_CAST[want][1] + 'deg') bad.push([want, hue]);
+        });
+        return bad;
+    });
+    expect(mismatch, 'the piece and its colour must come from the same seat').toEqual([]);
     await tv.close();
 });
 
-test('a player keeps the same colour, walk and mood wherever they are', async ({ browser }) => {
+test('a player keeps the same character, colour and idle wherever they are', async ({ browser }) => {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
     await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
     await pileUp(tv, 4);
     await tv.waitForTimeout(200);
 
-    const before = await tv.evaluate(() => {
-        const t = document.querySelector('.tok[data-p="t1"]');
+    const read = sel => tv.evaluate(s => {
+        const t = document.querySelector(s);
+        const trk = t.querySelector('.trk');
         return { c: getComputedStyle(t).getPropertyValue('--pc').trim(),
-                 w: t.querySelector('.tb').className, m: t.querySelector('.trk').className };
-    });
+                 row: trk.style.getPropertyValue('--row'), hue: trk.style.getPropertyValue('--hue'),
+                 idle: (trk.className.match(/i-[a-z]+/) || [])[0],
+                 beat: trk.style.getPropertyValue('--dl') };
+    }, sel);
+
+    const board = await read('.tok[data-p="t1"]');
+    // the same person in the rail is doing the same thing at the same moment
+    const rail = await read('.rail-row [data-p="t1"]');
+    expect(rail, 'the rail shows the same trekker as the board').toEqual(board);
+
     // move them, and shuffle who is mid-turn, so their slot in the pile changes
     await tv.evaluate(() => { H.players[1].pos = 14; H.turn = H.players[1].id; applyViewerMsg(viewerStateMsg()); });
     await tv.waitForTimeout(300);
-    const after = await tv.evaluate(() => {
-        const t = document.querySelector('.tok[data-p="t1"]');
-        return { c: getComputedStyle(t).getPropertyValue('--pc').trim(),
-                 w: t.querySelector('.tb').className, m: t.querySelector('.trk').className };
+    expect(await read('.tok[data-p="t1"]'), 'and none of it changes because they moved').toEqual(board);
+    await tv.close();
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PICKING YOUR PIECE
+// ═══════════════════════════════════════════════════════════════════════════════
+// You tap a trekker before you join, but you can't know from outside the room which ones
+// are already taken — so the pick is a request and the host is the one who grants it.
+// Two people tapping the gold duck at the same moment is the ordinary case.
+test('the picker offers all thirty pieces and remembers the one you tapped', async ({ page }) => {
+    await page.goto('/plumptrek.html', { waitUntil: 'load' });
+    const cells = page.locator('.trekpick');
+    const total = await page.evaluate(() => TREK_CAST.length);
+    expect(total, 'thirty on offer makes a collision unlikely').toBe(30);
+    await expect(cells).toHaveCount(total);
+    // one is already chosen for you, at random, so you can just play
+    await expect(page.locator('.trekpick.sel')).toHaveCount(1);
+    const first = await page.evaluate(() => fSeat);
+    expect(first, 'a piece is picked for you').toBeGreaterThanOrEqual(0);
+    // …and it's from the well-spread pool, so a room that never opens the picker looks right
+    expect(first, 'the pre-pick comes from the auto-assigned twelve')
+        .toBeLessThan(await page.evaluate(() => AUTO_SEATS));
+    // out here we can't know what anyone else has, and the picker says so rather than lying
+    await expect(page.locator('.pickhint')).toContainText('already have your pick');
+    await expect(page.locator('.trekpick.gone')).toHaveCount(0);
+
+    // every cell is a different piece off the sheet
+    const looks = await cells.evaluateAll(els => els.map(e => {
+        const t = e.querySelector('.trk');
+        return t.style.getPropertyValue('--row') + '|' + t.style.getPropertyValue('--hue');
+    }));
+    expect(new Set(looks).size, 'thirty visibly different pieces').toBe(total);
+
+    // tap a different one and it sticks, across a reload
+    const other = (first + 17) % total;
+    await cells.nth(other).click();
+    await expect(cells.nth(other)).toHaveClass(/sel/);
+    expect(await page.evaluate(() => localStorage.getItem('trek-seat'))).toBe(String(other));
+    await page.reload({ waitUntil: 'load' });
+    expect(await page.evaluate(() => fSeat), 'your piece is remembered').toBe(other);
+    await expect(page.locator('.trekpick').nth(other)).toHaveClass(/sel/);
+});
+
+test('in the lobby the taken pieces are crossed out and cannot be tapped', async ({ browser }) => {
+    // The honest bit: outside a room we can't know what's taken, so nothing is disabled. In
+    // the lobby the host tells us, so we show it.
+    const neil = await browser.newPage({ viewport: PHONE });
+    await neil.goto('/plumptrek.html');
+    await neil.locator('input[data-save-name]').first().fill('Neil');
+    await neil.getByRole('button', { name: /Host on this phone/ }).click();
+    await expect(neil.locator('.room-code')).toBeVisible({ timeout: 30_000 });
+
+    // three more players turn up, all wanting the piece Neil already has
+    const mine = await neil.evaluate(() => H.players[0].seat);
+    await neil.evaluate(m => {
+        ['Jess', 'Ollie', 'Bea'].forEach((n, i) => hostAddPlayer('x' + i, n, m));
+        render();
+    }, mine);
+
+    const state = await neil.evaluate(() => ({
+        seats: H.players.map(p => p.seat),
+        cells: [...document.querySelectorAll('.trekpick')].map(e => ({
+            gone: e.classList.contains('gone'), sel: e.classList.contains('sel'),
+            tappable: !!e.getAttribute('onclick'),
+        })),
+    }));
+    expect(new Set(state.seats).size, 'four players, four different pieces').toBe(4);
+    expect(state.cells.length).toBe(30);
+    const gone = state.cells.filter(c => c.gone);
+    expect(gone.length, 'the other three players\' pieces are crossed out').toBe(3);
+    gone.forEach(c => expect(c.tappable, 'and a taken piece is not tappable').toBe(false));
+    // your own piece is selected, not crossed out — you can always keep what you have
+    const sel = state.cells.filter(c => c.sel);
+    expect(sel.length).toBe(1);
+    expect(sel[0].gone, 'your own piece is never shown as taken').toBe(false);
+    expect(state.cells.filter(c => c.tappable).length, 'the other 27 are still open').toBe(27);
+
+    // swapping to a free piece works and changes your colour on the board
+    const free = state.cells.findIndex((c, i) => !c.gone && !c.sel);
+    const before = await neil.evaluate(() => H.players[0].col);
+    await neil.locator('.trekpick').nth(free).click();
+    await expect.poll(() => neil.evaluate(() => H.players[0].seat), { timeout: 5000 }).toBe(free);
+    expect(await neil.evaluate(() => H.players[0].col)).not.toBe(before);
+    // …and swapping onto a taken one is refused by the host even if the tap gets through
+    const takenSeat = await neil.evaluate(() => H.players[1].seat);
+    await neil.evaluate(t => hostSetSeat(H.players[0].id, t), takenSeat);
+    expect(await neil.evaluate(() => H.players[0].seat), 'the host refuses a taken piece').toBe(free);
+    await neil.close();
+});
+
+test('a trekker held up at a gate strains to climb rather than freezing', async ({ browser }) => {
+    // The two climb frames were the last unused thing in the pack. A held frame says
+    // "stopped"; a climb loop says "still trying", which is what a STOP square is.
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+    await pileUp(tv, 3);
+    await tv.waitForTimeout(200);
+
+    const climbing = await tv.evaluate(async () => {
+        resetMoods();
+        pawnReact('t0', EMO.question, POSE.climb, 900);
+        await new Promise(r => setTimeout(r, 120));
+        const t = document.querySelector('.tok[data-p="t0"] .trk');
+        const cs = getComputedStyle(t);
+        return { strain: t.classList.contains('strain'), rx: t.classList.contains('rx'),
+                 name: cs.animationName, bgx: cs.backgroundPositionX, held: t.style.getPropertyValue('--f') };
     });
-    expect(after.c, 'same colour').toBe(before.c);
-    expect(after.w.match(/w-[a-z]+/)[0], 'same walk').toBe(before.w.match(/w-[a-z]+/)[0]);
-    expect(after.m.match(/m-[a-z]+/)[0], 'same mood').toBe(before.m.match(/m-[a-z]+/)[0]);
+    expect(climbing.strain, 'the climb is a looping class, not a held frame').toBe(true);
+    expect(climbing.rx, 'and not the held-frame mechanism').toBe(false);
+    expect(climbing.held, 'so no inline frame is set').toBe('');
+    expect(climbing.name, 'the climb loop is running').toBe('spClimb');
+    expect([7, 8], 'showing one of the two climb frames').toContain(frameOf(climbing.bgx));
+
+    // and it lets go afterwards, back to the idle
+    await tv.waitForTimeout(1000);
+    const after = await tv.evaluate(() => {
+        const t = document.querySelector('.tok[data-p="t0"] .trk');
+        return { strain: t.classList.contains('strain'), anims: t.getAnimations().length };
+    });
+    expect(after.strain).toBe(false);
+    expect(after.anims, 'back to idling').toBeGreaterThan(0);
+    await tv.close();
+});
+
+test('two players who want the same piece do not get it — the second is moved, at random', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+
+    const res = await tv.evaluate(() => {
+        clearInterval(simTimer); clearTimeout(simTimer); clearHostTimers();
+        H.players = [];
+        // everybody wants seat 3
+        for (let i = 0; i < 5; i++) hostAddPlayer('g' + i, 'P' + i, 3);
+        return H.players.map(p => ({ name: p.name, seat: p.seat, col: p.col }));
+    });
+    expect(res.length).toBe(5);
+    expect(res[0].seat, 'first in gets what they asked for').toBe(3);
+    expect(new Set(res.map(p => p.seat)).size, 'and nobody shares a piece').toBe(5);
+    expect(new Set(res.map(p => p.col)).size, 'so nobody shares a colour either').toBe(5);
+    res.slice(1).forEach(p => expect(p.seat, `${p.name} was moved off the taken piece`).not.toBe(3));
+
+    // a full room, then one more: the twelfth gets the last piece, the thirteenth is turned away
+    const full = await tv.evaluate(() => {
+        H.players = [];
+        for (let i = 0; i < 14; i++) hostAddPlayer('f' + i, 'Q' + i, 0);   // all want seat 0
+        return { n: H.players.length, seats: H.players.map(p => p.seat).sort((a, b) => a - b) };
+    });
+    expect(full.n, 'the room caps at twelve').toBe(12);
+    expect(full.seats, 'and every piece is used exactly once').toEqual([0,1,2,3,4,5,6,7,8,9,10,11]);
+
+    // a nonsense request still gets a real piece rather than breaking the board
+    const junk = await tv.evaluate(() => {
+        H.players = [];
+        [undefined, null, -1, 99, 'duck', 2.5].forEach((bad, i) => hostAddPlayer('b' + i, 'B' + i, bad));
+        return H.players.map(p => p.seat);
+    });
+    expect(junk.length).toBe(6);
+    junk.forEach(sk => expect(Number.isInteger(sk) && sk >= 0 && sk < 12, `seat ${sk} is real`).toBe(true));
+    expect(new Set(junk).size, 'and they are all different').toBe(6);
+    await tv.close();
+});
+
+test('there is one piece per player on screen, not a piece and an emoji', async ({ browser }) => {
+    // The rail used to show the sprite AND the animal emoji the player picked, which read
+    // as two playing pieces for one person.
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+    await pileUp(tv, 4);
+    await tv.waitForTimeout(250);
+
+    const rail = await tv.evaluate(() => [...document.querySelectorAll('.rail-row')].map(r => ({
+        trekkers: r.querySelectorAll('.trk').length,
+        emoji: /\p{Extended_Pictographic}/u.test(r.querySelector('.rnm').textContent),
+    })));
+    expect(rail.length).toBeGreaterThan(0);
+    rail.forEach((r, i) => {
+        expect(r.trekkers, `rail row ${i} shows exactly one piece`).toBe(1);
+        expect(r.emoji, `rail row ${i} has no second, emoji piece beside the name`).toBe(false);
+    });
+    // and the board is the same: one sprite per player
+    const onBoard = await tv.evaluate(() =>
+        [...document.querySelectorAll('#sq-5 .tok')].map(t => t.querySelectorAll('.trk').length));
+    onBoard.forEach((n, i) => expect(n, `board piece ${i} is one sprite`).toBe(1));
+    await tv.close();
+});
+
+test('the active player speeds up in the rail and on the board by the same amount', async ({ browser }) => {
+    // The eager-on-your-turn speed-up used to hang off the board token, which the rail has
+    // no equivalent of — so the piece you were watching ran at a different speed from its
+    // portrait, which is worse than not animating at all.
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+    await pileUp(tv, 4);
+    await tv.waitForTimeout(250);
+
+    const speeds = await tv.evaluate(() => {
+        const out = {};
+        H.players.forEach(p => {
+            const els = [...document.querySelectorAll(`[data-p="${p.id}"] .trk`)];
+            out[p.id] = els.map(e => ({
+                where: e.closest('.tok') ? 'board' : 'rail',
+                now: e.classList.contains('now'),
+                dur: getComputedStyle(e).animationDuration,
+                delay: getComputedStyle(e).animationDelay,
+                name: getComputedStyle(e).animationName,
+            }));
+        });
+        return { turn: H.turn, out };
+    });
+    for (const [id, copies] of Object.entries(speeds.out)) {
+        expect(copies.length, `${id} is on screen in both places`).toBeGreaterThanOrEqual(2);
+        const [a, ...rest] = copies;
+        for (const b of rest) {
+            expect(b.dur, `${id}: the ${b.where} copy runs at the ${a.where} copy's speed`).toBe(a.dur);
+            expect(b.delay, `${id}: …and on the same beat`).toBe(a.delay);
+            expect(b.name, `${id}: …playing the same animation`).toBe(a.name);
+        }
+        // and the player whose turn it is is the one marked eager, in both places
+        copies.forEach(c => expect(c.now, `${id} eager == its turn`).toBe(id === speeds.turn));
+    }
+    await tv.close();
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MOOD
+// ═══════════════════════════════════════════════════════════════════════════════
+// Mood is the memory a reaction on its own doesn't have. It's derived on the client from
+// the same snapshots everyone gets, so these drive real state changes and read what the
+// trekkers end up looking like.
+const moodStyle = (tv, id) => tv.evaluate(pid => [...document.querySelectorAll(`[data-p="${pid}"]`)].map(el => {
+    const trk = el.querySelector('.trk'), tb = el.querySelector('.tb'), emo = el.querySelector('.emo');
+    const cs = getComputedStyle(trk);
+    return {
+        where: el.closest('.tok') ? 'board' : 'rail',
+        mood: (trk.className.match(/md-(\w+)/) || [])[1],
+        dur: cs.animationDuration,
+        sat: (cs.filter.match(/saturate\(([\d.]+)\)/) || [])[1],
+        // the DECLARED posture, not the resolved matrix: `translateY(6%)` is a percentage
+        // of the element's own height, so the board piece and the smaller rail portrait
+        // legitimately compute to different pixel values from identical CSS
+        tilt: tb.style.getPropertyValue('--tilt'),
+        slump: tb.style.getPropertyValue('--slump'),
+        posture: getComputedStyle(tb).transform,
+        emote: emo.style.getPropertyValue('--e'),
+        every: emo.style.getPropertyValue('--eDur'),
+    };
+}), id);
+
+test('a run of bad luck leaves a trekker visibly fed up, and it wears off', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+    await pileUp(tv, 4);
+    await tv.evaluate(() => resetMoods());
+    await tv.waitForTimeout(200);
+
+    const neutral = (await moodStyle(tv, 't1'))[0];
+    expect(neutral.mood, 'everyone starts level').toBe('ok');
+
+    // two knocks in a row
+    await tv.evaluate(() => {
+        for (let i = 0; i < 2; i++) {
+            const before = JSON.parse(JSON.stringify(vD));
+            H.players[1].pos = Math.max(0, H.players[1].pos - 3);
+            const events = moodPass(before, viewerStateMsg());
+            applyViewerMsg(viewerStateMsg());
+            playReactions(events);
+        }
+    });
+    // wait out BOTH the walk (up to 760ms) and the held reaction pose (up to 1.9s) — while
+    // either is running the sprite's animation isn't its idle, so the tempo means nothing
+    await tv.waitForTimeout(2400);
+    const glum = await moodStyle(tv, 't1');
+    expect(glum[0].mood, 'two knocks and they are properly fed up').toBe('glum');
+    // and it SHOWS: slower, duller, slumped forward
+    expect(parseFloat(glum[0].dur)).toBeGreaterThan(parseFloat(neutral.dur));
+    expect(parseFloat(glum[0].sat)).toBeLessThan(1);
+    expect(glum[0].posture, 'a slumped posture, not the upright default').not.toBe('none');
+    expect(parseFloat(glum[0].tilt), 'leaning forward').toBeGreaterThan(0);
+    expect(parseFloat(glum[0].slump), 'and sagging').toBeGreaterThan(0);
+    expect(glum[0].emote, 'and the balloon they sigh is not a happy one').not.toBe(neutral.emote);
+    expect(parseFloat(glum[0].every), 'sighed more often than a neutral trekker beams')
+        .toBeLessThan(parseFloat(neutral.every));
+    // both copies of them agree
+    expect(glum.length).toBeGreaterThanOrEqual(2);
+    glum.slice(1).forEach(c => expect(c, `the ${c.where} copy feels the same`)
+        .toEqual({ ...glum[0], where: c.where, posture: c.posture }));
+
+    // …and it fades as their own turns come round again. Mood fades for whoever's turn just
+    // STARTED, so with four players it takes four turn-changes to come back round to them —
+    // three of their own turns to climb from −3 to neutral, i.e. a dozen changes in all.
+    const trail = [];
+    for (let i = 0; i < 14; i++) {
+        await tv.evaluate(() => {
+            // one turn-change, through the real message path (which runs moodPass itself —
+            // calling it here too would fade twice per turn)
+            H.turn = H.players[(H.players.findIndex(p => p.id === H.turn) + 1) % H.players.length].id;
+            applyViewerMsg(viewerStateMsg());
+        });
+        trail.push(await tv.evaluate(() => moodOf('t1')));
+    }
+    expect(trail[trail.length - 1], `mood never recovered: ${trail}`).toBe(0);
+    expect(trail.filter(v => v < 0).length, 'but it sulked for several turns').toBeGreaterThanOrEqual(4);
+    // strictly toward neutral, never away, and never more than a step at a time
+    for (let i = 1; i < trail.length; i++) {
+        expect(Math.abs(trail[i]), `mood moved away from neutral: ${trail}`)
+            .toBeLessThanOrEqual(Math.abs(trail[i - 1]));
+        expect(Math.abs(trail[i] - trail[i - 1]), `mood jumped more than one step: ${trail}`)
+            .toBeLessThanOrEqual(1);
+    }
+    await tv.close();
+});
+
+test('a good run leaves them delighted — the opposite of fed up in every way', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+    await pileUp(tv, 4);
+    await tv.evaluate(() => resetMoods());
+    await tv.waitForTimeout(200);
+    const neutral = (await moodStyle(tv, 't1'))[0];
+
+    await tv.evaluate(() => {
+        MOOD.t1 = 3;                                    // as good as it gets
+        applyViewerMsg(viewerStateMsg());
+    });
+    await tv.waitForTimeout(200);
+    const up = (await moodStyle(tv, 't1'))[0];
+    expect(up.mood).toBe('elated');
+    expect(parseFloat(up.dur), 'quicker on their feet').toBeLessThan(parseFloat(neutral.dur));
+    expect(parseFloat(up.sat), 'and brighter').toBeGreaterThan(1);
+
+    await tv.evaluate(() => { MOOD.t1 = -3; applyViewerMsg(viewerStateMsg()); });
+    await tv.waitForTimeout(200);
+    const down = (await moodStyle(tv, 't1'))[0];
+    // the two extremes must be unmistakably different, not a shade apart
+    expect(parseFloat(down.dur)).toBeGreaterThan(parseFloat(up.dur) * 1.5);
+    expect(parseFloat(down.sat)).toBeLessThan(parseFloat(up.sat) * 0.7);
+    expect(parseFloat(down.tilt), 'and leaning the other way').toBeGreaterThan(parseFloat(up.tilt));
+    await tv.close();
+});
+
+test('the same knock reads differently depending on the mood it lands on', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+    await pileUp(tv, 4);
+    await tv.waitForTimeout(200);
+
+    const knock = start => tv.evaluate(m => {
+        // Set the mood AFTER the setup render, not before it: moving the player up the board
+        // is itself an event (they take the lead), and applyViewerMsg runs its own mood pass
+        // — so a mood set first gets overwritten before the knock ever lands.
+        H.players[1].pos = 8;
+        applyViewerMsg(viewerStateMsg());
+        resetMoods();
+        MOOD.t1 = m;
+        const before = JSON.parse(JSON.stringify(vD));
+        H.players[1].pos = 4;                            // sent backwards
+        const events = moodPass(before, viewerStateMsg());
+        applyViewerMsg(viewerStateMsg());
+        playReactions(events);
+        const el = document.querySelector('.tok[data-p="t1"]');
+        return { emote: el.querySelector('.emo').style.getPropertyValue('--e'),
+                 felt: (events.find(e => e[0] === 't1') || [])[2] };
+    }, start);
+
+    const whenGlum = await knock(-3);
+    await tv.waitForTimeout(200);
+    const whenFine = await knock(0);
+    await tv.waitForTimeout(200);
+    const whenFlying = await knock(3);
+    // the mood carried on the event is the one it landed on, as designed
+    expect([whenGlum.felt, whenFine.felt, whenFlying.felt]).toEqual([-3, 0, 3]);
+    expect(whenGlum.emote, 'a glum trekker sulks rather than fumes').not.toBe(whenFine.emote);
+    expect(whenFlying.emote, 'a flying one is startled rather than furious').not.toBe(whenFine.emote);
+    await tv.close();
+});
+
+test('a new game wipes every mood', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+    await pileUp(tv, 3);
+    await tv.evaluate(() => { MOOD.t0 = -3; MOOD.t1 = 3; });
+    expect(await tv.evaluate(() => [moodOf('t0'), moodOf('t1')])).toEqual([-3, 3]);
+    // back to the lobby is a fresh start — nobody carries a grudge into the next game
+    await tv.evaluate(() => { H.phase = 'lobby'; applyViewerMsg({ ...lobbyMsg(), type: 'viewer_lobby' }); });
+    expect(await tv.evaluate(() => [moodOf('t0'), moodOf('t1')])).toEqual([0, 0]);
     await tv.close();
 });

@@ -151,3 +151,27 @@ reconnect by `clientId()`, refresh recovery via `savedRoom()` — all standard.
 - No trading, no money, no properties — it's a race, not Monopoly.
 - No simultaneous turns; one pawn moves at a time so the TV always has a subject.
 - No per-player boards: the shared board on the TV is the whole point.
+
+## What changed after the plan (July 2026)
+
+The plan is still accurate on rules, board and protocol. Two things were rebuilt afterwards:
+
+**The die** moved out into `dice.js` (shared), so any game can roll one. Plump Trek supplies
+only its size/skin and its own rattle via `onTick`/`onLand`. `liarsdice.html` deliberately
+keeps its own flat SVG dice — different job, see CLAUDE.md.
+
+**The player pieces became sprites.** The first version drew them in CSS (a coloured bean
+with eyes, brows and feet, dealt a "walk" and a "mood" from the player's name). It was
+lifeless, and the honest reason is that a drawn token can't act: it can bob, but it can't
+take a step or flinch. They're now frames off one CC0 sprite sheet, with:
+
+- **30 pieces to pick from** (5 Kenney characters × 6 hue rotations), the first 12 being the
+  well-spread pool the host auto-assigns. The lobby shows which are taken.
+- **A real walk** between squares — the walk frames cycle for exactly as long as the move.
+- **Reactions** derived from diffing snapshots, so nothing extra goes on the wire.
+- **Mood** — a running −3…+3 per player that bends their idle tempo, posture and colour, and
+  changes how the same event reads. Getting trapped when you were already fed up is a sulk;
+  the same trap when you were flying is startled indignation.
+
+There is no emoji avatar any more; the sprite is the piece. Full reference:
+`llmwiki/sprites-and-licensing.md`.

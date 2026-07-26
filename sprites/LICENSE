@@ -1,0 +1,28 @@
+This directory is NOT covered by the repository's Business Source License.
+
+`trekkers.png` and `emotes.png` are derived from Kenney asset packs released under
+Creative Commons CC0 1.0 Universal (https://creativecommons.org/publicdomain/zero/1.0/) —
+a public-domain dedication. Repacking them into sheets does not create any new
+restriction, and CC0 cannot be withdrawn, so these two files remain in the public domain:
+
+    No attribution required.  Commercial use fine.  No copyleft.  No share-alike.
+
+Take them and use them for anything. The repository's licence (../LICENSE) applies to the
+game code that draws them, not to the art itself.
+
+We credit Kenney anyway, because Kenney asks nicely and it costs nothing:
+
+    Player sprites by Kenney — https://kenney.nl
+
+Full provenance (pack names and versions, download URLs, SHA-256 of the original zips,
+exactly which frames were used and what was changed) is in CREDITS.md. `build-sheets.py`
+rebuilds both sheets from the upstream zips and produces byte-identical output, which is
+how you can verify these files contain nothing but the CC0 frames listed there.
+
+Upstream licence texts, verbatim from inside the packs, plus the full CC0 1.0 legal code:
+
+    licenses/kenney_new-platformer-pack_License.txt
+    licenses/kenney_emotes-pack_License.txt
+    licenses/CC0-1.0.txt
+
+`build-sheets.py` is our own code and is covered by ../LICENSE.
