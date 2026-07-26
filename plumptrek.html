@@ -384,7 +384,7 @@
             perspective: 60vmin; }
         .cube { position: relative; width: 11vmin; height: 11vmin; transform-style: preserve-3d;
             transform: rotateX(-22deg) rotateY(28deg); }
-        .cube.throwing { transition: transform 1.05s cubic-bezier(.18,.72,.24,1); }
+        .cube.throwing { transition: transform 1.05s cubic-bezier(.18,.72,.24,1); }   /* duration set per throw */
         .cube.landed { animation: dieLand .34s cubic-bezier(.2,1.7,.4,1); }
         @keyframes dieLand { 0% { scale: 1; } 40% { scale: 1.14; } 100% { scale: 1; } }
         .face { position: absolute; inset: 0; border-radius: 1.6vmin; display: grid; padding: 1.1vmin;
@@ -613,11 +613,13 @@ function sTick() { if (!sfxOn || !AC) return; tone(1244, 0.045, { type: 'square'
 // ── the die ──
 // A throw is a rattle, not a beep: a scatter of short wooden clicks tumbling over each
 // other for the length of the animation, then a clack and a low thud as it lands.
-function sDiceRoll() {
+function sDiceRoll(ms) {
     if (!sfxOn || !AC) return;
-    for (let i = 0; i < 11; i++) {
-        const t = i * 0.082 + Math.random() * 0.035;
-        const soft = i / 11;                                     // clicks thin out as it slows
+    const secs = Math.max(0.3, (ms || 1050) / 1000);
+    const n = Math.round(secs * 11);                             // the rattle lasts as long as the throw
+    for (let i = 0; i < n; i++) {
+        const soft = i / n;                                      // clicks thin out as it slows
+        const t = soft * secs * 0.92 + Math.random() * 0.03;
         noiseHit(0.032, { vol: 0.13 - soft * 0.06, when: t, hp: 2000 + Math.random() * 2800 });
         tone(150 + Math.random() * 130, 0.05, { type: 'triangle', vol: 0.07 - soft * 0.03, when: t, lp: 1500 });
     }
@@ -1079,6 +1081,7 @@ let H = {
 };
 let _phaseTimeout = null, _choiceTimeout = null;
 const DARE_MS = 45000, CHOICE_MS = 30000, IDLE_ROLL_MS = 70000;   // nothing waits forever
+const DIE_WAIT = 1550;      // the pawn sets off once the die has settled (longest throw + a beat)
 
 // ── Messages ───────────────────────────────────────────────────────────────────
 // One state message to rule them all (the bingo/herdmind pattern): everybody looks at
@@ -1401,7 +1404,7 @@ function hostRoll(player) {
     H.roll = n;
     H.phase = 'moving';
     broadcastAll();
-    _phaseTimeout = setTimeout(() => walk(player, n), 1500);   // let the die land first
+    _phaseTimeout = setTimeout(() => walk(player, n), DIE_WAIT);   // let the die land first
 }
 
 // Walk node by node so gates can stop you part-way, like the STOP signs on the board.
@@ -1815,14 +1818,19 @@ function spinDie(finalN) {
     const [fx, fy] = FACE_ROT[face] || [0, 0];
     if (REDUCED) { cube.style.transform = `rotateX(${fx}deg) rotateY(${fy}deg)`; return; }
 
-    // start from somewhere random so two identical rolls don't look identical…
+    // No two throws alike: a real die sometimes skitters and sometimes drops dead. The
+    // duration varies, and the spin varies WITH it — a long throw genuinely tumbles more
+    // rather than just running in slow motion. Capped so it always lands before the pawn
+    // sets off (the host waits DIE_WAIT).
+    const dur = 620 + Math.floor(Math.random() * 780);           // 0.62s – 1.4s
+    const turns = 2 + Math.round(dur / 420);
     cube.classList.remove('throwing', 'landed');
     cube.style.transform = `rotateX(${-40 + Math.random() * 80}deg) rotateY(${-40 + Math.random() * 80}deg)`;
-    sDiceRoll();
+    sDiceRoll(dur);
     requestAnimationFrame(() => requestAnimationFrame(() => {
-        // …then throw it: three-and-a-bit turns each way, easing hard into the landing
         cube.classList.add('throwing');
-        cube.style.transform = `rotateX(${fx + 720}deg) rotateY(${fy + 1080}deg)`;
+        cube.style.transitionDuration = dur + 'ms';
+        cube.style.transform = `rotateX(${fx + 360 * turns}deg) rotateY(${fy + 360 * (turns + 1)}deg)`;
     }));
     _dieSpin = setTimeout(() => {
         const c = document.getElementById('v-cube');
@@ -1830,14 +1838,17 @@ function spinDie(finalN) {
         c.classList.add('landed');
         sDiceLand();
         try { navigator.vibrate && navigator.vibrate(35); } catch (e) {}
-    }, 1060);
+    }, dur + 20);
 }
 
 // A re-render (someone joined, a card landed) must not leave the die mid-throw.
 function settleDie(n) {
     const cube = document.getElementById('v-cube');
     if (!cube) return;
+    clearTimeout(_dieSpin);
     const [fx, fy] = FACE_ROT[n > 6 ? 1 : n] || [0, 0];
+    cube.classList.remove('throwing');                 // snap, don't animate the correction
+    cube.style.transitionDuration = '';
     cube.style.transform = `rotateX(${fx}deg) rotateY(${fy}deg)`;
 }
 
