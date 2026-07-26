@@ -44,7 +44,9 @@ npx playwright test tests/familytrivia.e2e.spec.js   # one game's suite
 python3 -m http.server 8231                      # manual dev server (Playwright starts its own)
 ```
 
-`unit/` holds pure-JS unit tests (`node --test`, no deps): `common.js` helpers and its
+`unit/` holds pure-JS unit tests (`node --test`, no deps) — including `presence.test.js`,
+whose **audit tests read every game** and fail if one drifts from the shared connection
+rules; that is what found three games' worth of stranded-id bugs. Also: `common.js` helpers and its
 storage/badge state, `p2p.js`'s room codes + error classes + ICE-candidate mapping,
 `dice.js`'s pips and orientations, and Plump Trek's board maths. Browser scripts are
 tested by evaluating the file with `new Function` and pulling out the names — pass

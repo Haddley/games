@@ -48,7 +48,36 @@ Loaded by every P2P game (and `index.html`). Provides:
      so a browser refresh rejoins instead of landing on the home screen.
    - **`setNetState('relay'|'stun'|'local'|'checking'|'none')`** — the connection badge in
      the control strip: 📡 relayed via TURN, 🌐 direct via STUN, 🏠 same network, ⏳ settling.
-8. **`setHTML(el, html)`** — the innerHTML swap every `render()` goes through. It blurs a
+8. **Presence — who is actually still there.** The most load-bearing group in the file: it
+   decides whether a round can close and who wears the 👑 crown. It exists because
+   **`conn.on('close')` does not fire when a browser closes** (measured: zero close events in
+   75 seconds), so `guestConns` confidently lists switched-off phones. Full story and the
+   four bugs it came from: [connection-and-reconnect.md](connection-and-reconnect.md).
+   - **`startHeartbeat(sendFn)` / `stopHeartbeat()`** — the phone says "still here" every 4s.
+     Every game calls this on connect; there was no heartbeat anywhere before July 2026.
+   - **`notePresence(player)`** — the host stamps `player.seen` on **any** message. A
+     heartbeat is the guaranteed one; a roll or a vote is just as good a proof of life.
+   - **`isPresent(player, conns)`** — heard from inside `PRESENCE_MS` (13s) *and* holding a
+     connection. Ask this, never `guestConns` directly.
+   - **`presentPlayers(players, conns, selfId, selfPlays)`** — backs every game's
+     `connectedPlayers()`, which used to be a byte-identical copy in all 18.
+   - **`claimSeat(players, msg, newId, conns, inLobby)`** — is this returning join the same
+     person? A **cid** match wins outright (a device is in one place). A **name** match is
+     weaker — two people really can both be called Ben — so mid-game it only reclaims a seat
+     nobody has been heard from lately. **In a lobby a name is enough**, because there is
+     nothing to steal and someone restarting a browser is back inside the presence window;
+     making them wait it out is what produced lobbies reading "Neil, Karen, Karen, Karen".
+   - **`rekeyPlayerId(H, oldId, newId, spec)`** — a refresh mints a new peer id, and the id
+     is usually also a key elsewhere. This moves it in every shape a game stores one:
+     `scalars` (`H.turn`), `arrays` (`H.turnOrder`), `maps` (`H.votes[id]`, including a value
+     that *points at* the returning player), `whoObjs` (`H.card.who`), `idObjs` (`H.moved.id`).
+     The shapes are shared; each game passes its own field names.
+   - **`watchPresence(recheck)`** — the host re-asks "can this round close?" on a timer.
+     Necessary because every game's `if (active.every(…))` is **edge-triggered**: it is only
+     asked when somebody answers, so the last answer arriving before a departure is noticed
+     leaves the room waiting for ever. It re-asks **every** tick — an earlier version skipped
+     ticks where the player set looked unchanged, and that was quietly wrong.
+9. **`setHTML(el, html)`** — the innerHTML swap every `render()` goes through. It blurs a
    focused input before the swap and restores focus + caret afterwards, so a phase change
    landing while you type can't strand the iOS keyboard over a destroyed field.
 

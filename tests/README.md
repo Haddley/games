@@ -94,3 +94,29 @@ is over. All of them drive real rooms over real PeerJS.
 | back to the lobby reopens the room | the people who dropped out can't get back in |
 | two players, one leaves | the only two controls offered would both end the game |
 | a player tidied away who reconnects | they land on a dead screen with no way in |
+
+## Connection, presence and rejoining
+
+The largest body of tests in the repo, because this is where the real bugs were.
+
+| file | what it holds to account |
+|---|---|
+| `unit/presence.test.js` | the shared rules (`isPresent`, `claimSeat`, `rekeyPlayerId`, `watchPresence`, `presentPlayers`) **and four AUDIT tests** that read every game and fail if one hand-rolls any of it, stores a player id in a field its rekey doesn't name, waits for every player without re-asking when one leaves, or calls a shared helper unguarded |
+| `tests/lobby-rejoin.e2e.spec.js` | the same person rejoining: a restarted browser must take its seat back, not a second one — driven against six games plus a mid-game repeat-rejoin and the herdmind stall |
+| `tests/reconnect.e2e.spec.js` | a dropped phone rejoining its seat, a refresh, the crown moving and coming back |
+| `tests/plumptrek.e2e.spec.js` | refresh on your own turn; a phone that never returns; the captain's tidy-up controls |
+| `tests/rockpaperscissors.e2e.spec.js` | stale ids after a refresh, a departed phone dragging out rounds or winning, latecomers |
+
+**The audit tests are the valuable part.** They found three games' worth of stranded-id bugs
+that six separate hand-fixes had missed, and they fail when a *new* game drifts.
+
+### Writing one of these: read this first
+
+**Closing a Playwright browser context is not the same as a phone dying.** Playwright tears
+the peer connection down gracefully, so `conn.on('close')` fires — the one signal a real dead
+phone never sends, and precisely what the buggy code needed in order to work. Three tests
+here passed *against* the bug before that was noticed.
+
+Simulate **silence** instead: leave the page open, call `stopHeartbeat()` on it, and for the
+mid-game case age the player's `seen`. Then **check the test fails on the old code** before
+believing it — `git stash push common.js`, run, `git stash pop`.
