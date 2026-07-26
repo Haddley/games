@@ -25,7 +25,7 @@ const api = new Function('Date', [
     grab('const PRESENCE_MS', ';'),
     grab('function notePresence(player) {', '\n}'),
     grab('function isPresent(player, conns) {', '\n}'),
-    grab('function claimSeat(players, msg, newId, conns) {', '\n}'),
+    grab('function claimSeat(players, msg, newId, conns, inLobby) {', '\n}'),
     'return { notePresence, isPresent, claimSeat, HEARTBEAT_MS, PRESENCE_MS };',
 ].join('\n'));
 
@@ -129,4 +129,29 @@ test('every game uses the shared rule rather than its own copy', () => {
     });
     assert.deepStrictEqual(missing.claim, [], 'these games still hand-roll the seat-reclaim rule');
     assert.deepStrictEqual(missing.beat, [], 'these games never send a heartbeat, so the host cannot tell they are alive');
+});
+
+test('in the LOBBY a matching name takes its seat back at once — no waiting it out', () => {
+    // The bug this fixes, from a photo of a real lobby: "Neil, Karen, Karen, Karen", every
+    // ghost showing a green dot. Somebody restarting their browser is back in about five
+    // seconds, well inside PRESENCE_MS, so the mid-game rule refused to give the seat back
+    // and made a new one instead — three times.
+    const { claimSeat } = at(1000);
+    const players = [{ id: 'old', name: 'Karen', cid: 'dev1', seen: 1000 }];
+    const conns = { old: {} };                       // still looks perfectly present
+    assert.strictEqual(claimSeat(players, { cid: 'dev2', name: 'Karen' }, 'new', conns, true),
+        players[0], 'in a lobby there is nothing to steal, so the name is enough');
+    assert.strictEqual(claimSeat(players, { cid: 'dev2', name: 'Karen' }, 'new', conns, false), null,
+        'but mid-game the same shortcut would hand over somebody else\'s score');
+});
+
+test('every game tells claimSeat whether it is in the lobby', () => {
+    const root = path.join(__dirname, '..');
+    const bad = fs.readdirSync(root)
+        .filter(f => f.endsWith('.html'))
+        .filter(f => {
+            const src = fs.readFileSync(path.join(root, f), 'utf8');
+            return src.includes('claimSeat(H.players') && !src.includes("H.phase === 'lobby')");
+        });
+    assert.deepStrictEqual(bad, [], 'these games never pass the lobby flag, so restarts make ghosts');
 });

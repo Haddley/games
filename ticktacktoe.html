@@ -2125,6 +2125,10 @@
                         this.tvAddPlayer(conn, (msg && msg.name) || md.name, (msg && msg.cid) || md.cid);
                         return;   // the 'join' itself carries no further action
                     }
+                    // Any message is proof of life. The TV keeps seats, not players, so it
+                    // stamps the seat — but the rule and the window are common.js's.
+                    const st = this.tour && this.tour.seats[conn._seat];
+                    if (st && typeof notePresence === 'function') notePresence(st);
                     this.tvOnPlayerData(conn, msg);
                 });
                 conn.on('close', () => this.tvOnConnClose(conn));
@@ -2170,10 +2174,34 @@
                 conn._cid = cid || null;
                 conn._name = (name && name.trim()) || ('Player ' + (T.seats.length + 1));
 
-                // Walking back into a seat we're holding — same device first, name second.
-                const back = T.seats.find(s => !s.conn &&
-                    ((cid && s.cid && s.cid === cid) || (!cid && s.name === conn._name)));
+                // Walking back into a seat we're holding. This USED to require `!s.conn` —
+                // "only reclaim a seat with no connection" — and to try the name only when
+                // there was no cid at all. Both were wrong, and together they are why one
+                // person who kept restarting their browser turned into three Karens in the
+                // bracket: a closed browser leaves s.conn set (close never fires), and
+                // tttCid() always supplies a cid, so the name branch was dead code.
+                //
+                // Same rule as every other game now — common.js decides, this just adapts
+                // seats to the shape claimSeat expects.
+                const seatIsPresent = s => (typeof isPresent === 'function'
+                    ? isPresent({ id: s.i, seen: s.seen }, s.conn ? { [s.i]: s.conn } : {})
+                    : !!s.conn);
+                // Before the tournament starts, a matching name always takes its seat back —
+                // somebody restarting their browser returns in seconds, far inside the
+                // presence window, and a bracket has nothing to steal. Once it is live the
+                // seat carries a place in the draw, so the presence check applies.
+                const back = (cid ? T.seats.find(s => s.cid && s.cid === cid) : null)
+                    || T.seats.find(s => s.name === conn._name && (!T.live || !seatIsPresent(s)))
+                    || null;
                 if (back) {
+                    // a stale connection may still be attached to the seat we're taking over
+                    if (back.conn && back.conn !== conn) {
+                        const stale = back.conn;
+                        this.tvConns = this.tvConns.filter(c => c !== stale);
+                        try { stale.close(); } catch (e) {}
+                    }
+                    back.cid = cid || back.cid;
+                    back.seen = Date.now();
                     if (back.hold) { clearTimeout(back.hold); back.hold = null; }
                     back.conn = conn; conn._seat = back.i;
                     this.tvConns.push(conn);

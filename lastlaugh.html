@@ -883,8 +883,19 @@ function broadcastPlayers(fn) {
         if (c) send(c, typeof fn === 'function' ? fn(p) : fn);
     });
 }
+// Who is actually here. This asks the HEARTBEAT (common.js isPresent), not the connection
+// map — `guestConns` still lists a phone whose browser was closed, because conn.on('close')
+// does not fire for that (measured: zero close events in 75 seconds).
+//
+// That mattered far more than it looks. Nearly every game advances a round with
+// `connectedPlayers().every(p => p.answered)`, so one closed tab meant the room waited for
+// an answer that was never coming — for ever, in the games with no timer. It is also what
+// picks the 👑 captain, so a dead phone could hold the crown and freeze the room.
 function connectedPlayers() {
-    return H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+    return H.players.filter(p => {
+        if (p.id === myId) return isHost && !isTvHost;
+        return typeof isPresent === 'function' ? isPresent(p, guestConns) : !!guestConns[p.id];
+    });
 }
 
 // ── 👑 captain (TV-host rooms) ──────────────────────────────────────────────
@@ -1032,7 +1043,7 @@ function setupGuestConn(conn) {
                 // Same device (cid) always reclaims its seat; a matching NAME only reclaims a seat
                 // nobody has been heard from lately. Shared, so all games agree — see common.js.
                 const zombie = typeof claimSeat === 'function'
-                    ? claimSeat(H.players, msg, conn.peer, guestConns)
+                    ? claimSeat(H.players, msg, conn.peer, guestConns, H.phase === 'lobby')
                     : H.players.find(p => msg.cid && p.cid === msg.cid && p.id !== conn.peer);
                 if (zombie) zombie.id = conn.peer;
                 else hostAddPlayer(conn.peer, name, msg.avatar);

@@ -599,7 +599,7 @@ function isPresent(player, conns) {
 //          the name is left to go on.
 //
 // Returns the player whose seat is being taken over, or null for a genuinely new player.
-function claimSeat(players, msg, newId, conns) {
+function claimSeat(players, msg, newId, conns, inLobby) {
     if (!Array.isArray(players)) return null;
     const cid = msg && msg.cid;
     const name = String((msg && msg.name) || '').slice(0, 16);
@@ -607,6 +607,19 @@ function claimSeat(players, msg, newId, conns) {
         const sameDevice = players.find(p => p.cid === cid && p.id !== newId);
         if (sameDevice) return sameDevice;
     }
+    if (!name) return null;
+    // IN THE LOBBY a matching name always takes the seat, without waiting for the old one to
+    // go quiet. Somebody restarting their browser is back in about five seconds — well
+    // inside PRESENCE_MS — so making them wait it out is what produced a lobby reading
+    // "Neil, Karen, Karen, Karen", every ghost showing a green dot. And in a lobby there is
+    // nothing to steal: no score, no position, no hand. The worst case is two real people
+    // who both typed "Karen", and one of them retypes their name.
+    if (inLobby) {
+        const sameName = players.find(p => p.name === name && p.id !== newId);
+        if (sameName) return sameName;
+    }
+    // MID-GAME the same shortcut would hand somebody else's score away, so a name only
+    // reclaims a seat nobody has been heard from lately.
     return players.find(p => p.name === name && p.id !== newId && !isPresent(p, conns)) || null;
 }
 

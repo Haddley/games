@@ -209,3 +209,93 @@ test('plumptrek: leave and rejoin over and over mid-game, keeping your place eve
     await ben.ctx.close(); await ava.ctx.close();
     await tv.close();
 });
+
+// Straight from the photo Neil sent: a Tic Tac Toe TV bracket showing
+// "4 players — Neil, Karen, Karen, Karen". One person, three seats.
+//
+// The earlier per-game test above passed while this was still broken, because it only ever
+// closed ONE browser and ticktacktoe's own rule happened to cope with that shape. This one
+// reproduces what actually happened: the same person restarting repeatedly while another
+// player sits in the room the whole time.
+test('ticktacktoe: one person restarting three times is one seat in the bracket, not four',
+    async ({ browser }) => {
+    const spec = GAMES.find(x => x.g === 'ticktacktoe');
+    const { tv, code } = await openRoom(browser, spec);
+
+    // Neil joins and STAYS — the bracket must keep him while Karen comes and goes
+    const neil = await joinFresh(browser, spec, code, 'Neil');
+    await expect.poll(() => seatCount(tv, spec), { timeout: 30_000 }).toBe(1);
+
+    const ghosts = [];
+    let karen = await joinFresh(browser, spec, code, 'Karen');
+    await expect.poll(() => seatCount(tv, spec), { timeout: 30_000 }).toBe(2);
+
+    for (let i = 1; i <= 3; i++) {
+        // THE FAITHFUL REPRODUCTION, and it took two goes to get right.
+        //
+        // Closing the browser context is NOT the same thing: Playwright tears the peer
+        // connection down gracefully, so conn.on('close') fires — which is the one signal a
+        // real dead phone never sends, and it happens to be exactly what the old rule needed
+        // in order to work. A test built that way passes against the bug.
+        //
+        // What actually happens in the room is SILENCE: the old page is still "connected" as
+        // far as the host is concerned, it has simply stopped saying anything. So leave the
+        // page open, stop its heartbeat, and age the seat.
+        await karen.page.evaluate(() => { if (typeof stopHeartbeat === 'function') stopHeartbeat(); });
+        await tv.evaluate(() => {
+            const s = App.tour.seats.find(x => x.name === 'Karen');
+            if (s) s.seen = Date.now() - 60_000;      // last heard from a minute ago
+        });
+        ghosts.push(karen);                            // keep it open, holding its connection
+
+        karen = await joinFresh(browser, spec, code, 'Karen');
+        await expect.poll(() => seatNames(tv, spec), { timeout: 30_000 }).toEqual(['Neil', 'Karen']);
+        const names = await seatNames(tv, spec);
+        expect(names.filter(n => n === 'Karen').length,
+            `restart ${i}: the bracket shows ${JSON.stringify(names)}`).toBe(1);
+    }
+
+    // and the bracket is genuinely playable — two seats, not four
+    expect(await seatCount(tv, spec)).toBe(2);
+    for (const g of ghosts) await g.ctx.close();
+    await karen.ctx.close(); await neil.ctx.close();
+    await tv.close();
+});
+
+// The Last Laugh, from the second photo: "Karen (you)" three times over, every one showing a
+// GREEN dot. That is the tell — the ghosts were all inside the presence window, because a
+// person restarting a browser is back in about five seconds. Waiting PRESENCE_MS before
+// giving a lobby seat back is far too slow for the thing it is meant to handle.
+test('lastlaugh: restarting the browser QUICKLY still gets your lobby seat, not a new one',
+    async ({ browser }) => {
+    const spec = GAMES.find(x => x.g === 'lastlaugh');
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/lastlaugh.html');
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await expect.poll(() => tv.evaluate(() => roomCode || ''), { timeout: 30_000 }).toMatch(/^[A-Z]{4}$/);
+    const code = await tv.evaluate(() => roomCode);
+
+    const neil = await joinFresh(browser, spec, code, 'Neil');
+    await expect.poll(() => seatCount(tv, spec), { timeout: 30_000 }).toBe(1);
+
+    const ghosts = [];
+    let karen = await joinFresh(browser, spec, code, 'Karen');
+    await expect.poll(() => seatCount(tv, spec), { timeout: 30_000 }).toBe(2);
+
+    for (let i = 1; i <= 3; i++) {
+        // No aging this time, and no closing: the old page keeps its connection and its
+        // heartbeat is only moments old, exactly as it is when someone reopens their browser
+        // straight away. This is the case the presence window CANNOT solve.
+        await karen.page.evaluate(() => { if (typeof stopHeartbeat === 'function') stopHeartbeat(); });
+        ghosts.push(karen);
+        karen = await joinFresh(browser, spec, code, 'Karen');
+        await expect.poll(() => seatNames(tv, spec), { timeout: 30_000 }).toEqual(['Neil', 'Karen']);
+        const names = await seatNames(tv, spec);
+        expect(names.filter(n => n === 'Karen').length,
+            `restart ${i}: the lobby shows ${JSON.stringify(names)}`).toBe(1);
+    }
+
+    for (const g of ghosts) await g.ctx.close();
+    await karen.ctx.close(); await neil.ctx.close();
+    await tv.close();
+});
