@@ -1,0 +1,713 @@
+{
+  "pack": "The Family Chronicles",
+  "description": "100 made-up funny stories about Karen (Mum), Neil (Dad), Jess (only sister), Ben (big brother), Archie (middle son) and Ollie (youngest). Listen carefully — the questions are about the details!",
+  "questions": [
+    {
+      "title": "The Quick Trip",
+      "story": "Karen announced she was popping to the garden centre 'for five minutes, just for compost'. She returned four hours later with three lavender plants, a bird bath, a scented candle called Autumn Whisper, and a garden gnome she named Gerald. She did not buy any compost.",
+      "prompt": "What did Karen forget to buy?",
+      "choices": ["Compost", "A candle", "A gnome", "Lavender", "A bird bath"],
+      "answer": 0
+    },
+    {
+      "title": "BBQ Legend",
+      "story": "Neil declared himself 'Grill Master Supreme' and refused all help at the family barbecue. He burned eleven sausages, set fire to one oven glove, and served burgers that Ben described as 'charcoal with ketchup'. Neil blamed the wind, the coals, and finally the sausages themselves.",
+      "prompt": "How many sausages did Neil burn?",
+      "choices": ["Seven", "Nine", "Eleven", "Thirteen", "All of them plus the glove"],
+      "answer": 2
+    },
+    {
+      "title": "The Remote Mystery",
+      "story": "The TV remote vanished for six days. Karen blamed Ollie, Ollie blamed Archie, and Archie started a formal investigation with a notebook labelled 'SUSPECTS'. It was finally found in the fridge, inside the salad drawer, next to a yoghurt. Nobody confessed, but Ben went suspiciously quiet.",
+      "prompt": "Where was the remote found?",
+      "choices": ["Under the sofa", "In the salad drawer", "In Ollie's toy box", "In the shed", "Inside a cereal box", "In the washing machine"],
+      "answer": 1
+    },
+    {
+      "title": "Jess vs. The Boys",
+      "story": "Jess challenged all three brothers to a video game tournament, offering to do their chores for a week if she lost. She won every single match, celebrated with a slow dance around the living room, and pinned a chore rota to the fridge titled 'MY STAFF'.",
+      "prompt": "What did Jess call her chore rota?",
+      "choices": ["THE LOSERS' LIST", "MY STAFF", "BROTHER DUTIES", "PAYBACK TIME", "HOUSEHOLD MINIONS"],
+      "answer": 1
+    },
+    {
+      "title": "Archie's Big Business",
+      "story": "Archie set up a stall at the front gate selling 'gourmet lemonade' for two pounds a cup. His only customers were Karen, who bought one out of pity, and the postman, who was too polite to refuse. Archie declared the business 'a success' and immediately retired.",
+      "prompt": "Who were Archie's only customers?",
+      "choices": ["Neil and Jess", "Karen and the postman", "Ben and Ollie", "Two neighbours", "Nobody at all"],
+      "answer": 1
+    },
+    {
+      "title": "Ollie's Pocket Zoo",
+      "story": "Karen did the laundry and found the following in Ollie's trouser pockets: four snail shells, a slice of ham, two conkers, a plastic dinosaur, and a note that said 'do not look in my pockets'. Ollie said the ham was 'for emergencies'.",
+      "prompt": "What did Ollie say the ham was for?",
+      "choices": ["The dog", "Emergencies", "A snack", "His dinosaur", "Trading at school"],
+      "answer": 1
+    },
+    {
+      "title": "The Sat-Nav Standoff",
+      "story": "On the way to the seaside, the sat-nav said turn left. Neil said 'I know a shortcut' and turned right. Ninety minutes later the family arrived at a cabbage farm, where Neil confidently announced, 'Well, this is a lovely spot for lunch.' Karen has never let him forget it.",
+      "prompt": "Where did Neil's shortcut lead?",
+      "choices": ["A car park", "A cabbage farm", "Back home", "A different beach", "A motorway services", "A field of sheep"],
+      "answer": 1
+    },
+    {
+      "title": "Ben's Protein Phase",
+      "story": "Ben started going to the gym and began adding protein powder to everything: porridge, smoothies, and once, horrifyingly, spaghetti bolognese. The family staged an intervention after he suggested 'protein trifle' for Karen's birthday. Ben agreed to limit himself to shakes, but everyone still checks the lasagne.",
+      "prompt": "What protein-powder creation triggered the family intervention?",
+      "choices": ["Protein spaghetti", "Protein trifle", "Protein roast potatoes", "Protein tea", "Protein pizza"],
+      "answer": 1
+    },
+    {
+      "title": "The Candle Situation",
+      "story": "Neil counted the candles in the living room and found twenty-three. When he suggested Karen might have enough candles, she bought two more the next day, one called Cosy Hearth and one called Winter Cuddle. Neil now measures time in candles. It is currently twenty-five o'clock.",
+      "prompt": "How many candles did Neil originally count?",
+      "choices": ["Nineteen", "Twenty-one", "Twenty-three", "Twenty-five", "Thirty"],
+      "answer": 2
+    },
+    {
+      "title": "Jess's Hair Adventure",
+      "story": "Jess decided to dye a streak of her hair purple using a kit from the chemist. The purple came out perfectly. Unfortunately she also turned one of her ears purple, plus the bathroom sink, one towel, and somehow Ollie's left hand. Ollie refused to wash it off for a week.",
+      "prompt": "Besides her hair, what did Jess accidentally dye?",
+      "choices": ["Her ear, the sink, a towel and Ollie's hand", "The cat and the curtains", "Both ears and the carpet", "Just the sink", "Neil's toothbrush"],
+      "answer": 0
+    },
+    {
+      "title": "Operation Biscuit",
+      "story": "Karen hid a packet of posh chocolate biscuits behind the tinned tomatoes, her secret spot for years. She returned to find only crumbs and a note in Archie's handwriting: 'The biscuits have moved to a better place.' Archie denied everything, despite having chocolate on his chin.",
+      "prompt": "Where did Karen hide her secret biscuits?",
+      "choices": ["Behind the tinned tomatoes", "In the washing machine", "Under her bed", "In an empty cereal box", "In the vegetable drawer", "On top of the wardrobe"],
+      "answer": 0
+    },
+    {
+      "title": "The Smart Doorbell",
+      "story": "Neil installed a smart doorbell so he could 'see who's at the door from anywhere in the world'. In its first week it sent him 400 alerts: 397 were for next door's cat, two were for a pigeon, and one was Neil himself, waving at it to see if it worked.",
+      "prompt": "What triggered 397 of the doorbell alerts?",
+      "choices": ["The postman", "Next door's cat", "A pigeon", "Ollie's football", "Neil waving"],
+      "answer": 1
+    },
+    {
+      "title": "Ollie's Big Question",
+      "story": "During a quiet Sunday dinner, Ollie put down his fork and asked, 'If a tomato is a fruit, is ketchup a smoothie?' Neil choked on his roast potato. Karen said 'sort of'. Ben said 'no'. Jess googled it. Archie has called ketchup 'smoothie' ever since.",
+      "prompt": "What did Ollie ask about ketchup?",
+      "choices": ["Whether it's a smoothie", "Whether it's a soup", "Who invented it", "Whether tomatoes feel pain", "Why it's red"],
+      "answer": 0
+    },
+    {
+      "title": "The Shed of Secrets",
+      "story": "Neil spent an entire weekend 'organising the shed'. Karen looked inside afterwards and found he had mainly built a comfy chair area with a radio, a kettle, and a biscuit tin. Neil described it as 'a workshop'. There were no tools within reach of the chair.",
+      "prompt": "What did Karen find in Neil's 'organised' shed?",
+      "choices": ["Perfectly sorted tools", "A chair, radio, kettle and biscuit tin", "A half-built boat", "Christmas decorations", "Archie's lemonade stand"],
+      "answer": 1
+    },
+    {
+      "title": "Ben's Driving Lesson",
+      "story": "On Ben's first driving lesson with Neil, he did brilliantly for twenty minutes, then panicked at a roundabout and went around it four times because he 'couldn't find the exit'. Neil stayed calm for three laps. On the fourth he quietly said, 'We live on lap two, son.'",
+      "prompt": "How many times did Ben go around the roundabout?",
+      "choices": ["Twice", "Three times", "Four times", "Five times", "They're still there"],
+      "answer": 2
+    },
+    {
+      "title": "The Great Sock Heist",
+      "story": "Every one of Neil's left socks kept disappearing. He suspected the washing machine, then Karen, then 'sock thieves'. The truth emerged when the sofa was moved: the dog had built a nest of fourteen socks behind it, arranged by colour. Everyone agreed the dog had better organisational skills than Neil.",
+      "prompt": "How many socks were in the dog's nest?",
+      "choices": ["Ten", "Twelve", "Fourteen", "Sixteen", "Twenty"],
+      "answer": 2
+    },
+    {
+      "title": "Karen's Label Maker",
+      "story": "Karen got a label maker for her birthday and labelled everything in the kitchen within 48 hours. Cupboards, jars, drawers, the kettle ('KETTLE'), and eventually the label maker itself ('LABEL MAKER'). The family drew the line when a label appeared on Neil's forehead reading 'HUSBAND'.",
+      "prompt": "What did the label on Neil's forehead say?",
+      "choices": ["DAD", "HUSBAND", "NEIL", "GRUMPY", "DO NOT WASH"],
+      "answer": 1
+    },
+    {
+      "title": "Archie's Magic Show",
+      "story": "Archie charged the family 50p each to watch his magic show. His grand finale was making Ollie disappear, which worked perfectly because Ollie simply hid in the airing cupboard and then fell asleep. The show ended with the whole family searching the house for the 'disappeared' Ollie for an hour.",
+      "prompt": "Where did Ollie fall asleep during the magic show?",
+      "choices": ["Under his bed", "In the airing cupboard", "In the shed", "Behind the sofa", "In the car", "In the bath"],
+      "answer": 1
+    },
+    {
+      "title": "The Pancake Incident",
+      "story": "Neil attempted a dramatic pancake flip to impress the kids. The pancake left the pan beautifully, spun twice, and stuck to the kitchen ceiling, where it stayed for two full days because nobody could reach it. Ollie named it 'Ceiling Steve' and said good morning to it daily.",
+      "prompt": "What did Ollie name the ceiling pancake?",
+      "choices": ["Flippy", "Ceiling Steve", "Pancake Pete", "Sir Flapjack", "Dave"],
+      "answer": 1
+    },
+    {
+      "title": "Jess's Homework Excuse",
+      "story": "Jess told her teacher the dog ate her homework. The teacher didn't believe her, so Jess brought in evidence: a chewed maths book, a signed witness statement from Ollie, and a formal apology letter dictated by the dog and 'signed' with a muddy paw print. She got an extension and a merit for creativity.",
+      "prompt": "What evidence did Jess bring to school?",
+      "choices": ["A photo of the dog", "A chewed book, a witness statement and a pawprint apology", "The dog itself", "A note from Karen", "A video recording"],
+      "answer": 1
+    },
+    {
+      "title": "The Thermostat Wars",
+      "story": "Karen likes the house warm. Neil guards the thermostat 'for the bills'. Their secret war escalated for weeks: Karen nudging it up two degrees, Neil sneaking it down three. It ended when Neil installed a smart thermostat with a passcode, and Jess cracked the code in nine minutes. It was 1234.",
+      "prompt": "What was Neil's thermostat passcode?",
+      "choices": ["0000", "1234", "His birthday", "4321", "BBQ1"],
+      "answer": 1
+    },
+    {
+      "title": "Ben's Mystery Smoothie",
+      "story": "Ben made a smoothie with 'whatever was around': banana, spinach, peanut butter, and what he thought was vanilla yoghurt. It was mayonnaise. He drank half of it before his face changed. He described the flavour as 'a betrayal'. The blender has been labelled 'BEN: CHECK FIRST' ever since.",
+      "prompt": "What did Ben accidentally put in his smoothie?",
+      "choices": ["Mustard", "Mayonnaise", "Gravy", "Salad cream", "Horseradish", "Cream cheese"],
+      "answer": 1
+    },
+    {
+      "title": "Ollie the Tooth Tycoon",
+      "story": "Ollie lost a tooth and got two pounds from the tooth fairy. Sensing opportunity, he tried to sell his remaining teeth to the family at 'a discount' — one pound fifty each, 'while stocks last'. Karen declined. Archie offered 20p. Neil asked if there was a loyalty card.",
+      "prompt": "How much did Ollie charge for his remaining teeth?",
+      "choices": ["One pound", "One pound fifty", "Two pounds", "50p", "Two pounds fifty"],
+      "answer": 1
+    },
+    {
+      "title": "The Christmas Rehearsal",
+      "story": "In mid-July, Karen announced a 'Christmas rehearsal' to test a new roast recipe. The family ate turkey in the garden in 28-degree heat, wearing paper hats that stuck to their foreheads. Neil said it was the best Christmas ever. Ollie asked if rehearsal-Christmas meant rehearsal-presents. It did not.",
+      "prompt": "What was the weather like at the Christmas rehearsal?",
+      "choices": ["Snowing", "Raining", "28 degrees and sunny", "Foggy", "Windy"],
+      "answer": 2
+    },
+    {
+      "title": "Archie's Secret Menu",
+      "story": "When Karen and Neil went out, Archie was left in charge of dinner. He created a 'restaurant' called Chez Archie with a menu of exactly one item: cereal, served 'deconstructed' (the box on the table). He charged his siblings a compliment each as payment. Ben paid with 'nice apron'. It was Karen's.",
+      "prompt": "What was the only item on the Chez Archie menu?",
+      "choices": ["Beans on toast", "Deconstructed cereal", "Crisps sandwich", "Microwave pizza", "Toast three ways"],
+      "answer": 1
+    },
+    {
+      "title": "The Fitness Tracker",
+      "story": "Neil got a fitness tracker and became obsessed with his step count. He was caught marching on the spot in the kitchen at 11pm to hit 10,000 steps, and once strapped the tracker to the dog 'as an experiment'. The dog did 22,000 steps. Neil has not spoken about it since.",
+      "prompt": "How many steps did the dog do wearing Neil's tracker?",
+      "choices": ["12,000", "15,000", "18,000", "22,000", "30,000"],
+      "answer": 3
+    },
+    {
+      "title": "Jess's Big Sleep",
+      "story": "Jess claimed she 'barely slept' before her exam. Ben checked the shared tablet: she had fallen asleep at 8:45pm watching a documentary about penguins and slept for eleven hours. Jess maintains the penguins were 'educational stress relief' and that eleven hours 'barely counts as sleeping if you're tired enough'.",
+      "prompt": "What was Jess watching when she fell asleep?",
+      "choices": ["A penguin documentary", "A baking show", "A horror film", "Revision videos", "A dance tutorial"],
+      "answer": 0
+    },
+    {
+      "title": "The Supermarket Split",
+      "story": "Karen sent Neil to the supermarket with a list of six items. He returned with fourteen items, including a novelty cheese board, a plant, and a magazine about camper vans. Of the original six items, he had remembered two: bread and 'the wrong milk'. Karen now texts the list with photos.",
+      "prompt": "How many items from Karen's list did Neil actually get?",
+      "choices": ["All six", "Four", "Three", "Two", "None"],
+      "answer": 3
+    },
+    {
+      "title": "Ollie's Invisible Friend",
+      "story": "Ollie's invisible friend 'Captain Trousers' got blamed for everything for a month: crumbs in the bed, the missing felt tips, a suspicious drawing on the hallway wall. The scam collapsed when Ollie demanded Karen set a dinner place for the Captain, then ate both puddings himself.",
+      "prompt": "What was Ollie's invisible friend called?",
+      "choices": ["Captain Trousers", "Mr Biscuit", "Sergeant Socks", "Big Kevin", "Captain Pants", "The Colonel"],
+      "answer": 0
+    },
+    {
+      "title": "Ben's Leftover Radar",
+      "story": "Karen saved one slice of her famous lasagne for lunch and hid it under a bag of frozen peas. Ben, who can allegedly hear a fridge open from upstairs with headphones on, found and ate it within the hour. His defence: 'It didn't have a label.' The label maker was used within minutes.",
+      "prompt": "Where did Karen hide the last slice of lasagne?",
+      "choices": ["Behind the tinned tomatoes", "Under frozen peas", "In a salad box", "In the shed fridge", "Inside a bread bag"],
+      "answer": 1
+    },
+    {
+      "title": "The Car Wash Surprise",
+      "story": "Neil paid for the deluxe car wash and forgot the sunroof was open. He described the experience as 'a theme park ride I didn't ask for'. The car interior got the deluxe treatment too, including tropical wax scent. Archie now calls the car 'the aquarium'. Neil dried the seats with Karen's hairdryer.",
+      "prompt": "What does Archie now call the car?",
+      "choices": ["The submarine", "The aquarium", "The swamp", "Soggy Sally", "The car wash special"],
+      "answer": 1
+    },
+    {
+      "title": "Karen's Book Club",
+      "story": "Karen hosted book club but hadn't finished the book — she'd read four chapters. She got through the whole evening by saying 'the ending really surprised me' and refilling everyone's glasses at key moments. It later turned out only one of the seven attendees had finished the book. It was a 900-page book.",
+      "prompt": "How many chapters of the book had Karen actually read?",
+      "choices": ["None", "Two", "Four", "Six", "All of them"],
+      "answer": 2
+    },
+    {
+      "title": "Archie's Weather Machine",
+      "story": "Archie convinced Ollie he could control the weather with a cardboard box covered in bottle tops. He charged Ollie 30p for 'guaranteed snow'. It did not snow. Ollie demanded a refund. Archie offered store credit at the weather machine. Ollie accepted, and ordered 'sunshine for Saturday', which — annoyingly for everyone — worked.",
+      "prompt": "How much did Archie charge Ollie for guaranteed snow?",
+      "choices": ["20p", "30p", "50p", "One pound", "A packet of crisps"],
+      "answer": 1
+    },
+    {
+      "title": "The Family Photo",
+      "story": "Karen wanted one nice family photo for the hallway. It took 47 attempts. In various shots: Ollie blinked, Ben yawned, Archie held up bunny ears, Jess was mid-sneeze, and the dog walked through with a stolen shoe. The photo Karen finally framed has Neil's eyes closed. She says it's 'the best of a bad bunch'.",
+      "prompt": "How many attempts did the family photo take?",
+      "choices": ["27", "37", "47", "57", "They gave up"],
+      "answer": 2
+    },
+    {
+      "title": "Jess the Referee",
+      "story": "When Ben and Archie argued over the last slice of pizza, Jess appointed herself referee. She held a formal hearing at the kitchen table, heard both sides, reviewed the evidence, and then ruled — after eleven minutes of deliberation — that the pizza was hers. She'd eaten it before the hearing started.",
+      "prompt": "How did Jess resolve the pizza dispute?",
+      "choices": ["Split it in half", "Gave it to Ollie", "Awarded it to herself, having already eaten it", "Flipped a coin", "Gave it to the dog"],
+      "answer": 2
+    },
+    {
+      "title": "Neil's Password Problem",
+      "story": "Neil forgot the wifi password he himself had set. He tried nine guesses, blamed the router, threatened to phone the internet company, and finally found it written in his own handwriting on a sticky note under the router, where he had put it 'somewhere safe'. The password was BiscuitTin99.",
+      "prompt": "What was the wifi password?",
+      "choices": ["BiscuitTin99", "Lasagne123", "GrillMaster1", "Password99", "TheShed2024", "KarensCandles"],
+      "answer": 0
+    },
+    {
+      "title": "Ollie's Bath Protest",
+      "story": "Ollie declared himself 'allergic to baths' and presented Karen with a petition. It had three signatures: his own, one from 'Captain Trousers', and a paw print. Karen countered with a professional-looking document titled 'The Smell Report'. Ollie took the bath but negotiated two extra bedtime stories as compensation.",
+      "prompt": "How many signatures were on Ollie's anti-bath petition?",
+      "choices": ["One", "Two", "Three", "Five", "Ten"],
+      "answer": 2
+    },
+    {
+      "title": "The Wardrobe Avalanche",
+      "story": "Karen asked Ben to tidy his room. Ben moved everything into his wardrobe and jammed the doors shut, achieving a technically tidy room in four minutes. The wardrobe held for two days before bursting open at 3am with a crash so loud Neil rang 999 before realising it was trainers, not burglars.",
+      "prompt": "How long did Ben's wardrobe hold before the avalanche?",
+      "choices": ["Two hours", "One day", "Two days", "A week", "It's still holding"],
+      "answer": 2
+    },
+    {
+      "title": "Archie's Autograph",
+      "story": "Archie became convinced he'd be famous one day, so he started practising his autograph and 'pre-signing' things around the house to make them valuable. Karen found his signature on the toaster, three bananas, Neil's briefcase, and the dog. He offered to sign Jess's forehead 'for free, this once'. She declined.",
+      "prompt": "Which of these did Archie NOT sign?",
+      "choices": ["The toaster", "Three bananas", "Neil's briefcase", "The dog", "Jess's forehead"],
+      "answer": 4
+    },
+    {
+      "title": "Karen's Gnome Empire",
+      "story": "It started with Gerald the gnome. Within a year Karen had six gnomes, each with a name and a backstory: Gerald, Beryl, Nigel, Susan, Big Trevor and Little Trevor. Neil says he doesn't mind them, but he was once caught moving Big Trevor so it wasn't 'staring through the kitchen window at breakfast'.",
+      "prompt": "Which gnome was staring through the kitchen window?",
+      "choices": ["Gerald", "Nigel", "Big Trevor", "Little Trevor", "Beryl", "Susan"],
+      "answer": 2
+    },
+    {
+      "title": "The Sports Day Sprint",
+      "story": "At school sports day, Neil entered the dads' race declaring he'd 'still got it'. He led for the first half, pulled his hamstring showboating at the halfway cone, and finished last, walking backwards and waving like a champion. Ollie told everyone at school his dad came 'first at the end'.",
+      "prompt": "Where did Neil pull his hamstring?",
+      "choices": ["At the start line", "At the halfway cone", "At the finish", "In the car park", "During the warm-up"],
+      "answer": 1
+    },
+    {
+      "title": "Jess's Cooking Debut",
+      "story": "Jess cooked dinner for the family for the first time: fajitas. They were genuinely delicious, but she used every pan in the kitchen, two mixing bowls, three chopping boards, and somehow the potato masher. The kitchen looked like a crime scene. Jess took a bow and left the washing up 'for her staff'.",
+      "prompt": "What did Jess cook for her debut family dinner?",
+      "choices": ["Spaghetti", "Fajitas", "Curry", "Roast chicken", "Stir fry", "Pizza"],
+      "answer": 1
+    },
+    {
+      "title": "Ben's Alarm Orchestra",
+      "story": "Ben sets seven alarms every morning: 6:30, 6:45, 7:00, 7:05, 7:10, 7:15 and one at 7:20 labelled 'ACTUAL EMERGENCY'. He sleeps through all seven. The only thing that reliably wakes him is Karen opening the fridge downstairs, which gets him up in under a minute.",
+      "prompt": "What reliably wakes Ben up?",
+      "choices": ["The seventh alarm", "The dog barking", "Karen opening the fridge", "Ollie jumping on him", "The smell of toast"],
+      "answer": 2
+    },
+    {
+      "title": "The Tent Situation",
+      "story": "The family went camping. Neil refused to read the tent instructions because he had 'put up hundreds of tents'. Two hours later, the tent resembled a collapsed pterodactyl, and Karen quietly assembled it in twenty minutes using the instructions while Neil held a pole and said 'that's what I was doing'.",
+      "prompt": "How long did Karen take to put up the tent?",
+      "choices": ["Ten minutes", "Twenty minutes", "Forty-five minutes", "Two hours", "She gave up too"],
+      "answer": 1
+    },
+    {
+      "title": "Ollie's Word of the Week",
+      "story": "Ollie learned the word 'technically' and used it constantly for a week. 'Technically I'm not jumping on the bed, I'm bouncing.' 'Technically the dog started it.' It peaked at dinner when he announced, 'Technically, broccoli is a tiny tree, and I don't eat trees.' Nobody had a comeback. He didn't eat the broccoli.",
+      "prompt": "What did Ollie technically refuse to eat?",
+      "choices": ["Tiny trees (broccoli)", "Baby leaves (spinach)", "Orange sticks (carrots)", "Green balls (peas)", "Mash"],
+      "answer": 0
+    },
+    {
+      "title": "Karen's Secret Talent",
+      "story": "At the school quiz night, the tiebreaker question was about 1980s pop lyrics. Karen stood up, sang the entire second verse perfectly, added the dance moves, and won the trophy for the family team. The kids stared in horror and awe. Neil said, 'That's how she got me, you know.'",
+      "prompt": "What was the tiebreaker question about?",
+      "choices": ["80s pop lyrics", "Football scores", "Capital cities", "Soap operas", "Famous gardens"],
+      "answer": 0
+    },
+    {
+      "title": "Archie's Nickname Factory",
+      "story": "Archie went through a phase of giving everyone nicknames. Neil was 'Chief Burnt Sausage', Karen was 'The Candle Queen', Ben was 'Fridge Radar', Jess was 'The Lawyer', and Ollie was 'Pockets'. The nicknames were so accurate that everyone secretly liked them, except Neil, who campaigned unsuccessfully to be 'Grill Master'.",
+      "prompt": "What nickname did Archie give Ben?",
+      "choices": ["Chief Burnt Sausage", "Fridge Radar", "The Lawyer", "Pockets", "Protein Pete", "Wardrobe"],
+      "answer": 1
+    },
+    {
+      "title": "The Ice Cream Negotiation",
+      "story": "The ice cream van came while Karen was on the phone. Ollie needed money fast. He negotiated a loan from Archie at what Archie called 'family rates': 50p borrowed, 70p back by Friday. Jess reviewed the deal, declared it 'outrageous', and lent Ollie the 50p for free — in exchange for his flake.",
+      "prompt": "What did Jess want in exchange for her interest-free loan?",
+      "choices": ["Ollie's flake", "First lick", "50p back by Friday", "A week of compliments", "Nothing at all"],
+      "answer": 0
+    },
+    {
+      "title": "Neil's Karaoke Moment",
+      "story": "At a family wedding, Neil had one lemonade too many and commandeered the karaoke machine. He performed a heartfelt power ballad, pointing at Karen during the chorus, and finished on one knee with a slide across the dance floor that ripped his trousers. He got a standing ovation and borrowed the DJ's spare trousers.",
+      "prompt": "How did Neil finish his karaoke performance?",
+      "choices": ["A backflip", "A knee-slide that ripped his trousers", "A microphone drop", "Crowd surfing", "He fell off the stage"],
+      "answer": 1
+    },
+    {
+      "title": "The Homework Helper",
+      "story": "Neil offered to help Archie with his maths homework, insisting 'maths hasn't changed'. Forty minutes later, Neil had three browser tabs open, a YouTube video paused, and a page of crossed-out working. Archie's teacher marked the question wrong. Archie told her, 'My dad did that one,' which Neil felt was a betrayal.",
+      "prompt": "How did Archie explain the wrong answer to his teacher?",
+      "choices": ["The dog ate the right one", "My dad did that one", "The internet was down", "Captain Trousers did it", "He blamed Ben"],
+      "answer": 1
+    },
+    {
+      "title": "Jess's Plant Hospital",
+      "story": "Jess rescued a dying plant from the supermarket's reduced shelf for 30p and nursed it back to life on her windowsill. Within months she had eleven rescue plants, all named after pop stars. When Karen's prize fern started drooping, Karen quietly left it outside Jess's door overnight, like a plant orphanage.",
+      "prompt": "How much did Jess pay for her first rescue plant?",
+      "choices": ["10p", "30p", "50p", "One pound", "It was free"],
+      "answer": 1
+    },
+    {
+      "title": "Jess In Charge",
+      "story": "Karen and Neil went out for their anniversary and left Jess, as the oldest, officially in charge. She immediately introduced a laminated list of house rules, a swear jar, and a 'quiet hours' policy. By 8pm she had made 80p from the swear jar — all of it, mysteriously, from words Ben said at the football.",
+      "prompt": "How much did Jess's swear jar make in one evening?",
+      "choices": ["50p", "80p", "One pound", "Two pounds", "Nothing"],
+      "answer": 1
+    },
+    {
+      "title": "The Dishwasher Debate",
+      "story": "Neil believes there is one correct way to load the dishwasher, and that he alone knows it. He was caught secretly re-loading it after Karen had filled it, moving every plate two slots along. Karen now loads it deliberately 'wrong' and times how long he lasts. His record is ninety seconds.",
+      "prompt": "What's Neil's record for resisting re-loading the dishwasher?",
+      "choices": ["Ninety seconds", "Five minutes", "An hour", "A whole evening", "He's never resisted"],
+      "answer": 0
+    },
+    {
+      "title": "Ollie's Museum",
+      "story": "Ollie opened a museum in his bedroom, admission 10p. Exhibits included 'a really good stick', a snail shell collection, one of Ben's old trophies relabelled 'MY TROPHY', and 'mystery soup' (a jar of pond water). Karen was given a guided tour that lasted forty minutes. She described it as 'better than some actual museums'.",
+      "prompt": "What was in the 'mystery soup' jar?",
+      "choices": ["Pond water", "Old juice", "Rainwater and leaves", "Bath water", "Nobody knows"],
+      "answer": 0
+    },
+    {
+      "title": "Ben's Big Match",
+      "story": "Ben scored his first goal of the season and celebrated by sliding on his knees towards the crowd — straight through the biggest puddle on the pitch. He emerged soaked and triumphant to discover Neil had missed the goal entirely because he was in the car park arguing with a parking machine.",
+      "prompt": "Why did Neil miss Ben's goal?",
+      "choices": ["He was buying a burger", "He was arguing with a parking machine", "He was on the phone", "He went to the loo", "He was watching the wrong pitch"],
+      "answer": 1
+    },
+    {
+      "title": "Karen's Mug Rules",
+      "story": "Karen has one special mug — the big spotty one — and everyone knows it's hers. Neil used it once, in an emergency, when every other mug was in Ben's bedroom. Karen didn't say a word. She simply drank her tea from Neil's 'World's Best Dad' mug while maintaining eye contact. The message was received.",
+      "prompt": "Which mug is Karen's special mug?",
+      "choices": ["The big spotty one", "The flowery one", "World's Best Mum", "The Christmas mug", "The chipped blue one"],
+      "answer": 0
+    },
+    {
+      "title": "Archie's Fortune Telling",
+      "story": "Archie set up a fortune-telling booth using a snow globe as a crystal ball. For 20p he told Ollie he'd 'find treasure soon' (Archie had hidden 5p in the garden), told Ben he'd 'meet a tall dark stranger' (the new PE teacher), and told Neil he saw 'a great disappointment' (the football results). All three came true. The family is slightly worried.",
+      "prompt": "What did Archie use as a crystal ball?",
+      "choices": ["A snow globe", "A fishbowl", "A marble", "An upside-down vase", "Karen's gazing ball"],
+      "answer": 0
+    },
+    {
+      "title": "The Midnight Feast",
+      "story": "Karen came downstairs at midnight to find Ollie and the dog sitting on the kitchen floor, sharing a packet of crackers in the light of the open fridge. Ollie, completely unbothered, offered her a cracker and said, 'We couldn't sleep. This is a meeting.' Karen took the cracker and joined the meeting.",
+      "prompt": "What did Ollie call his midnight kitchen gathering?",
+      "choices": ["A picnic", "A meeting", "A feast", "A party", "Snack o'clock"],
+      "answer": 1
+    },
+    {
+      "title": "Neil's Gadget Graveyard",
+      "story": "Karen found a drawer containing Neil's abandoned gadgets: a bread maker used twice, an electric tie rack, a device that claims to peel garlic, three tangled fitness bands, and a 'smart' bottle opener that needs charging. Neil defended each purchase individually, then bought a gadget organiser for the drawer. It's still in its box.",
+      "prompt": "What did Neil buy to organise his gadget drawer?",
+      "choices": ["A label maker", "A gadget organiser (still in its box)", "A second drawer", "Nothing", "A shelf for the shed"],
+      "answer": 1
+    },
+    {
+      "title": "Jess's Driving Test",
+      "story": "Jess passed her driving test first time, which she has mentioned approximately four hundred times since. Her first solo drive was to the supermarket for Karen. She returned ninety minutes late, having driven three friends home, been through a drive-thru, and forgotten the one thing Karen asked for: milk. Genetics, Neil said proudly.",
+      "prompt": "What did Jess forget at the supermarket?",
+      "choices": ["Bread", "Milk", "Eggs", "Compost", "The car"],
+      "answer": 1
+    },
+    {
+      "title": "The Barbecue Rematch",
+      "story": "After the sausage disaster, Neil demanded a barbecue rematch. He watched three tutorial videos, bought a meat thermometer, and produced genuinely perfect burgers. Nobody could believe it. Then, while taking a triumphant bow, he stepped backwards onto the ketchup bottle, which erupted up his leg. The photo is Karen's phone wallpaper.",
+      "prompt": "What went wrong during Neil's triumphant bow?",
+      "choices": ["He dropped the burgers", "He stepped on the ketchup bottle", "The barbecue tipped over", "He sat on the cake", "The dog stole a burger"],
+      "answer": 1
+    },
+    {
+      "title": "Ollie's Haircut",
+      "story": "The night before school photos, Ollie decided his fringe was 'too long' and trimmed it himself with craft scissors. The result was a zigzag that made him look permanently surprised. Karen gasped, Jess laughed for ten minutes, and the school photo — zigzag and all — is now framed in the hallway, by unanimous family vote.",
+      "prompt": "What did Ollie use to cut his own fringe?",
+      "choices": ["Kitchen scissors", "Craft scissors", "Nail clippers", "Neil's beard trimmer", "Safety scissors"],
+      "answer": 1
+    },
+    {
+      "title": "Ben's Phone Down the Sofa",
+      "story": "Ben lost his phone and made everyone search for an hour. Karen rang it: silence, because it was on mute. Neil suggested 'retracing steps'. Jess found it in ninety seconds — down the side of the sofa, where Ben was sitting, underneath Ben, who had not moved during the entire search.",
+      "prompt": "Where was Ben's phone?",
+      "choices": ["In the fridge", "Under Ben on the sofa", "In his pocket", "In the car", "In the bathroom", "The dog had it"],
+      "answer": 1
+    },
+    {
+      "title": "The School Bake Sale",
+      "story": "Karen forgot about the bake sale until 9pm the night before. She produced a Victoria sponge from thin air by 11pm. Neil 'helped' by eating the first attempt's broken half, 'for quality control'. The cake won an unofficial prize: a teacher asked for the recipe. Karen said it was 'an old family secret'. It was from the back of the flour bag.",
+      "prompt": "Where was Karen's 'old family secret' recipe actually from?",
+      "choices": ["Her grandmother", "The back of the flour bag", "A TV show", "The internet", "A magazine"],
+      "answer": 1
+    },
+    {
+      "title": "Archie's Translation Service",
+      "story": "When the family got a French exchange student's welcome letter, Archie claimed he could translate it because he 'basically speaks French'. His translation included the phrases 'the hovercraft arrives on Tuesday' and 'please prepare the ceremonial cheese'. Jess, who actually studies French, revealed it was a normal letter about arrival times.",
+      "prompt": "What did Archie claim the letter said to prepare?",
+      "choices": ["The guest room", "The ceremonial cheese", "A welcome banner", "French bread", "The hovercraft"],
+      "answer": 1
+    },
+    {
+      "title": "The Trampoline Decision",
+      "story": "Neil assembled the new trampoline and insisted on 'testing it for safety' before the kids were allowed on. Forty-five minutes later he was still on it, attempting a seat-drop, while all four children stood in a line watching through the window. Karen brought him in with the phrase 'dinner's ready', the only known counter-spell.",
+      "prompt": "How did Karen finally get Neil off the trampoline?",
+      "choices": ["Turned the hose on", "Said dinner was ready", "Sent the dog", "Called his mum", "Waited until dark"],
+      "answer": 1
+    },
+    {
+      "title": "Jess's Playlist Takeover",
+      "story": "On the long drive to Cornwall, Jess connected her phone to the car and appointed herself 'Head of Music'. She DJ'd for three hours, took requests from Ollie only, and blocked all of Neil's suggestions on the grounds of 'dad rock'. Neil hummed his songs quietly to himself instead. She turned the volume up.",
+      "prompt": "Whose song requests did Jess accept?",
+      "choices": ["Only Ollie's", "Only Karen's", "Everyone's", "Nobody's", "Only the dog's"],
+      "answer": 0
+    },
+    {
+      "title": "The Great Monopoly Ban",
+      "story": "Family Monopoly night ended after ninety minutes when Archie was discovered running an illegal side-bank, lending Ollie money at outrageous interest and accepting Ben's shoes as collateral. Karen, as the banker, declared the game void. Monopoly is now banned until further notice. Archie still has one of the shoes.",
+      "prompt": "What did Archie accept from Ben as loan collateral?",
+      "choices": ["His shoes", "His watch", "His dessert", "His phone", "His bike"],
+      "answer": 0
+    },
+    {
+      "title": "Karen's Yoga Era",
+      "story": "Karen started morning yoga in the living room. On day three, mid 'downward dog', the dog joined in, Ollie sat on her back saying 'horsey', and Neil asked where his blue shirt was. She now does yoga at 6am behind a locked door, with a sign that says 'NAMASTE MEANS GO AWAY'.",
+      "prompt": "What does Karen's yoga door sign say?",
+      "choices": ["DO NOT DISTURB", "NAMASTE MEANS GO AWAY", "YOGA IN PROGRESS", "FIND YOUR OWN SHIRT", "QUIET PLEASE"],
+      "answer": 1
+    },
+    {
+      "title": "Ben's Toast Record",
+      "story": "Ben claims to hold the family record for most toast eaten in one sitting: nine slices, set one Saturday morning after football practice. Jess disputes the record on the grounds that two slices were 'technically crumpets'. The Family Records Committee (Ollie) has ruled the record valid. Ollie was paid in toast.",
+      "prompt": "Why does Jess dispute Ben's toast record?",
+      "choices": ["He dropped one slice", "Two were technically crumpets", "The dog helped", "It was eight slices", "There were no witnesses"],
+      "answer": 1
+    },
+    {
+      "title": "The Loft Expedition",
+      "story": "Neil went up to the loft to find one suitcase and was gone so long the family considered sending a rescue party. He eventually descended, without the suitcase, carrying his old records, a lava lamp, and a yearbook. He spent the rest of the evening saying 'no way' at photos of himself with long hair.",
+      "prompt": "What did Neil come down from the loft with?",
+      "choices": ["The suitcase", "Records, a lava lamp and a yearbook", "Christmas decorations", "A tennis racket", "Nothing at all"],
+      "answer": 1
+    },
+    {
+      "title": "Ollie's Restaurant Review",
+      "story": "The family went to a fancy restaurant for Karen's birthday. Ollie inspected his tiny, artistic starter — one scallop with a swirl of sauce — looked up at the waiter and said, kindly but firmly, 'I think you forgot the rest of it.' The waiter brought him extra bread. Ollie left a five-star review: 'good bread'.",
+      "prompt": "What did Ollie say to the waiter about his starter?",
+      "choices": ["This is delicious", "I think you forgot the rest of it", "Can I have chips", "What is this", "I ordered pizza"],
+      "answer": 1
+    },
+    {
+      "title": "Jess's Room Border",
+      "story": "Tired of her brothers 'borrowing' things, Jess installed a border at her bedroom door: a strip of washi tape and a handwritten customs form requiring name, purpose of visit, and estimated duration. Ollie fills in a form every single time, in crayon. Under 'purpose of visit' he always writes the same thing: 'hello'.",
+      "prompt": "What does Ollie always write under 'purpose of visit'?",
+      "choices": ["hello", "borrowing", "visiting", "top secret", "snacks"],
+      "answer": 0
+    },
+    {
+      "title": "The Fire Drill",
+      "story": "After a documentary about emergencies, Neil ran a surprise 7am family fire drill with a whistle. Total evacuation time: nineteen minutes. Jess refused to leave without her plants, Ben slept through the whistle entirely, and Ollie insisted on 'rescuing' the goldfish, tank and all. Neil has scheduled a re-test. Everyone has scheduled to ignore it.",
+      "prompt": "What was the family's fire drill evacuation time?",
+      "choices": ["Four minutes", "Nine minutes", "Nineteen minutes", "Twenty-nine minutes", "They never all got out"],
+      "answer": 2
+    },
+    {
+      "title": "Archie's Homework Machine",
+      "story": "Archie claimed he'd built a 'homework machine' and charged Ollie 40p to use it. The machine was a cardboard box with a slot; inside the box was Archie, doing the homework himself in disguised handwriting. He was caught because he spelled Ollie's own name wrong on the front of the book.",
+      "prompt": "How was Archie's homework machine scam exposed?",
+      "choices": ["Karen looked in the box", "He spelled Ollie's name wrong", "Ollie confessed", "The handwriting matched", "Jess audited the machine"],
+      "answer": 1
+    },
+    {
+      "title": "Karen's Parking Masterclass",
+      "story": "Neil spent five minutes failing to parallel park outside the pizza place while giving a running commentary about the space being 'basically impossible'. Karen swapped seats and parked in one smooth movement, first try, while finishing her sentence about the neighbours' new fence. Ben led a round of applause from the back seat.",
+      "prompt": "What was Karen doing while she parked perfectly?",
+      "choices": ["Finishing a sentence about the fence", "Eating chips", "On the phone", "Telling Neil off", "Checking her lipstick"],
+      "answer": 0
+    },
+    {
+      "title": "The Advent Calendar Audit",
+      "story": "On December 9th, Ollie reported that his advent calendar was 'eating itself' — doors 10 through 14 were already open and empty. Jess dusted for fingerprints with Karen's makeup brush. The culprit was identified when Ben tried to blame the dog, whose paws cannot open tiny cardboard doors. Ben bought Ollie a replacement calendar. And one for the dog.",
+      "prompt": "Which advent calendar doors were mysteriously empty?",
+      "choices": ["1 to 5", "10 to 14", "12 to 16", "20 to 24", "All of them"],
+      "answer": 1
+    },
+    {
+      "title": "Neil's Weather App",
+      "story": "Neil checks three weather apps and trusts none of them. Before the family picnic he consulted all three, tapped his barometer, looked at the sky, and declared 'not a chance of rain'. The family were rained on so hard at the park that Ollie asked if this counted as swimming. Neil blamed 'a rogue microclimate'.",
+      "prompt": "What did Neil blame for the picnic downpour?",
+      "choices": ["The weather apps", "A rogue microclimate", "Climate change", "Karen's planning", "Bad luck"],
+      "answer": 1
+    },
+    {
+      "title": "Jess's Secret Softie",
+      "story": "Jess maintains a strict too-cool-for-family image, but Karen found evidence to the contrary: Jess had spent her Saturday making a photo scrapbook of Ollie's first years for his birthday, complete with captions and glitter. When discovered, Jess denied the glitter 'to her grave'. There was glitter in her hair for three days.",
+      "prompt": "What gave away Jess's secret scrapbooking?",
+      "choices": ["Ollie told everyone", "Glitter in her hair for three days", "Karen found the receipts", "She left it on the table", "Ben saw her buying glue"],
+      "answer": 1
+    },
+    {
+      "title": "The Doorbell Concert",
+      "story": "Neil's smart doorbell has customisable chimes. Archie discovered the settings. For one glorious week, the doorbell played a different animal noise every time: Monday was a cow, Tuesday a duck, Wednesday an elephant. Neil couldn't work out how to change it back and had to ask Archie, who charged a consultation fee of one chocolate bar.",
+      "prompt": "What was the doorbell's Wednesday animal?",
+      "choices": ["A cow", "A duck", "An elephant", "A monkey", "A rooster", "A pig"],
+      "answer": 2
+    },
+    {
+      "title": "Ben's Growth Spurt",
+      "story": "Ben grew four centimetres in one summer and became obsessed with measuring himself against the kitchen doorframe. He passed Karen's height in June and made a certificate about it. He passed Neil in August. Neil demanded a re-measure, stood suspiciously tall, and was caught rising onto his tiptoes by the whole family.",
+      "prompt": "How did Neil cheat the height re-measure?",
+      "choices": ["Wore thick socks", "Stood on tiptoes", "Fluffed up his hair", "Moved the pencil mark", "Wore Karen's heels"],
+      "answer": 1
+    },
+    {
+      "title": "Ollie and the Big School Play",
+      "story": "Ollie was cast as 'Third Tree' in the school play and treated it like the lead role. He rehearsed at home for weeks, developed a tragic backstory for his tree, and on the night, delivered his only line — 'the forest is this way' — with such drama that the audience applauded. He took three bows. The play continued around him.",
+      "prompt": "What was Ollie's only line in the school play?",
+      "choices": ["The forest is this way", "Beware the wolf", "I am a tree", "Follow me", "Winter is coming"],
+      "answer": 0
+    },
+    {
+      "title": "Karen's Garden Rivalry",
+      "story": "Karen's sunflowers came second at the village show, one point behind Mr Patterson's from number 12. Karen was gracious in public and ruthless in private: she has spent months researching 'competition-grade compost', talks to her new sunflowers twice a day, and has named the tallest one 'The Revenge'. Mr Patterson doesn't stand a chance.",
+      "prompt": "What has Karen named her tallest sunflower?",
+      "choices": ["The Champion", "The Revenge", "Big Sunny", "Patterson's Doom", "Gerald Junior"],
+      "answer": 1
+    },
+    {
+      "title": "The Cinema Smuggler",
+      "story": "Cinema snacks being 'daylight robbery', Karen packed her big handbag for the family film trip: five drinks, two multipacks of crisps, a full bag of pick'n'mix, and — the kids discovered with horror and delight — a whole cucumber, cut into batons. Ollie loudly asked for 'the cucumber, please' during the film's quietest scene.",
+      "prompt": "What was the most surprising item in Karen's cinema handbag?",
+      "choices": ["A whole cucumber, cut into batons", "A thermos of soup", "Boiled eggs", "A baguette", "Cold pizza"],
+      "answer": 0
+    },
+    {
+      "title": "Archie's Sleepover Heist",
+      "story": "At Archie's sleepover, the boys planned a midnight snack raid. Archie drew an actual map of the kitchen, marked creaky floorboards with red crosses, and scheduled the raid for 12:30am. The mission failed at 12:31am, when they found Neil already in the kitchen, eating the exact crisps they were after. He made them all toast and swore them to secrecy.",
+      "prompt": "Why did the midnight snack raid fail?",
+      "choices": ["The dog barked", "Neil was already there eating the crisps", "Karen heard the map rustling", "A creaky floorboard", "They fell asleep"],
+      "answer": 1
+    },
+    {
+      "title": "The Wifi Outage",
+      "story": "The wifi went down for one evening. The family described it afterwards like survivors of a disaster. Ben did twenty press-ups 'out of confusion'. Jess read an actual paper book. Archie tried to sell everyone 'premium wifi' (a drawing of a router). Ollie asked if the olden days were like this. Karen said yes, exactly like this, and it was lovely.",
+      "prompt": "What did Archie try to sell during the wifi outage?",
+      "choices": ["Board games", "Premium wifi (a drawing of a router)", "His own phone's hotspot", "Candles", "Entertainment vouchers"],
+      "answer": 1
+    },
+    {
+      "title": "Neil's New Glasses",
+      "story": "Neil needed reading glasses but resisted for a year, holding menus at arm's length and claiming restaurants were 'printing smaller these days'. He finally got glasses and spent a week amazed, reading everything aloud: cereal boxes, shampoo bottles, the dog's food label. His review: 'Did you know the shed instructions had diagrams?'",
+      "prompt": "What did Neil blame before admitting he needed glasses?",
+      "choices": ["Dim lighting", "Restaurants printing smaller", "His eyes being tired", "Cheap menus", "Karen moving things"],
+      "answer": 1
+    },
+    {
+      "title": "Jess's Marathon Month",
+      "story": "Jess announced she was training for a half marathon and made the whole family sponsor her. Her training peaked in week two, then quietly became 'rest weeks'. On race day, powered entirely by stubbornness and one energy gel she described as 'wallpaper paste', she finished the whole thing and cried at the medal. The family cried louder.",
+      "prompt": "How did Jess describe her energy gel?",
+      "choices": ["Wallpaper paste", "Slug slime", "Sweet glue", "Jam gone wrong", "Actually quite nice"],
+      "answer": 0
+    },
+    {
+      "title": "The Goldfish Upgrade",
+      "story": "The family goldfish, Gary, lives a life of luxury because Ollie keeps upgrading the tank with 'features': a plastic castle, a diver, a sign saying GARY'S HOUSE, and a small mirror so Gary 'has a friend'. Ollie gives visitors tours of the tank. Gary's castle is bigger than some of Ollie's own toys. Gary seems happy. Gary is always happy.",
+      "prompt": "Why did Ollie put a mirror in Gary's tank?",
+      "choices": ["So Gary has a friend", "So Gary can check his scales", "For decoration", "To make the tank look bigger", "Jess suggested it"],
+      "answer": 0
+    },
+    {
+      "title": "Ben's Interview Outfit",
+      "story": "For his first part-time job interview at the sports shop, Ben wore Neil's tie, Jess's advice, and Karen's ironing. He was doing brilliantly until the manager asked his weakness, and Ben, mind blank, answered honestly: 'Toast. I eat too much toast.' He got the job. The manager said it was the most believable answer she'd heard all week.",
+      "prompt": "What did Ben say his weakness was?",
+      "choices": ["Toast", "Being too strong", "Perfectionism", "Sleeping in", "Protein powder"],
+      "answer": 0
+    },
+    {
+      "title": "The Anniversary Surprise",
+      "story": "The kids planned a surprise anniversary breakfast for Karen and Neil. Jess directed, Ben carried, Archie 'supervised', Ollie decorated. The toast was cold, the tea was grey, there were seventeen napkins for two people, and the tray featured one flower freshly picked from Karen's prize pot. Karen said it was perfect. She meant it.",
+      "prompt": "How many napkins did the kids provide for two people?",
+      "choices": ["Seven", "Twelve", "Seventeen", "Twenty", "None"],
+      "answer": 2
+    },
+    {
+      "title": "Archie's Snowman Business",
+      "story": "It snowed, and Archie saw a market opportunity: he built three snowmen in the front garden and put up a sign — 'SNOWMEN FOR SALE, VIEWING FREE'. When Jess pointed out that snowmen can't be delivered, Archie pivoted the business model to 'snowman photos, 20p'. He made £1.40 before lunch, mostly from grandparents on the school run.",
+      "prompt": "How did Archie pivot when told snowmen can't be delivered?",
+      "choices": ["Snowman photos for 20p", "Snowman rental", "Building snowmen in customers' gardens", "Selling snowballs", "He gave up"],
+      "answer": 0
+    },
+    {
+      "title": "Karen's Phone Voice",
+      "story": "The kids have documented that Karen has a completely different voice for phone calls — two octaves higher and mysteriously posh. The best recorded example: she answered the phone in full posh mode, said 'Oh hellooo, how lovely,' then covered the mouthpiece and bellowed 'BEN, YOUR FOOTBALL SOCKS ARE NOT A FRIDGE ITEM' in her normal voice.",
+      "prompt": "What did Karen bellow mid-phone-call in her normal voice?",
+      "choices": ["Dinner's ready", "Ben's socks are not a fridge item", "Turn that music down", "The dog's escaped", "Neil, the barbecue's on fire"],
+      "answer": 1
+    },
+    {
+      "title": "The Lawn Stripes",
+      "story": "Neil mowed the lawn in perfect diagonal stripes and was so proud he made everyone come outside to look at it, twice. He then banned all walking on the lawn 'until the stripes settle'. The ban lasted four hours, ending when Neil himself crossed the lawn to retrieve the football he had kicked onto it, showing off to Ollie.",
+      "prompt": "Who broke Neil's lawn ban first?",
+      "choices": ["Ollie", "The dog", "Neil himself", "Ben", "Karen, on purpose"],
+      "answer": 2
+    },
+    {
+      "title": "Ollie's Bedtime Stall",
+      "story": "Ollie's bedtime delay tactics reached new heights: one more story, a glass of water, a different glass of water because 'that water tastes loud', checking on Gary the goldfish, one urgent fact about sharks, and finally a question — 'Do worms have birthdays?' — that Neil is still thinking about. Total delay: fifty-five minutes. A family record.",
+      "prompt": "Why did Ollie reject the first glass of water?",
+      "choices": ["It was too cold", "It tasted loud", "Wrong cup", "It had bubbles", "Gary needed it"],
+      "answer": 1
+    },
+    {
+      "title": "Jess's Study Fortress",
+      "story": "During exam season, Jess turned her room into a study fortress: colour-coded notes on every wall, a revision timetable, noise-cancelling headphones, and a strict no-brothers policy enforced by the customs form. Her one weakness: the dog, who was granted a permanent visa and slept on her feet through every revision session. The dog now knows biology.",
+      "prompt": "Who was granted a permanent visa to Jess's study fortress?",
+      "choices": ["Ollie", "The dog", "Karen", "Gary the goldfish", "Nobody"],
+      "answer": 1
+    },
+    {
+      "title": "The Roast Potato Rules",
+      "story": "Sunday roast has one law: Karen's roast potatoes are counted before serving, and everyone gets exactly four. Neil was caught taking a fifth using the 'distraction cough' technique. His punishment, decreed by the family court (Jess presiding), was to peel next Sunday's potatoes. All of them. While everyone watched. Wearing the apron of shame.",
+      "prompt": "What technique did Neil use to steal a fifth roast potato?",
+      "choices": ["The distraction cough", "The fake phone call", "Sending Ollie as a decoy", "The double-fork lift", "Blaming the dog"],
+      "answer": 0
+    },
+    {
+      "title": "Archie's Time Capsule",
+      "story": "Archie buried a time capsule in the garden 'for the year 3000'. Contents: a crisp packet, a drawing of the family, one of Neil's golf balls, a letter to the future, and — discovered too late — Ben's game controller, which Archie insisted 'the future needs more'. Ben dug up the entire flowerbed the same evening. Karen's dahlias survived. Just.",
+      "prompt": "Which item made Ben dig up the time capsule?",
+      "choices": ["His game controller", "His phone charger", "His football boots", "His headphones", "His wallet"],
+      "answer": 0
+    },
+    {
+      "title": "Karen's Spa Day",
+      "story": "The family gave Karen a spa day for Mother's Day, promising the house would be 'exactly as she left it'. Karen returned relaxed at 6pm to find: the house immaculate, dinner cooking, and all five of them frozen mid-panic, because the dinner was being cooked by Neil, and the smoke alarm went off as she opened the door. She turned around and went back to the spa. (Ten more minutes in the car, but the point was made.)",
+      "prompt": "What happened the moment Karen opened the front door?",
+      "choices": ["The dog escaped", "The smoke alarm went off", "The lights fused", "Ollie cried", "The dinner was perfect"],
+      "answer": 1
+    },
+    {
+      "title": "The Board Game Invention",
+      "story": "Ollie invented a board game called 'Snakes and Ladders and Dragons and Also Space'. The rules changed every turn, always in Ollie's favour. Jess lost on a technicality involving 'invisible lava'. Neil landed on a square Ollie declared was 'a black hole for dads'. Everyone agreed Ollie won, mostly because the rulebook (Ollie) said so.",
+      "prompt": "What was Ollie's board game called?",
+      "choices": ["Snakes and Ladders and Dragons and Also Space", "Super Mega Game", "Ollie's Quest", "Dragons and Space Snakes", "The Lava Game"],
+      "answer": 0
+    },
+    {
+      "title": "The Last Word",
+      "story": "At the end of a long family dinner, Neil raised his glass and gave a heartfelt speech about how lucky he was to have this exact family, chaos and all. There was a rare, warm silence. Then Ollie raised his juice and said, 'And thank you to Gary, who couldn't be here tonight.' Gary the goldfish was, as ever, twelve feet away in the living room.",
+      "prompt": "Why did Ollie thank Gary 'who couldn't be here tonight'?",
+      "choices": ["Gary was at the vet", "Gary the goldfish was in the living room, twelve feet away", "Gary is imaginary", "Gary was asleep", "Gary was on holiday"],
+      "answer": 1
+    }
+  ]
+}

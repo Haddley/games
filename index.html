@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Games — haddley.github.io</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%2307030f' width='100' height='100' rx='20'/><text x='50' y='68' font-size='52' text-anchor='middle'>🕹️</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #07030f; --surface: rgba(26,16,48,0.72); --s2: rgba(40,26,74,0.85);
+            --border: rgba(139,92,246,0.28); --text: #fff; --muted: #8f86b8;
+            --pink: #ff2d78; --violet: #8b5cf6; --cyan: #22d3ee; --gold: #ffc93c;
+        }
+        /* ── Day / light mode (toggled by common.js toggleTheme/applySavedTheme) ── */
+        body.day {
+            --bg: #eceaf6; --surface: rgba(255,255,255,0.90); --s2: #ffffff;
+            --border: rgba(139,92,246,0.30); --text: #1a1636; --muted: #5c5684; --cyan: #0891b2;
+        }
+        body.day::before { opacity: .5; }
+        body {
+            font-family: 'JetBrains Mono', monospace; background: var(--bg); color: var(--text);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 40px 18px 60px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: -25%; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 60% 50% at 20% 15%, rgba(255,45,120,0.15) 0%, transparent 60%),
+                radial-gradient(ellipse 55% 45% at 82% 85%, rgba(34,211,238,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 45% 55% at 75% 18%, rgba(139,92,246,0.15) 0%, transparent 60%);
+            animation: aurora 20s ease-in-out infinite alternate;
+        }
+        @keyframes aurora {
+            0%   { transform: translate3d(-2%,-1%,0) scale(1);    filter: hue-rotate(0deg); }
+            100% { transform: translate3d(2%,2%,0)   scale(1.12); filter: hue-rotate(45deg); }
+        }
+        h1 {
+            font-family: 'Orbitron', sans-serif; font-weight: 900; letter-spacing: 5px;
+            font-size: clamp(1.6rem, 6vw, 2.6rem); text-align: center;
+            background: linear-gradient(90deg, #ff2d78, #8b5cf6, #22d3ee, #ff2d78);
+            background-size: 300% 100%;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            animation: gradShift 7s linear infinite;
+            filter: drop-shadow(0 0 18px rgba(255,45,120,0.35));
+        }
+        @keyframes gradShift { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+        .sub { color: var(--muted); font-size: .72rem; letter-spacing: 3px; text-transform: uppercase; margin: 8px 0 34px; text-align: center; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; width: 100%; max-width: 960px; }
+        a.game {
+            display: block; text-decoration: none; color: var(--text);
+            background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+            padding: 22px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+            box-shadow: 0 10px 32px rgba(0,0,0,0.4);
+            transition: transform .18s, border-color .18s, box-shadow .18s;
+        }
+        a.game:hover { transform: translateY(-4px); border-color: rgba(255,45,120,.6); box-shadow: 0 0 28px rgba(255,45,120,.2), 0 14px 36px rgba(0,0,0,.5); }
+        a.game.featured { border-color: rgba(255,201,60,.55); box-shadow: 0 0 26px rgba(255,201,60,.15), 0 10px 32px rgba(0,0,0,.4); }
+        a.game { animation: cardRise .55s cubic-bezier(.2,.8,.3,1) both; animation-delay: calc(var(--i, 0) * 50ms); }
+        a.game.featured {
+            animation: cardRise .55s cubic-bezier(.2,.8,.3,1) both, featuredGlow 3.2s ease-in-out infinite;
+            animation-delay: calc(var(--i, 0) * 50ms), 1.2s;
+        }
+        @keyframes cardRise { from { opacity: 0; transform: translateY(18px) scale(.97); } to { opacity: 1; transform: none; } }
+        @keyframes featuredGlow {
+            0%, 100% { box-shadow: 0 0 26px rgba(255,201,60,.15), 0 10px 32px rgba(0,0,0,.4); }
+            50%      { box-shadow: 0 0 44px rgba(255,201,60,.32), 0 10px 32px rgba(0,0,0,.4); }
+        }
+        .emoji { font-size: 2rem; margin-bottom: 10px; }
+        .gav { display: inline-block; width: 1em; height: 1em; overflow: visible; vertical-align: middle; }
+        a.game:hover .emoji { animation: emojiBounce .5s cubic-bezier(.2,.8,.3,1); }
+        @keyframes emojiBounce { 0% { transform: scale(1); } 40% { transform: scale(1.35) rotate(-8deg); } 100% { transform: scale(1); } }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+        }
+        .name { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.05rem; letter-spacing: 2px; margin-bottom: 6px; }
+        .desc { color: var(--muted); font-size: .78rem; line-height: 1.55; }
+        .tag {
+            display: inline-block; margin-left: 8px; padding: 2px 9px; border-radius: 10px;
+            font-size: .55rem; letter-spacing: 1px; text-transform: uppercase; vertical-align: middle;
+            background: linear-gradient(90deg, var(--gold), #f59e0b); color: #201200; font-weight: 700;
+        }
+        .inspo { margin-top: 9px; padding-top: 8px; border-top: 1px dashed var(--border); color: var(--muted); font-size: .66rem; letter-spacing: .3px; opacity: .78; }
+        .foot { margin-top: 40px; color: var(--muted); font-size: .7rem; text-align: center; line-height: 1.7; }
+        .foot .tm { display: block; margin-top: 8px; opacity: .62; font-size: .62rem; max-width: 560px; }
+        .foot a { color: var(--cyan); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <h1>GAME NIGHT</h1>
+    <p class="sub">multiplayer browser games — no installs, phones as controllers</p>
+    <div class="grid">
+        <a class="game featured" style="--i:0" href="letterstorm.html">
+            <div class="emoji">🎉</div>
+            <div class="name">LETTER STORM<span class="tag">new</span></div>
+            <div class="desc">1–8 players race to swipe words on their phones while the TV keeps score. Earn prank tokens and hit rivals with ink splats, dizzy spins and freezes. Music, fireworks, QR-code joining.</div>
+            <div class="inspo">💡 Inspired by Boggle Party</div>
+        </a>
+        <a class="game" style="--i:1" href="familytrivia.html">
+            <div class="emoji">📖</div>
+            <div class="name">FAMILY TRIVIA<span class="tag">new</span></div>
+            <div class="desc">The whole family reads a short story on the TV, then answers a multiple-choice question in secret on their phones. Be right when everyone else is wrong for the Lone Wolf payout.</div>
+        </a>
+        <a class="game" style="--i:2" href="fibbers.html">
+            <div class="emoji">🤥</div>
+            <div class="name">FIBBERS!<span class="tag">new</span></div>
+            <div class="desc">Bluff trivia: everyone invents a fake answer, then votes for the truth among the lies. Score for spotting the truth — and for every player your lie fools.</div>
+            <div class="inspo">💡 In the Fictionary tradition — the parlour game behind Balderdash and Fibbage</div>
+        </a>
+        <a class="game" style="--i:3" href="doodleparty.html">
+            <div class="emoji">🎨</div>
+            <div class="name">DOODLE PARTY<span class="tag">new</span></div>
+            <div class="desc">Sketch a secret word on your phone while it appears live on the TV — everyone else races to guess it first. Letter hints, near-miss nudges, drawer rotation.</div>
+            <div class="inspo">💡 Draw-and-guess, in the Pictionary / skribbl.io tradition</div>
+        </a>
+        <a class="game" style="--i:4" href="oddsheep.html">
+            <div class="emoji">🐑</div>
+            <div class="name">THE ODD SHEEP<span class="tag">new</span></div>
+            <div class="desc">Everyone secretly knows the word — except one faker. Drop one-word clues, argue, vote out the sheep… who might still guess their way to victory.</div>
+            <div class="inspo">💡 Hidden-faker parlour game, in the Spyfall / The Chameleon tradition</div>
+        </a>
+        <a class="game" style="--i:5" href="herdmind.html">
+            <div class="emoji">🐮</div>
+            <div class="name">HERD MIND<span class="tag">new</span></div>
+            <div class="desc">Answer like the family would: the biggest herd scores, and the one lone answer wins the Pink Cow — which blocks you from winning until you pass it on.</div>
+            <div class="inspo">💡 Inspired by Herd Mentality</div>
+        </a>
+        <a class="game" style="--i:6" href="categoryclash.html">
+            <div class="emoji">⚡</div>
+            <div class="name">CATEGORY CLASH<span class="tag">new</span></div>
+            <div class="desc">One letter, eight categories, one frantic timer. Unique answers score — duplicates CLASH and cancel. The captain gets a veto for dodgy answers.</div>
+            <div class="inspo">💡 The parlour game Guggenheim — the ancestor of Scattergories</div>
+        </a>
+        <a class="game" style="--i:7" href="bestguess.html">
+            <div class="emoji">🎯</div>
+            <div class="name">BEST GUESS<span class="tag">new</span></div>
+            <div class="desc">Trivia for people who don't know trivia: everyone guesses a number, then bets on whichever guess looks closest. Grandma can win by betting on you.</div>
+            <div class="inspo">💡 Estimate-and-bet, in the Wits &amp; Wagers tradition</div>
+        </a>
+        <a class="game" style="--i:8" href="brokenpencil.html">
+            <div class="emoji">✏️</div>
+            <div class="name">BROKEN PENCIL<span class="tag">new</span></div>
+            <div class="desc">The telephone game in drawings: write, draw, describe, redraw… then watch every chain fall apart on the TV, stroke by stroke. Vote the funniest beat.</div>
+            <div class="inspo">💡 Eat Poop You Cat — the family that gave us Telestrations and Gartic Phone</div>
+        </a>
+        <a class="game" style="--i:9" href="moonlightvillage.html">
+            <div class="emoji">🌙</div>
+            <div class="name">MOONLIGHT VILLAGE<span class="tag">new</span></div>
+            <div class="desc">Werewolf with the TV as narrator: secret roles on phones, night actions, dawn reveals and dramatic day votes. Wolves lurk among the family.</div>
+            <div class="inspo">💡 The classic Werewolf / Mafia parlour game</div>
+        </a>
+        <a class="game" style="--i:10" href="goinggone.html">
+            <div class="emoji"><svg class="gav" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="16" y="78" width="52" height="10" rx="5" fill="#7a4e16"/><rect x="16" y="78" width="52" height="4.5" rx="2.2" fill="#a06a20"/><g transform="rotate(40 58 40)"><rect x="53" y="36" width="9" height="46" rx="4.5" fill="#b97e26"/><rect x="34" y="26" width="48" height="27" rx="9.5" fill="#f4b63e"/><rect x="34" y="26" width="10" height="27" rx="4.5" fill="#d1901f"/><rect x="72" y="26" width="10" height="27" rx="4.5" fill="#d1901f"/><rect x="40" y="31" width="36" height="4" rx="2" fill="#ffd777"/></g></svg></div>
+            <div class="name">GOING, GOING, GONE!<span class="tag">new</span></div>
+            <div class="desc">A live auction of ridiculous lots with hidden values. Outbid the family before the gavel falls, then survive the valuation: treasure or haunted toaster?</div>
+        </a>
+        <a class="game" style="--i:11" href="bingo.html">
+            <div class="emoji">🎫</div>
+            <div class="name">FULL HOUSE BINGO<span class="tag">new</span></div>
+            <div class="desc">The TV is the caller — ball machine, nickname calls and flashboard. Daub your ticket on your phone and smash BINGO! for the line and the full house.</div>
+        </a>
+        <a class="game" style="--i:12" href="liarsdice.html">
+            <div class="emoji">🎲</div>
+            <div class="name">LIAR'S DICE</div>
+            <div class="desc">Bid, bluff and call liar. Each player peeks at their own dice on their phone — last one with dice standing wins.</div>
+            <div class="inspo">💡 The traditional dice-bluffing game (Perudo)</div>
+        </a>
+        <a class="game" style="--i:13" href="cornerthemarket.html">
+            <div class="emoji">🔔</div>
+            <div class="name">CORNER THE MARKET<span class="tag">redone</span></div>
+            <div class="desc">The frantic commodity-trading game, rebuilt party-style: shout-trade card bundles on your phone while the TV runs the trading floor. Corner a commodity, ring the bell — and dodge the Bull &amp; Bear traps.</div>
+            <div class="inspo">💡 Inspired by the Hasbro trading-pit classic</div>
+        </a>
+        <a class="game" style="--i:14" href="ticktacktoe.html">
+            <div class="emoji">⭕</div>
+            <div class="name">TIC TAC TOE</div>
+            <div class="desc">Noughts and crosses as a party game: 2–8 players, a knockout bracket on the TV, one match at a time. Draws replay with the starts swapped, so every match has a winner.</div>
+        </a>
+        <a class="game" style="--i:15" href="rockpaperscissors.html">
+            <div class="emoji">✊</div>
+            <div class="name">ROCK PAPER SCISSORS<span class="tag">new</span></div>
+            <div class="desc">Battle-royale RPS: everyone throws at once on their phones while the TV runs the arena. Lose the clash and you're out — last hand standing wins. 2–12 players, QR joining.</div>
+        </a>
+        <a class="game" style="--i:16" href="lastlaugh.html">
+            <div class="emoji">😂</div>
+            <div class="name">THE LAST LAUGH<span class="tag">new</span></div>
+            <div class="desc">A rotating judge shows a prompt; everyone else plays the funniest card from their hand and the judge crowns a winner. Family or cheeky grown-ups deck, first to 5 laughs wins.</div>
+            <div class="inspo">💡 Judge-picks-the-funniest, in the Apples to Apples / Cards Against Humanity tradition</div>
+        </a>
+        <a class="game" style="--i:17" href="plumptrek.html">
+            <div class="emoji">🐇</div>
+            <div class="name">PLUMP TREK<span class="tag">new</span></div>
+            <div class="desc">Roll, move, and obey whatever the square says. Gimmick cards shove you around, a Build card bends one rule all game, and the Finale card decides how the win is actually won — a duel, a vote, or pure luck.</div>
+            <div class="inspo">💡 Inspired by Chungus Odyssey 2, a Tabletop Simulator board game</div>
+        </a>
+        <a class="game" style="--i:18" href="buzzin.html">
+            <div class="emoji">🐝</div>
+            <div class="name">BUZZIN'<span class="tag">new</span></div>
+            <div class="desc">Say what you see! The TV shows an animated emoji rebus puzzle and the whole room races to BUZZ IN on their phones. First to buzz types the phrase — right scores and reveals it, wrong locks you out. Starring Buzz the bee.</div>
+            <div class="inspo">💡 Say-what-you-see, in the tradition of TV picture-phrase shows and 100 Pics Catchphrase</div>
+        </a>
+    </div>
+    <p class="foot">more at <a href="https://haddley.github.io/">haddley.github.io</a>
+        <span class="tm">These are original games written for one family's game nights, several of them inspired by
+        games we love. Not affiliated with, authorised by or endorsed by their publishers — all names and
+        trademarks belong to their respective owners.</span></p>
+    <script src="common.js"></script>
+</body>
+</html>

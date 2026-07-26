@@ -1,0 +1,2713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Tic Tac Toe - Multiplayer</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230a0a0f' width='100' height='100' rx='20'/><line x1='25' y1='25' x2='45' y2='45' stroke='%23ff6b9d' stroke-width='6' stroke-linecap='round'/><line x1='45' y1='25' x2='25' y2='45' stroke='%23ff6b9d' stroke-width='6' stroke-linecap='round'/><circle cx='65' cy='65' r='12' fill='none' stroke='%234ecdc4' stroke-width='6'/></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0a0a0f;
+            --surface: #14141f;
+            --s2: #1a1a2a;
+            --border: #2a2a3a;
+            --text: #ffffff;
+            --muted: #6b6b8a;
+            --accent: #f59e0b;
+            --ag: rgba(245,158,11,0.2);
+            --danger: #ef4444;
+            --dg: rgba(239,68,68,0.2);
+            --success: #4ade80;
+            --x-color: #ff6b9d;
+            --o-color: #4ecdc4;
+        }
+
+        body.day {
+            --bg: #f5f4ef;
+            --surface: #ffffff;
+            --s2: #edede7;
+            --border: #d4d4cc;
+            --text: #1a1a2a;
+            --muted: #6b6b7a;
+            --accent: #d97706;
+            --ag: rgba(217,119,6,0.15);
+            --danger: #dc2626;
+            --dg: rgba(220,38,38,0.15);
+            --success: #16a34a;
+        }
+        body.day::before {
+            background:
+                radial-gradient(ellipse at 15% 10%, rgba(217,119,6,0.05) 0%, transparent 55%),
+                radial-gradient(ellipse at 85% 90%, rgba(220,38,38,0.05) 0%, transparent 55%);
+        }
+        body.day .hdr h1 {
+            filter: drop-shadow(0 0 12px rgba(217,119,6,0.2));
+        }
+
+        /* ── Theme toggle button ── */
+        .theme-toggle {
+            position: fixed; top: 14px; right: 14px; z-index: 1000;
+            background: var(--s2); border: 1px solid var(--border);
+            color: var(--text); border-radius: 8px;
+            width: 38px; height: 38px; font-size: 1.1rem;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: border-color .15s, background .15s;
+        }
+        .theme-toggle:hover { border-color: var(--accent); }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px 14px 48px;
+            overflow-x: hidden;
+        }
+        body::before {
+            content: '';
+            position: fixed; inset: 0;
+            background:
+                radial-gradient(ellipse at 15% 10%, rgba(245,158,11,0.07) 0%, transparent 55%),
+                radial-gradient(ellipse at 85% 90%, rgba(239,68,68,0.07) 0%, transparent 55%);
+            pointer-events: none; z-index: -1;
+        }
+
+        #app { width: 100%; max-width: 480px; }
+
+        /* ── Header ── */
+        .hdr { text-align: center; margin-bottom: 20px; padding-top: 4px; }
+        .hdr h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.4rem, 6vw, 2rem);
+            font-weight: 900;
+            letter-spacing: 4px;
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 16px rgba(245,158,11,0.3));
+        }
+
+        /* ── Card ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 12px;
+            animation: fadeIn .2s ease-out;
+        }
+        /* section label + subtitle, matching the other games' home layout */
+        .slbl { font-size: .68rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); font-weight: 800; margin-bottom: 12px; }
+        .sub { color: var(--muted); font-size: .72rem; letter-spacing: 2.5px; text-transform: uppercase; text-align: center; font-weight: 700; margin-top: 4px; }
+        .card hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+        .screen { display: none; }
+        .screen.active { display: block; }
+
+        /* ── Buttons ── */
+        .btn {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600; font-size: .875rem; letter-spacing: 1px;
+            padding: 13px 20px; border-radius: 8px; border: none;
+            cursor: pointer; transition: all .15s ease;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:active { transform: scale(.97); }
+        .btn:disabled { opacity: .35; cursor: not-allowed; transform: none !important; }
+        .btn-full { width: 100%; }
+        .btn-p { background: var(--accent); color: #0a0a0f; box-shadow: 0 4px 14px var(--ag); }
+        .btn-p:not(:disabled):hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-g { background: transparent; color: var(--text); border: 1px solid var(--border); }
+        .btn-g:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+        .btn-sm { padding: 8px 14px; font-size: .78rem; }
+
+        .lobby-options { display: flex; flex-direction: column; gap: 16px; }
+
+        /* ── Divider ── */
+        .divider {
+            display: flex; align-items: center; gap: 16px;
+            color: var(--muted); font-size: .75rem;
+            text-transform: uppercase; letter-spacing: 2px;
+        }
+        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+        /* ── Inputs ── */
+        .fg { display: flex; flex-direction: column; gap: 5px; }
+        .fg label { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+        .fg input {
+            background: var(--s2); border: 1px solid var(--border); border-radius: 8px;
+            padding: 11px 14px; color: var(--text);
+            font-family: 'JetBrains Mono', monospace; font-size: .9rem;
+            outline: none; transition: border-color .15s;
+            -webkit-appearance: none; appearance: none;
+        }
+        .fg input:focus { border-color: var(--accent); }
+        .fg input::placeholder { color: var(--muted); }
+        #room-code-input { text-transform: uppercase; letter-spacing: 4px; text-align: center; flex: 1; }
+        .input-wrapper { display: flex; gap: 8px; }
+
+        /* ── Room code display ── */
+        .room-code-display { margin-bottom: 16px; }
+        .room-code-label {
+            font-size: .75rem; color: var(--muted);
+            text-transform: uppercase; letter-spacing: 2px;
+            margin-bottom: 4px; text-align: center;
+        }
+        .room-code {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.2rem; font-weight: 900; letter-spacing: 8px;
+            color: var(--accent); text-align: center;
+            background: var(--s2); border: 1px solid var(--border);
+            border-radius: 10px; padding: 16px; margin: 8px 0;
+        }
+        .share-row { display: flex; justify-content: center; margin-bottom: 8px; }
+        .btn-icon {
+            background: var(--s2); color: var(--text); border: 1px solid var(--border);
+            padding: 8px 14px; border-radius: 8px; cursor: pointer;
+            transition: all .15s; display: inline-flex; align-items: center; gap: 6px;
+            font-family: 'JetBrains Mono', monospace; font-size: .75rem;
+        }
+        .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-icon svg { width: 14px; height: 14px; }
+
+        /* ── Waiting ── */
+        .waiting-indicator {
+            display: flex; align-items: center; justify-content: center;
+            gap: 12px; color: var(--muted); margin: 16px 0;
+        }
+        .waiting-dots { display: flex; gap: 4px; }
+        .waiting-dots span {
+            width: 8px; height: 8px; background: var(--accent);
+            border-radius: 50%; animation: bounce 1.4s ease-in-out infinite;
+        }
+        .waiting-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .waiting-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        /* ── Game header ── */
+        .game-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .players { display: flex; gap: 12px; }
+        .player {
+            display: flex; align-items: center; gap: 7px;
+            padding: 7px 12px; border-radius: 8px;
+            background: var(--s2); border: 1px solid var(--border);
+            font-size: .82rem; transition: all 0.3s;
+        }
+        .player.active { border-color: currentColor; box-shadow: 0 0 16px currentColor; }
+        .player.x { color: var(--x-color); }
+        .player.o { color: var(--o-color); }
+        .player-icon { width: 18px; height: 18px; }
+
+        .connection-status { display: flex; align-items: center; gap: 6px; font-size: .72rem; color: var(--muted); }
+        .connection-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: pulse-dot 2s infinite; }
+        .connection-dot.disconnected { background: var(--danger); animation: none; }
+        @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        /* ── Game board ── */
+        .game-board {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 8px; background: var(--bg); padding: 8px;
+            border-radius: 12px; margin-bottom: 20px;
+            position: relative; /* anchors the .win-strike overlay */
+        }
+        .cell {
+            aspect-ratio: 1; background: var(--surface); border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s ease-out;
+            position: relative;
+        }
+
+        .cell:hover:not(.taken):not(.game-over) {
+            background: var(--border);
+            transform: scale(1.02);
+        }
+
+        .cell.x-hover:hover:not(.taken):not(.game-over) {
+            box-shadow: inset 0 0 30px rgba(255, 107, 157, 0.2);
+        }
+
+        .cell.o-hover:hover:not(.taken):not(.game-over) {
+            box-shadow: inset 0 0 30px rgba(78, 205, 196, 0.2);
+        }
+
+        .cell.taken {
+            cursor: default;
+        }
+
+        .cell.game-over {
+            cursor: default;
+        }
+
+        .cell.winning {
+            animation: win-glow 0.6s ease-in-out infinite alternate;
+        }
+
+        .cell.winning.x {
+            --glow-color: var(--x-color);
+        }
+
+        .cell.winning.o {
+            --glow-color: var(--o-color);
+        }
+
+        @keyframes win-glow {
+            from { box-shadow: inset 0 0 20px var(--glow-color); }
+            to { box-shadow: inset 0 0 40px var(--glow-color); }
+        }
+
+        .cell svg {
+            width: 60%;
+            height: 60%;
+        }
+
+        .cell svg.x-piece {
+            stroke: var(--x-color);
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: 100;
+            stroke-dashoffset: 100;
+            animation: draw-x 0.3s ease-out forwards, piecePop .32s cubic-bezier(.34,1.56,.64,1) both;
+        }
+
+        .cell svg.o-piece {
+            stroke: var(--o-color);
+            stroke-width: 8;
+            stroke-linecap: round;
+            fill: none;
+            stroke-dasharray: 220;
+            stroke-dashoffset: 220;
+            animation: draw-o 0.3s ease-out forwards, piecePop .32s cubic-bezier(.34,1.56,.64,1) both;
+        }
+
+        @keyframes draw-x {
+            to { stroke-dashoffset: 0; }
+        }
+
+        @keyframes draw-o {
+            to { stroke-dashoffset: 0; }
+        }
+
+        .cell.shake {
+            animation: shake 0.3s ease-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
+        }
+
+        /* ── Game status ── */
+        .game-status { text-align: center; font-size: .9rem; margin-bottom: 16px; min-height: 22px; color: var(--muted); }
+        .game-status.your-turn { color: var(--success); }
+
+        /* ── Game actions ── */
+        .game-actions { display: flex; gap: 12px; }
+        .game-actions .btn { flex: 1; }
+
+        /* ── Modal ── */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100; opacity: 0; visibility: hidden; transition: all 0.2s;
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 12px; padding: 24px; text-align: center;
+            max-width: 320px; width: 90%;
+            transform: scale(0.9); transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+        }
+        .modal-overlay.active .modal { transform: scale(1); }
+        .modal h2 { font-family: 'Orbitron', sans-serif; font-size: 1.4rem; margin-bottom: 12px; }
+        .modal p { color: var(--muted); margin-bottom: 20px; font-size: .85rem; }
+        .modal .btn { width: 100%; }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--surface); border: 1px solid var(--border);
+            padding: 10px 20px; border-radius: 8px; font-size: .85rem;
+            opacity: 0; transition: all 0.3s ease-out; z-index: 200;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .toast.success { border-color: var(--success); color: var(--success); }
+        .toast.error { border-color: var(--danger); color: var(--danger); }
+
+        /* ── Error ── */
+        .error-message {
+            color: var(--danger); font-size: .78rem; padding: 8px 12px;
+            background: var(--dg); border: 1px solid var(--danger);
+            border-radius: 8px; margin-top: 8px; display: none;
+        }
+        .error-message.show { display: block; }
+
+        /* ═══════════════════════════════════════
+           AUDIO TOGGLES + FX POLISH (added with the
+           procedural music/SFX engine)
+           ═══════════════════════════════════════ */
+
+        /* sound toggles — column under the theme toggle, same visual language */
+        #sound-togs {
+            position: fixed; top: 60px; right: 14px; z-index: 90;
+            display: flex; flex-direction: column; gap: 6px;
+        }
+        #sound-togs button {
+            width: 34px; height: 34px; padding: 0;
+            background: var(--s2); border: 1px solid var(--border);
+            color: var(--text); border-radius: 8px; font-size: .95rem;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: border-color .15s, opacity .2s, transform .12s;
+        }
+        #sound-togs button:hover { border-color: var(--accent); }
+        #sound-togs button:active { transform: scale(.88); }
+        #sound-togs button.off { opacity: .35; filter: grayscale(1); }
+
+        /* FX layer — particles + floating pop text */
+        .pt {
+            position: fixed; width: 9px; height: 9px; border-radius: 2px;
+            z-index: 950; pointer-events: none;
+            animation: ptFly .75s cubic-bezier(.15,.65,.4,1) forwards;
+        }
+        @keyframes ptFly {
+            0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity: 1; }
+            100% { transform: translate(var(--dx), var(--dy)) rotate(560deg) scale(.3); opacity: 0; }
+        }
+        .pop {
+            position: fixed; z-index: 960; pointer-events: none;
+            font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.4rem;
+            letter-spacing: 2px; white-space: nowrap;
+            animation: popUp 1.1s cubic-bezier(.2,.8,.3,1) forwards;
+            text-shadow: 0 2px 12px rgba(0,0,0,.45);
+        }
+        .pop.x    { color: var(--x-color); }
+        .pop.o    { color: var(--o-color); }
+        .pop.draw { color: var(--muted); }
+        @keyframes popUp {
+            0%   { transform: translate(-50%, 0) scale(.5); opacity: 0; }
+            15%  { transform: translate(-50%, -12px) scale(1.25); opacity: 1; }
+            100% { transform: translate(-50%, -78px) scale(1); opacity: 0; }
+        }
+
+        /* screen entrances — display:none→block toggles restart these exactly
+           once per screen change; nothing here re-renders at high frequency */
+        @keyframes screenIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+        .screen.active { animation: screenIn .35s ease-out both; }
+
+        /* staggered board pop-in on game start / rematch */
+        @keyframes cellIn { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: none; } }
+        #game-screen.active .cell { animation: cellIn .3s cubic-bezier(.34,1.56,.64,1) both; }
+        #game-screen.active .cell:nth-child(2) { animation-delay: .03s; }
+        #game-screen.active .cell:nth-child(3) { animation-delay: .06s; }
+        #game-screen.active .cell:nth-child(4) { animation-delay: .09s; }
+        #game-screen.active .cell:nth-child(5) { animation-delay: .12s; }
+        #game-screen.active .cell:nth-child(6) { animation-delay: .15s; }
+        #game-screen.active .cell:nth-child(7) { animation-delay: .18s; }
+        #game-screen.active .cell:nth-child(8) { animation-delay: .21s; }
+        #game-screen.active .cell:nth-child(9) { animation-delay: .24s; }
+        /* keep the winning glow winning against the entrance rule above */
+        #game-screen.active .cell.winning { animation: win-glow 0.6s ease-in-out infinite alternate; }
+
+        /* piece pop-in overshoot (runs alongside the stroke draw) */
+        @keyframes piecePop { 0% { transform: scale(.4); } 65% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+        /* winning line strike — drawn from first to last winning cell */
+        .win-strike {
+            position: absolute; height: 8px; margin-top: -4px; border-radius: 4px;
+            transform-origin: 0 50%; transform: rotate(var(--ang)) scaleX(1);
+            animation: strikeDraw .45s ease-out, strikePulse 1.4s .5s ease-in-out infinite;
+            pointer-events: none; z-index: 5;
+        }
+        .win-strike.x { background: var(--x-color); box-shadow: 0 0 16px var(--x-color); }
+        .win-strike.o { background: var(--o-color); box-shadow: 0 0 16px var(--o-color); }
+        @keyframes strikeDraw { from { transform: rotate(var(--ang)) scaleX(0); } to { transform: rotate(var(--ang)) scaleX(1); } }
+        @keyframes strikePulse { 0%, 100% { filter: brightness(1); opacity: .92; } 50% { filter: brightness(1.45); opacity: 1; } }
+
+        /* whole-board shake on an invalid move */
+        .game-board.shake-board { animation: boardShake .4s cubic-bezier(.36,.07,.19,.97); }
+        @keyframes boardShake {
+            10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); }
+            30%, 50%, 70% { transform: translateX(-6px); } 40%, 60% { transform: translateX(6px); }
+        }
+
+        /* turn badge breathing glow + winner score pop */
+        .player.active { animation: turnGlow 1.8s ease-in-out infinite; }
+        @keyframes turnGlow {
+            0%, 100% { box-shadow: 0 0 10px currentColor; }
+            50%      { box-shadow: 0 0 22px currentColor; }
+        }
+        .player.score-pop { animation: scorePop .6s cubic-bezier(.34,1.56,.64,1); }
+        @keyframes scorePop { 0% { transform: scale(1); } 40% { transform: scale(1.22); } 100% { transform: scale(1); } }
+
+        /* ── Ambient drifting X / O glyphs behind the app ──
+           low-opacity, non-interactive, generated once on load */
+        #ttt-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+        #ttt-bg .g { position: absolute; opacity: .06; will-change: transform; }
+        #ttt-bg .g svg { display: block; width: 100%; height: 100%; }
+        #ttt-bg .g.x { color: var(--x-color); }
+        #ttt-bg .g.o { color: var(--o-color); }
+        body.day #ttt-bg .g { opacity: .09; }
+        @keyframes tttFloat1 { 0% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(26px,-34px) rotate(60deg); } 100% { transform: translate(0,0) rotate(120deg); } }
+        @keyframes tttFloat2 { 0% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(-32px,28px) rotate(-48deg); } 100% { transform: translate(0,0) rotate(-96deg); } }
+        @keyframes tttFloat3 { 0% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(22px,32px) rotate(42deg); } 100% { transform: translate(0,0) rotate(84deg); } }
+
+        /* ═══════════════════════════════════════
+           TV-HOST / SPECTATOR MODE
+           (big screen owns the room; two phones play,
+            the screen mirrors the board live)
+           ═══════════════════════════════════════ */
+        .divider.tv { margin-top: 4px; }
+        .tv-buttons { display: flex; flex-direction: column; gap: 10px; }
+        .tv-hint { font-size: .66rem; color: var(--muted); text-align: center; margin-top: 2px; }
+        .qr-wrap {
+            width: min(220px, 62vw); margin: 8px auto 12px; border-radius: 13px;
+            overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.4); background: #fffbeb;
+        }
+        .qr-wrap svg { display: block; width: 100%; height: auto; }
+        .tv-players-count { text-align: center; font-size: .8rem; color: var(--muted); margin: 4px 0 14px; }
+        .tv-players-count b { color: var(--accent); }
+        .spectator-tag {
+            display: inline-block; font-size: .62rem; letter-spacing: 1.5px; text-transform: uppercase;
+            color: var(--accent); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px;
+        }
+
+        /* Big-screen layout: widen the app + scale the board with vmin so a
+           TV reads it across a room. Toggled via body.tv-mode. */
+        body.tv-mode { padding: 24px 20px 40px; }
+        body.tv-mode #app { max-width: min(860px, 92vw); }
+        body.tv-mode .hdr h1 { font-size: clamp(2rem, 5vmin, 3.4rem); }
+        body.tv-mode #game-screen .game-board {
+            gap: 1.4vmin; padding: 1.4vmin; max-width: 60vmin; margin: 0 auto 3vmin;
+        }
+        body.tv-mode #game-screen .game-status { font-size: clamp(1rem, 2.6vmin, 1.8rem); min-height: 2.2vmin; }
+        body.tv-mode #game-screen .player { font-size: clamp(.9rem, 2vmin, 1.4rem); padding: 10px 16px; }
+        body.tv-mode #game-screen .player-icon { width: clamp(20px, 2.6vmin, 30px); height: clamp(20px, 2.6vmin, 30px); }
+        body.tv-mode .room-code { font-size: clamp(2.2rem, 6vmin, 4rem); }
+        /* the spectator screen never plays — hide the phone-only action buttons */
+        body.tv-mode #game-actions { display: none; }
+        body.tv-mode .cell { cursor: default; }
+        body.tv-mode .cell:hover:not(.taken):not(.game-over) { transform: none; background: var(--surface); }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+            /* pieces normally appear via the draw animation — show them outright */
+            .cell svg.x-piece, .cell svg.o-piece { stroke-dashoffset: 0; }
+        }
+
+        @media (max-width: 400px) {
+            .hdr h1 { font-size: 1.5rem; }
+            .room-code { font-size: 1.8rem; }
+            .players { flex-direction: column; gap: 8px; }
+            .player { padding: 6px 10px; font-size: .78rem; }
+        }
+
+        /* ── TV knockout bracket ──────────────────────────────────────────────
+           Body-level (like the TV lobby) so the game card's filter/animation can't
+           trap it, and pinned left so it clears the top-right control strip. */
+        #ttt-bracket { position: fixed; left: 2.4vmin; top: 50%; transform: translateY(-50%); z-index: 4;
+            display: none; gap: 2vmin; align-items: center; pointer-events: none; }
+        body.tv-mode #ttt-bracket.on { display: flex; }
+        #ttt-bracket .rd { display: flex; flex-direction: column; gap: 1.1vmin; }
+        #ttt-bracket .rdt { font-size: 1.15vmin; letter-spacing: .22vmin; text-transform: uppercase;
+            color: var(--muted); font-weight: 700; text-align: center; margin-bottom: .3vmin; }
+        #ttt-bracket .mt { display: flex; flex-direction: column; gap: .35vmin; min-width: 15vmin;
+            padding: .8vmin .9vmin; border-radius: 1vmin; background: rgba(20,20,31,.72);
+            border: 1px solid var(--border); backdrop-filter: blur(6px); }
+        #ttt-bracket .mt.live { border-color: var(--accent); box-shadow: 0 0 2.2vmin rgba(245,158,11,.35); }
+        #ttt-bracket .nm { display: flex; justify-content: space-between; gap: .8vmin; align-items: center;
+            font-size: 1.45vmin; font-weight: 600; color: var(--text); white-space: nowrap; }
+        #ttt-bracket .nm .mk { font-size: 1.2vmin; opacity: .9; }
+        #ttt-bracket .nm.won { color: var(--success); }
+        #ttt-bracket .nm.lost { opacity: .34; text-decoration: line-through; }
+        #ttt-bracket .nm.bye { opacity: .34; font-style: italic; }
+        #ttt-bracket .champ { margin-left: .6vmin; font-size: 1.7vmin; font-weight: 700; color: var(--accent); }
+        @media (prefers-reduced-motion: reduce) { #ttt-bracket .mt.live { box-shadow: none; } }
+        /* phone: who's in the tournament, on the waiting screen */
+        .tour-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 14px; }
+        .tour-list .tp { background: var(--s2); border: 1px solid var(--border); border-radius: 999px;
+            padding: 6px 12px; font-size: .82rem; font-weight: 600; }
+        .tour-list .tp.you { border-color: var(--accent); color: var(--accent); }
+        .tour-list .tp.gone { opacity: .4; }
+    </style>
+</head>
+<body>
+<button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Toggle day/night mode">&#x2600;&#xFE0F;</button>
+    <div id="sound-togs">
+        <button id="tog-music" title="Music on/off" onclick="toggleMusic()">&#x1F3B5;</button>
+        <button id="tog-sfx" title="Sound effects on/off" onclick="toggleSfx()">&#x1F50A;</button>
+    </div>
+    <div id="ttt-bg" aria-hidden="true"></div>
+    <div id="app">
+        <div class="hdr">
+            <h1>TIC TAC TOE</h1>
+            <div class="sub">head-to-head noughts &amp; crosses</div>
+        </div>
+
+        <div id="lobby-screen" class="screen active">
+            <div class="card">
+                <div class="slbl">Who are you?</div>
+                <div class="fg">
+                    <label>Your Name</label>
+                    <input type="text" id="player-name-input" placeholder="Enter your name" maxlength="16" data-save-name>
+                </div>
+            </div>
+            <div class="card">
+                <div class="slbl">Start a Game</div>
+                <button class="btn btn-p btn-full" id="create-game-btn">❌ Host on this phone</button>
+                <div class="tv-hint" style="margin-top:8px">2 players — share the room code; the first to join is your opponent.</div>
+            </div>
+            <div class="card">
+                <div class="slbl">Join a Game</div>
+                <div class="fg">
+                    <label>Room Code</label>
+                    <input type="text" id="room-code-input" placeholder="XXXX" maxlength="4" oninput="this.value=this.value.toUpperCase()">
+                </div>
+                <button class="btn btn-g btn-full" id="join-game-btn">📱 Join with your phone</button>
+                <div id="join-error" class="error-message">Room not found or connection failed</div>
+            </div>
+            <div class="card">
+                <div class="slbl">TV / Big Screen</div>
+                <button class="btn btn-p btn-full" id="tv-host-btn">📺 Host the party on this screen</button>
+                <div class="tv-hint" style="margin:6px 0 10px">Shows a big QR — the first two phones to join play as ❌ and ⭕.</div>
+                <hr>
+                <div class="fg">
+                    <label>…or open the scoreboard for an existing room</label>
+                    <input type="text" id="scoreboard-code-input" placeholder="XXXX" maxlength="4" oninput="this.value=this.value.toUpperCase()">
+                </div>
+                <button class="btn btn-g btn-full" id="scoreboard-btn">📺 Open Scoreboard</button>
+                <div id="scoreboard-error" class="error-message">Couldn't open a spectator view for that room</div>
+            </div>
+        </div>
+
+        <div class="card" id="play-card" style="display:none">
+
+            <div id="tv-lobby-screen" class="screen">
+                <div class="room-code-display">
+                    <div class="room-code-label">Scan to join — or enter the code</div>
+                    <div class="qr-wrap" id="tv-qr"></div>
+                    <div class="room-code" id="tv-room-code">----</div>
+                </div>
+                <div class="tv-players-count" id="tv-players-count"><b>0</b> / 2 players joined</div>
+                <div class="waiting-indicator">
+                    <span>Waiting for players</span>
+                    <div class="waiting-dots"><span></span><span></span><span></span></div>
+                </div>
+                <button class="btn btn-g btn-full" id="tv-cancel-btn">Cancel</button>
+            </div>
+
+            <div id="waiting-screen" class="screen">
+                <div class="room-code-display">
+                    <div class="room-code-label">Your Room Code</div>
+                    <div class="room-code" id="room-code-text">----</div>
+                </div>
+                <div class="share-row">
+                    <button class="btn-icon" id="copy-code-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Copy Code
+                    </button>
+                </div>
+
+                <div class="waiting-indicator">
+                    <span>Waiting for opponent</span>
+                    <div class="waiting-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+
+                <div class="tour-list" id="tour-list"></div>
+                <button class="btn btn-p btn-full" id="tour-start-btn" style="display:none">🏆 Start the tournament</button>
+                <button class="btn btn-g btn-full" id="cancel-waiting-btn">Cancel</button>
+            </div>
+
+            <div id="game-screen" class="screen">
+                <div class="game-header">
+                    <div class="players">
+                        <div class="player x" id="player-x">
+                            <svg class="player-icon" viewBox="0 0 24 24" fill="none">
+                                <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                                <line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                            </svg>
+                            <span>Player X</span>
+                        </div>
+                        <div class="player o" id="player-o">
+                            <svg class="player-icon" viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="3"/>
+                            </svg>
+                            <span>Player O</span>
+                        </div>
+                    </div>
+                    <div class="connection-status">
+                        <div class="connection-dot" id="connection-dot"></div>
+                        <span id="connection-text">Connected</span>
+                    </div>
+                </div>
+
+                <div class="game-status" id="game-status">Your turn</div>
+
+                <div class="game-board" id="game-board">
+                    <div class="cell" data-index="0"></div>
+                    <div class="cell" data-index="1"></div>
+                    <div class="cell" data-index="2"></div>
+                    <div class="cell" data-index="3"></div>
+                    <div class="cell" data-index="4"></div>
+                    <div class="cell" data-index="5"></div>
+                    <div class="cell" data-index="6"></div>
+                    <div class="cell" data-index="7"></div>
+                    <div class="cell" data-index="8"></div>
+                </div>
+
+                <div class="game-actions" id="game-actions">
+                    <button class="btn btn-p" id="play-again-btn" style="display: none;">Play Again</button>
+                    <button class="btn btn-g" id="leave-game-btn">Leave Game</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal">
+            <h2 id="modal-title">Game Over</h2>
+            <p id="modal-message">You won!</p>
+            <button class="btn btn-p" id="modal-btn">Play Again</button>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">Copied to clipboard!</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="common.js"></script>
+    <!-- p2p.js: this game keeps its own connection code (TTT_PEER_OPTS), but borrows
+         the shared reconnect curtain + 📡 relay watcher from it. Every use is guarded,
+         so a stale/missing p2p.js can't break the page. -->
+    <script src="p2p.js"></script>
+    <script>
+        'use strict';
+        typeof mountScene === 'function' && mountScene('tictactoe', 'body.tv-mode #app');   // ambient X/O scene along the bottom of the big screen
+
+        // ═══════════════════════════════════════════
+        // AUDIO — procedural playground-duel chiptune + SFX
+        // (light C-major square/triangle palette; X and O
+        //  trade call-and-response phrases. Gesture-started,
+        //  music ~0.33 vol, SFX on top.)
+        // ═══════════════════════════════════════════
+        const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        let AC = null, masterGain = null, musicGain = null, sfxGain = null, noiseBuf = null;
+        let leadBus = null, musicDelay = null;
+        let musicOn = localStorage.getItem('ttt-music') !== '0';
+        let sfxOn   = localStorage.getItem('ttt-sfx')   !== '0';
+
+        function ac() {
+            if (!AC) {
+                try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+                masterGain = AC.createGain(); masterGain.gain.value = 1; masterGain.connect(AC.destination);
+                musicGain  = AC.createGain(); musicGain.gain.value = musicOn ? 0.33 : 0; musicGain.connect(masterGain);
+                sfxGain    = AC.createGain(); sfxGain.gain.value   = sfxOn   ? 0.55 : 0; sfxGain.connect(masterGain);
+                // Lead bus with a short playground slapback echo
+                leadBus = AC.createGain(); leadBus.gain.value = 1; leadBus.connect(musicGain);
+                musicDelay = AC.createDelay(1.2); musicDelay.delayTime.value = 0.28;
+                const fb = AC.createGain(); fb.gain.value = 0.16;
+                const dlp = AC.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 2400;
+                const wet = AC.createGain(); wet.gain.value = 0.15;
+                leadBus.connect(musicDelay); musicDelay.connect(dlp); dlp.connect(fb); fb.connect(musicDelay);
+                dlp.connect(wet); wet.connect(musicGain);
+                const len = AC.sampleRate * 1.2;
+                noiseBuf = AC.createBuffer(1, len, AC.sampleRate);
+                const d = noiseBuf.getChannelData(0);
+                for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+            }
+            if (AC.state === 'suspended') AC.resume();
+            return AC;
+        }
+
+        function tone(freq, dur, { type = 'sine', vol = 0.5, when = 0, slide = 0, dest = null, lp = 0, attack = 0.012 } = {}) {
+            if (!AC) return;
+            const t = AC.currentTime + when;
+            const o = AC.createOscillator(), g = AC.createGain();
+            o.type = type;
+            o.frequency.setValueAtTime(freq, t);
+            if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(slide, 20), t + dur);
+            g.gain.setValueAtTime(0, t);
+            g.gain.linearRampToValueAtTime(vol, t + attack);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+            if (lp) {
+                const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp;
+                o.connect(f); f.connect(g);
+            } else {
+                o.connect(g);
+            }
+            g.connect(dest || sfxGain);
+            o.start(t); o.stop(t + dur + 0.06);
+        }
+
+        function noiseHit(dur, { vol = 0.3, when = 0, hp = 6000, dest = null } = {}) {
+            if (!AC) return;
+            const t = AC.currentTime + when;
+            const src = AC.createBufferSource(); src.buffer = noiseBuf;
+            const f = AC.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hp;
+            const g = AC.createGain();
+            g.gain.setValueAtTime(vol, t);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+            src.connect(f); f.connect(g); g.connect(dest || sfxGain);
+            src.start(t); src.stop(t + dur + 0.05);
+        }
+
+        const mf = m => 440 * Math.pow(2, (m - 69) / 12); // midi → freq
+
+        // ── SFX (playground duel: knocks, pops, taunts) ──
+        // Opponent connected: bright rising pop
+        function sJoin()  { if (!sfxOn || !AC) return; tone(mf(72), 0.07, { type: 'square', vol: 0.2 }); tone(mf(79), 0.12, { type: 'square', vol: 0.2, when: 0.07 }); }
+        // Game start: little C-major jingle (offset so it follows the join pop)
+        function sStart() { if (!sfxOn || !AC) return; [60, 64, 67, 72].forEach((m, i) => tone(mf(m), 0.1, { type: 'square', vol: 0.2, when: 0.3 + i * 0.07, lp: 4200 })); }
+        // X lands: low woody knock
+        function sPlaceX() { if (!sfxOn || !AC) return; tone(196, 0.09, { type: 'triangle', vol: 0.5, slide: 130, attack: 0.004 }); noiseHit(0.03, { vol: 0.1, hp: 1500 }); }
+        // O lands: higher hollow pop
+        function sPlaceO() { if (!sfxOn || !AC) return; tone(620, 0.11, { type: 'sine', vol: 0.4, slide: 520, attack: 0.004 }); noiseHit(0.02, { vol: 0.06, hp: 4000 }); }
+        // Invalid move: soft downward buzz
+        function sInvalid() { if (!sfxOn || !AC) return; tone(150, 0.2, { type: 'square', vol: 0.14, slide: 85, lp: 900 }); }
+        // Two-in-a-row with the third square open: an "uh-oh" tension sting
+        function sTension() { if (!sfxOn || !AC) return; tone(mf(63), 0.09, { type: 'sawtooth', vol: 0.1, when: 0.16, lp: 1800 }); tone(mf(69), 0.16, { type: 'sawtooth', vol: 0.09, when: 0.26, lp: 1800 }); }
+        // Win fanfare: quotes the lobby lead's opening skipping-rope phrase
+        // (down a fourth when the opponent wins), then the noise sweep tail
+        // timed to the .45s line strike
+        function sWinLine(mine) {
+            if (!sfxOn || !AC) return;
+            duckMusic(1.2);
+            const off = mine ? 0 : -7;
+            [72, 74, 76, 74, 76, 79, 76, 74].forEach((m, i) =>
+                tone(mf(m + off), 0.1, { type: 'square', vol: 0.22, when: i * 0.06, lp: 4200, slide: i === 7 ? mf(m + off + 3) : 0 }));
+            noiseHit(0.3, { vol: 0.15, when: 0.44, hp: 6000 });
+        }
+        // Draw: a two-note "wah-wah" shrug
+        function sDraw() { if (!sfxOn || !AC) return; duckMusic(0.9); tone(mf(64), 0.25, { type: 'triangle', vol: 0.22, slide: mf(62) }); tone(mf(62), 0.4, { type: 'triangle', vol: 0.2, when: 0.28, slide: mf(58) }); }
+        // Rematch accepted: quick square jingle
+        function sRematch() { if (!sfxOn || !AC) return; [72, 76, 79, 84].forEach((m, i) => tone(mf(m), 0.09, { type: 'square', vol: 0.22, when: i * 0.06 })); }
+        // Opponent wants a rematch: friendly two-note ping
+        function sNotify() { if (!sfxOn || !AC) return; tone(mf(76), 0.08, { type: 'triangle', vol: 0.22 }); tone(mf(81), 0.14, { type: 'triangle', vol: 0.22, when: 0.09 }); }
+        // Opponent left: soft descending blip
+        function sLeft() { if (!sfxOn || !AC) return; tone(mf(67), 0.14, { type: 'triangle', vol: 0.18 }); tone(mf(60), 0.22, { type: 'triangle', vol: 0.16, when: 0.13 }); }
+
+        // Duck the music briefly so big stingers read clearly (sidechain feel)
+        function duckMusic(dur = 0.5) {
+            if (!AC || !musicGain || !musicOn) return;
+            const t = AC.currentTime;
+            musicGain.gain.cancelScheduledValues(t);
+            musicGain.gain.setValueAtTime(0.1, t);
+            musicGain.gain.linearRampToValueAtTime(0.33, t + dur);
+        }
+
+        // ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
+        // C-major playground chiptune. null = rest; numbers are midi notes.
+        // The in-game leads are a two-voice duel: X's low motif (first half
+        // of each bar-pair) is answered an octave up by O's motif.
+        const TRACKS = {
+            // Skipping-rope sway: C→Am / F→G
+            lobby: { bpm: 100, swing: 0.10, arp: 2, leadLp: 3400,
+                waves: { bass: 'triangle', lead: 'square', stab: 'sine', arpW: 'sine' },
+                bassBars: [
+                    [36,null,43,null, 48,null,43,null, 36,null,43,null, 48,null,45,null, 45,null,52,null, 57,null,52,null, 45,null,52,null, 57,null,55,null],
+                    [41,null,48,null, 53,null,48,null, 41,null,48,null, 53,null,50,null, 43,null,50,null, 55,null,50,null, 43,null,47,null, 50,null,43,null],
+                ],
+                leads: [
+                    [72,null,74,null, 76,null,null,null, 74,null,76,null, 79,null,null,null, 76,null,74,null, 72,null,69,null, 72,null,null,null, null,null,null,null],
+                    [76,null,77,null, 79,null,null,null, 77,null,76,null, 74,null,null,null, 72,null,74,null, 76,null,74,null, 71,null,72,null, null,null,null,null],
+                    [null,null,72,null, 76,null,79,null, 84,null,79,null, 76,null,72,null, 74,null,null,null, 77,null,74,null, 71,null,67,null, 72,null,null,null],
+                    [null,null,null,null, null,null,null,null, 72,null,74,null, 76,null,77,null, 79,null,null,null, null,null,76,null, 74,null,71,null, 72,null,null,null],
+                ],
+                hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+                kick: [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+                stab: [0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0],
+                pads: [
+                    { 0: [48,52,55], 16: [45,48,52] },
+                    { 0: [41,45,48], 16: [43,47,50] },
+                ] },
+            // The duel: relaxed 108 bpm two-step, X asks low, O answers high. C→F / G→C
+            game: { bpm: 108, swing: 0.06, arp: 2, leadLp: 3600,
+                waves: { bass: 'triangle', lead: 'square', stab: 'square', arpW: 'sine' },
+                bassBars: [
+                    [36,null,36,null, 43,null,36,null, 36,null,43,null, 45,null,47,null, 41,null,41,null, 48,null,41,null, 41,null,48,null, 50,null,52,null],
+                    [43,null,43,null, 50,null,43,null, 43,null,50,null, 47,null,45,null, 36,null,36,null, 43,null,36,null, 36,null,40,null, 43,null,47,null],
+                ],
+                leads: [
+                    [64,null,67,null, 64,null,60,null, 64,null,67,null, 69,null,null,null, 76,null,79,null, 76,null,72,null, 76,null,79,null, 81,null,null,null],
+                    [64,null,62,null, 60,null,64,null, 65,null,64,null, 62,null,null,null, 76,null,74,null, 72,null,76,null, 77,null,76,null, 74,null,null,null],
+                    [60,null,null,64, null,67,null,64, 60,null,null,null, null,null,null,null, 72,null,null,76, null,79,null,76, 72,null,null,null, null,null,null,null],
+                    [64,null,64,null, 67,null,69,null, 67,null,64,null, 62,null,60,null, 76,null,76,null, 79,null,81,null, 79,null,77,null, 76,null,72,null],
+                ],
+                hat:  [1,0,1,0, 1,0,1,1, 1,0,1,0, 1,0,1,1, 1,0,1,0, 1,0,1,1, 1,0,1,0, 1,0,1,1],
+                kick: [1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,0,0],
+                stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+                pads: [
+                    { 0: [48,52,55], 16: [41,45,48] },
+                    { 0: [43,47,50], 16: [48,52,55] },
+                ] },
+            // Post-game: sol-mi "na-na" chant march. C→G / Am→F
+            over: { bpm: 112, swing: 0.08, arp: 1, leadLp: 4200,
+                waves: { bass: 'triangle', lead: 'square', stab: 'sine', arpW: 'sine' },
+                bassBars: [
+                    [36,null,48,null, 36,null,48,null, 43,null,55,null, 43,null,55,null, 36,null,48,null, 36,null,48,null, 43,null,55,null, 45,null,47,null],
+                    [45,null,57,null, 45,null,57,null, 41,null,53,null, 41,null,53,null, 45,null,57,null, 41,null,53,null, 43,null,55,null, 48,null,43,null],
+                ],
+                leads: [
+                    [79,null,79,null, 76,null,null,null, 79,79,null,76, null,74,null,null, 74,null,74,null, 71,null,null,null, 74,74,null,71, null,67,null,null],
+                    [76,null,79,null, 84,null,null,null, 83,null,84,null, 79,null,null,null, 81,null,79,null, 77,null,76,null, 74,null,76,null, 72,null,null,null],
+                    [null,null,79,null, 76,null,79,null, 81,null,79,null, 76,null,null,null, 77,null,76,null, 74,null,72,null, 74,null,null,null, null,null,null,null],
+                ],
+                hat:  [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+                kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,1,0],
+                stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+                pads: [
+                    { 0: [48,52,55], 16: [43,47,50] },
+                    { 0: [45,48,52], 16: [41,45,48] },
+                ] },
+        };
+        let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
+        // Adaptive arrangement: 0 = rhythm section only, 1 = +lead, 2 = full (stabs + shimmer).
+        // Key shift transposes every melodic voice (never the drums); there's no
+        // series-score tally in this game yet, so it rests at 0 — wired for later.
+        let musicIntensity = 2, musicKeyShift = 0;
+
+        function playMusicStep(i, t, bar) {
+            const tr = TRACKS[musicTrack];
+            const stepDur = 60 / tr.bpm / 4;
+            const w = tr.waves || {};
+            const k = musicKeyShift;
+            const full = musicIntensity >= 2 || musicUrgent;
+            // Swing: push every off-16th slightly late for a playground lilt
+            const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
+            if (tr.kick[i]) tone(145, 0.22, { type: 'sine', vol: 0.45, when: rel, slide: 44, dest: musicGain });
+            if (tr.hat[i]) {
+                const hv = (i % 4 === 2 ? 0.12 : 0.06) * (0.8 + Math.random() * 0.4);
+                noiseHit(0.045, { vol: hv, when: rel, hp: 9500, dest: musicGain });
+            }
+            const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
+            const b = bassArr[i];
+            if (b != null) tone(mf(b + k), stepDur * 1.6, { type: w.bass || 'triangle', vol: 0.28, when: rel, dest: musicGain, lp: 1000, attack: 0.005 });
+            const pad = tr.pads[bar % tr.pads.length];
+            const ch = i < 16 ? pad[0] : pad[16];
+            if (full && tr.stab && tr.stab[i] && ch)
+                ch.forEach(m => tone(mf(m + 12 + k), stepDur * 0.9, { type: w.stab || 'sine', vol: 0.032, when: rel, lp: 2700, dest: musicGain, attack: 0.004 }));
+            let l = tr.leads[bar % tr.leads.length][i];
+            if (l != null && (musicIntensity >= 1 || musicUrgent)) {
+                if (musicUrgent) l += 12;
+                tone(mf(l + k), stepDur * 1.4, { type: w.lead || 'square', vol: 0.12 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3600, attack: 0.005 });
+            }
+            // Chord shimmer an octave up from the pads
+            if (full && tr.arp && i % tr.arp === 0 && ch)
+                tone(mf(ch[(i / tr.arp) % ch.length] + 24 + k), stepDur * tr.arp * 0.9, { type: w.arpW || 'sine', vol: 0.04, when: rel, lp: 5400, dest: musicGain, attack: 0.003 });
+            if (musicUrgent && i % 4 === 0) noiseHit(0.035, { vol: 0.1, when: rel + stepDur * 2, hp: 11000, dest: musicGain });
+        }
+
+        function musicScheduler() {
+            const tr = TRACKS[musicTrack];
+            const stepDur = 60 / tr.bpm / 4;
+            while (musicNext < AC.currentTime + 0.18) {
+                playMusicStep(musicStep, musicNext, musicBar);
+                musicNext += stepDur;
+                musicStep++;
+                if (musicStep === 32) { musicStep = 0; musicBar++; }
+            }
+        }
+
+        function startMusicLoop() {
+            if (musicTimer || !AC) return;
+            musicNext = AC.currentTime + 0.1;
+            musicStep = 0;
+            musicBar = 0;
+            if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[musicTrack].bpm * 0.5;
+            musicTimer = setInterval(musicScheduler, 30);
+        }
+
+        function setMusic(track) {
+            if (musicTrack === track) return;
+            const wasPlaying = !!(AC && musicTimer);
+            musicTrack = track;
+            musicStep = 0;
+            musicBar = 0;
+            // adaptive: the duel starts lean and fills out once someone threatens a line
+            musicIntensity = track === 'game' ? 1 : 2;
+            if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[track].bpm * 0.5;
+            if (track !== 'game') musicUrgent = false;
+            // one-beat snare fill so phase changes land on a downbeat instead of a hard cut
+            if (wasPlaying) {
+                const s = 60 / TRACKS[track].bpm / 4;
+                for (let f = 0; f < 4; f++) noiseHit(0.06, { vol: 0.1 + f * 0.035, when: f * s, hp: 2800 + f * 900, dest: musicGain });
+                musicNext = AC.currentTime + 4 * s;
+            }
+        }
+
+        function toggleMusic() {
+            musicOn = !musicOn;
+            localStorage.setItem('ttt-music', musicOn ? '1' : '0');
+            if (!AC && musicOn) { ac(); startMusicLoop(); }
+            if (AC && musicGain) musicGain.gain.linearRampToValueAtTime(musicOn ? 0.33 : 0, AC.currentTime + 0.2);
+            document.getElementById('tog-music').classList.toggle('off', !musicOn);
+        }
+        function toggleSfx() {
+            sfxOn = !sfxOn;
+            localStorage.setItem('ttt-sfx', sfxOn ? '1' : '0');
+            if (AC && sfxGain) sfxGain.gain.value = sfxOn ? 0.55 : 0;
+            document.getElementById('tog-sfx').classList.toggle('off', !sfxOn);
+        }
+
+        // Unlock audio on first interaction (browser autoplay policy)
+        let _audioUnlocked = false;
+        document.addEventListener('pointerdown', () => {
+            if (_audioUnlocked) return;
+            _audioUnlocked = true;
+            if (ac()) startMusicLoop();
+        }, { capture: true });
+
+        // ── Visual FX helpers ──
+        function burst(x, y, colors, n = 14) {
+            if (REDUCED) return;
+            for (let i = 0; i < n; i++) {
+                const p = document.createElement('div');
+                p.className = 'pt';
+                const ang = Math.random() * Math.PI * 2;
+                const dist = 40 + Math.random() * 90;
+                p.style.cssText = `left:${x}px;top:${y}px;background:${colors[i % colors.length]};` +
+                    `--dx:${Math.cos(ang) * dist}px;--dy:${Math.sin(ang) * dist - 30}px;`;
+                document.body.appendChild(p);
+                setTimeout(() => p.remove(), 800);
+            }
+        }
+        function popText(x, y, text, cls) {
+            if (REDUCED) return;
+            const el = document.createElement('div');
+            el.className = 'pop ' + cls;
+            el.textContent = text;
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1150);
+        }
+        function shakeBoard() {
+            const b = document.getElementById('game-board');
+            b.classList.remove('shake-board');
+            void b.offsetWidth; // restart the animation
+            b.classList.add('shake-board');
+        }
+        // Strike line drawn across the three winning cells
+        function drawWinStrike(cells, sym) {
+            const board = document.getElementById('game-board');
+            const br = board.getBoundingClientRect();
+            const r1 = board.querySelector(`[data-index="${cells[0]}"]`).getBoundingClientRect();
+            const r2 = board.querySelector(`[data-index="${cells[2]}"]`).getBoundingClientRect();
+            let x1 = r1.left + r1.width / 2 - br.left, y1 = r1.top + r1.height / 2 - br.top;
+            const x2 = r2.left + r2.width / 2 - br.left, y2 = r2.top + r2.height / 2 - br.top;
+            const dx = x2 - x1, dy = y2 - y1, d = Math.hypot(dx, dy) || 1;
+            const ext = r1.width * 0.28; // overshoot past the end cells
+            x1 -= dx / d * ext; y1 -= dy / d * ext;
+            const el = document.createElement('div');
+            el.className = 'win-strike ' + sym.toLowerCase();
+            el.style.cssText = `left:${x1}px;top:${y1}px;width:${d + ext * 2}px;--ang:${Math.atan2(dy, dx)}rad;`;
+            board.appendChild(el);
+        }
+        const WIN_LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+        function hasOpenTwo(board, p) {
+            return WIN_LINES.some(([a, b, c]) => {
+                const t = [board[a], board[b], board[c]];
+                return t.filter(v => v === p).length === 2 && t.includes('');
+            });
+        }
+
+        // Demo/attract AI: mostly-smart (win, block, center, corner) with a dash
+        // of randomness so self-play produces varied wins and the occasional draw.
+        function simPickMove(board, player) {
+            const opp = player === 'X' ? 'O' : 'X';
+            const empty = [];
+            for (let i = 0; i < 9; i++) if (!board[i]) empty.push(i);
+            if (!empty.length) return null;
+            const complete = (pl) => {
+                for (const [a, b, c] of WIN_LINES) {
+                    const cells = [a, b, c], marks = cells.map(i => board[i]);
+                    if (marks.filter(m => m === pl).length === 2 && marks.includes(''))
+                        return cells[marks.indexOf('')];
+                }
+                return -1;
+            };
+            if (Math.random() < 0.8) {
+                let m = complete(player); if (m >= 0) return m;   // take the win
+                m = complete(opp);        if (m >= 0) return m;   // block the loss
+                if (!board[4]) return 4;                          // grab center
+                const corners = [0, 2, 6, 8].filter(i => !board[i]);
+                if (corners.length && Math.random() < 0.7)
+                    return corners[Math.floor(Math.random() * corners.length)];
+            }
+            return empty[Math.floor(Math.random() * empty.length)];
+        }
+
+        // ── Shared PeerJS options (public broker + Metered STUN/TURN) ──
+        const TTT_PEER_OPTS = {
+            debug: 0, host: '0.peerjs.com', port: 443, path: '/', secure: true,
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.relay.metered.ca:80' },
+                    { urls: 'turn:standard.relay.metered.ca:80', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
+                    { urls: 'turn:standard.relay.metered.ca:80?transport=tcp', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
+                    { urls: 'turn:standard.relay.metered.ca:443', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
+                    { urls: 'turns:standard.relay.metered.ca:443?transport=tcp', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' }
+                ]
+            }
+        };
+        function roomURL(code) { return location.origin + location.pathname + '?room=' + code; }
+        function tttSend(conn, msg) { try { if (conn && conn.open) conn.send(msg); } catch (e) {} }
+        // How long a dropped player's seat (and the board) is held for them. Long
+        // enough for a locked phone, a lift, or a wifi→4G hand-off.
+        const TTT_HOLD_MS = 45000;
+        function tttCid() { return typeof clientId === 'function' ? clientId() : null; }
+        function tttWatchRelay(conn) { if (typeof p2pWatchRelay === 'function') p2pWatchRelay(conn); }
+        function tttCurtain(on) { if (typeof p2pCurtain === 'function') p2pCurtain(on); }
+        function tttEsc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+        // ── QR code (themed SVG) — copied from cornerthemarket.html ──
+        function qrSVG(url) {
+            try {
+                const qr = qrcode(0, 'M');
+                qr.addData(url);
+                qr.make();
+                const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+                let rects = '';
+                for (let r = 0; r < n; r++)
+                    for (let c = 0; c < n; c++)
+                        if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+                return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+                    `<rect width="${size}" height="${size}" fill="#fffbeb"/>` +
+                    `<g fill="#0d172a">${rects}</g></svg>`;
+            } catch (e) { return ''; }
+        }
+
+        const App = {
+            peer: null,
+            connection: null,
+            myRole: null,
+            isHost: false,
+            // TV-host / spectator state (see the "TV-HOST + SPECTATOR" section below)
+            isTvHost: false,
+            isViewer: false,
+            spectator: false,      // true on any non-playing screen (TV host + scoreboard)
+            _tvRoom: false,        // true on a phone that joined a TV-hosted room
+            tvConns: [],           // TV host: the (up to two) player connections
+            viewers: [],           // TV host: extra scoreboard connections
+            _xName: '',
+            _oName: '',
+            roomCode: null,
+            playerName: '',
+            opponentName: '',
+            gameState: {
+                board: ['', '', '', '', '', '', '', '', ''],
+                currentPlayer: 'X',
+                winner: null,
+                isGameOver: false,
+                winningCells: []
+            },
+
+            elements: {
+                lobbyScreen: document.getElementById('lobby-screen'),
+                waitingScreen: document.getElementById('waiting-screen'),
+                gameScreen: document.getElementById('game-screen'),
+                createGameBtn: document.getElementById('create-game-btn'),
+                joinGameBtn: document.getElementById('join-game-btn'),
+                playerNameInput: document.getElementById('player-name-input'),
+                roomCodeInput: document.getElementById('room-code-input'),
+                roomCodeText: document.getElementById('room-code-text'),
+                copyCodeBtn: document.getElementById('copy-code-btn'),
+                cancelWaitingBtn: document.getElementById('cancel-waiting-btn'),
+                joinError: document.getElementById('join-error'),
+                gameBoard: document.getElementById('game-board'),
+                gameStatus: document.getElementById('game-status'),
+                playerX: document.getElementById('player-x'),
+                playerO: document.getElementById('player-o'),
+                connectionDot: document.getElementById('connection-dot'),
+                connectionText: document.getElementById('connection-text'),
+                playAgainBtn: document.getElementById('play-again-btn'),
+                leaveGameBtn: document.getElementById('leave-game-btn'),
+                modalOverlay: document.getElementById('modal-overlay'),
+                modalTitle: document.getElementById('modal-title'),
+                modalMessage: document.getElementById('modal-message'),
+                modalBtn: document.getElementById('modal-btn'),
+                toast: document.getElementById('toast'),
+                // TV-host + spectator elements
+                tvLobbyScreen: document.getElementById('tv-lobby-screen'),
+                tvQr: document.getElementById('tv-qr'),
+                tvRoomCode: document.getElementById('tv-room-code'),
+                tvPlayersCount: document.getElementById('tv-players-count'),
+                tvHostBtn: document.getElementById('tv-host-btn'),
+                tvCancelBtn: document.getElementById('tv-cancel-btn'),
+                scoreboardBtn: document.getElementById('scoreboard-btn'),
+                scoreboardInput: document.getElementById('scoreboard-code-input'),
+                scoreboardError: document.getElementById('scoreboard-error'),
+                tourList: document.getElementById('tour-list'),
+                tourStartBtn: document.getElementById('tour-start-btn'),
+                waitingLabel: document.querySelector('#waiting-screen .room-code-label'),
+                waitingIndicatorText: document.querySelector('#waiting-screen .waiting-indicator span')
+            },
+
+            init() {
+                const saved = (typeof savedName === 'function' ? savedName() : '');
+                if (saved) this.elements.playerNameInput.value = saved;
+                this.bindEvents();
+            },
+
+            bindEvents() {
+                this.elements.createGameBtn.addEventListener('click', () => this.createGame());
+                this.elements.joinGameBtn.addEventListener('click', () => this.joinGame());
+                this.elements.roomCodeInput.addEventListener('keyup', (e) => {
+                    if (e.key === 'Enter') this.joinGame();
+                });
+                this.elements.copyCodeBtn.addEventListener('click', () => this.copyRoomCode());
+                this.elements.cancelWaitingBtn.addEventListener('click', () => this.cancelWaiting());
+                this.elements.tourStartBtn.addEventListener('click', () => this.tourStart());
+                this.elements.leaveGameBtn.addEventListener('click', () => this.leaveGame());
+                this.elements.playAgainBtn.addEventListener('click', () => this.requestPlayAgain());
+                this.elements.modalBtn.addEventListener('click', () => this.handleModalAction());
+
+                this.elements.gameBoard.querySelectorAll('.cell').forEach(cell => {
+                    cell.addEventListener('click', () => this.handleCellClick(cell));
+                });
+
+                // TV-host + spectator entry points
+                this.elements.tvHostBtn.addEventListener('click', () => this.hostOnTV());
+                this.elements.tvCancelBtn.addEventListener('click', () => this.cleanup());
+                this.elements.scoreboardBtn.addEventListener('click', () => this.openScoreboard());
+                this.elements.scoreboardInput.addEventListener('keyup', (e) => {
+                    if (e.key === 'Enter') this.openScoreboard();
+                });
+            },
+
+            showScreen(screenName) {
+                this.elements.lobbyScreen.classList.remove('active');
+                this.elements.waitingScreen.classList.remove('active');
+                this.elements.gameScreen.classList.remove('active');
+                this.elements.tvLobbyScreen.classList.remove('active');
+
+                if (screenName === 'lobby') {
+                    this.elements.lobbyScreen.classList.add('active');
+                } else if (screenName === 'waiting') {
+                    this.elements.waitingScreen.classList.add('active');
+                } else if (screenName === 'game') {
+                    this.elements.gameScreen.classList.add('active');
+                } else if (screenName === 'tv-lobby') {
+                    this.elements.tvLobbyScreen.classList.add('active');
+                }
+
+                // the lobby has its own cards; the shared play-card wraps the other screens
+                const playCard = document.getElementById('play-card');
+                if (playCard) playCard.style.display = (screenName === 'lobby') ? 'none' : '';
+
+                // the body-level TV lobby is only visible on the tv-lobby screen; while it
+                // shows, hide #app (its header/inputs) so only the full-screen lobby is seen
+                // (the sound/theme toggles live outside #app, so they stay visible)
+                const tl = document.getElementById('ttt-tvlobby');
+                if (tl) tl.style.display = (screenName === 'tv-lobby') ? 'block' : 'none';
+                const appEl = document.getElementById('app');
+                if (appEl) appEl.style.display = (screenName === 'tv-lobby') ? 'none' : '';
+
+                // Big-screen styling whenever this browser is a TV host or scoreboard
+                document.body.classList.toggle('tv-mode', !!(this.isTvHost || this.isViewer));
+
+                setMusic(screenName === 'game' ? 'game' : 'lobby');
+            },
+
+            generateRoomCode() {
+                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+                let code = '';
+                for (let i = 0; i < 4; i++) {
+                    code += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                return code;
+            },
+
+            createGame() {
+                this._leaving = false;
+                this.playerName = this.elements.playerNameInput.value.trim() || 'Player X';
+                saveName(this.playerName);
+                this.roomCode = this.generateRoomCode();
+                this.isHost = true;
+                this.myRole = 'X';
+
+                this.elements.roomCodeText.textContent = this.roomCode;
+                // restore the waiting-screen chrome (a TV-room join may have repurposed it)
+                this.elements.waitingLabel.textContent = 'Your Room Code';
+                this.elements.waitingIndicatorText.textContent = 'Waiting for opponent';
+                this.elements.copyCodeBtn.style.display = '';
+                this.showScreen('waiting');
+
+                if (typeof forgetRoom === 'function') forgetRoom();   // hosting: this tab is nobody's guest
+                this.peer = new Peer(this.roomCode, TTT_PEER_OPTS);
+
+                this.peer.on('open', () => {
+                    console.log('Host peer created with ID:', this.roomCode);
+                });
+
+                // A second connection from the SAME device is the same opponent walking
+                // back in after a blip — hand them the board instead of a fresh game.
+                this.peer.on('connection', (conn) => {
+                    conn.on('open', () => {
+                        const md = conn.metadata || {};
+                        const resuming = !!(this._gameLive && this._guestCid && md.cid && md.cid === this._guestCid);
+                        this.connection = conn;
+                        if (md.cid) this._guestCid = md.cid;
+                        tttWatchRelay(conn);
+                        this.setupConnection(resuming);
+                    });
+                });
+
+                // the broker drops idle sockets: reconnect instead of losing the room
+                this.peer.on('disconnected', () => { try { if (this.peer && !this.peer.destroyed) this.peer.reconnect(); } catch (e) {} });
+                this.peer.on('error', (err) => {
+                    if (typeof isRecoverablePeerError === 'function' && isRecoverablePeerError(err)) {
+                        try { if (this.peer && !this.peer.destroyed && this.peer.disconnected) this.peer.reconnect(); } catch (e) {}
+                        return;
+                    }
+                    console.error('Peer error:', err);
+                    this.showToast('Connection error: ' + err.type, 'error');
+                    if (err.type === 'unavailable-id') {
+                        this.showScreen('lobby');
+                    }
+                });
+            },
+
+            joinGame() {
+                this.playerName = this.elements.playerNameInput.value.trim() || 'Player O';
+                saveName(this.playerName);
+                const code = this.elements.roomCodeInput.value.toUpperCase().trim();
+
+                if (code.length !== 4) {
+                    this.elements.joinError.textContent = 'Please enter a 4-character room code';
+                    this.elements.joinError.classList.add('show');
+                    return;
+                }
+
+                this.elements.joinError.classList.remove('show');
+                this.roomCode = code;
+                this.isHost = false;
+                this.myRole = 'O';
+
+                this.elements.joinGameBtn.disabled = true;
+                this.elements.joinGameBtn.textContent = 'Connecting...';
+                this._rejoins = 0;
+                this._leaving = false;
+                this.linkToRoom(false);
+            },
+
+            // One attempt at (re)connecting to this.roomCode — used for the first join
+            // and for every automatic rejoin after a drop. The room id is carried in the
+            // connection metadata so the host recognises the same device coming back.
+            linkToRoom(isRejoin) {
+                if (this.peer) { try { this.peer.destroy(); } catch (e) {} }
+                this.peer = new Peer(TTT_PEER_OPTS);
+
+                let settled = false;
+                const fail = () => {
+                    if (settled || this._leaving) return;
+                    settled = true;
+                    try { if (this.peer) this.peer.destroy(); } catch (e) {}
+                    if (isRejoin) { this.rejoinLater(); return; }
+                    this.elements.joinError.textContent = 'Room not found or connection failed';
+                    this.elements.joinError.classList.add('show');
+                    this.elements.joinGameBtn.disabled = false;
+                    this.elements.joinGameBtn.textContent = 'Join';
+                };
+
+                this.peer.on('open', () => {
+                    this.connection = this.peer.connect(this.roomCode, {
+                        reliable: true,
+                        metadata: { cid: tttCid(), name: this.playerName, role: this.myRole }
+                    });
+
+                    this.connection.on('open', () => {
+                        settled = true;
+                        this._linked = true;
+                        this._rejoins = 0;
+                        tttCurtain(false);
+                        tttWatchRelay(this.connection);
+                        if (typeof rememberRoom === 'function') rememberRoom(this.roomCode, 'player');
+                        this.setupConnection(false);
+                    });
+
+                    this.connection.on('error', (err) => { console.error('Connection error:', err); fail(); });
+                    setTimeout(() => { if (this.connection && !this.connection.open) fail(); }, 5000);
+                });
+
+                this.peer.on('error', (err) => { console.error('Peer error:', err); fail(); });
+                this.peer.on('disconnected', () => { try { if (this.peer && !this.peer.destroyed) this.peer.reconnect(); } catch (e) {} });
+            },
+
+            // Keep trying, backing off, while the curtain is up. The host holds our seat
+            // (and the board) for TTT_HOLD_MS, so this budget stays inside that window.
+            rejoinLater() {
+                this._rejoins = (this._rejoins || 0) + 1;
+                if (this._rejoins > 10) {
+                    tttCurtain(false);
+                    if (typeof forgetRoom === 'function') forgetRoom();
+                    this.showModal('Disconnected', 'Lost the connection to the game.', 'Back to Lobby');
+                    this.elements.modalBtn.textContent = 'Back to Lobby';
+                    return;
+                }
+                setTimeout(() => { if (!this._leaving) this.linkToRoom(true); }, Math.min(600 * this._rejoins, 4000));
+            },
+
+            setupConnection(resuming) {
+                sJoin();
+                this.connection.on('data', (data) => {
+                    this.handleMessage(data);
+                });
+
+                this.connection.on('close', () => {
+                    this.handleDisconnect();
+                });
+
+                this.elements.connectionDot.classList.remove('disconnected');
+                this.elements.connectionText.textContent = this.spectator ? 'Spectating' : 'Connected';
+
+                if (this.isHost) {
+                    if (resuming) {
+                        // same opponent, same board — pick the game back up mid-move
+                        this.connection.send({ type: 'resume', hostName: this.playerName, snap: this.tvSnapshotData() });
+                        this.showToast('Opponent reconnected');
+                        this.updateUI();
+                    } else {
+                        this._gameLive = true;
+                        this.startGame();
+                        this.connection.send({ type: 'start', hostName: this.playerName });
+                    }
+                } else {
+                    // Announce ourselves. A phone-host ignores this (it drives via 'start');
+                    // a TV host uses it to assign us a role (X or O) — or to give us back
+                    // the one we had, if this device is walking back into a held seat.
+                    this.connection.send({ type: 'join', name: this.playerName, cid: tttCid() });
+                }
+            },
+
+            handleMessage(data) {
+                switch (data.type) {
+                    case 'start':
+                        this.opponentName = data.hostName || 'Player X';
+                        this.connection.send({ type: 'hello', guestName: this.playerName });
+                        this.startGame();
+                        break;
+                    case 'hello':
+                        this.opponentName = data.guestName || 'Player O';
+                        this.updatePlayerLabels();
+                        break;
+                    case 'move':
+                        this.handleOpponentMove(data.cell);
+                        break;
+                    case 'playAgain':
+                        this.handlePlayAgainRequest();
+                        break;
+                    case 'playAgainResponse':
+                        this.handlePlayAgainResponse(data.accept);
+                        break;
+                    case 'leave':
+                        this.handleOpponentLeft();
+                        break;
+                    // ── TV knockout tournament ──
+                    case 'tlobby':
+                        this.onTourLobby(data);
+                        break;
+                    case 'match':
+                        this.onTourMatch(data);
+                        break;
+                    case 'watch':
+                        this.onTourWatch(data);
+                        break;
+                    case 'out':
+                        this.onTourOut(data);
+                        break;
+                    case 'champion':
+                        this.onTourChampion(data);
+                        break;
+                    // ── reconnection ──
+                    case 'resume':
+                        this.onResume(data);
+                        break;
+                    case 'oppdrop':
+                        this.elements.connectionText.textContent = 'Opponent reconnecting…';
+                        this.elements.gameStatus.textContent = (data.name || 'Your opponent') + ' dropped — holding the game…';
+                        break;
+                    case 'oppback':
+                        this.elements.connectionText.textContent = 'Connected';
+                        this.updateUI();
+                        break;
+                    // ── TV-hosted room: the big screen assigns our role and starts us ──
+                    case 'assign':
+                        this.onTvAssign(data.role);
+                        break;
+                    case 'begin':
+                        this.onTvBegin(data.xName, data.oName);
+                        break;
+                    case 'full':
+                        this.elements.joinError.textContent = 'That room already has two players.';
+                        this.elements.joinError.classList.add('show');
+                        this.cleanup();
+                        break;
+                }
+            },
+
+            // A phone that joined a TV-hosted room: the screen tells us we are X or O.
+            onTvAssign(role) {
+                this._tvRoom = true;
+                this.spectator = false;
+                this.isHost = false;
+                this.myRole = role;
+                this.opponentName = role === 'X' ? 'Player O' : 'Player X';
+                // Repurpose the waiting screen to show our role while the screen waits
+                this.elements.waitingLabel.textContent = 'You are Player ' + role;
+                this.elements.roomCodeText.textContent = role;
+                this.elements.waitingIndicatorText.textContent = 'Waiting for the other player';
+                this.elements.copyCodeBtn.style.display = 'none';
+                this.elements.joinGameBtn.disabled = false;
+                this.elements.joinGameBtn.textContent = 'Join';
+                this.showScreen('waiting');
+            },
+
+            // ── Phone side of the TV knockout tournament ────────────────────────
+            // The big screen drives everything; the phone just shows where you are in
+            // it (waiting / playing / knocked out) and, for the captain, the start.
+
+            // Repurpose the waiting screen as the tournament screen.
+            tourScreen(label, big, sub, opts) {
+                const o = opts || {};
+                this._tvRoom = true;
+                this.elements.waitingLabel.textContent = label;
+                this.elements.roomCodeText.textContent = big;
+                this.elements.waitingIndicatorText.textContent = sub;
+                this.elements.copyCodeBtn.style.display = o.showCopy ? '' : 'none';
+                this.elements.tourStartBtn.style.display = o.start ? '' : 'none';
+                this.elements.tourStartBtn.textContent = o.startLabel || '🏆 Start the tournament';
+                this.elements.tourList.innerHTML = o.list || '';
+                this.elements.joinGameBtn.disabled = false;
+                this.elements.joinGameBtn.textContent = 'Join';
+                this.showScreen('waiting');
+            },
+
+            onTourLobby(d) {
+                this._tourOver = false;
+                this._tourCanStart = !!d.canStart;
+                const list = (d.players || []).map(p =>
+                    `<span class="tp${p.name === this.playerName ? ' you' : ''}${p.here ? '' : ' gone'}">${p.name}</span>`).join('');
+                if (d.waiting) {
+                    this.tourScreen('Tournament in progress', 'NEXT UP', 'You’re in the next one', { list });
+                    return;
+                }
+                const n = (d.players || []).length;
+                this.tourScreen(
+                    'You’re in the bracket',
+                    n + (n === 1 ? ' player' : ' players'),
+                    d.canStart ? 'Start when everyone’s in' : `👑 ${d.captain || 'The captain'} starts it`,
+                    { list, start: d.canStart });
+            },
+
+            onTourMatch(d) {
+                this._tourOver = false;
+                this._tvRoom = true;
+                this.spectator = false;
+                this.myRole = d.role;
+                this.opponentName = d.opp;
+                this._xName = d.x; this._oName = d.o;
+                this.elements.tourStartBtn.style.display = 'none';
+                this.showScreen('game');
+                this.resetGame();
+                this.updatePlayerLabels();
+                this.updateUI();
+                this.elements.connectionDot.classList.remove('disconnected');
+                this.elements.connectionText.textContent = d.round;
+                if (d.rematch) { sRematch(); this.elements.gameStatus.textContent = 'Draw — you start this time'; }
+            },
+
+            onTourWatch(d) {
+                if (d.waiting) {
+                    this.tourScreen('Tournament in progress', 'NEXT UP', 'You’re in the next one', {});
+                    return;
+                }
+                this.tourScreen(
+                    d.round,
+                    `${d.a} v ${d.b}`,
+                    d.out ? 'You’re out — watch it on the TV' : (d.next ? 'You play the winner' : 'Watch it on the TV'),
+                    {});
+            },
+
+            onTourOut(d) {
+                sLeft();
+                this.tourScreen('Knocked out', d.by ? `${d.by} beat you` : 'Knocked out', 'Watch the rest on the TV', {});
+            },
+
+            onTourChampion(d) {
+                this._tourOver = true;
+                if (d.you) { sWinLine(true); if (typeof startConfetti === 'function') startConfetti(2600); }
+                this.tourScreen(
+                    d.you ? '🏆 You win!' : 'Tournament over',
+                    d.name,
+                    d.you ? 'Champion of the room' : `${d.name} takes the trophy`,
+                    { start: !!d.canStart, startLabel: '🔁 New tournament' });
+            },
+
+            tourStart() {
+                if (this.connection && this.connection.open) {
+                    this.connection.send({ type: this._tourOver ? 'again' : 'start' });
+                }
+                this.elements.tourStartBtn.style.display = 'none';
+            },
+
+            // Walking back into a game already in progress (after a drop or a refresh):
+            // the host is authoritative, so adopt its board rather than our stale one.
+            onResume(data) {
+                const snap = data.snap || {};
+                if (data.role) { this._tvRoom = true; this.spectator = false; this.myRole = data.role; }
+                if (data.hostName) this.opponentName = data.hostName;
+                this._xName = snap.xName || this._xName || 'Player X';
+                this._oName = snap.oName || this._oName || 'Player O';
+                if (!this._tvRoom) this.opponentName = this.opponentName || (this.myRole === 'X' ? this._oName : this._xName);
+                this.showScreen('game');
+                this.resetGame();                                  // clear cells/strikes first
+                this.gameState = {
+                    board: (snap.board || ['', '', '', '', '', '', '', '', '']).slice(),
+                    currentPlayer: snap.currentPlayer || 'X',
+                    winner: snap.winner || null,
+                    isGameOver: !!snap.isGameOver,
+                    winningCells: snap.winningCells || []
+                };
+                for (let i = 0; i < 9; i++) if (this.gameState.board[i]) this.renderCell(i, this.gameState.board[i]);
+                if (this.gameState.isGameOver && this.gameState.winner && this.gameState.winner !== 'draw') this.highlightWinningCells();
+                this.updatePlayerLabels();
+                this.updateUI();
+                this.elements.connectionDot.classList.remove('disconnected');
+                this.elements.connectionText.textContent = 'Connected';
+            },
+
+            // Both players are present — the screen kicks the game off.
+            onTvBegin(xName, oName) {
+                this._xName = xName || 'Player X';
+                this._oName = oName || 'Player O';
+                this.opponentName = this.myRole === 'X' ? this._oName : this._xName;
+                this.elements.copyCodeBtn.style.display = '';
+                this.startGame();
+            },
+
+            startGame() {
+                sStart();
+                this.resetGame();
+                this.showScreen('game');
+                this.updatePlayerLabels();
+                this.updateUI();
+            },
+
+            updatePlayerLabels() {
+                let xName, oName;
+                if (this._tvRoom || this.isTvHost) {
+                    xName = this._xName; oName = this._oName;
+                } else {
+                    xName = this.isHost ? this.playerName : this.opponentName;
+                    oName = this.isHost ? this.opponentName : this.playerName;
+                }
+                this.elements.playerX.querySelector('span').textContent = xName || 'Player X';
+                this.elements.playerO.querySelector('span').textContent = oName || 'Player O';
+            },
+
+            resetGame() {
+                this.gameState = {
+                    board: ['', '', '', '', '', '', '', '', ''],
+                    currentPlayer: 'X',
+                    winner: null,
+                    isGameOver: false,
+                    winningCells: []
+                };
+
+                clearTimeout(this._endModalT);
+                this.elements.gameBoard.querySelectorAll('.win-strike').forEach(el => el.remove());
+                this.elements.gameBoard.classList.remove('shake-board');
+                this.elements.playerX.classList.remove('score-pop');
+                this.elements.playerO.classList.remove('score-pop');
+                setMusic('game');
+
+                this.elements.gameBoard.querySelectorAll('.cell').forEach(cell => {
+                    cell.innerHTML = '';
+                    cell.className = 'cell';
+                    cell.style.animationDelay = '';
+                });
+
+                this.elements.playAgainBtn.style.display = 'none';
+                this.elements.gameStatus.textContent = '';
+                this.elements.gameStatus.className = 'game-status';
+
+                this.updateUI();
+            },
+
+            handleCellClick(cell) {
+                if (this.spectator) return;   // the TV / scoreboard only watches
+                if (this.gameState.isGameOver) return;
+                if (this.gameState.currentPlayer !== this.myRole) {
+                    sInvalid();
+                    shakeBoard();
+                    return;
+                }
+
+                const index = parseInt(cell.dataset.index);
+                if (this.gameState.board[index] !== '') {
+                    sInvalid();
+                    shakeBoard();
+                    return;
+                }
+
+                this.makeMove(index);
+                this.sendMove(index);
+            },
+
+            makeMove(index) {
+                const mover = this.gameState.currentPlayer;
+                this.gameState.board[index] = mover;
+                this.renderCell(index, mover);
+                if (mover === 'X') sPlaceX(); else sPlaceO();
+
+                const result = this.checkWin();
+                if (result) {
+                    this.gameState.isGameOver = true;
+                    this.gameState.winner = result.winner;
+                    this.gameState.winningCells = result.cells;
+                    this.highlightWinningCells();
+                    this.showGameEnd();
+                } else if (this.gameState.board.every(cell => cell !== '')) {
+                    this.gameState.isGameOver = true;
+                    this.gameState.winner = 'draw';
+                    this.showGameEnd();
+                } else {
+                    this.gameState.currentPlayer = mover === 'X' ? 'O' : 'X';
+                    if (hasOpenTwo(this.gameState.board, mover)) sTension();
+                    // a live threat fills the duel groove out (ratchets up, never back down)
+                    if (hasOpenTwo(this.gameState.board, 'X') || hasOpenTwo(this.gameState.board, 'O'))
+                        musicIntensity = 2;
+                    this.updateUI();
+                }
+            },
+
+            sendMove(index) {
+                if (this.connection && this.connection.open) {
+                    this.connection.send({ type: 'move', cell: index });
+                }
+            },
+
+            handleOpponentMove(index) {
+                this.makeMove(index);
+            },
+
+            renderCell(index, player) {
+                const cell = this.elements.gameBoard.querySelector(`[data-index="${index}"]`);
+                cell.classList.add('taken', player.toLowerCase());
+
+                if (player === 'X') {
+                    cell.innerHTML = `
+                        <svg viewBox="0 0 24 24" class="x-piece">
+                            <line x1="4" y1="4" x2="20" y2="20"></line>
+                            <line x1="20" y1="4" x2="4" y2="20"></line>
+                        </svg>
+                    `;
+                } else {
+                    cell.innerHTML = `
+                        <svg viewBox="0 0 24 24" class="o-piece">
+                            <circle cx="12" cy="12" r="8"></circle>
+                        </svg>
+                    `;
+                }
+            },
+
+            checkWin() {
+                const winPatterns = [
+                    [0, 1, 2], [3, 4, 5], [6, 7, 8],
+                    [0, 3, 6], [1, 4, 7], [2, 5, 8],
+                    [0, 4, 8], [2, 4, 6]
+                ];
+
+                for (const pattern of winPatterns) {
+                    const [a, b, c] = pattern;
+                    if (this.gameState.board[a] &&
+                        this.gameState.board[a] === this.gameState.board[b] &&
+                        this.gameState.board[a] === this.gameState.board[c]) {
+                        return { winner: this.gameState.board[a], cells: pattern };
+                    }
+                }
+                return null;
+            },
+
+            highlightWinningCells() {
+                // stagger the glow so it ripples along the line as the strike draws
+                this.gameState.winningCells.forEach((index, i) => {
+                    const cell = this.elements.gameBoard.querySelector(`[data-index="${index}"]`);
+                    cell.classList.add('winning');
+                    cell.style.animationDelay = (i * 0.12) + 's';
+                });
+
+                this.elements.gameBoard.querySelectorAll('.cell').forEach(cell => {
+                    cell.classList.add('game-over');
+                });
+
+                drawWinStrike(this.gameState.winningCells, this.gameState.winner);
+                sWinLine(this.gameState.winner === this.myRole);
+            },
+
+            showGameEnd() {
+                // In a TV tournament the big screen decides what happens next (rematch on
+                // a draw, next match, or the trophy), so the phone gets no "Play Again"
+                // button and no blocking modal — it would sit over the next match.
+                if (!this.spectator && !this._tvRoom) this.elements.playAgainBtn.style.display = 'block';
+                setMusic('over');
+
+                const br = this.elements.gameBoard.getBoundingClientRect();
+                const cx = br.left + br.width / 2, cy = br.top + br.height / 2;
+                let title, message, buttonText, delay;
+
+                if (this.gameState.winner === 'draw') {
+                    sDraw();
+                    popText(cx, cy, 'DRAW', 'draw');
+                    title = 'Game Over'; message = "It's a draw!"; buttonText = 'Leave Game'; delay = 700;
+                } else {
+                    const winX = this.gameState.winner === 'X';
+                    this.elements[winX ? 'playerX' : 'playerO'].classList.add('score-pop');
+                    setTimeout(() => {
+                        if (!this.gameState.isGameOver) return;
+                        burst(cx, cy, winX ? ['#ff6b9d', '#ffd166', '#ffffff'] : ['#4ecdc4', '#7ee8df', '#ffffff'], 22);
+                        popText(cx, cy - 20, this.gameState.winner === this.myRole ? 'YOU WIN!' : this.gameState.winner + ' WINS', winX ? 'x' : 'o');
+                    }, 500);
+                    if (this.gameState.winner === this.myRole) {
+                        title = 'Victory!'; message = 'Congratulations, you won!';
+                    } else {
+                        title = 'Defeat'; message = 'You lost this round!';
+                    }
+                    buttonText = 'Play Again'; delay = 1400;
+                }
+
+                // Spectators (TV host + scoreboard) never see the blocking modal —
+                // the board and the neutral status line tell the whole story.
+                clearTimeout(this._endModalT);
+                if (!this.spectator && !this._tvRoom) {
+                    // let the strike / pop land before the modal covers the board
+                    this._endModalT = setTimeout(() => {
+                        if (this.gameState.isGameOver) this.showModal(title, message, buttonText);
+                    }, delay);
+                }
+
+                this.updateUI();
+            },
+
+            showModal(title, message, buttonText) {
+                this.elements.modalTitle.textContent = title;
+                this.elements.modalMessage.textContent = message;
+                this.elements.modalBtn.textContent = buttonText;
+                this.elements.modalOverlay.classList.add('active');
+            },
+
+            hideModal() {
+                this.elements.modalOverlay.classList.remove('active');
+            },
+
+            handleModalAction() {
+                this.hideModal();
+                const label = this.elements.modalBtn.textContent;
+                if (label === 'Play Again') { this.requestPlayAgain(); return; }
+                // "Accept" is the OTHER end of a rematch request — it used to fall through
+                // to leaveGame(), so accepting a rematch quit the game and the reply was
+                // never sent. Answer it, and start the new board.
+                if (label === 'Accept') {
+                    this.waitingForRematchResponse = false;
+                    if (this.connection && this.connection.open) this.connection.send({ type: 'playAgainResponse', accept: true });
+                    sRematch();
+                    this.resetGame();
+                    return;
+                }
+                this.leaveGame();
+            },
+
+            requestPlayAgain() {
+                if (this.connection && this.connection.open) {
+                    this.connection.send({ type: 'playAgain' });
+                    this.elements.playAgainBtn.style.display = 'none';
+                    this.elements.gameStatus.textContent = 'Waiting for opponent...';
+                }
+            },
+
+            handlePlayAgainRequest() {
+                sNotify();
+                this.showModal('Rematch Requested', 'Your opponent wants to play again!', 'Accept');
+                this.waitingForRematchResponse = true;
+            },
+
+            handlePlayAgainResponse(accept) {
+                this.hideModal();
+                if (accept) {
+                    sRematch();
+                    this.resetGame();
+                } else {
+                    this.leaveGame();
+                }
+            },
+
+            updateUI() {
+                this.elements.playerX.classList.toggle('active', this.gameState.currentPlayer === 'X');
+                this.elements.playerO.classList.toggle('active', this.gameState.currentPlayer === 'O');
+
+                // Spectator view (TV host + scoreboard): neutral, third-person status.
+                if (this.spectator) {
+                    const gs = this.gameState;
+                    const nameOf = s => (s === 'X' ? (this._xName || 'Player X') : (this._oName || 'Player O'));
+                    let txt;
+                    if (!gs.isGameOver) txt = nameOf(gs.currentPlayer) + ' to move';
+                    else if (gs.winner === 'draw') txt = "It's a draw!";
+                    else txt = nameOf(gs.winner) + ' wins!';
+                    this.elements.gameStatus.textContent = txt;
+                    this.elements.gameStatus.className = 'game-status';
+                    return;
+                }
+
+                if (!this.gameState.isGameOver) {
+                    if (this.gameState.currentPlayer === this.myRole) {
+                        this.elements.gameStatus.textContent = 'Your turn';
+                        this.elements.gameStatus.className = 'game-status your-turn';
+                    } else {
+                        this.elements.gameStatus.textContent = "Opponent's turn";
+                        this.elements.gameStatus.className = 'game-status';
+                    }
+                } else if (this.gameState.winner === 'draw') {
+                    this.elements.gameStatus.textContent = "It's a draw!";
+                    this.elements.gameStatus.className = 'game-status';
+                } else if (this.gameState.winner === this.myRole) {
+                    this.elements.gameStatus.textContent = 'You won!';
+                    this.elements.gameStatus.className = 'game-status your-turn';
+                } else {
+                    this.elements.gameStatus.textContent = 'You lost!';
+                    this.elements.gameStatus.className = 'game-status';
+                }
+
+                const cells = this.elements.gameBoard.querySelectorAll('.cell');
+                cells.forEach(cell => {
+                    cell.classList.remove('x-hover', 'o-hover');
+                    if (!cell.classList.contains('taken') && !this.gameState.isGameOver) {
+                        cell.classList.add(this.myRole === 'X' ? 'x-hover' : 'o-hover');
+                    }
+                });
+            },
+
+            cancelWaiting() {
+                if (this.peer) {
+                    this.peer.destroy();
+                    this.peer = null;
+                }
+                this.roomCode = null;
+                this.showScreen('lobby');
+            },
+
+            leaveGame() {
+                this._leaving = true;
+                if (this.connection && this.connection.open) {
+                    this.connection.send({ type: 'leave' });
+                    this.connection.close();
+                }
+                this.cleanup();
+            },
+
+            handleDisconnect() {
+                this.elements.connectionDot.classList.add('disconnected');
+                this.elements.connectionText.textContent = 'Disconnected';
+
+                // A player whose link drops mid-game puts itself back behind the curtain
+                // — the host is holding the seat and the board for us.
+                if (!this.isHost && !this.isTvHost && !this.isViewer && this.roomCode && this._linked && !this._leaving) {
+                    this._linked = false;
+                    tttCurtain(true);
+                    this._rejoins = 0;
+                    this.rejoinLater();
+                    return;
+                }
+                // A phone host keeps the board up and waits for the opponent to come back
+                // (our room id is still registered, so their rejoin lands right here).
+                if (this.isHost && !this.isTvHost && this._gameLive) {
+                    this.elements.gameStatus.textContent = 'Opponent dropped — holding the game for them…';
+                    return;
+                }
+                if (this._tvRoom) {
+                    clearTimeout(this._endModalT);
+                    this.showModal('Room Closed', 'The host screen ended the session.', 'Back to Lobby');
+                    this.elements.modalBtn.textContent = 'Back to Lobby';
+                }
+            },
+
+            handleOpponentLeft() {
+                clearTimeout(this._endModalT);
+                sLeft();
+                this.showModal('Opponent Left', 'Your opponent has left the game.', 'Back to Lobby');
+                this.elements.modalBtn.textContent = 'Back to Lobby';
+            },
+
+            cleanup() {
+                clearTimeout(this._endModalT);
+                clearTimeout(this._viewerT);
+                this._leaving = true;
+                this._linked = false;
+                this._gameLive = false;
+                this._guestCid = null;
+                Object.values(this._held || {}).forEach(h => clearTimeout(h.t));
+                this._held = {};
+                if (this.tour) {
+                    this.tour.seats.forEach(st => { if (st.hold) clearTimeout(st.hold); });
+                    if (this.tour.pending) clearTimeout(this.tour.pending.t);
+                }
+                this.tour = null;
+                const brk = document.getElementById('ttt-bracket');
+                if (brk) { brk.classList.remove('on'); brk.innerHTML = ''; }
+                tttCurtain(false);
+                if (typeof forgetRoom === 'function') forgetRoom();
+                this.hideModal();
+                if (this.connection) {
+                    this.connection.close();
+                    this.connection = null;
+                }
+                if (this.peer) {
+                    this.peer.destroy();
+                    this.peer = null;
+                }
+                this.tvConns = [];
+                this.viewers = [];
+                this.roomCode = null;
+                this.myRole = null;
+                this.isHost = false;
+                this.isTvHost = false;
+                this.isViewer = false;
+                this.spectator = false;
+                this._tvRoom = false;
+                this._gotSnapshot = false;
+                this.tvGameActive = false;
+                this._xName = '';
+                this._oName = '';
+                this.opponentName = '';
+                this.elements.joinGameBtn.disabled = false;
+                this.elements.joinGameBtn.textContent = 'Join';
+                this.elements.roomCodeInput.value = '';
+                this.elements.copyCodeBtn.style.display = '';
+                this.elements.scoreboardError.classList.remove('show');
+                this.elements.connectionDot.classList.remove('disconnected');
+                this.elements.connectionText.textContent = 'Connected';
+                this.showScreen('lobby');
+            },
+
+            copyRoomCode() {
+                navigator.clipboard.writeText(this.roomCode).then(() => {
+                    this.showToast('Copied to clipboard!', 'success');
+                }).catch(() => {
+                    this.showToast('Failed to copy', 'error');
+                });
+            },
+
+            showToast(message, type = 'success') {
+                this.elements.toast.textContent = message;
+                this.elements.toast.className = `toast ${type} show`;
+                setTimeout(() => {
+                    this.elements.toast.classList.remove('show');
+                }, 2000);
+            },
+
+            // ═══════════════════════════════════════════════════════════
+            // TV-HOST + SPECTATOR MODE
+            //
+            // The big screen CREATES and OWNS the room but never plays — it
+            // registers the PeerJS host id and acts as a relay/mirror. The
+            // first two phones to join become X and O; every move a phone
+            // sends is applied to the screen's own board (for display) and
+            // forwarded to the other phone, so the two players stay in sync
+            // through the screen. Extra connections ("Open Scoreboard") join
+            // as read-only viewers and receive board snapshots.
+            // ═══════════════════════════════════════════════════════════
+            hostOnTV() {
+                this._leaving = false;
+                if (ac()) startMusicLoop();     // unlock audio on this gesture
+                this.roomCode = this.generateRoomCode();
+                this.isTvHost = true;
+                this.spectator = true;
+                this.isHost = false;
+                this.myRole = null;
+                this._tvRoom = false;
+                this.tvConns = [];
+                this.viewers = [];
+                this.tvGameActive = false;
+                this._xName = 'Player X';
+                this._oName = 'Player O';
+                this.tvNewTournament();
+
+                this.renderTvLobby();
+                this.showScreen('tv-lobby');
+
+                if (typeof forgetRoom === 'function') forgetRoom();   // hosting: this tab is nobody's guest
+                this.peer = new Peer(this.roomCode, TTT_PEER_OPTS);
+                this.peer.on('open', () => { console.log('TV host room:', this.roomCode); });
+                this.peer.on('connection', (conn) => {
+                    conn.on('open', () => this.tvSetupConn(conn));
+                });
+                this.peer.on('disconnected', () => { try { if (this.peer && !this.peer.destroyed) this.peer.reconnect(); } catch (e) {} });
+                this.peer.on('error', (err) => {
+                    if (typeof isRecoverablePeerError === 'function' && isRecoverablePeerError(err)) {
+                        try { if (this.peer && !this.peer.destroyed && this.peer.disconnected) this.peer.reconnect(); } catch (e) {}
+                        return;
+                    }
+                    console.error('TV host peer error:', err);
+                    this.showToast('Connection error: ' + err.type, 'error');
+                    if (err.type === 'unavailable-id') this.cleanup();
+                });
+            },
+
+            updateTvCount() {
+                if (!this.tvGameActive) this.renderTvLobby();
+            },
+
+            // Shared letterstorm-style TV lobby (from common.js tvLobby). Rendered on
+            // document.body — NOT inside #app/.card — because ticktacktoe's card/screen
+            // uses filter/animation, which would trap the lobby's position:fixed.
+            renderTvLobby() {
+                if (typeof tvLobby !== 'function') return;
+                if (this.elements.tvLobbyScreen) this.elements.tvLobbyScreen.innerHTML = '';   // drop old static markup
+                let host = document.getElementById('ttt-tvlobby');
+                if (!host) { host = document.createElement('div'); host.id = 'ttt-tvlobby'; document.body.appendChild(host); }
+                const seats = (this.tour && this.tour.seats) || [];
+                const cap = this.tvCaptain();
+                const players = seats.map(st => ({ name: st.name, avatar: '🎮', captain: !!(cap && cap.i === st.i) }));
+                host.innerHTML = tvLobby({
+                    title: 'TIC · TAC · TOE',
+                    accent: '#8fd0ff',
+                    roomCode: this.roomCode,
+                    joinUrl: roomURL(this.roomCode),
+                    isTvHost: true,
+                    captainName: cap ? cap.name : null,
+                    hint: seats.length < 2
+                        ? '🏆 Knockout tournament — 2 to 8 players, one match at a time'
+                        : `🏆 Knockout — 👑 ${cap ? cap.name : 'the captain'} starts it from their phone`,
+                    settings: `${players.length}/8 joined`,
+                    waitingText: 'Waiting for players…',
+                    players,
+                });
+                host.style.display = 'block';
+            },
+
+            // First message on a fresh connection decides its kind:
+            //   {type:'join'}     → a player phone (assign X or O)
+            //   {type:'spectate'} → a read-only scoreboard viewer
+            tvSetupConn(conn) {
+                let decided = false;
+                conn.on('data', (msg) => {
+                    if (!decided) {
+                        decided = true;
+                        if (msg && msg.type === 'spectate') { this.tvAddViewer(conn); return; }
+                        const md = conn.metadata || {};
+                        this.tvAddPlayer(conn, (msg && msg.name) || md.name, (msg && msg.cid) || md.cid);
+                        return;   // the 'join' itself carries no further action
+                    }
+                    this.tvOnPlayerData(conn, msg);
+                });
+                conn.on('close', () => this.tvOnConnClose(conn));
+            },
+
+            // ═══════════════════════════════════════════════════════════════════
+            //  TV KNOCKOUT TOURNAMENT  (see ticktacktoeplan.md)
+            //  The big screen owns the bracket and runs ONE match at a time; phones
+            //  only send moves and the captain's start. ❌/⭕ belong to a MATCH, not
+            //  to a player, so `conn._role` is (re)assigned every match and a seat
+            //  index (`conn._seat`) is what actually identifies someone.
+            // ═══════════════════════════════════════════════════════════════════
+
+            tvNewTournament(keepSeats) {
+                const old = (keepSeats && this.tour) ? this.tour.seats.filter(s => s.conn) : [];
+                this.tour = {
+                    seats: old.map((s, i) => ({ i, cid: s.cid, name: s.name, conn: s.conn, eliminated: false, hold: null })),
+                    rounds: [], r: 0, m: -1, live: false, x: null, o: null, swap: false,
+                    champion: null, pending: null,
+                };
+                this.tour.seats.forEach(s => { if (s.conn) s.conn._seat = s.i; });
+                this.tvGameActive = false;
+            },
+
+            tvName(i) { const s = this.tour.seats[i]; return s ? s.name : ''; },
+            tvCaptain() { return this.tour.seats.find(s => s.conn && !s.eliminated) || this.tour.seats.find(s => s.conn) || null; },
+            tvRoundName(r) {
+                const T = this.tour, ri = (r == null ? T.r : r), left = T.rounds.length - ri;
+                return left === 1 ? 'Final' : left === 2 ? 'Semi-final' : left === 3 ? 'Quarter-final' : 'Round ' + (ri + 1);
+            },
+            // does seat i play the winner of the current match?
+            tvPlaysWinner(i) {
+                const T = this.tour, round = T.rounds[T.r];
+                if (!round || T.m < 0) return false;
+                const sib = T.m % 2 === 0 ? round[T.m + 1] : round[T.m - 1];
+                if (!sib) return false;
+                return sib.w === i || ((sib.a === i || sib.b === i) && sib.w == null);
+            },
+
+            tvAddPlayer(conn, name, cid) {
+                tttWatchRelay(conn);
+                const T = this.tour || (this.tvNewTournament(), this.tour);
+                conn._cid = cid || null;
+                conn._name = (name && name.trim()) || ('Player ' + (T.seats.length + 1));
+
+                // Walking back into a seat we're holding — same device first, name second.
+                const back = T.seats.find(s => !s.conn &&
+                    ((cid && s.cid && s.cid === cid) || (!cid && s.name === conn._name)));
+                if (back) {
+                    if (back.hold) { clearTimeout(back.hold); back.hold = null; }
+                    back.conn = conn; conn._seat = back.i;
+                    this.tvConns.push(conn);
+                    sJoin();
+                    this.updateTvCount();
+                    if (T.live && T.pending) {                       // a match was waiting on them
+                        const p = T.pending; T.pending = null; clearTimeout(p.t);
+                        this.tvBeginMatch(p.mt, p.rematch);
+                        return;
+                    }
+                    if (T.live && (T.x === back.i || T.o === back.i)) {   // mid-match: hand the board back
+                        conn._role = T.x === back.i ? 'X' : 'O';
+                        tttSend(conn, { type: 'resume', role: conn._role, tv: true, snap: this.tvSnapshotData() });
+                        this.tvConns.forEach(c => { if (c !== conn && (c._seat === T.x || c._seat === T.o)) tttSend(c, { type: 'oppback' }); });
+                    } else {
+                        this.tvPushState();
+                    }
+                    this.tvRender();
+                    return;
+                }
+
+                if (T.live) {                        // arrived mid-tournament — in for the next one
+                    conn._seat = null;
+                    this.tvConns.push(conn);
+                    tttSend(conn, { type: 'watch', a: this.tvName(T.x), b: this.tvName(T.o), round: this.tvRoundName(), waiting: true });
+                    this.tvRender();
+                    return;
+                }
+                if (T.seats.length >= 8) { tttSend(conn, { type: 'full' }); setTimeout(() => { try { conn.close(); } catch (e) {} }, 400); return; }
+
+                const seat = { i: T.seats.length, cid: cid || null, name: conn._name, conn, eliminated: false, hold: null };
+                T.seats.push(seat);
+                conn._seat = seat.i;
+                this.tvConns.push(conn);
+                sJoin();
+                this.tvPushState();
+                this.updateTvCount();
+                this.tvRender();
+            },
+
+            // Lobby state out to every phone (who's in, who's captain, can we start).
+            tvPushState() {
+                const T = this.tour, cap = this.tvCaptain();
+                const players = T.seats.map(s => ({ name: s.name, here: !!s.conn }));
+                this.tvConns.forEach(c => {
+                    const seat = T.seats[c._seat];
+                    tttSend(c, {
+                        type: 'tlobby', players, captain: cap ? cap.name : null,
+                        canStart: !!(cap && seat && cap.i === seat.i && T.seats.length >= 2),
+                        waiting: !seat,
+                    });
+                });
+            },
+
+            // Captain said go: random draw, byes padded to a power of two.
+            tvStartTournament() {
+                const T = this.tour;
+                if (!T || T.live || T.seats.length < 2) return;
+                T.seats.forEach(s => { s.eliminated = false; });
+                const order = T.seats.filter(s => s.conn).map(s => s.i);
+                for (let i = order.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    const t = order[i]; order[i] = order[j]; order[j] = t;
+                }
+                let size = 1; while (size < order.length) size *= 2;
+                const slots = order.slice();
+                while (slots.length < size) slots.push(null);        // byes
+                // standard seeding (top vs bottom) so the byes spread across round 1
+                const first = [];
+                for (let i = 0; i < size / 2; i++) first.push({ a: slots[i], b: slots[size - 1 - i], w: null });
+                T.rounds = [first];
+                let n = first.length;
+                while (n > 1) { n /= 2; T.rounds.push(Array.from({ length: n }, () => ({ a: null, b: null, w: null }))); }
+                T.r = 0; T.m = -1; T.live = true; T.champion = null;
+                this.tvGameActive = true;
+                sStart();
+                this.tvAdvance();
+            },
+
+            // Walk to the next REAL match, resolving byes and rounds on the way.
+            tvAdvance() {
+                const T = this.tour;
+                for (;;) {
+                    T.m += 1;
+                    const round = T.rounds[T.r];
+                    if (T.m >= round.length) {
+                        if (T.r + 1 >= T.rounds.length) { this.tvChampion(round[0].w); return; }
+                        const next = T.rounds[T.r + 1];
+                        for (let i = 0; i < next.length; i++) { next[i].a = round[2 * i].w; next[i].b = round[2 * i + 1].w; }
+                        T.r += 1; T.m = -1;
+                        continue;
+                    }
+                    const mt = round[T.m];
+                    if (mt.a == null && mt.b == null) { mt.w = null; continue; }
+                    if (mt.b == null) { mt.w = mt.a; continue; }      // bye
+                    if (mt.a == null) { mt.w = mt.b; continue; }
+                    this.tvBeginMatch(mt, false);
+                    return;
+                }
+            },
+
+            tvBeginMatch(mt, rematch) {
+                const T = this.tour;
+                T.swap = rematch ? !T.swap : false;                   // ❌ starts, so swap on a rematch
+                T.x = T.swap ? mt.b : mt.a;
+                T.o = T.swap ? mt.a : mt.b;
+                const sx = T.seats[T.x], so = T.seats[T.o];
+
+                // Someone isn't here: hold the match briefly rather than stalling for good.
+                if (!sx.conn || !so.conn) {
+                    const missing = !sx.conn ? sx : so, present = !sx.conn ? so : sx;
+                    T.pending = { mt, rematch, t: setTimeout(() => {
+                        if (!T.live || !T.pending) return;
+                        T.pending = null;
+                        mt.w = present.conn ? present.i : mt.a;       // walkover
+                        T.seats[mt.w === mt.a ? mt.b : mt.a].eliminated = true;
+                        this.tvAdvance();
+                    }, 20000) };
+                    this.elements.gameStatus.textContent = 'Waiting for ' + missing.name + '…';
+                    this.tvRender();
+                    return;
+                }
+
+                this._xName = sx.name; this._oName = so.name;
+                this.tvGameActive = true;
+                this.spectator = true; this.myRole = null;
+                this.showScreen('game');
+                this.resetGame();
+                this.gameState.currentPlayer = 'X';
+                this.updatePlayerLabels();
+                this.elements.connectionText.textContent = 'Spectating';
+                this.updateUI();
+                if (rematch) sRematch(); else sStart();
+                const round = this.tvRoundName();
+                this.tvConns.forEach(c => {
+                    const i = c._seat;
+                    if (i === T.x || i === T.o) {
+                        c._role = i === T.x ? 'X' : 'O';
+                        tttSend(c, { type: 'match', role: c._role, opp: i === T.x ? so.name : sx.name,
+                                     round, rematch: !!rematch, x: sx.name, o: so.name });
+                    } else {
+                        c._role = null;
+                        tttSend(c, { type: 'watch', a: sx.name, b: so.name, round,
+                                     next: this.tvPlaysWinner(i), out: i != null && T.seats[i] && T.seats[i].eliminated, waiting: i == null });
+                    }
+                });
+                this.tvRender();
+                this.sendSnapshotToViewers();
+            },
+
+            // The board just finished — draw means an immediate rematch, otherwise the
+            // loser is out and we roll on.
+            tvMatchEnded() {
+                const T = this.tour, gs = this.gameState;
+                const mt = T.rounds[T.r] && T.rounds[T.r][T.m];
+                if (!mt) return;
+                if (!gs.winner || gs.winner === 'draw') {
+                    this.elements.gameStatus.textContent = 'Draw — replaying with ' + this.tvName(T.o) + ' starting';
+                    setTimeout(() => { if (T.live) this.tvBeginMatch(mt, true); }, 2400);
+                    this.tvRender();
+                    return;
+                }
+                const wSeat = gs.winner === 'X' ? T.x : T.o;
+                const lSeat = gs.winner === 'X' ? T.o : T.x;
+                mt.w = wSeat;
+                T.seats[lSeat].eliminated = true;
+                this.tvConns.forEach(c => { if (c._seat === lSeat) tttSend(c, { type: 'out', by: this.tvName(wSeat) }); });
+                setTimeout(() => { if (T.live) this.tvAdvance(); }, 2600);
+                this.tvRender();
+            },
+
+            tvChampion(seatIx) {
+                const T = this.tour;
+                T.live = false; T.champion = seatIx;
+                this.tvGameActive = false;
+                const name = this.tvName(seatIx), cap = this.tvCaptain();
+                this.tvConns.forEach(c => tttSend(c, {
+                    type: 'champion', name, you: c._seat === seatIx,
+                    canStart: !!(cap && c._seat === cap.i),
+                }));
+                sWinLine(true);
+                this.elements.gameStatus.textContent = '🏆 ' + name + ' wins the tournament!';
+                this.tvRender();
+                this.sendSnapshotToViewers();
+            },
+
+            // "Play again" from the captain: everyone still connected, fresh draw.
+            tvRestart() {
+                this.tvNewTournament(true);
+                this.tvPushState();
+                this.tvStartTournament();
+            },
+
+            // A message from one of the seated phones. Moves are accepted only from
+            // the two players in the CURRENT match; the captain also drives start /
+            // play-again from here.
+            tvOnPlayerData(conn, msg) {
+                if (!msg) return;
+                const T = this.tour;
+                switch (msg.type) {
+                    case 'move': {
+                        const gs = this.gameState;
+                        if (!T || !T.live) break;
+                        if (conn._seat !== T.x && conn._seat !== T.o) break;      // not your match
+                        if (gs.isGameOver || gs.board[msg.cell] !== '' || gs.currentPlayer !== conn._role) break;
+                        this.makeMove(msg.cell);            // mirror on the screen (spectator: no modal)
+                        this.tvForwardToOther(conn, { type: 'move', cell: msg.cell });
+                        this.sendSnapshotToViewers();
+                        if (gs.isGameOver) this.tvMatchEnded();
+                        break;
+                    }
+                    case 'start': {                                              // captain: run the draw
+                        const cap = this.tvCaptain();
+                        if (cap && conn._seat === cap.i) this.tvStartTournament();
+                        break;
+                    }
+                    case 'again': {                                              // captain: another tournament
+                        const cap2 = this.tvCaptain();
+                        if (cap2 && conn._seat === cap2.i && T && !T.live) this.tvRestart();
+                        break;
+                    }
+                    case 'leave':
+                        break;                                                   // handled by the close
+                }
+            },
+
+            // Forward to the OTHER player in the current match (not to the watchers —
+            // they follow the game on the big screen).
+            tvForwardToOther(fromConn, msg) {
+                const T = this.tour;
+                this.tvConns.forEach(c => {
+                    if (c === fromConn) return;
+                    if (T && T.live && c._seat !== T.x && c._seat !== T.o) return;
+                    tttSend(c, msg);
+                });
+            },
+
+            tvOnConnClose(conn) {
+                if (conn._role === 'viewer') {
+                    this.viewers = this.viewers.filter(c => c !== conn);
+                    return;
+                }
+                this.tvConns = this.tvConns.filter(c => c !== conn);
+                const T = this.tour;
+                if (!T) return;
+                const seat = T.seats[conn._seat];
+                if (!seat || seat.conn !== conn) { this.tvRender(); return; }
+                seat.conn = null;
+
+                if (T.live && (T.x === seat.i || T.o === seat.i)) {
+                    // mid-match: hold the seat AND the board rather than ending everyone's game
+                    seat.hold = setTimeout(() => this.tvForfeit(seat.i), TTT_HOLD_MS);
+                    this.tvConns.forEach(c => { if (c._seat === T.x || c._seat === T.o) tttSend(c, { type: 'oppdrop', name: seat.name }); });
+                    if (this.isTvHost) this.elements.gameStatus.textContent = seat.name + ' dropped — holding their seat…';
+                } else if (!T.live) {
+                    T.seats = T.seats.filter(st => st.conn || st.i < 0);   // drop empty lobby seats
+                    T.seats.forEach((st, i) => { st.i = i; if (st.conn) st.conn._seat = i; });
+                    this.tvPushState();
+                    this.updateTvCount();
+                }
+                this.tvRender();
+                this.sendSnapshotToViewers();
+            },
+
+            // They never came back: they lose THIS match, and the tournament rolls on.
+            tvForfeit(seatIx) {
+                const T = this.tour;
+                if (!T || !T.live) return;
+                const seat = T.seats[seatIx];
+                if (seat) { if (seat.hold) clearTimeout(seat.hold); seat.hold = null; }
+                if (T.x !== seatIx && T.o !== seatIx) return;
+                const mt = T.rounds[T.r][T.m];
+                const other = T.x === seatIx ? T.o : T.x;
+                mt.w = other;
+                if (seat) seat.eliminated = true;
+                this.tvConns.forEach(c => { if (c._seat === seatIx) tttSend(c, { type: 'out', by: this.tvName(other) }); });
+                this.tvAdvance();
+            },
+
+            // Paint the bracket beside the board: rounds as columns, the live match
+            // highlighted, winners filling in as they're decided.
+            tvRender() {
+                if (!this.isTvHost) return;
+                let host = document.getElementById('ttt-bracket');
+                if (!host) { host = document.createElement('div'); host.id = 'ttt-bracket'; document.body.appendChild(host); }
+                const T = this.tour;
+                if (!T || !T.rounds.length) { host.classList.remove('on'); host.innerHTML = ''; return; }
+
+                const plate = (seatIx, mt, live, ri) => {
+                    // round 1 nulls are byes; later ones are just slots nobody has won yet
+                    if (seatIx == null) return `<div class="nm bye">${ri === 0 ? '— bye —' : '— tbc —'}</div>`;
+                    const s = T.seats[seatIx];
+                    const won = mt.w === seatIx;
+                    const lost = mt.w != null && mt.w !== seatIx;
+                    const playing = live && (T.x === seatIx || T.o === seatIx);
+                    const mark = playing ? (T.x === seatIx ? '❌' : '⭕') : (won ? '✔' : '');
+                    return `<div class="nm${won ? ' won' : ''}${lost ? ' lost' : ''}">
+                        <span>${tttEsc(s ? s.name : '')}</span><span class="mk">${mark}</span></div>`;
+                };
+                host.innerHTML = T.rounds.map((round, ri) => `
+                    <div class="rd">
+                        <div class="rdt">${tttEsc(this.tvRoundName(ri))}</div>
+                        ${round.map((mt, mi) => {
+                            const live = T.live && ri === T.r && mi === T.m;
+                            return `<div class="mt${live ? ' live' : ''}">${plate(mt.a, mt, live, ri)}${plate(mt.b, mt, live, ri)}</div>`;
+                        }).join('')}
+                    </div>`).join('')
+                    + (T.champion != null ? `<div class="champ">🏆<br>${tttEsc(this.tvName(T.champion))}</div>` : '');
+                host.classList.add('on');
+            },
+
+            tvSnapshotData() {
+                const gs = this.gameState;
+                return {
+                    board: gs.board.slice(),
+                    currentPlayer: gs.currentPlayer,
+                    winner: gs.winner,
+                    winningCells: gs.winningCells ? gs.winningCells.slice() : [],
+                    isGameOver: gs.isGameOver,
+                    xName: this._xName,
+                    oName: this._oName,
+                    active: this.tvGameActive
+                };
+            },
+
+            sendSnapshotToViewers() {
+                if (!this.viewers || !this.viewers.length) return;
+                const snap = this.tvSnapshotData();
+                this.viewers.forEach(c => tttSend(c, { type: 'snapshot', snap, active: this.tvGameActive }));
+            },
+
+            // ── Open Scoreboard: spectate an existing (TV-hosted) room ──
+            openScoreboard() {
+                const code = this.elements.scoreboardInput.value.toUpperCase().trim();
+                this.elements.scoreboardError.classList.remove('show');
+                if (code.length !== 4) {
+                    this.elements.scoreboardError.textContent = 'Please enter a 4-character room code';
+                    this.elements.scoreboardError.classList.add('show');
+                    return;
+                }
+                if (ac()) startMusicLoop();
+                this.roomCode = code;
+                this.isViewer = true;
+                this.spectator = true;
+                this.myRole = null;
+                this._gotSnapshot = false;
+                this.elements.scoreboardBtn.disabled = true;
+                this.elements.scoreboardBtn.textContent = 'Opening…';
+
+                this.peer = new Peer(TTT_PEER_OPTS);
+                this.peer.on('open', () => {
+                    this.connection = this.peer.connect(code, { reliable: true });
+                    this.connection.on('open', () => {
+                        tttWatchRelay(this.connection);
+                        if (typeof rememberRoom === 'function') rememberRoom(code, 'viewer');
+                        tttSend(this.connection, { type: 'spectate' });
+                    });
+                    this.connection.on('data', (msg) => this.viewerOnData(msg));
+                    this.connection.on('error', () => this.viewerFail());
+                    this._viewerT = setTimeout(() => { if (!this._gotSnapshot) this.viewerFail(); }, 6000);
+                });
+                this.peer.on('error', () => this.viewerFail());
+            },
+
+            viewerFail() {
+                clearTimeout(this._viewerT);
+                if (this._gotSnapshot) return;
+                this.elements.scoreboardBtn.disabled = false;
+                this.elements.scoreboardBtn.textContent = '📺 Open Scoreboard';
+                this.elements.scoreboardError.textContent = 'Could not open a spectator view (the room may be hosted on a phone).';
+                this.elements.scoreboardError.classList.add('show');
+                this.isViewer = false;
+                this.spectator = false;
+                if (this.peer) { this.peer.destroy(); this.peer = null; }
+                this.connection = null;
+            },
+
+            viewerOnData(msg) {
+                if (!msg) return;
+                if (msg.type === 'snapshot') {
+                    this._gotSnapshot = true;
+                    clearTimeout(this._viewerT);
+                    this.elements.scoreboardBtn.disabled = false;
+                    this.elements.scoreboardBtn.textContent = '📺 Open Scoreboard';
+                    if (this.elements.gameScreen.classList.contains('active') === false) {
+                        this.showScreen('game');
+                        this.elements.connectionText.textContent = 'Spectating';
+                        this._specBoard = ['', '', '', '', '', '', '', '', ''];
+                        this._specOver = false;
+                    }
+                    this.applySnapshot(msg.snap);
+                } else if (msg.type === 'start' || msg.type === 'assign') {
+                    // A phone-host (or a full TV room) treated us as a player — bail cleanly.
+                    this.viewerFail();
+                }
+            },
+
+            // Diff the incoming board against what we last drew so pieces animate
+            // in once, not on every snapshot.
+            applySnapshot(snap) {
+                if (!snap) return;
+                this._xName = snap.xName || 'Player X';
+                this._oName = snap.oName || 'Player O';
+                this.updatePlayerLabels();
+                const prev = this._specBoard || ['', '', '', '', '', '', '', '', ''];
+                const board = snap.board || [];
+                // reset detection: board went (partly) empty where it was filled → fresh game
+                const wasFilled = prev.some(v => v);
+                const nowEmpty = board.every(v => !v);
+                if (wasFilled && nowEmpty) {
+                    this.elements.gameBoard.querySelectorAll('.win-strike').forEach(el => el.remove());
+                    this.elements.gameBoard.querySelectorAll('.cell').forEach(cell => {
+                        cell.innerHTML = ''; cell.className = 'cell'; cell.style.animationDelay = '';
+                    });
+                    this._specBoard = ['', '', '', '', '', '', '', '', ''];
+                    this._specOver = false;
+                }
+                for (let i = 0; i < 9; i++) {
+                    if (board[i] && board[i] !== this._specBoard[i]) this.renderCell(i, board[i]);
+                }
+                this._specBoard = board.slice();
+                // reflect authoritative game state for the neutral status line
+                this.gameState = {
+                    board: board.slice(),
+                    currentPlayer: snap.currentPlayer || 'X',
+                    winner: snap.winner || null,
+                    isGameOver: !!snap.isGameOver,
+                    winningCells: snap.winningCells || []
+                };
+                if (snap.isGameOver && !this._specOver) {
+                    this._specOver = true;
+                    if (snap.winner && snap.winner !== 'draw' && snap.winningCells && snap.winningCells.length) {
+                        this.gameState.winningCells = snap.winningCells;
+                        this.gameState.winner = snap.winner;
+                        this.highlightWinningCells();
+                    } else if (snap.winner === 'draw') {
+                        sDraw();
+                    }
+                }
+                this.updateUI();
+            },
+
+            // ── SELF-PLAYING DEMO (?mode=tvsimulation | playersimulation | simulation) ──
+            // No PeerJS, no players: two bots (X and O) play full games against each
+            // other right on the board, auto-restarting forever. This game has no
+            // spectator/player split, so both mode aliases run the same demo.
+            startSimulation() {
+                this._sim = true;
+                this.isHost = false;
+                this.connection = null;
+                this.myRole = null;               // neutral spectator: labels stay "Bot X/O"
+                this.playerName = 'Bot X';
+                this.opponentName = 'Bot O';
+                this.showScreen('game');
+                this.resetGame();
+                this.elements.playerX.querySelector('span').textContent = 'Bot X';
+                this.elements.playerO.querySelector('span').textContent = 'Bot O';
+                this.elements.connectionText.textContent = 'Demo';
+                this.elements.gameStatus.textContent = 'Bot X to move';
+                this._simT = setTimeout(() => this.simMove(), 900);
+            },
+
+            simMove() {
+                if (!this._sim) return;
+                const gs = this.gameState;
+                const idx = simPickMove(gs.board, gs.currentPlayer);
+                if (idx == null) return;
+                this.makeMove(idx);
+                if (gs.isGameOver) {
+                    clearTimeout(this._endModalT);          // no blocking modal in attract mode
+                    this._simT = setTimeout(() => {
+                        if (!this._sim) return;
+                        this.hideModal();
+                        this.resetGame();
+                        this.elements.gameStatus.textContent = 'New game — Bot X to move';
+                        this._simT = setTimeout(() => this.simMove(), 800);
+                    }, 2600);
+                } else {
+                    this.elements.gameStatus.textContent = 'Bot ' + gs.currentPlayer + ' to move';
+                    this._simT = setTimeout(() => this.simMove(), 700 + Math.random() * 450);
+                }
+            }
+        };
+
+        App.init();
+
+        // Ambient drifting X / O glyphs behind the app — built once on load.
+        // Decorative only; the reduced-motion media query freezes the drift.
+        (function initTttBg() {
+            const bg = document.getElementById('ttt-bg');
+            if (!bg) return;
+            const X = `<svg viewBox="0 0 24 24" fill="none"><line x1="5" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><line x1="19" y1="5" x2="5" y2="19" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>`;
+            const O = `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="3"/></svg>`;
+            const anims = ['tttFloat1', 'tttFloat2', 'tttFloat3'];
+            const pos = [[6,12],[20,60],[33,28],[48,78],[62,18],[74,52],[86,80],[92,34],[14,86],[54,45]];
+            bg.innerHTML = pos.map(([left, top], i) => {
+                const isX  = i % 2 === 0;
+                const size = 42 + (i * 13) % 46;
+                const dur  = 20 + (i * 3.3) % 16;
+                const delay = -(i * 2.4);
+                return `<div class="g ${isX ? 'x' : 'o'}" style="left:${left}%;top:${top}%;width:${size}px;height:${size}px;animation:${anims[i % 3]} ${dur}s ${delay}s ease-in-out infinite">${isX ? X : O}</div>`;
+            }).join('');
+        })();
+
+        // Boot routing: self-playing demo modes (bots vs bots, looping)
+        (function () {
+            const params = new URLSearchParams(location.search);
+            const _m = (params.get('mode') || '').toLowerCase();
+            if (_m === 'tvsimulation' || _m === 'playersimulation' || _m === 'simulation') {
+                App.startSimulation();
+                return;
+            }
+            // QR joining: pre-fill the room code from ?room=XXXX
+            const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+            if (room) {
+                App.elements.roomCodeInput.value = room;
+                App.elements.playerNameInput.focus();
+            }
+            // A refresh mid-game shouldn't cost you your seat: this tab remembers its room
+            // (the TV/host holds the seat for TTT_HOLD_MS, and hands the board back).
+            const back = typeof savedRoom === 'function' ? savedRoom() : null;
+            if (back && (!room || room === back.code)) {
+                if (back.role === 'viewer') {
+                    App.elements.scoreboardInput.value = back.code;
+                    App.openScoreboard();
+                } else {
+                    App.elements.roomCodeInput.value = back.code;
+                    App.joinGame();
+                }
+            }
+        })();
+
+        // Reflect persisted sound preferences on the toggle buttons
+        if (!musicOn) document.getElementById('tog-music').classList.add('off');
+        if (!sfxOn) document.getElementById('tog-sfx').classList.add('off');
+
+        // ── Theme ──
+        // day/night theme handled by common.js (toggleTheme + applySavedTheme), shared across games
+        typeof applySavedTheme === 'function' && applySavedTheme();
+    </script>
+</body>
+</html>

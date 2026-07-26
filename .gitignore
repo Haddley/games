@@ -1,0 +1,8 @@
+node_modules/
+test-results/
+playwright-report/
+screenshots/
+
+# Source material for Plump Trek — someone else's assets, kept LOCAL only.
+# The pack says: "Do not redistribute publicly unless rights are cleared."
+Chungus_Odyssey_2_LLM_Rebuild_Pack/

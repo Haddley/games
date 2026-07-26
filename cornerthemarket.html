@@ -1,0 +1,2359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Corner the Market — Trading Floor</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%2304070f' width='100' height='100' rx='20'/><text x='50' y='68' font-size='52' text-anchor='middle'>🔔</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="common.js"></script><script src="fx.js"></script><script src="audio.js"></script>
+    <script src="p2p.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #04070f; --panel: rgba(13,23,42,0.82); --panel2: rgba(20,33,58,0.9);
+            --border: rgba(251,191,36,0.22); --border2: rgba(125,138,165,0.25);
+            --text: #e6edf7; --muted: #7d8aa5;
+            --gold: #fbbf24; --up: #22c55e; --down: #ef4444; --cyan: #22d3ee;
+        }
+        body.day {
+            --bg: #f4efe6; --panel: rgba(255,255,255,0.92); --panel2: #ffffff;
+            --border: rgba(217,138,11,0.42); --border2: rgba(40,30,15,0.14);
+            --text: #20180d; --muted: #6b5f4a;
+            --gold: #d98a0b; --up: #16a34a; --down: #dc2626; --cyan: #0891b2;
+        }
+        body.day::before {
+            background:
+                radial-gradient(ellipse 65% 45% at 50% -5%, rgba(217,138,11,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 40% at 8% 100%, rgba(22,163,74,0.08) 0%, transparent 65%),
+                radial-gradient(ellipse 50% 40% at 95% 100%, rgba(220,38,38,0.07) 0%, transparent 65%),
+                repeating-linear-gradient(0deg, transparent 0 34px, rgba(40,30,15,0.05) 34px 35px),
+                repeating-linear-gradient(90deg, transparent 0 34px, rgba(40,30,15,0.05) 34px 35px);
+        }
+        body.day .card { box-shadow: 0 12px 30px rgba(40,30,15,.12); }
+        body.day .card.highlight { box-shadow: 0 0 22px rgba(217,138,11,.18), 0 12px 30px rgba(40,30,15,.14); }
+        body.day input[type=text] { background: rgba(40,30,15,.05); }
+        body.day #sound-togs button { background: rgba(40,30,15,.06); }
+        body.day .tv-lobby .qr-side { background: #ffffff; box-shadow: 0 18px 50px rgba(40,30,15,.18); }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'JetBrains Mono', monospace; background: var(--bg); color: var(--text);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 26px 16px 48px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 65% 45% at 50% -5%, rgba(251,191,36,0.10) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 40% at 8% 100%, rgba(34,197,94,0.08) 0%, transparent 65%),
+                radial-gradient(ellipse 50% 40% at 95% 100%, rgba(239,68,68,0.07) 0%, transparent 65%),
+                repeating-linear-gradient(0deg, transparent 0 34px, rgba(125,138,165,0.045) 34px 35px),
+                repeating-linear-gradient(90deg, transparent 0 34px, rgba(125,138,165,0.045) 34px 35px);
+        }
+        body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
+
+        h1.logo {
+            font-family: 'Orbitron', sans-serif; font-weight: 900; letter-spacing: 3px;
+            font-size: clamp(1.6rem, 7vw, 2.4rem); text-align: center; color: var(--gold);
+            text-shadow: 0 0 26px rgba(251,191,36,.45);
+        }
+        .sub { color: var(--muted); font-size: .68rem; letter-spacing: 2.5px; text-transform: uppercase; margin: 7px 0 22px; text-align: center; }
+
+        #app { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 13px; }
+        body.viewer-mode #app { max-width: none; height: 100dvh; display: block; }
+
+        .card {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 16px;
+            padding: 18px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 12px 34px rgba(0,0,0,.5);
+        }
+        .card.highlight { border-color: var(--gold); box-shadow: 0 0 26px rgba(251,191,36,.14), 0 12px 34px rgba(0,0,0,.5); }
+        .slbl { font-size: .64rem; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 11px; }
+
+        .fg { margin-bottom: 12px; }
+        .fg label { display: block; font-size: .64rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+        input[type=text] {
+            width: 100%; padding: 12px 14px; font-family: inherit; font-size: 1rem; font-weight: 700;
+            border: 2px solid var(--border2); border-radius: 11px; background: rgba(4,7,15,.7); color: var(--text);
+            outline: none;
+        }
+        input[type=text]:focus { border-color: var(--gold); }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            font-family: inherit; font-weight: 800; font-size: .92rem; letter-spacing: .5px;
+            padding: 13px 18px; border: none; border-radius: 13px; cursor: pointer;
+            transition: transform .12s, filter .12s, opacity .12s; user-select: none; -webkit-user-select: none;
+            color: var(--text);
+        }
+        .btn:active { transform: scale(.97); }
+        .btn-p { background: linear-gradient(180deg, #fcd34d, #f59e0b); color: #2a1700; box-shadow: 0 5px 0 #92600a, 0 10px 22px rgba(251,191,36,.3); }
+        .btn-p:active { box-shadow: 0 2px 0 #92600a; transform: translateY(3px); }
+        .btn-up { background: linear-gradient(180deg, #34d399, #16a34a); color: #03210f; box-shadow: 0 5px 0 #0c5c28, 0 10px 22px rgba(34,197,94,.3); }
+        .btn-up:active { box-shadow: 0 2px 0 #0c5c28; transform: translateY(3px); }
+        .btn-g { background: rgba(125,138,165,.12); box-shadow: inset 0 0 0 2px var(--border2); }
+        .btn-full { width: 100%; }
+        .btn-sm { padding: 8px 13px; font-size: .74rem; border-radius: 10px; }
+        .btn:disabled { opacity: .4; cursor: default; }
+
+        .err {
+            background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.5); color: #fca5a5;
+            padding: 11px 14px; border-radius: 12px; font-size: .8rem; font-weight: 700; text-align: center;
+        }
+        hr { border: none; border-top: 1px dashed var(--border2); margin: 13px 0; }
+
+        .connecting { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 46px 0; color: var(--muted); font-weight: 700; }
+        .spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid rgba(251,191,36,.15); border-top-color: var(--gold); animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .player-row { display: flex; align-items: center; gap: 11px; padding: 8px 4px; border-bottom: 1px dashed var(--border2); font-weight: 700; font-size: .92rem; }
+        .player-row:last-child { border-bottom: none; }
+        .pdot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 10px currentColor; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up); box-shadow: 0 0 8px var(--up); margin-left: auto; }
+        .qr-wrap { width: min(210px, 58vw); margin: 6px auto 10px; border-radius: 13px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.4); }
+        .qr-wrap svg { display: block; width: 100%; height: auto; }
+        .room-code { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 2.2rem; letter-spacing: 11px; text-align: center; color: var(--gold); padding-left: 11px; text-shadow: 0 0 18px rgba(251,191,36,.4); }
+        .share-row { display: flex; gap: 8px; justify-content: center; margin: 10px 0 6px; }
+        .seg-row { display: flex; flex-wrap: wrap; gap: 7px; }
+
+        /* ── phone: trading ── */
+        /* every trader visible at once — wrap instead of scrolling off-screen */
+        .scores-strip { display: flex; flex-wrap: wrap; gap: 7px; padding-bottom: 2px; }
+        .sc-chip {
+            display: flex; align-items: center; gap: 6px;
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 11px;
+            padding: 6px 10px; font-size: .7rem; font-weight: 800; white-space: nowrap;
+        }
+        /* a trader who's shouting a number lights up gold so you can match them */
+        .sc-chip.offering { border-color: var(--gold); background: rgba(251,191,36,.12); animation: shoutPulse 1.1s ease-in-out infinite; }
+        .sc-chip .shout { color: var(--gold); display: inline-flex; align-items: center; gap: 3px; }
+        .hand-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .pcard {
+            border: none; border-radius: 13px; padding: 10px 6px 9px; font-family: inherit;
+            display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer;
+            box-shadow: 0 4px 0 rgba(0,0,0,.35), 0 8px 16px rgba(0,0,0,.35);
+            transition: transform .1s, outline .1s, opacity .15s; position: relative;
+        }
+        .pcard::before { content: ''; position: absolute; inset: 0; border-radius: 13px; pointer-events: none;
+            background: linear-gradient(157deg, rgba(255,255,255,.22), rgba(255,255,255,0) 44%); }
+        .pcard .big, .pcard .nm, .pcard .pt { position: relative; }
+        .pcard .big { font-size: 1.5rem; font-weight: 800; line-height: 1.1; }
+        .pcard .nm { font-size: .62rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
+        .pcard .pt { font-size: .58rem; font-weight: 700; opacity: .8; }
+        .pcard.sel { outline: 3px solid #fff; outline-offset: 2px; transform: translateY(-4px);
+            box-shadow: 0 8px 0 rgba(0,0,0,.3), 0 14px 26px rgba(0,0,0,.45), 0 0 22px rgba(255,255,255,.3); }
+        .pcard.dim { opacity: .35; }
+        .pcard.inoffer { opacity: .45; }
+        .pcard.inoffer::after { content: '📢'; position: absolute; top: 4px; right: 6px; font-size: .8rem; }
+        .shout-bar { display: flex; gap: 9px; }
+        .shout-bar .btn { flex: 1; font-size: 1.02rem; padding: 15px; }
+        /* keep the SHOUT / CORNER actions pinned to the bottom of the phone so
+           they never fall below the fold behind a tall hand or scores strip */
+        .game-actions {
+            position: sticky; bottom: 0; z-index: 30;
+            display: flex; flex-direction: column; gap: 9px;
+            padding: 12px 0 max(10px, env(safe-area-inset-bottom));
+            background: linear-gradient(to top, var(--bg) 62%, rgba(4,7,15,0));
+        }
+        .game-actions:empty { display: none; }
+        body.viewer-mode .game-actions { position: static; background: none; }
+        /* floating "Traded!" toast — replaces the old reserved empty line */
+        .trade-toast {
+            position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+            z-index: 970; pointer-events: none; white-space: nowrap;
+            background: linear-gradient(180deg, #34d399, #16a34a); color: #03210f;
+            font-weight: 900; font-size: .92rem; letter-spacing: .3px;
+            padding: 9px 18px; border-radius: 999px;
+            box-shadow: 0 10px 26px rgba(0,0,0,.5), inset 0 0 0 2px rgba(255,255,255,.22);
+            animation: toastPop 1.5s cubic-bezier(.2,.8,.3,1) forwards;
+        }
+        @keyframes toastPop {
+            0%   { opacity: 0; transform: translate(-50%,-14px) scale(.7); }
+            12%  { opacity: 1; transform: translate(-50%,0) scale(1.06); }
+            24%  { transform: translate(-50%,0) scale(1); }
+            82%  { opacity: 1; }
+            100% { opacity: 0; transform: translate(-50%,-10px) scale(.96); }
+        }
+        .offer-banner {
+            text-align: center; background: rgba(251,191,36,.1); border: 1px solid var(--border);
+            border-radius: 13px; padding: 11px; font-weight: 800; color: var(--gold);
+            animation: shoutPulse 1.1s ease-in-out infinite;
+        }
+        /* a matching offering chip becomes a tappable "trade" button (green) */
+        .sc-chip.cantrade {
+            border-color: var(--up); background: rgba(34,197,94,.16); cursor: pointer;
+            animation: tradePulse 1s ease-in-out infinite;
+        }
+        .sc-chip.cantrade .shout { color: #4ade80; }
+        .sc-chip.cantrade:active { transform: scale(.96); }
+        @keyframes tradePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,.5); } 50% { box-shadow: 0 0 0 7px rgba(34,197,94,0); } }
+        @keyframes shoutPulse { 0%,100% { box-shadow: 0 0 0 rgba(251,191,36,0); } 50% { box-shadow: 0 0 22px rgba(251,191,36,.35); } }
+        .btn-corner {
+            width: 100%; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.15rem; letter-spacing: 2px;
+            padding: 17px; border: none; border-radius: 15px; cursor: pointer;
+            background: linear-gradient(180deg, #4ade80, #16a34a); color: #03210f;
+            box-shadow: 0 0 0 rgba(34,197,94,.4); animation: cornerPulse 1s ease-in-out infinite;
+        }
+        @keyframes cornerPulse {
+            0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,.5); }
+            50% { box-shadow: 0 0 0 12px rgba(34,197,94,0); }
+        }
+        .feed { display: flex; flex-direction: column; gap: 5px; }
+        .feed-row { font-size: .72rem; font-weight: 700; color: var(--muted); }
+        .feed-row b { color: var(--text); }
+        .feed-row.hot { color: var(--gold); }
+
+        /* ── phone: corner / game over ── */
+        .bell-card { text-align: center; padding: 20px 14px; }
+        .bell-card .bell { font-size: 3.6rem; display: inline-block; animation: ring 1s ease-in-out; }
+        @keyframes ring {
+            0% { transform: rotate(0); } 15% { transform: rotate(24deg); } 30% { transform: rotate(-20deg); }
+            45% { transform: rotate(14deg); } 60% { transform: rotate(-10deg); } 75% { transform: rotate(5deg); } 100% { transform: rotate(0); }
+        }
+        .bell-card .ct { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.5rem; letter-spacing: 2px; margin-top: 6px; }
+        .bell-card .cpts { font-size: 2rem; font-weight: 800; color: var(--up); margin-top: 2px; }
+        .chip { display: inline-block; padding: 4px 12px; border-radius: 11px; background: rgba(251,191,36,.12); border: 1px solid var(--border); color: var(--gold); font-weight: 800; font-size: .74rem; margin: 3px; }
+        .chip.pen { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.45); color: #fca5a5; }
+        .standings .sc { margin-left: auto; font-weight: 800; }
+        .standings .delta { font-size: .72rem; font-weight: 800; margin-left: 7px; }
+        .standings .delta.plus { color: var(--up); }
+        .standings .delta.minus { color: var(--down); }
+
+        /* ── countdown overlay ── */
+        #count-ov {
+            position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+            background: rgba(4,7,15,.78); backdrop-filter: blur(4px); flex-direction: column; gap: 10px;
+        }
+        #count-ov .n { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: clamp(4rem, 22vmin, 9rem); color: var(--gold); text-shadow: 0 0 44px rgba(251,191,36,.55); animation: popNum .9s ease both; }
+        @keyframes popNum { 0% { transform: scale(.3); opacity: 0; } 40% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); } }
+        #count-ov .lbl { color: var(--muted); font-weight: 800; letter-spacing: 3px; text-transform: uppercase; font-size: .8rem; }
+
+        /* ═════════ TV ═════════ */
+        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 2.6vmin 3.2vmin 0; gap: 1.8vmin; position: relative; overflow: hidden; }
+        .tv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 2vmin; }
+        .tv-logo { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 3.1vmin; letter-spacing: .4vmin; color: var(--gold); text-shadow: 0 0 24px rgba(251,191,36,.45); }
+        .tv-meta { font-size: 1.8vmin; font-weight: 800; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .tv-main { flex: 1; display: flex; gap: 2.2vmin; min-height: 0; }
+
+        .tv-floor { flex: 1.6; display: grid; grid-template-columns: 1fr 1fr; gap: 1.6vmin; align-content: start; min-width: 0; }
+        .tv-trader {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 1.6vmin;
+            padding: 1.5vmin 1.8vmin; display: flex; align-items: center; gap: 1.4vmin; min-width: 0;
+        }
+        .tv-trader .tdot { width: 1.7vmin; height: 1.7vmin; border-radius: 50%; box-shadow: 0 0 12px currentColor; flex-shrink: 0; }
+        .tv-trader .tname { font-weight: 800; font-size: 2.1vmin; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tv-trader .tcards { color: var(--muted); font-size: 1.5vmin; font-weight: 700; }
+        .tv-trader .tscore { margin-left: auto; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 2.4vmin; color: var(--gold); font-variant-numeric: tabular-nums; }
+        .tv-trader .tpill {
+            background: linear-gradient(180deg, #fcd34d, #f59e0b); color: #2a1700;
+            font-weight: 800; font-size: 1.9vmin; border-radius: 1vmin; padding: .5vmin 1.2vmin;
+            animation: shoutPulse 1s ease-in-out infinite;
+        }
+        .tv-side { flex: 1; display: flex; flex-direction: column; gap: 1.4vmin; min-width: 0; }
+        .tv-panel { background: var(--panel); border: 1px solid var(--border2); border-radius: 1.6vmin; padding: 1.6vmin 1.9vmin; }
+        .tv-panel .ptitle { font-size: 1.5vmin; font-weight: 800; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); margin-bottom: 1vmin; }
+        .tv-feed { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+        .tv-feed .rows { display: flex; flex-direction: column; gap: .7vmin; }
+        .tv-feed .frow { font-size: 1.9vmin; font-weight: 700; color: var(--muted); animation: riseIn .4s ease both; }
+        .tv-feed .frow b { color: var(--text); }
+        .tv-feed .frow.hot { color: var(--gold); }
+        @keyframes riseIn { from { opacity: 0; transform: translateY(1vmin); } to { opacity: 1; transform: none; } }
+        .tv-bigstat { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 4.6vmin; color: var(--text); }
+        .tv-bigstat small { font-size: 1.5vmin; color: var(--muted); display: block; letter-spacing: .3vmin; }
+
+        .ticker { overflow: hidden; border-top: 1px solid var(--border2); background: rgba(4,7,15,.75); margin: 0 -3.2vmin; padding: 1vmin 0; }
+        .ticker-inner { display: inline-block; white-space: nowrap; animation: tickmove 26s linear infinite; font-weight: 800; font-size: 1.9vmin; }
+        .ticker-inner .tk { margin: 0 2.4vmin; }
+        .ticker-inner .up { color: var(--up); }
+        .ticker-inner .dn { color: var(--down); }
+        @keyframes tickmove { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+        /* TV lobby */
+        .tv-lobby { flex: 1; display: flex; gap: 4vmin; align-items: center; min-height: 0; }
+        .tv-lobby .qr-side { background: #0d172a; border: 1px solid var(--border); border-radius: 2.2vmin; padding: 3.2vmin; text-align: center; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+        .tv-lobby .qr-side .qr-wrap { width: 32vmin; margin: 1.4vmin auto; }
+        .tv-lobby .qr-side .room-code { font-size: 4.6vmin; letter-spacing: 1.9vmin; padding-left: 1.9vmin; }
+        .tv-lobby .join-hint { font-size: 1.7vmin; font-weight: 700; color: var(--muted); }
+        .tv-players { flex: 1; display: flex; flex-direction: column; gap: 1.5vmin; min-width: 0; }
+        .tv-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20vmin, 1fr)); gap: 1.5vmin; }
+        .tv-pcard {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 1.7vmin;
+            padding: 1.7vmin; text-align: center; font-weight: 800; font-size: 2vmin; animation: popIn .35s ease both;
+        }
+        .tv-pcard .pdot { width: 2.2vmin; height: 2.2vmin; margin: 0 auto 1vmin; }
+        @keyframes popIn { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+        .tv-waiting { color: var(--muted); font-weight: 700; font-size: 1.9vmin; }
+
+        /* TV corner overlay + podium */
+        .tv-bell { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.6vmin; text-align: center; }
+        .tv-bell .bell { font-size: 12vmin; animation: ring 1.1s ease-in-out; }
+        .tv-bell .who { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 5vmin; letter-spacing: .5vmin; }
+        .tv-bell .what { font-size: 3vmin; font-weight: 800; color: var(--gold); }
+        .tv-bell .pens { display: flex; gap: 1.2vmin; flex-wrap: wrap; justify-content: center; }
+        .tv-bell .chip { font-size: 1.9vmin; }
+        .tv-lead { display: flex; gap: 1.2vmin; flex-wrap: wrap; justify-content: center; }
+        .tv-lead .rail-chip {
+            display: flex; align-items: center; gap: 1vmin; background: var(--panel); border: 1px solid var(--border2);
+            border-radius: 1.3vmin; padding: 1vmin 1.6vmin; font-weight: 800; font-size: 2vmin;
+        }
+        .tv-lead .rail-chip .sc { color: var(--gold); font-family: 'Orbitron', sans-serif; }
+        .podium-wrap { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2.4vmin; padding-bottom: 1vmin; }
+        .pod { text-align: center; font-weight: 800; animation: podRise .55s cubic-bezier(.2,.8,.3,1) both; }
+        .pod .pname { font-size: 2.4vmin; margin-bottom: .8vmin; }
+        .pod .pscore { font-size: 2vmin; color: var(--gold); margin-bottom: .8vmin; font-family: 'Orbitron', sans-serif; }
+        .pod .block { border-radius: 1.5vmin 1.5vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.3vmin; font-size: 3.2vmin; width: 17vmin; }
+        .pod.p1 .block { height: 21vmin; }
+        .pod.p2 .block { height: 14vmin; }
+        .pod.p3 .block { height: 9.5vmin; }
+        .pod.mrank-0 .block { background: linear-gradient(180deg, #fcd34d, #92600a); }
+        .pod.mrank-1 .block { background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
+        .pod.mrank-2 .block { background: linear-gradient(180deg, #e8a06a, #9c5a33); }
+        .awards-row { display: flex; gap: 1.5vmin; justify-content: center; flex-wrap: wrap; padding-bottom: 2vmin; }
+        .award { background: var(--panel); border: 1px solid var(--border); border-radius: 1.5vmin; padding: 1.3vmin 2vmin; font-weight: 700; font-size: 1.8vmin; text-align: center; }
+        .award .aw-t { color: var(--gold); font-weight: 800; }
+
+        #confetti-cv { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+
+        /* sound toggles */
+        #sound-togs { position: fixed; top: 10px; right: 10px; z-index: 80; display: flex; gap: 6px; }
+        #sound-togs button {
+            width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer; font-size: 1rem;
+            background: rgba(13,23,42,.8); box-shadow: inset 0 0 0 1px var(--border);
+            transition: opacity .2s, transform .12s;
+        }
+        #sound-togs button:active { transform: scale(.88); }
+        #sound-togs button.off { opacity: .35; filter: grayscale(1); }
+        body.viewer-mode .tv-top { padding-right: 96px; }
+
+        /* FX layer — particles + score pops (`.fxp`, not `.pt`: hand cards use .pt for points) */
+        .fxp {
+            position: fixed; width: 8px; height: 8px; border-radius: 2px;
+            z-index: 950; pointer-events: none;
+            animation: fxpFly .75s cubic-bezier(.15,.65,.4,1) forwards;
+        }
+        @keyframes fxpFly {
+            0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity: 1; }
+            100% { transform: translate(var(--dx), var(--dy)) rotate(560deg) scale(.3); opacity: 0; }
+        }
+        .pop {
+            position: fixed; z-index: 960; pointer-events: none;
+            font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.4rem;
+            animation: popUp 1.1s cubic-bezier(.2,.8,.3,1) forwards;
+            text-shadow: 0 2px 12px rgba(0,0,0,.7); white-space: nowrap;
+        }
+        .pop.good { color: var(--up); }
+        .pop.gold { color: var(--gold); }
+        .pop.bad  { color: var(--down); font-size: 1rem; }
+        @keyframes popUp {
+            0%   { transform: translate(-50%, 0) scale(.5); opacity: 0; }
+            15%  { transform: translate(-50%, -12px) scale(1.25); opacity: 1; }
+            100% { transform: translate(-50%, -78px) scale(1); opacity: 0; }
+        }
+
+        /* screen entrances — only on phase changes (#app.fresh), so patches never re-trigger */
+        @keyframes cardIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+        #app.fresh .card { animation: cardIn .35s cubic-bezier(.2,.8,.3,1) both; }
+        @keyframes dealIn { from { opacity: 0; transform: translateY(10px) scale(.85); } to { opacity: 1; transform: none; } }
+        #app.fresh .hand-grid .pcard { animation: dealIn .32s cubic-bezier(.2,.8,.3,1) both; animation-delay: calc(var(--i, 0) * 40ms); }
+        @keyframes rowIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+        #app.fresh .player-row { animation: rowIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 40ms); }
+        @keyframes cptsPop { 0% { opacity: 0; transform: scale(.4); } 60% { transform: scale(1.2); } 100% { opacity: 1; transform: scale(1); } }
+        #app.fresh .cpts { animation: cptsPop .45s .15s both; }
+        #app.fresh .bell-card .chip { animation: cardIn .35s .3s both; }
+        @keyframes shakeX {
+            10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); }
+            30%, 50%, 70% { transform: translateX(-6px); } 40%, 60% { transform: translateX(6px); }
+        }
+        .err { animation: shakeX .4s; }
+        @keyframes podRise { from { transform: translateY(30%); opacity: 0; } to { transform: none; opacity: 1; } }
+        .award { animation: cardIn .5s 1s both; }
+
+        /* ═════════ HERITAGE: badges, hand signals, pit crowd, paper ═════════ */
+
+        /* Laminated red trading badge (acronym + floor number) */
+        .badge {
+            display: inline-flex; align-items: center; gap: 2px; vertical-align: middle;
+            font-family: 'JetBrains Mono', monospace; font-weight: 800; letter-spacing: .5px;
+            font-size: .56rem; text-transform: uppercase; color: #fff;
+            padding: 2px 6px 3px; border-radius: 4px;
+            background: linear-gradient(180deg, #f04747 0%, #b91c1c 100%);
+            border-top: 1.5px solid rgba(255,255,255,.55);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,.28), 0 1px 3px rgba(0,0,0,.55);
+            position: relative;
+        }
+        .badge::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: rgba(0,0,0,.35); box-shadow: inset 0 0 0 1px rgba(255,255,255,.3); margin-right: 1px; }
+        .badge .bnum { opacity: .82; font-weight: 700; }
+        .badge.ontv { font-size: 1.35vmin; padding: .3vmin .8vmin .4vmin; border-radius: .55vmin; gap: .3vmin; }
+        .badge.ontv::before { width: .8vmin; height: .8vmin; }
+
+        /* Open-outcry hand signal — n fingers over a palm */
+        /* em-based hand so it scales by font-size; fingers rise index-first (left)
+           from a palm with a thumb out to the side — so "1" is a pointing index,
+           never a lone middle finger. Size set per context via font-size. */
+        .hsig { position: relative; display: inline-block; width: 1.5em; height: 1.6em; vertical-align: middle; font-size: 12px; }
+        .hsig.big { font-size: 21px; } .hsig.ontv { font-size: 2.2vmin; }
+        .hsig .hpalm { position: absolute; left: .2em; bottom: 0; width: 1.02em; height: .62em; border-radius: .26em; background: linear-gradient(180deg, #f4c89c, #d99b6c); box-shadow: inset 0 -.08em 0 rgba(0,0,0,.1); }
+        .hsig .hthumb { position: absolute; left: -.02em; bottom: .16em; width: .34em; height: .52em; border-radius: .2em; background: linear-gradient(180deg, #f4c89c, #d99b6c); transform: rotate(30deg); transform-origin: bottom right; }
+        .hsig .hfings { position: absolute; left: .3em; bottom: .52em; display: flex; gap: .12em; align-items: flex-end; }
+        .hsig .hfings i { width: .26em; height: 1em; border-radius: .13em .13em 0 0; background: linear-gradient(180deg, #f4c89c, #d99b6c); box-shadow: inset -.06em 0 0 rgba(0,0,0,.12); }
+        /* real hand proportions: middle longest, index ≈ ring, pinky shortest */
+        .hsig .hfings i:nth-child(1) { height: .95em; }  /* index  */
+        .hsig .hfings i:nth-child(2) { height: 1.1em; }  /* middle — longest */
+        .hsig .hfings i:nth-child(3) { height: .9em; }   /* ring   */
+        .hsig .hfings i:nth-child(4) { height: .68em; }  /* pinky — shortest */
+
+        /* The roaring pit — red-jacketed traders waving arms behind the whole TV show */
+        #pit-crowd { position: absolute; left: 0; right: 0; bottom: 0; height: 42%; z-index: 0; pointer-events: none; overflow: hidden; }
+        .tfig { position: absolute; bottom: -1.5vmin; transform-origin: bottom center; filter: brightness(var(--br, 1)) saturate(1.1); }
+        /* colored firm jackets — the London LIFFE floor was a riot of colour */
+        .tfig .body { width: 5.2vmin; height: 8vmin; border-radius: 2.2vmin 2.2vmin .5vmin .5vmin; position: relative;
+            background: linear-gradient(100deg, var(--jkt, #ef4444) 0%, var(--jkt) 55%, var(--jkd, #9b1c1c) 100%); box-shadow: inset -0.7vmin 0 0 rgba(0,0,0,.18); }
+        .tfig .body::before { content: ''; position: absolute; left: 50%; top: .6vmin; width: .5vmin; height: 6vmin; background: rgba(0,0,0,.2); transform: translateX(-50%); } /* jacket seam */
+        .tfig .body::after { content: ''; position: absolute; left: .9vmin; top: 1.6vmin; width: 1.6vmin; height: 1.1vmin; border-radius: .2vmin; background: rgba(255,255,255,.82); box-shadow: 0 0 0 .15vmin rgba(0,0,0,.15); } /* clip-on badge */
+        .tfig .head { position: absolute; left: 50%; top: -2.7vmin; transform: translateX(-50%); width: 3vmin; height: 3vmin; border-radius: 50%;
+            background: radial-gradient(circle at 40% 35%, #f6cfa4, #d69b6b); box-shadow: inset -.4vmin -.3vmin 0 rgba(0,0,0,.12); }
+        .tfig .head::before { content: ''; position: absolute; left: -.3vmin; right: -.3vmin; top: -.4vmin; height: 1.4vmin; border-radius: 1.4vmin 1.4vmin 0 0; background: var(--hair, #263041); } /* hair */
+        .tfig .head::after { content: ''; position: absolute; right: -.5vmin; top: 1vmin; width: 1vmin; height: 1vmin; border-radius: 50%; background: #1a2231; box-shadow: 0 0 0 .3vmin rgba(26,34,49,.35); } /* headset cup */
+        .tfig .arm { position: absolute; top: .8vmin; width: 1.5vmin; height: 5vmin; border-radius: 1vmin; transform-origin: top center;
+            background: linear-gradient(180deg, var(--jkt, #ef4444), var(--jkd, #9b1c1c)); }
+        .tfig .arm::after { content: ''; position: absolute; left: 50%; bottom: -1vmin; transform: translateX(-50%); width: 1.9vmin; height: 1.9vmin; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #f6cfa4, #d69b6b); } /* hand */
+        .tfig .arm.l { left: -.7vmin; animation: waveL var(--aw, 0.9s) ease-in-out infinite; }
+        .tfig .arm.r { right: -.7vmin; animation: waveR var(--aw2, 1.05s) ease-in-out infinite; }
+        @keyframes waveL { 0%,100% { transform: rotate(24deg); } 50% { transform: rotate(58deg); } }
+        @keyframes waveR { 0%,100% { transform: rotate(-58deg); } 50% { transform: rotate(-12deg); } }
+        /* order-slips carpeting the floor, as they always did after a frenzy */
+        .floorslip { position: absolute; bottom: 0; width: 1.5vmin; height: 2vmin; background: linear-gradient(160deg,#fff,#dbe0ea); border-radius: .2vmin; box-shadow: 0 .2vmin .5vmin rgba(0,0,0,.35); opacity: .85; }
+        .tv > .tv-top, .tv > .tv-main, .tv > .tv-lobby, .tv > .tv-bell, .tv > .ticker { position: relative; z-index: 1; }
+
+        /* TV shout: comic speech bubble + signal over a trader */
+        .tv-trader { position: relative; }
+        .tv-trader .tsig { display: inline-flex; align-items: center; }
+        .tv-trader .tpill {
+            position: relative; box-shadow: 0 .3vmin 1vmin rgba(0,0,0,.4);
+        }
+        .tv-trader .tpill::after {
+            content: ''; position: absolute; left: -.9vmin; top: 50%; transform: translateY(-50%);
+            border: .7vmin solid transparent; border-right-color: #f59e0b;
+        }
+
+        /* Paper order-slips — thrown on every trade, and a storm at the close */
+        .slip { position: fixed; z-index: 940; width: 15px; height: 20px; border-radius: 2px; pointer-events: none;
+            background: linear-gradient(160deg, #ffffff, #dfe4ec); box-shadow: 0 2px 6px rgba(0,0,0,.45); }
+        .slip::before, .slip::after { content: ''; position: absolute; left: 2.5px; right: 2.5px; height: 1.6px; background: #9aa6bb; border-radius: 2px; }
+        .slip::before { top: 5px; } .slip::after { top: 10px; box-shadow: 0 4px 0 #9aa6bb; }
+        .slip.gold { background: linear-gradient(160deg, #fef3c7, #fcd34d); }
+        .slip.gold::before, .slip.gold::after { background: #b45309; box-shadow: none; }
+        @keyframes slipFall { to { transform: translate(var(--drift, 0), 106vh) rotate(var(--rot, 360deg)); opacity: .15; } }
+
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } #pit-crowd { display: none; } }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <canvas id="confetti-cv"></canvas>
+    <div id="sound-togs">
+        <button id="tog-music" title="Music on/off" onclick="toggleMusic()">🎵</button>
+        <button id="tog-sfx" title="Sound effects on/off" onclick="toggleSfx()">🔊</button>
+    </div>
+<script>
+// ICE_CFG + rankByScore now come from common.js (loaded in <head>).
+typeof mountScene === 'function' && mountScene('market');   // themed ambient scene along the bottom of the TV
+
+'use strict';
+
+// ═══════════════════════════════════════════
+// CONSTANTS & HELPERS
+// ═══════════════════════════════════════════
+const PFX = 'PITPARTY-';
+const MAX_PLAYERS = 8, MIN_PLAYERS = 3;   // the classic trading game needs 3+ (commodities = player count, 9 cards each)
+const COMMODITIES = [
+    { name: 'Wheat',  pts: 100, bg: '#b45309', fg: '#fef3c7' },
+    { name: 'Coffee', pts: 90,  bg: '#7c2d12', fg: '#ffedd5' },
+    { name: 'Barley', pts: 85,  bg: '#1d4ed8', fg: '#dbeafe' },
+    { name: 'Corn',   pts: 75,  bg: '#ca8a04', fg: '#fef9c3' },
+    { name: 'Rye',    pts: 70,  bg: '#7e22ce', fg: '#f3e8ff' },
+    { name: 'Oats',   pts: 60,  bg: '#15803d', fg: '#dcfce7' },
+    { name: 'Hay',    pts: 50,  bg: '#4d7c0f', fg: '#ecfccb' },
+    { name: 'Flax',   pts: 40,  bg: '#155e75', fg: '#cffafe' },
+];
+const SPECIALS = {
+    Bull: { name: 'Bull', pts: 0, bg: '#991b1b', fg: '#fee2e2', emoji: '🐂' },
+    Bear: { name: 'Bear', pts: 0, bg: '#374151', fg: '#f3f4f6', emoji: '🐻' },
+};
+const PENALTY = 20;
+const PLAYER_COLORS = ['#fbbf24', '#22d3ee', '#f472b6', '#4ade80', '#a78bfa', '#fb923c', '#f87171', '#38bdf8'];
+
+function $id(id) { return document.getElementById(id); }
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function commOf(name) { return COMMODITIES.find(c => c.name === name) || SPECIALS[name] || null; }
+function isSpecial(name) { return name === 'Bull' || name === 'Bear'; }
+function cardStyle(name) {
+    const c = commOf(name);
+    return c ? `background:${c.bg};color:${c.fg}` : '';
+}
+function sortHand(hand) {
+    const order = n => isSpecial(n) ? 100 + (n === 'Bull' ? 0 : 1) : COMMODITIES.findIndex(c => c.name === n);
+    return hand.slice().sort((a, b) => order(a) - order(b));
+}
+
+// ── Open-outcry heritage: the laminated red trading badge every pit trader wore
+// (think "KB 737" in the trading-floor photos). Deterministic from the name so
+// every screen shows the same badge with no extra protocol traffic. ──
+function _hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function traderBadge(name) {
+    const clean = String(name || '').toUpperCase().replace(/[^A-Z0-9 ]/g, '');
+    const words = clean.split(/\s+/).filter(Boolean);
+    let acr;
+    if (words.length >= 2) acr = words[0][0] + words[1][0] + (words[1][1] || '');
+    else if (words[0]) acr = words[0].slice(0, 3);
+    else acr = 'TDR';
+    return { acr, num: (_hash(name) % 900) + 100 };   // 100–999, like a real floor badge
+}
+function badgeHTML(name, cls) {
+    const b = traderBadge(name);
+    return `<span class="badge ${cls || ''}">${esc(b.acr)}<span class="bnum">${b.num}</span></span>`;
+}
+
+// ── Hand signal — fingers held up for the bundle size, the way pit traders
+// signalled quantity across a roaring floor. A little CSS hand, 1–4 fingers. ──
+function handSigHTML(n, cls) {
+    n = Math.max(1, Math.min(4, n | 0));
+    return `<span class="hsig ${cls || ''}"><span class="hpalm"></span><span class="hthumb"></span><span class="hfings">${'<i></i>'.repeat(n)}</span></span>`;
+}
+function badgePrevHTML(name) {
+    return name && name.trim()
+        ? `Your floor badge → ${badgeHTML(name)}`
+        : 'Your floor badge appears here';
+}
+function updateBadgePrev(v) {
+    fName = v;
+    const el = $id('badge-prev');
+    if (el) el.innerHTML = badgePrevHTML(v);
+}
+
+// ── QR code (themed SVG) ──
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+        let rects = '';
+        for (let r = 0; r < n; r++)
+            for (let c = 0; c < n; c++)
+                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+            `<rect width="${size}" height="${size}" fill="#fffbeb"/>` +
+            `<g fill="#0d172a">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+
+// ── Confetti ──
+const CONFETTI_COLS = ['#fbbf24', '#22c55e', '#22d3ee', '#f472b6', '#a78bfa', '#e6edf7'];
+
+// ═══════════════════════════════════════════
+// AUDIO — procedural "trading motivation" + open-outcry SFX
+// (uplifting-corporate music in C major: four-on-the-floor, warm plucks,
+//  anthemic lead; SFX = cash register, crowd roar, ticker, THE bell.
+//  gesture-started, music ~0.33 vol, SFX on top)
+// ═══════════════════════════════════════════
+let AC = null, masterGain = null, musicGain = null, sfxGain = null, noiseBuf = null;
+let leadBus = null, musicDelay = null;
+let musicOn = localStorage.getItem('pit-music') !== '0';
+let sfxOn = localStorage.getItem('pit-sfx') !== '0';
+
+function ac() {
+    if (!AC) {
+        try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+        masterGain = AC.createGain(); masterGain.gain.value = 1; masterGain.connect(AC.destination);
+        musicGain = AC.createGain(); musicGain.gain.value = musicOn ? 0.33 : 0; musicGain.connect(masterGain);
+        sfxGain = AC.createGain(); sfxGain.gain.value = sfxOn ? 0.55 : 0; sfxGain.connect(masterGain);
+        // Lead bus with a short slapback — a big noisy exchange hall
+        leadBus = AC.createGain(); leadBus.gain.value = 1; leadBus.connect(musicGain);
+        musicDelay = AC.createDelay(1.2); musicDelay.delayTime.value = 0.25;
+        const fb = AC.createGain(); fb.gain.value = 0.16;
+        const dlp = AC.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 2400;
+        const wet = AC.createGain(); wet.gain.value = 0.15;
+        leadBus.connect(musicDelay); musicDelay.connect(dlp); dlp.connect(fb); fb.connect(musicDelay);
+        dlp.connect(wet); wet.connect(musicGain);
+        const len = AC.sampleRate * 1.2;
+        noiseBuf = AC.createBuffer(1, len, AC.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (AC.state === 'suspended') AC.resume();
+    return AC;
+}
+
+function noiseHit(dur, { vol = 0.3, when = 0, hp = 6000, dest = null } = {}) {
+    if (!AC) return;
+    const t = AC.currentTime + when;
+    const src = AC.createBufferSource(); src.buffer = noiseBuf;
+    const f = AC.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hp;
+    const g = AC.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(dest || sfxGain);
+    src.start(t); src.stop(t + dur + 0.05);
+}
+
+// Hand-clap / snare-ish backbeat — three quick band-passed noise bursts
+function clapHit(when) {
+    if (!AC) return;
+    const t0 = AC.currentTime + (when || 0);
+    for (let j = 0; j < 3; j++) {
+        const t = t0 + j * 0.009;
+        const src = AC.createBufferSource(); src.buffer = noiseBuf;
+        const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1700; f.Q.value = 1.1;
+        const g = AC.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(0.10, t + 0.001);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+        src.connect(f); f.connect(g); g.connect(musicGain);
+        src.start(t); src.stop(t + 0.12);
+    }
+}
+
+const mf = m => 440 * Math.pow(2, (m - 69) / 12); // midi → freq
+
+// ── SFX (open outcry: ticker clicks, coin, and THE bell) ──
+// Trader steps onto the floor: two bright brass pips
+function sJoin() {
+    if (!sfxOn || !AC) return;
+    tone(mf(65), 0.07, { type: 'square', vol: 0.2, lp: 3600 });
+    tone(mf(72), 0.13, { type: 'square', vol: 0.22, when: 0.06, lp: 3600 });
+}
+// Card tap: tiny ticker click, pitch climbs with selection size
+function sSelect(n) {
+    if (!sfxOn || !AC) return;
+    noiseHit(0.02, { vol: 0.05, hp: 9000 });
+    tone(mf(77 + Math.min(n * 2, 10)), 0.045, { type: 'square', vol: 0.13, lp: 5200 });
+}
+// Trade offer shouted: ticker-tape click burst + rising brass bark
+function sShout(n) {
+    if (!sfxOn || !AC) return;
+    for (let i = 0; i < 5; i++) noiseHit(0.025, { vol: 0.1, when: i * 0.035, hp: 7000 });
+    tone(mf(60), 0.16, { type: 'square', vol: 0.2, slide: mf(64 + n * 2), lp: 3200 });
+    tone(mf(65), 0.1, { type: 'square', vol: 0.15, when: 0.13, lp: 3600 });
+}
+function sCancel() { if (!sfxOn || !AC) return; tone(mf(67), 0.12, { type: 'square', vol: 0.12, slide: mf(60), lp: 2400 }); }
+// Trade completed: cash-register cha-CHING! — drawer clack, bright bell ding,
+// then a cascade of coins (longer the bigger the bundle)
+function sTrade(count) {
+    if (!sfxOn || !AC) return;
+    noiseHit(0.05, { vol: 0.12, hp: 3000 });                 // drawer clack
+    tone(1318, 0.16, { type: 'triangle', vol: 0.16 });        // ching (E6)
+    tone(1760, 0.22, { type: 'triangle', vol: 0.13, when: 0.02 }); // ching (A6)
+    const coins = count >= 3 ? [0, 4, 7, 12, 16, 19] : [0, 4, 7, 12];
+    coins.forEach((s, i) => tone(mf(84 + s), 0.07, { type: 'square', vol: 0.12, when: 0.12 + i * 0.045, lp: 6500 }));
+}
+// The roar of the floor: a crowd swell with scattered shouts, on the open
+function sRoar(dur) {
+    if (!sfxOn || !AC) return;
+    dur = dur || 1.1;
+    const t = AC.currentTime;
+    const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+    const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 650; bp.Q.value = 0.7;
+    const g = AC.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.14, t + dur * 0.45);
+    g.gain.linearRampToValueAtTime(0.0001, t + dur);
+    src.connect(bp); bp.connect(g); g.connect(sfxGain);
+    src.start(t); src.stop(t + dur + 0.1);
+    for (let i = 0; i < 6; i++) {
+        const m = 50 + Math.floor(Math.random() * 12);
+        tone(mf(m), 0.13, { type: 'sawtooth', vol: 0.05, when: Math.random() * dur * 0.8, slide: mf(m - 4), lp: 1300 });
+    }
+}
+// Small TV coin tick when the trade counter climbs
+function sTick() {
+    if (!sfxOn || !AC) return;
+    tone(mf(89), 0.05, { type: 'square', vol: 0.1, lp: 6000 });
+    tone(mf(84), 0.07, { type: 'square', vol: 0.09, when: 0.045, lp: 6000 });
+}
+// THE bell: layered detuned metallic partials + strike, rung `rings` times
+function sBell(rings) {
+    if (!sfxOn || !AC) return;
+    const n = rings || 2;
+    duckMusic(0.4 + n * 0.35);
+    for (let r = 0; r < n; r++) {
+        const w = r * 0.28;
+        noiseHit(0.05, { vol: 0.2, when: w, hp: 4500 });
+        [[784, 1.1, 0.11], [1176, 0.9, 0.09], [1568, 0.7, 0.07], [2117, 0.5, 0.05], [790, 1.0, 0.08]].forEach(([f, d, v]) =>
+            tone(f * (1 + (Math.random() - 0.5) * 0.004), d, { type: 'sine', vol: v, when: w + 0.005, attack: 0.003 }));
+    }
+}
+// Bear growl: caught holding specials at the corner
+function sBuzz() {
+    if (!sfxOn || !AC) return;
+    duckMusic(0.7);
+    tone(160, 0.35, { type: 'sawtooth', vol: 0.13, slide: 60, lp: 900 });
+    tone(80, 0.4, { type: 'sine', vol: 0.18, when: 0.05, slide: 45 });
+}
+// Uh-oh: a Bull/Bear just landed in your hand mid-trade
+function sSpecial() {
+    if (!sfxOn || !AC) return;
+    tone(mf(53), 0.1, { type: 'triangle', vol: 0.2 });
+    tone(mf(49), 0.16, { type: 'triangle', vol: 0.2, when: 0.1 });
+}
+// Opening-bell countdown ticks (i = 0,1,2 rising)
+function sCount(i) {
+    if (!sfxOn || !AC) return;
+    tone(mf(72 + (i || 0) * 2), 0.09, { type: 'square', vol: 0.17, lp: 4200 });
+}
+// Victory: quotes the lobby ragtime motif on the bugle, then the closing
+// trill + crash — the trading floor's own tune takes the bow
+function sWin() {
+    if (!sfxOn || !AC) return;
+    duckMusic(1.6);
+    // quote the lobby anthem's opening phrase, then a rising trill + crash
+    [67, 72, 71, 72, 74, 72, 71, 74].forEach((m, i) => tone(mf(m), 0.15, { type: 'sawtooth', vol: 0.2, when: i * 0.11, lp: 3400 }));
+    [83, 84, 83, 84, 83, 86].forEach((m, i) => tone(mf(m), 0.08, { type: 'sawtooth', vol: 0.17, when: 0.95 + i * 0.06, lp: 4200 }));
+    noiseHit(0.7, { vol: 0.18, when: 1.35, hp: 5000 });
+}
+// Duck the music briefly so big stingers read clearly (sidechain feel)
+function duckMusic(dur = 0.5) {
+    if (!AC || !musicGain || !musicOn) return;
+    const t = AC.currentTime;
+    musicGain.gain.cancelScheduledValues(t);
+    musicGain.gain.setValueAtTime(0.1, t);
+    musicGain.gain.linearRampToValueAtTime(0.33, t + dur);
+}
+
+// ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
+// F-major ragtime: stride oom-pah bass, brassy square leads,
+// chords cycle F/C7 · Bb/C7 with chromatic walkups at the turns.
+// "Trading — Motivational Background Music": bright uplifting-corporate in C major,
+// the classic I–V–vi–IV (C·G·Am·F) progression, four-on-the-floor kick + backbeat
+// clap, warm plucked arps and an anthemic lead. Same pad chord set across all four
+// tracks (the progression is the hook); tempo/energy/waveform set the phase mood.
+const CORP_PADS = [
+    { 0: [48,52,55], 16: [43,47,50] },   // C major → G major
+    { 0: [45,48,52], 16: [41,45,48] },   // A minor → F major
+];
+const TRACKS = {
+    // Lobby: 116bpm — warm and optimistic, the doors about to open
+    lobby: { bpm: 116, swing: 0.03, arp: 2, leadLp: 3000,
+        waves: { bass: 'triangle', lead: 'triangle', stab: 'triangle', arpW: 'sine' },
+        bassBars: [
+            [36,null,null,null, 43,null,null,null, 36,null,null,null, 43,null,36,null, 43,null,null,null, 50,null,null,null, 43,null,null,null, 50,null,47,null],
+            [45,null,null,null, 52,null,null,null, 45,null,null,null, 52,null,45,null, 41,null,null,null, 48,null,null,null, 41,null,null,null, 48,null,43,null],
+        ],
+        leads: [
+            [null,null,67,null, 72,null,71,null, 72,null,74,null, 72,null,null,null, null,null,67,null, 71,null,69,null, 67,null,null,null, null,null,null,null],
+            [72,null,71,null, 72,null,74,null, 76,null,74,null, 72,null,null,null, 74,null,72,null, 71,null,69,null, 67,null,69,null, 71,null,null,null],
+            [null,null,null,null, 72,null,null,74, 76,null,null,null, 74,null,72,null, null,null,null,null, 71,null,null,72, 74,null,null,null, 72,null,null,null],
+            [76,null,null,null, 74,null,72,null, 71,null,72,null, 74,null,null,null, 72,null,null,null, 71,null,69,null, 67,null,69,null, 71,null,null,null],
+        ],
+        hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+        clap: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+        stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        pads: CORP_PADS },
+    // Trading: 128bpm — driving engine-room, the motivational push in full swing
+    trading: { bpm: 128, swing: 0, arp: 2, leadLp: 3600,
+        waves: { bass: 'sawtooth', lead: 'sawtooth', stab: 'sawtooth', arpW: 'triangle' },
+        bassBars: [
+            [36,null,36,48, 36,null,43,null, 36,null,36,48, 43,null,47,null, 43,null,43,55, 43,null,50,null, 43,null,43,55, 50,null,45,null],
+            [45,null,45,57, 45,null,52,null, 45,null,45,57, 52,null,44,null, 41,null,41,53, 41,null,48,null, 41,null,41,53, 48,null,43,null],
+        ],
+        leads: [
+            [67,null,72,null, 71,null,72,null, 74,null,72,null, 67,null,null,null, 69,null,72,null, 74,null,76,null, 72,null,74,null, 72,null,null,null],
+            [72,null,74,null, 76,null,74,null, 72,null,71,null, 72,null,74,null, 76,null,77,null, 76,null,74,null, 72,null,71,null, 69,null,null,null],
+            [null,null,67,69, 72,null,null,74, 76,null,74,null, 72,null,null,null, null,null,74,76, 77,null,null,76, 74,null,72,null, 71,null,null,null],
+            [79,null,77,null, 76,null,74,null, 72,null,74,null, 76,null,null,null, 77,null,79,null, 81,null,79,null, 77,null,76,null, 74,null,null,null],
+        ],
+        hat:  [1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1, 1,0,1,1],
+        kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,1,0],
+        clap: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+        stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        pads: CORP_PADS },
+    // CORNER! — 124bpm triumphant uplift while the bell still rings
+    corner: { bpm: 124, swing: 0, arp: 2, leadLp: 3800,
+        waves: { bass: 'triangle', lead: 'sawtooth', stab: 'triangle', arpW: 'triangle' },
+        bassBars: [
+            [36,null,48,null, 43,null,48,null, 36,null,48,null, 43,null,55,null, 43,null,55,null, 50,null,55,null, 43,null,55,null, 50,null,47,null],
+            [45,null,57,null, 52,null,57,null, 45,null,57,null, 52,null,44,null, 41,null,53,null, 48,null,53,null, 41,null,53,null, 48,null,43,null],
+        ],
+        leads: [
+            [72,null,null,74, 76,null,null,null, 77,null,76,null, 74,null,72,null, 76,null,null,77, 79,null,null,null, 77,null,76,null, 74,null,null,null],
+            [79,null,null,null, 77,null,76,null, 74,null,76,null, 77,null,null,null, 81,null,null,null, 79,null,77,null, 76,null,74,null, 72,null,null,null],
+        ],
+        hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+        clap: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+        stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        pads: CORP_PADS },
+    // Market closed: 128bpm full victory anthem
+    over: { bpm: 128, swing: 0, arp: 1, leadLp: 4200,
+        waves: { bass: 'sawtooth', lead: 'sawtooth', stab: 'sawtooth', arpW: 'triangle' },
+        bassBars: [
+            [36,null,36,48, 43,null,36,null, 36,null,36,48, 43,null,47,null, 43,null,43,55, 50,null,43,null, 43,null,43,55, 50,null,45,null],
+            [45,null,45,57, 52,null,45,null, 45,null,45,57, 52,null,44,null, 41,null,41,53, 48,null,41,null, 41,null,41,53, 48,null,43,null],
+        ],
+        leads: [
+            [72,72,null,74, 76,null,77,null, 79,null,77,null, 76,null,74,null, 76,76,null,77, 79,null,81,null, 79,null,77,null, 76,null,null,null],
+            [84,null,null,null, 83,null,81,null, 79,null,77,null, 76,null,null,null, 77,null,79,null, 81,null,83,null, 84,null,null,null, null,null,null,null],
+            [null,null,76,null, 77,null,79,null, null,null,77,null, 76,null,74,null, null,null,77,null, 79,null,81,null, null,null,79,null, 77,null,null,null],
+        ],
+        hat:  [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+        kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,1,0],
+        clap: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+        stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        pads: CORP_PADS },
+};
+let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
+// Adaptive arrangement: intensity 1 drops the stab/arp layers (quiet floor),
+// 2 is the full band; keyShift transposes every melodic voice (match point)
+let musicIntensity = 2, musicKeyShift = 0;
+
+function playMusicStep(i, t, bar) {
+    const tr = TRACKS[musicTrack];
+    const stepDur = 60 / tr.bpm / 4;
+    const w = tr.waves || {};
+    const k = musicKeyShift;
+    const full = musicIntensity >= 2 || musicUrgent;
+    // Straight modern feel (tiny swing only in the lobby); push off-16ths a hair late
+    const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
+    if (tr.kick[i]) tone(150, 0.22, { type: 'sine', vol: 0.45, when: rel, slide: 45, dest: musicGain });
+    if (tr.hat[i]) {
+        const hv = (i % 4 === 2 ? 0.13 : 0.07) * (0.8 + Math.random() * 0.4);
+        noiseHit(0.05, { vol: hv, when: rel, hp: 9000, dest: musicGain });
+    }
+    if (tr.clap && tr.clap[i]) clapHit(rel);      // backbeat clap (2 & 4) — the pop groove
+    const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
+    const b = bassArr[i];
+    if (b != null) tone(mf(b + k), stepDur * 1.5, { type: w.bass || 'triangle', vol: 0.26, when: rel, dest: musicGain, lp: 1150, attack: 0.005 });
+    const pad = tr.pads[bar % tr.pads.length];
+    const ch = i < 16 ? pad[0] : pad[16];
+    // Muted plucked chord — the signature "uplifting corporate" offbeat pluck
+    if (full && tr.stab && tr.stab[i] && ch)
+        ch.forEach(m => tone(mf(m + 12 + k), stepDur * 0.7, { type: w.stab || 'triangle', vol: 0.05, when: rel, lp: 3000, dest: musicGain, attack: 0.003 }));
+    let l = tr.leads[bar % tr.leads.length][i];
+    if (l != null && (musicIntensity >= 1 || musicUrgent)) {
+        if (musicUrgent) l += 12;
+        tone(mf(l + k), stepDur * 1.4, { type: w.lead || 'square', vol: 0.12 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 4400, attack: 0.004 });
+    }
+    // Ticker-tape arpeggio shimmer an octave over the pads
+    if (full && tr.arp && i % tr.arp === 0 && ch)
+        tone(mf(ch[(i / tr.arp) % ch.length] + 24 + k), stepDur * tr.arp * 0.9, { type: w.arpW || 'triangle', vol: 0.04, when: rel, lp: 5500, dest: musicGain, attack: 0.003 });
+    if (musicUrgent && i % 4 === 0) noiseHit(0.04, { vol: 0.11, when: rel + stepDur * 2, hp: 11000, dest: musicGain });
+}
+
+function musicScheduler() {
+    const tr = TRACKS[musicTrack];
+    const stepDur = 60 / tr.bpm / 4;
+    while (musicNext < AC.currentTime + 0.18) {
+        playMusicStep(musicStep, musicNext, musicBar);
+        musicNext += stepDur;
+        musicStep++;
+        if (musicStep === 32) { musicStep = 0; musicBar++; }
+    }
+}
+
+function setMusic(track) {
+    if (musicTrack === track) return;
+    const wasPlaying = !!(AC && musicTimer);
+    musicTrack = track;
+    musicStep = 0;
+    musicBar = 0;
+    musicIntensity = 2;
+    if (track === 'lobby' || track === 'over') musicKeyShift = 0;
+    if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[track].bpm * 0.5;
+    if (track !== 'trading') musicUrgent = false;
+    // one-beat snare fill so phase changes land on a downbeat instead of a hard cut
+    if (wasPlaying) {
+        const s = 60 / TRACKS[track].bpm / 4;
+        for (let f = 0; f < 4; f++) noiseHit(0.06, { vol: 0.1 + f * 0.035, when: f * s, hp: 2800 + f * 900, dest: musicGain });
+        musicNext = AC.currentTime + 4 * s;
+    }
+}
+
+// Open-outcry mood, driven by each state broadcast: the band thins out while
+// the floor is quiet and swells when shouts stack up; your own phone turns
+// urgent while a corner is sitting in your hand. Match point (someone within
+// one top-value corner of the win) bumps the whole arrangement up a whole step.
+function updateMusicMood(msg) {
+    if (!msg || !msg.players) return;
+    if (musicTrack === 'trading') {
+        const shouts = msg.players.filter(p => p.offerCount > 0).length;
+        musicIntensity = shouts >= 2 ? 2 : 1;
+        musicUrgent = !!msg.canCorner;
+    }
+    if (musicTrack === 'trading' || musicTrack === 'corner') {
+        const top = Math.max(0, ...msg.players.map(p => p.score || 0));
+        musicKeyShift = msg.winScore && top >= msg.winScore - 100 ? 2 : 0;
+    }
+}
+
+function toggleMusic() {
+    musicOn = !musicOn;
+    localStorage.setItem('pit-music', musicOn ? '1' : '0');
+    if (!AC && musicOn) { ac(); startMusicLoop(); }
+    if (AC && musicGain) musicGain.gain.linearRampToValueAtTime(musicOn ? 0.33 : 0, AC.currentTime + 0.2);
+    $id('tog-music').classList.toggle('off', !musicOn);
+}
+function toggleSfx() {
+    sfxOn = !sfxOn;
+    localStorage.setItem('pit-sfx', sfxOn ? '1' : '0');
+    if (AC && sfxGain) sfxGain.gain.value = sfxOn ? 0.55 : 0;
+    $id('tog-sfx').classList.toggle('off', !sfxOn);
+}
+
+// Unlock audio on first interaction (browser autoplay policy)
+let _audioUnlocked = false;
+document.addEventListener('pointerdown', () => {
+    if (_audioUnlocked) return;
+    _audioUnlocked = true;
+    if (ac()) startMusicLoop();
+}, { capture: true });
+
+// ── Particle bursts + floating score text ──
+
+// ── The pit crowd: a packed row of red-jacketed traders waving their arms,
+// sitting behind the whole TV show. Rebuilt on each full render for variety. ──
+// Each firm on the LIFFE floor wore its own jacket colour — reproduce that
+// carnival of red / orange / gold / green / teal / blue / purple / pink.
+const JACKETS = [
+    ['#ef4444', '#9b1c1c'], ['#f97316', '#9a3d0a'], ['#f5c518', '#a67c00'],
+    ['#22c55e', '#137a3a'], ['#14b8c6', '#0a6b78'], ['#3b82f6', '#1a4aa8'],
+    ['#8b5cf6', '#4c2d9c'], ['#ec4899', '#9d2765'], ['#e6edf7', '#8f98ab'],
+];
+const HAIRS = ['#263041', '#3a2a1a', '#4a2e12', '#1c2230', '#5a4632'];
+function pitCrowdHTML() {
+    if (REDUCED) return '';
+    let out = '';
+    const N = 16;
+    for (let i = 0; i < N; i++) {
+        const left = (i / (N - 1)) * 100 + (Math.random() * 5 - 2.5);
+        const sz = 0.62 + Math.random() * 0.62;          // depth: smaller = further back
+        const br = 0.55 + sz * 0.45;                      // dimmer when further back
+        const aw = (0.72 + Math.random() * 0.5).toFixed(2);
+        const aw2 = (0.82 + Math.random() * 0.5).toFixed(2);
+        const dl = (-Math.random() * 1.2).toFixed(2);
+        const jk = JACKETS[Math.floor(Math.random() * JACKETS.length)];
+        const hair = HAIRS[Math.floor(Math.random() * HAIRS.length)];
+        out += `<div class="tfig" style="left:${left.toFixed(1)}%;bottom:${(-1.5 - (1 - sz) * 6).toFixed(1)}vmin;` +
+            `transform:scale(${sz.toFixed(2)});--br:${br.toFixed(2)};--aw:${aw}s;--aw2:${aw2}s;` +
+            `--jkt:${jk[0]};--jkd:${jk[1]};--hair:${hair};z-index:${Math.round(sz * 10)}">` +
+            `<div class="head"></div><div class="body">` +
+            `<div class="arm l" style="animation-delay:${dl}s"></div><div class="arm r" style="animation-delay:${dl}s"></div>` +
+            `</div></div>`;
+    }
+    // paper slips scattered across the floor
+    let paper = '';
+    for (let i = 0; i < 26; i++) {
+        paper += `<div class="floorslip" style="left:${(Math.random() * 100).toFixed(1)}%;bottom:${(Math.random() * 5).toFixed(1)}vmin;` +
+            `transform:scale(${(0.7 + Math.random() * 0.9).toFixed(2)}) rotate(${(Math.random() * 90 - 45).toFixed(0)}deg);opacity:${(0.5 + Math.random() * 0.4).toFixed(2)}"></div>`;
+    }
+    return `<div id="pit-crowd">${paper}${out}</div>`;
+}
+
+// Paper order-slips fly between two traders when a trade completes
+function findTraderEl(name) { return [...document.querySelectorAll('.tv-trader')].find(el => el.dataset.name === name); }
+function flySlip(x0, y0, x1, y1, delay, gold) {
+    if (REDUCED) return;
+    setTimeout(() => {
+        const s = document.createElement('div');
+        s.className = 'slip' + (gold ? ' gold' : '');
+        s.style.cssText = `left:${x0}px;top:${y0}px;opacity:0;transform:translate(-50%,-50%) rotate(0deg);` +
+            `transition:transform .52s cubic-bezier(.3,.7,.35,1),opacity .52s;`;
+        document.body.appendChild(s);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            s.style.opacity = '1';
+            s.style.transform = `translate(-50%,-50%) translate(${x1 - x0}px,${y1 - y0}px) rotate(${Math.random() * 720 - 360}deg)`;
+        }));
+        setTimeout(() => { s.style.opacity = '0'; }, 430);
+        setTimeout(() => s.remove(), 760);
+    }, delay || 0);
+}
+function flyTradeSlips(aName, bName, count) {
+    const ae = findTraderEl(aName), be = findTraderEl(bName);
+    if (!ae || !be) return;
+    const ar = ae.getBoundingClientRect(), br = be.getBoundingClientRect();
+    const ax = ar.left + ar.width / 2, ay = ar.top + ar.height / 2;
+    const bx = br.left + br.width / 2, by = br.top + br.height / 2;
+    const k = Math.max(1, Math.min(count || 1, 4));
+    for (let i = 0; i < k; i++) { flySlip(ax, ay, bx, by, i * 60); flySlip(bx, by, ax, ay, i * 60 + 30); }
+}
+
+// A blizzard of paper thrown at the closing bell / corner
+function paperStorm(n) {
+    if (REDUCED) return;
+    n = n || 46;
+    for (let i = 0; i < n; i++) {
+        const s = document.createElement('div');
+        s.className = 'slip' + (Math.random() < 0.4 ? ' gold' : '');
+        const dur = 1.7 + Math.random() * 1.7;
+        s.style.cssText = `left:${Math.random() * innerWidth}px;top:${-30 - Math.random() * 200}px;` +
+            `--drift:${(Math.random() * 180 - 90)}px;--rot:${Math.random() * 900 - 450}deg;` +
+            `animation:slipFall ${dur}s linear ${(Math.random() * 0.5).toFixed(2)}s forwards;`;
+        document.body.appendChild(s);
+        setTimeout(() => s.remove(), dur * 1000 + 700);
+    }
+}
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let peer = null, myId = '', myName = '', isHost = false, isTvHost = false, isViewer = false, roomCode = '';
+let hostConn = null, guestConns = {}, viewerConns = {};
+let ui = 'home';   // home|creating|connecting|lobby_h|lobby_g|game|corner|gameover|viewer
+let uiErr = '';
+let fName = (typeof savedName === 'function' ? savedName() : '');
+let fCode = '', fVCode = '';
+let D = null, vD = null;
+
+// phone-local trading state
+let selection = new Set();       // indices into D.myHand
+let _prevHandKey = '';
+
+// Host authoritative state
+let H = {
+    phase: 'lobby',              // lobby|trading|corner|gameover
+    players: [],                 // [{id,name,color,hand:[],offer:null,score:0,trades:0,corners:0,lastDelta:0}]
+    settings: { bullBear: false, winScore: 500, autoMatch: true },
+    round: 0,
+    feed: [],                    // last 12 [{id,t,...}]
+    tradeCount: 0,
+    biggestTrade: null,          // {a,b,count}
+    lastCorner: null,            // {name,color,commodity,pts,kind,penalties:[{name,amount}]}
+    winner: null, stats: null,
+};
+let _feedSeq = 0;
+function feedPush(ev) {
+    ev.id = ++_feedSeq;
+    H.feed.push(ev);
+    if (H.feed.length > 12) H.feed.shift();
+}
+
+// ═══════════════════════════════════════════
+// NETWORK
+// ═══════════════════════════════════════════
+function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('send err', e); } }
+function broadcastViewers(msg) { Object.values(viewerConns).forEach(c => send(c, msg)); }
+function connectedPlayers() {
+    return H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+}
+
+// ── 👑 captain (TV-host rooms) ──────────────────────────────────────────────
+// The captain is the first *CONNECTED* player, not simply H.players[0]: a captain
+// whose phone drops mid-game must not stall the room. Their slot survives the drop
+// (zombie takeover by name), so when they rejoin they're first again and the crown
+// comes straight back.
+function capPlayer() { return isTvHost ? (connectedPlayers()[0] || H.players[0] || null) : null; }
+function capName() { return isTvHost ? (capPlayer()?.name || null) : null; }
+// The crown moved — re-sync the phones losing/gaining it, plus the TV. Deliberately
+// not a full broadcast: everyone else may be mid-interaction on their own screen.
+function capSync(prevId) {
+    if (!isTvHost || H.phase === 'lobby') return;      // lobby re-broadcasts anyway
+    const nowId = capPlayer()?.id || null;
+    if (nowId === prevId) return;
+    [prevId, nowId].forEach(id => {
+        const p = id && H.players.find(x => x.id === id);
+        const c = p && guestConns[p.id];
+        if (c) send(c, stateFor(p));
+    });
+    broadcastViewers(viewerStateMsg());
+    tvHostSync();
+}
+
+function hostAddPlayer(id, name) {
+    if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
+    H.players.push({
+        id, name, color: PLAYER_COLORS[H.players.length % PLAYER_COLORS.length],
+        hand: [], offer: null, score: 0, trades: 0, corners: 0, lastDelta: 0,
+    });
+}
+
+function lobbyMsg() {
+    return {
+        type: 'lobby', roomCode,
+        players: H.players.map(p => ({ name: p.name, color: p.color })),
+        settings: { ...H.settings },
+        tvHost: isTvHost, captain: capName(),
+    };
+}
+function broadcastLobby() {
+    H.players.forEach(p => { if (p.id !== myId && guestConns[p.id]) send(guestConns[p.id], lobbyMsg()); });
+    broadcastViewers({ ...lobbyMsg(), type: 'viewer_lobby' });
+    hostSyncSelf(lobbyMsg());
+}
+
+function bestCorner(hand) {
+    const counts = {};
+    hand.forEach(n => { if (!isSpecial(n)) counts[n] = (counts[n] || 0) + 1; });
+    const hasBull = hand.includes('Bull');
+    let best = null;
+    for (const [name, count] of Object.entries(counts)) {
+        const pts = commOf(name).pts;
+        let opt = null;
+        if (count >= 9) opt = hasBull ? { commodity: name, kind: 'double_bull', pts: pts * 2 } : { commodity: name, kind: 'standard', pts };
+        else if (count === 8 && hasBull) opt = { commodity: name, kind: 'bull', pts };
+        if (opt && (!best || opt.pts > best.pts)) best = opt;
+    }
+    return best;
+}
+
+function stateFor(p) {
+    const corner = p && H.phase === 'trading' ? bestCorner(p.hand) : null;
+    return {
+        type: 'state',
+        phase: H.phase, round: H.round, roomCode,
+        winScore: H.settings.winScore, bullBear: H.settings.bullBear, autoMatch: H.settings.autoMatch,
+        myHand: p ? sortHand(p.hand) : [],
+        myOffer: p && p.offer ? { cards: p.offer.cards, count: p.offer.count } : null,
+        canCorner: !!corner, cornerInfo: corner,
+        myDelta: p ? p.lastDelta : 0,
+        players: H.players.map((q, idx) => ({
+            idx, name: q.name, color: q.color, score: q.score, cards: q.hand.length,
+            offerCount: q.offer ? q.offer.count : 0, trades: q.trades, delta: q.lastDelta,
+            me: !!(p && q.id === p.id),
+        })),
+        feed: H.feed.slice(-8),
+        tradeCount: H.tradeCount,
+        lastCorner: H.lastCorner, winner: H.winner, stats: H.stats,
+        tvHost: isTvHost, captain: capName(),
+    };
+}
+function viewerStateMsg() {
+    return { ...stateFor(null), type: 'viewer_state', feed: H.feed.slice(-12) };
+}
+function broadcastState() {
+    H.players.forEach(p => {
+        if (p.id === myId) return;
+        const conn = guestConns[p.id];
+        if (conn) send(conn, stateFor(p));
+    });
+    broadcastViewers(viewerStateMsg());
+    hostSyncSelf(isTvHost ? null : stateFor(H.players.find(p => p.id === myId)));
+}
+
+// ── Host: incoming connections ──
+function setupGuestConn(conn) {
+    conn.on('open', () => { conn._role = null; });
+
+    conn.on('data', msg => {
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer';
+            viewerConns[conn.peer] = conn;
+            send(conn, H.phase === 'lobby' ? { ...lobbyMsg(), type: 'viewer_lobby' } : viewerStateMsg());
+            return;
+        }
+        if (conn._role === null) {
+            conn._role = 'player';
+            guestConns[conn.peer] = conn;
+        }
+        const player = H.players.find(p => p.id === conn.peer);
+        switch (msg.type) {
+            case 'join': {
+                const prevCap = capPlayer()?.id || null;
+                setTimeout(() => capSync(prevCap), 0);
+                const name = String(msg.name || 'Trader').slice(0, 16);
+                const zombie = H.players.find(p => msg.cid && p.cid === msg.cid && p.id !== conn.peer && !guestConns[p.id])
+                    || H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
+                if (zombie) zombie.id = conn.peer;
+                else hostAddPlayer(conn.peer, name);
+                const p2 = H.players.find(p => p.id === conn.peer);
+                if (p2 && msg.cid) p2.cid = msg.cid;          // this device now owns the slot
+                if (!p2) { send(conn, lobbyMsg()); break; }         // room full
+                if (H.phase === 'lobby') broadcastLobby();
+                else { send(conn, stateFor(p2)); broadcastViewers(viewerStateMsg()); if (isTvHost) tvHostSync(); }
+                break;
+            }
+            case 'offer':        if (player) hostOffer(player, msg.cards); break;
+            case 'cancel_offer': if (player) hostCancelOffer(player); break;
+            case 'trade_with':   if (player) hostTradeWith(player, msg.targetIdx, msg.cards); break;
+            case 'corner':       if (player) hostCorner(player); break;
+            case 'ctl': {
+                if (!isTvHost || !player || player.id !== capPlayer()?.id) break;
+                hostCtl(msg.action, msg);
+                break;
+            }
+        }
+    });
+
+    conn.on('close', () => {
+        const prevCap = capPlayer()?.id || null;
+        setTimeout(() => capSync(prevCap), 0);
+        delete guestConns[conn.peer];
+        delete viewerConns[conn.peer];
+        if (H.phase === 'lobby') {
+            const pi = H.players.findIndex(p => p.id === conn.peer);
+            if (pi >= 0) { H.players.splice(pi, 1); broadcastLobby(); }
+        }
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+function hostCtl(action, msg) {
+    if (action === 'start' && H.phase === 'lobby') hostStartRound(true);
+    else if (action === 'next' && H.phase === 'corner') hostStartRound(false);
+    else if (action === 'again' && H.phase === 'gameover') hostNewGame();
+    else if (action === 'set' && H.phase === 'lobby') {
+        if (typeof msg.bullBear === 'boolean') H.settings.bullBear = msg.bullBear;
+        if (typeof msg.autoMatch === 'boolean') H.settings.autoMatch = msg.autoMatch;
+        if ([300, 500, 750].includes(msg.winScore)) H.settings.winScore = msg.winScore;
+        broadcastLobby();
+    }
+}
+function guestCtl(action, extra) {
+    if (isHost && !isTvHost) { hostCtl(action, extra || {}); return; }
+    if (hostConn) send(hostConn, { type: 'ctl', action, ...(extra || {}) });
+}
+
+// ── Create a room (phone host or TV host) ──
+function makeRoom(onOpen) {
+    forgetRoom();                    // hosting now — this tab is nobody's guest
+    roomCode = makeRoomCode();
+    peer = hostPeer(PFX + roomCode, {
+        onOpen: id => { myId = id; isHost = true; onOpen(); },
+        onConnection: conn => setupGuestConn(conn),
+        onFatalError: e => {
+            uiErr = 'Connection error: ' + e.message;
+            isHost = false; isTvHost = false;
+            document.body.classList.remove('viewer-mode');
+            ui = 'home'; render();
+        },
+    });
+}
+
+function hostGame(name) {
+    myName = name.trim().slice(0, 16) || 'Host';
+    saveName(myName);
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        hostAddPlayer(myId, myName);
+        ui = 'lobby_h';
+        render();
+    });
+}
+
+function hostOnTV() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        isTvHost = true;
+        document.body.classList.add('viewer-mode');
+        tvHostSync();
+        render();
+    });
+}
+
+// ── Guest ──
+function joinGame(code, name) {
+    myName = name.trim().slice(0, 16) || 'Trader';
+    saveName(myName);
+    uiErr = ''; ui = 'connecting'; render();
+
+    let connected = false;
+    joinPeer({
+        hostFullId: PFX + code.trim().toUpperCase(),
+        attempts: 3, delayMs: 700,
+        isConnected: () => connected,
+        onReady: (p, id, hc) => {
+            peer = p; myId = id; isHost = false; hostConn = hc;
+            hostConn.on('open', () => { connected = true; rememberRoom(code.trim().toUpperCase(), 'player'); send(hostConn, { type: 'join', cid: clientId(), name: myName }); });
+            hostConn.on('data', msg => applyMsg(msg));
+        },
+        onLost: () => { connected = false; },   // → auto-rejoin behind the curtain
+        onGiveUp: wasIn => { forgetRoom(); uiErr = wasIn ? 'Lost connection to the game — tap Join to get back in.' : 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.'; ui = 'home'; D = null; render(); },
+    });
+}
+
+// ── Viewer (TV joining a phone-hosted game) ──
+function joinAsViewer(code) {
+    isViewer = true;
+    uiErr = ''; ui = 'connecting'; render();
+
+    let connected = false;
+    joinPeer({
+        hostFullId: PFX + code.trim().toUpperCase(),
+        attempts: 2, delayMs: 600,
+        isConnected: () => connected,
+        onReady: (p, id, hc) => {
+            peer = p; myId = id; hostConn = hc;
+            hostConn.on('open', () => { connected = true; rememberRoom(code.trim().toUpperCase(), 'viewer'); send(hostConn, { type: 'join_viewer' }); });
+            hostConn.on('data', msg => applyViewerMsg(msg));
+        },
+        onLost: () => { connected = false; },   // → auto-rejoin behind the curtain
+        onGiveUp: wasIn => { forgetRoom(); uiErr = wasIn ? 'Lost connection to the game.' : 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.'; isViewer = false; vD = null; document.body.classList.remove('viewer-mode'); ui = 'home'; render(); },
+    });
+}
+
+// The TV-host mirrors authoritative state into its own viewer UI
+function tvHostSync() {
+    if (!isTvHost) return;
+    applyViewerMsg(H.phase === 'lobby' ? { ...lobbyMsg(), type: 'viewer_lobby' } : viewerStateMsg());
+}
+// The phone-host applies its own broadcasts through the same client path as guests
+function hostSyncSelf(msg) {
+    if (isTvHost) { tvHostSync(); return; }
+    if (isHost && msg) applyMsg(msg);
+}
+
+// ═══════════════════════════════════════════
+// HOST GAME FLOW
+// ═══════════════════════════════════════════
+function activeCommodities() {
+    const n = Math.max(MIN_PLAYERS, Math.min(H.players.length, MAX_PLAYERS));
+    return COMMODITIES.slice(0, n);
+}
+
+function hostDeal() {
+    const comms = activeCommodities();
+    let deck = [];
+    comms.forEach(c => { for (let i = 0; i < 9; i++) deck.push(c.name); });
+    if (H.settings.bullBear) deck.push('Bull', 'Bear');
+    deck = shuffle(deck);
+    H.players.forEach(p => { p.hand = []; p.offer = null; p.lastDelta = 0; });
+    let i = 0;
+    deck.forEach(card => { H.players[i % H.players.length].hand.push(card); i++; });
+}
+
+function hostStartRound(fresh) {
+    if (connectedPlayers().length < MIN_PLAYERS) { uiErr = 'Need at least ' + MIN_PLAYERS + ' traders.'; if (ui === 'lobby_h') render(); return; }
+    if (fresh) {
+        H.round = 0;
+        H.tradeCount = 0; H.biggestTrade = null;
+        H.players.forEach(p => { p.score = 0; p.trades = 0; p.corners = 0; });
+        H.winner = null; H.stats = null; H.feed = [];
+    }
+    H.round += 1;
+    H.lastCorner = null;
+    hostDeal();
+    H.phase = 'trading';
+    feedPush({ t: 'round', round: H.round });
+    broadcastState();
+}
+
+// ── Offers & trades ──
+function removeCards(hand, cards) {
+    // multiset removal; returns false if any card missing
+    const h = hand.slice();
+    for (const c of cards) {
+        const i = h.indexOf(c);
+        if (i < 0) return false;
+        h.splice(i, 1);
+    }
+    hand.length = 0; hand.push(...h);
+    return true;
+}
+
+function validBundle(hand, cards) {
+    if (!Array.isArray(cards) || cards.length < 1 || cards.length > 4) return false;
+    const h = hand.slice();
+    for (const c of cards) {
+        const i = h.indexOf(c);
+        if (i < 0) return false;
+        h.splice(i, 1);
+    }
+    const comms = [...new Set(cards.filter(c => !isSpecial(c)))];
+    return comms.length <= 1;    // one commodity + any specials
+}
+
+// Shouting posts a standing offer (you're holding out your cards). With auto-match
+// ON ("Frantic Floor") the first equal-count offer swaps instantly; with it OFF
+// ("Open Outcry") offers stand until a trader taps a match — so several people can
+// hold out the same number and you choose your partner (see hostTradeWith).
+function hostOffer(player, cards) {
+    if (H.phase !== 'trading' || !validBundle(player.hand, cards)) return;
+    player.offer = { cards: cards.slice(), count: cards.length };
+    if (H.settings.autoMatch) {
+        const match = H.players.find(q => q.id !== player.id && q.offer && q.offer.count === player.offer.count);
+        if (match) { executeTrade(player, match); return; }
+    }
+    broadcastState();
+}
+
+// You picked a specific trader who's holding out the same number → blind swap.
+// No refusal: their standing offer is a commitment to swap that count with
+// whoever completes it first.
+function hostTradeWith(me, targetIdx, cards) {
+    if (H.phase !== 'trading') return;
+    const target = H.players[targetIdx];
+    if (!target || target.id === me.id || !target.offer) return;
+    // use my standing offer if I have one, else the cards I sent
+    const give = (me.offer ? me.offer.cards : cards) || [];
+    if (give.length !== target.offer.count || !validBundle(me.hand, give)) return;
+    me.offer = { cards: give.slice(), count: give.length };
+    executeTrade(me, target);
+}
+
+function hostCancelOffer(player) {
+    if (!player.offer) return;
+    player.offer = null;
+    broadcastState();
+}
+
+function executeTrade(a, b) {
+    const aCards = a.offer.cards, bCards = b.offer.cards;
+    if (!removeCards(a.hand, aCards) || !removeCards(b.hand, bCards)) { a.offer = null; b.offer = null; broadcastState(); return; }
+    a.hand.push(...bCards);
+    b.hand.push(...aCards);
+    a.offer = null; b.offer = null;
+    a.trades++; b.trades++;
+    H.tradeCount++;
+    const count = aCards.length;
+    if (!H.biggestTrade || count > H.biggestTrade.count) H.biggestTrade = { a: a.name, b: b.name, count };
+    feedPush({ t: 'trade', a: a.name, ac: a.color, b: b.name, bc: b.color, count });
+    [a, b].forEach(p => {
+        if (p.id === myId) { if (isHost && !isTvHost) tradeFlash(count); }
+        else { const c = guestConns[p.id]; if (c) send(c, { type: 'traded', count }); }
+    });
+    broadcastState();
+}
+
+// ── Corner ──
+function hostCorner(player) {
+    if (H.phase !== 'trading') return;
+    const corner = bestCorner(player.hand);
+    if (!corner) return;
+    player.score += corner.pts;
+    player.corners++;
+    player.lastDelta = corner.pts;
+    const penalties = [];
+    H.players.forEach(q => {
+        if (q.id === player.id) { return; }
+        let pen = 0;
+        q.hand.forEach(c => { if (isSpecial(c)) pen += PENALTY; });
+        q.lastDelta = -pen;
+        if (pen) { q.score -= pen; penalties.push({ name: q.name, amount: pen }); }
+    });
+    H.players.forEach(q => { q.offer = null; });
+    H.lastCorner = {
+        name: player.name, color: player.color,
+        commodity: corner.commodity, pts: corner.pts, kind: corner.kind, penalties,
+    };
+    feedPush({ t: 'corner', name: player.name, color: player.color, commodity: corner.commodity, pts: corner.pts });
+    if (player.score >= H.settings.winScore) {
+        H.phase = 'gameover';
+        H.winner = player.name;
+        const most = k => H.players.slice().sort((x, y) => y[k] - x[k])[0];
+        H.stats = {
+            trades: { name: most('trades').name, n: most('trades').trades },
+            corners: { name: most('corners').name, n: most('corners').corners },
+            biggest: H.biggestTrade,
+            totalTrades: H.tradeCount,
+        };
+    } else {
+        H.phase = 'corner';
+    }
+    broadcastState();
+}
+
+function hostNewGame() {
+    H.phase = 'lobby';
+    H.round = 0; H.lastCorner = null; H.winner = null; H.stats = null; H.feed = [];
+    H.tradeCount = 0; H.biggestTrade = null;
+    H.players.forEach(p => { p.hand = []; p.offer = null; p.score = 0; p.trades = 0; p.corners = 0; p.lastDelta = 0; });
+    H.players = H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+    broadcastLobby();
+    if (isHost && !isTvHost) { ui = 'lobby_h'; render(); }
+}
+
+function hostSet(patch) {
+    Object.assign(H.settings, patch);
+    broadcastLobby();
+    if (ui === 'lobby_h') render();
+}
+
+// ═══════════════════════════════════════════
+// CLIENT (phone) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+function standingsOf(players) {
+    return players.slice().sort((a, b) => b.score - a.score);
+}
+
+function applyMsg(msg) {
+    switch (msg.type) {
+        case 'lobby': {
+            const prevN = D && D.type === 'lobby' ? (D.players || []).length : -1;
+            D = msg;
+            selection.clear(); _prevHandKey = '';
+            ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g';
+            setMusic('lobby');
+            if (prevN >= 0 && (msg.players || []).length > prevN) sJoin();
+            render();
+            break;
+        }
+        case 'traded':
+            tradeFlash(msg.count);
+            break;
+        case 'state': {
+            const prev = D;
+            D = msg;
+            if (msg.phase === 'trading') {
+                setMusic('trading');
+                const newRound = !prev || prev.phase !== 'trading' || prev.round !== msg.round;
+                const handKey = msg.myHand.join('|');
+                if (newRound) {
+                    selection.clear(); _prevHandKey = handKey;
+                    ui = 'game';
+                    render();
+                    showOpeningBell(msg.round);
+                } else if (ui === 'game') {
+                    if (handKey !== _prevHandKey) {
+                        // A Bull/Bear just slipped into the hand mid-trade → uh-oh sting
+                        const prevSp = prev && prev.myHand ? prev.myHand.filter(isSpecial).length : 0;
+                        if (msg.myHand.filter(isSpecial).length > prevSp) sSpecial();
+                        selection.clear(); _prevHandKey = handKey; render();
+                    }
+                    else patchGame(msg);
+                } else { ui = 'game'; _prevHandKey = handKey; render(); }
+            } else if (msg.phase === 'corner') {
+                if (ui !== 'corner') {
+                    selection.clear();
+                    ui = 'corner';
+                    setMusic('corner');
+                    render();
+                    sBell(3);
+                    if (msg.myDelta > 0) {
+                        startConfetti(2400);
+                        paperStorm(30);
+                        burst(innerWidth / 2, innerHeight * 0.3, ['#fbbf24', '#fcd34d', '#fff7ed', '#4ade80'], 24);
+                        popText(innerWidth / 2, innerHeight * 0.26, '+' + msg.myDelta, 'gold');
+                        try { navigator.vibrate && navigator.vibrate([90, 40, 90, 40, 220]); } catch (e) {}
+                    }
+                    else if (msg.myDelta < 0) {
+                        sBuzz();
+                        popText(innerWidth / 2, innerHeight * 0.3, msg.myDelta + ' 🐻', 'bad');
+                    }
+                } else render();
+            } else if (msg.phase === 'gameover') {
+                if (ui !== 'gameover') {
+                    ui = 'gameover';
+                    setMusic('over');
+                    render();
+                    sWin(); startConfetti(3800); paperStorm(44);
+                } else render();
+            } else render();
+            updateMusicMood(msg);
+            break;
+        }
+    }
+}
+
+function tradeFlash(count) {
+    sTrade(count);
+    try { navigator.vibrate && navigator.vibrate(60); } catch (e) {}
+    // floating toast — reserves no layout space (no dead gap in the hand view)
+    const t = document.createElement('div');
+    t.className = 'trade-toast';
+    t.textContent = '🤝 Traded ' + count + '!';
+    document.body.appendChild(t);
+    const r = t.getBoundingClientRect();
+    burst(r.left + r.width / 2, r.top + r.height / 2, ['#fbbf24', '#22d3ee', '#4ade80'], 12);
+    setTimeout(() => t.remove(), 1500);
+}
+
+// opening-bell countdown overlay (non-blocking)
+function showOpeningBell(round) {
+    if (REDUCED) { sBell(2); sRoar(1.2); return; }
+    const ov = document.createElement('div');
+    ov.id = 'count-ov';
+    document.body.appendChild(ov);
+    const steps = ['3', '2', '1', '🔔'];
+    let i = 0;
+    const step = () => {
+        if (i >= steps.length) { ov.remove(); return; }
+        ov.innerHTML = `<div class="n">${steps[i]}</div><div class="lbl">Round ${round} — trade!</div>`;
+        if (steps[i] === '🔔') { sBell(2); sRoar(1.3); } else sCount(i);
+        i++;
+        setTimeout(step, i === steps.length ? 700 : 750);
+    };
+    step();
+}
+
+// ── selection & actions ──
+function selInfo() {
+    const cards = [...selection].map(i => D.myHand[i]);
+    const comms = [...new Set(cards.filter(c => !isSpecial(c)))];
+    return { cards, valid: cards.length >= 1 && cards.length <= 4 && comms.length <= 1, comm: comms[0] || null };
+}
+
+function toggleCard(i) {
+    if (!D || D.phase !== 'trading' || D.myOffer) return;
+    if (selection.has(i)) selection.delete(i);
+    else {
+        if (selection.size >= 4) return;
+        const name = D.myHand[i];
+        if (!isSpecial(name)) {
+            const { comm } = selInfo();
+            if (comm && comm !== name) return;   // one commodity at a time
+        }
+        selection.add(i);
+    }
+    sSelect(selection.size);
+    patchHandSelection();
+    patchShoutBar();
+    patchScoresStrip();
+}
+
+function shout() {
+    const { cards, valid } = selInfo();
+    if (!valid) return;
+    sShout(cards.length);
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostOffer(me, cards);
+    } else send(hostConn, { type: 'offer', cards });
+    selection.clear();
+}
+
+function cancelShout() {
+    sCancel();
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostCancelOffer(me);
+    } else send(hostConn, { type: 'cancel_offer' });
+}
+
+function ringBell() {
+    sSelect(4);
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostCorner(me);
+    } else send(hostConn, { type: 'corner' });
+}
+
+// Pick a specific trader who's shouting your number → blind swap with them.
+// Uses your standing offer's cards if you've shouted, else your selection.
+function myTradeCards() {
+    if (D && D.myOffer) return D.myOffer.cards.slice();
+    const { cards, valid } = selInfo();
+    return valid ? cards : null;
+}
+function tradeWithPlayer(idx) {
+    if (!D || D.phase !== 'trading') return;
+    const cards = myTradeCards();
+    const target = (D.players || []).find(p => p.idx === idx);
+    if (!cards || !target || target.me || !target.offerCount || target.offerCount !== cards.length) return;
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostTradeWith(me, idx, cards);
+    } else send(hostConn, { type: 'trade_with', targetIdx: idx, cards });
+    selection.clear();
+}
+
+// ── patching (never re-render the hand mid-selection) ──
+function patchGame(msg) {
+    const strip = $id('scores-strip');
+    if (strip) strip.innerHTML = scoresStripHTML(msg);
+    const off = $id('offer-zone');
+    if (off) off.innerHTML = offerZoneHTML(msg);
+    const feed = $id('feed');
+    if (feed) feed.innerHTML = feedHTML(msg.feed);
+    const cw = $id('corner-wrap');
+    if (cw) cw.innerHTML = cornerBtnHTML(msg);
+    patchHandOffered(msg);
+}
+// re-render the strip so offering chips light up as tappable "trade" targets
+// the moment my selection matches their number
+function patchScoresStrip() {
+    const strip = $id('scores-strip');
+    if (strip && D) strip.innerHTML = scoresStripHTML(D);
+}
+
+function patchHandSelection() {
+    document.querySelectorAll('.hand-grid .pcard').forEach((el, i) => {
+        el.classList.toggle('sel', selection.has(i));
+    });
+}
+function patchShoutBar() {
+    const sb = $id('shout-zone');
+    if (sb) sb.innerHTML = shoutBarHTML();
+}
+function patchHandOffered(msg) {
+    const offered = msg.myOffer ? msg.myOffer.cards.slice() : [];
+    document.querySelectorAll('.hand-grid .pcard').forEach((el, i) => {
+        const name = msg.myHand[i];
+        const oi = offered.indexOf(name);
+        const inOffer = oi >= 0;
+        if (inOffer) offered.splice(oi, 1);
+        el.classList.toggle('inoffer', inOffer);
+    });
+}
+
+// ═══════════════════════════════════════════
+// VIEWER (TV) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+function applyViewerMsg(msg) {
+    document.body.classList.add('viewer-mode');
+    ui = 'viewer';
+    const prev = vD;
+    vD = msg;
+    if (msg.type === 'viewer_lobby') {
+        setMusic('lobby');
+        if (prev && prev.type === 'viewer_lobby' && (msg.players || []).length > (prev.players || []).length) sJoin();
+        render();
+        return;
+    }
+    // viewer_state
+    if (msg.phase === 'trading') {
+        setMusic('trading');
+        const newRound = !prev || prev.type !== 'viewer_state' || prev.phase !== 'trading' || prev.round !== msg.round;
+        if (newRound) { render(); sBell(1); sRoar(1.3); }
+        else {
+            const traded = prev && msg.tradeCount > (prev.tradeCount || 0);
+            if (traded) sTick();
+            patchViewer(msg);
+            if (traded) {
+                const tr = [...(msg.feed || [])].reverse().find(e => e.t === 'trade');
+                if (tr) flyTradeSlips(tr.a, tr.b, tr.count);
+            }
+        }
+    } else if (msg.phase === 'corner') {
+        if (!prev || prev.phase !== 'corner') {
+            setMusic('corner');
+            render();
+            sBell(3);
+            paperStorm(56);
+            // gold burst shower behind the bell
+            for (let i = 0; i < 3; i++)
+                setTimeout(() => burst(innerWidth * (0.3 + Math.random() * 0.4), innerHeight * (0.2 + Math.random() * 0.3),
+                    ['#fbbf24', '#fcd34d', '#fff7ed'], 18), i * 220);
+        }
+        else render();
+    } else if (msg.phase === 'gameover') {
+        if (!prev || prev.phase !== 'gameover') { setMusic('over'); render(); sWin(); startConfetti(5200); paperStorm(72); }
+        else render();
+    } else render();
+    updateMusicMood(msg);
+}
+
+function patchViewer(msg) {
+    const floor = $id('v-floor');
+    if (floor) floor.innerHTML = tvTradersHTML(msg);
+    const feed = $id('v-feed');
+    if (feed) feed.innerHTML = feedHTML(msg.feed, true);
+    const tc = $id('v-trades');
+    if (tc) tc.textContent = msg.tradeCount;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — shared bits
+// ═══════════════════════════════════════════
+function hdrHTML(sub) {
+    return `<h1 class="logo">🔔 CORNER THE MARKET</h1><div class="sub">${esc(sub || 'shout-trade · ring the bell')}</div>`;
+}
+function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+function isCaptain() { return !!(D && D.tvHost && D.captain && D.captain === myName); }
+function canDrive() { return (isHost && !isTvHost) || isCaptain(); }
+function kindLabel(kind) {
+    return kind === 'double_bull' ? '🐂🐂 DOUBLE BULL ×2' : kind === 'bull' ? '🐂 BULL CORNER' : '';
+}
+
+function settingsSegsHTML(settings, expr) {
+    const seg = (opts, curV, key) => `<div class="seg-row">${opts.map(o =>
+        `<button class="btn btn-sm ${curV === o.v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{${key}:${o.j}}`)}">${o.l}</button>`).join('')}</div>`;
+    return `
+        <div class="fg"><label>Trading style</label>${seg(
+            [{ v: true, j: 'true', l: '⚡ Frantic (auto-match)' }, { v: false, j: 'false', l: '✋ Open outcry (pick)' }], settings.autoMatch !== false, 'autoMatch')}</div>
+        <div class="fg"><label>Bull &amp; Bear cards</label>${seg(
+            [{ v: false, j: 'false', l: 'Off' }, { v: true, j: 'true', l: '🐂🐻 On (−20 traps)' }], settings.bullBear, 'bullBear')}</div>
+        <div class="fg"><label>Win score</label>${seg(
+            [300, 500, 750].map(v => ({ v, j: v, l: v })), settings.winScore, 'winScore')}</div>`;
+}
+
+function scoresStripHTML(msg) {
+    // my tradeable count = my standing offer, else my current valid selection
+    const myCount = (D && D.myOffer) ? D.myOffer.count : (selInfo().valid ? selInfo().cards.length : 0);
+    return standingsOf(msg.players).map(p => {
+        const offering = p.offerCount > 0;
+        const canTrade = offering && !p.me && myCount && p.offerCount === myCount;
+        const cls = `sc-chip${offering ? ' offering' : ''}${canTrade ? ' cantrade' : ''}`;
+        const tap = canTrade ? ` role="button" tabindex="0" onclick="tradeWithPlayer(${p.idx})"` : '';
+        const shout = offering
+            ? `<span class="shout">${handSigHTML(p.offerCount)} ${canTrade ? '🤝 trade ' + p.offerCount + '!' : 'shouting ' + p.offerCount + '!'}</span>`
+            : `<span style="color:var(--muted)">${p.cards}🂠</span>`;
+        return `<div class="${cls}"${tap}>
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            ${badgeHTML(p.name)} ${esc(p.name)} <b>${p.score}</b>${shout}
+        </div>`;
+    }).join('');
+}
+
+function feedHTML(feed, tv) {
+    const rows = (feed || []).slice().reverse().map(ev => {
+        if (ev.t === 'trade') return `<div class="${tv ? 'frow' : 'feed-row'}">🤝 <b>${esc(ev.a)}</b> ⇄ <b>${esc(ev.b)}</b> — ${ev.count} card${ev.count > 1 ? 's' : ''}</div>`;
+        if (ev.t === 'corner') return `<div class="${tv ? 'frow' : 'feed-row'} hot">🔔 <b>${esc(ev.name)}</b> corners ${esc(ev.commodity.toUpperCase())} +${ev.pts}</div>`;
+        if (ev.t === 'round') return `<div class="${tv ? 'frow' : 'feed-row'} hot">🔔 Round ${ev.round} — the pit is open!</div>`;
+        return '';
+    }).join('');
+    return rows || `<div class="${tv ? 'frow' : 'feed-row'}">Waiting for the first trade…</div>`;
+}
+
+function standingsHTML(players, deltas) {
+    const medals = ['🥇', '🥈', '🥉'];
+    const st = standingsOf(players);
+    const ranks = rankByScore(st, 'score');
+    return `<div class="card standings"><div class="slbl">Scores</div>${
+        st.map((p, i) => `
+        <div class="player-row" style="--i:${i}">
+            <span style="width:22px;text-align:center">${medals[ranks[i]] || (ranks[i] + 1)}</span>
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            ${badgeHTML(p.name)}
+            <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--gold)">(you)</span>' : ''}</div>
+            <div class="sc">${p.score}${deltas && p.delta ? `<span class="delta ${p.delta > 0 ? 'plus' : 'minus'}">${p.delta > 0 ? '+' : ''}${p.delta}</span>` : ''}</div>
+        </div>`).join('')
+    }</div>`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — phone screens
+// ═══════════════════════════════════════════
+let _lastUi = '', _lastVPhase = '';
+function render() {
+    const app = $id('app');
+    if (isTvHost || isViewer) ui = 'viewer';
+    // 'fresh' marks a real screen/phase change → entrance animations run once,
+    // never on same-screen re-renders (joins, hand changes, feed updates)
+    const vp = ui === 'viewer' ? (vD ? (vD.type === 'viewer_lobby' ? 'lobby' : (vD.phase || '')) : '') : '';
+    const fresh = ui !== _lastUi || vp !== _lastVPhase;
+    _lastUi = ui; _lastVPhase = vp;
+    let html = '';
+    switch (ui) {
+        case 'home':       html = renderHome(); break;
+        case 'creating':   html = renderSpinner('Opening the floor…'); break;
+        case 'connecting': html = renderSpinner('Joining the floor…'); break;
+        case 'lobby_h':    html = renderLobbyH(); break;
+        case 'lobby_g':    html = renderLobbyG(); break;
+        case 'game':       html = renderGame(); break;
+        case 'corner':     html = renderCorner(); break;
+        case 'gameover':   html = renderGameover(); break;
+        case 'viewer':     html = renderViewer(); break;
+        default:           html = renderHome();
+    }
+    // guarded: a stale common.js (no setHTML) must never blank the game
+    if (typeof setHTML === 'function') setHTML(app, html); else app.innerHTML = html;
+    app.classList.toggle('fresh', fresh);
+}
+
+function renderSpinner(msg) {
+    return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`;
+}
+
+function renderHome() {
+    const fromQR = !!fCode;
+    const youCard = `
+    <div class="card">
+        <div class="slbl">Step onto the floor</div>
+        <div class="fg">
+            <label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
+                ${fromQR ? 'autofocus' : ''} data-save-name oninput="updateBadgePrev(this.value)">
+        </div>
+        <div id="badge-prev" style="font-size:.66rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:center">${badgePrevHTML(fName)}</div>
+    </div>`;
+    const joinCard = `
+    <div class="card${fromQR ? ' highlight' : ''}">
+        <div class="slbl">Join a Market</div>
+        <div class="fg">
+            <label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fCode)}"
+                oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
+        </div>
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">
+            📱 Join with your phone
+        </button>
+    </div>`;
+    const hostCard = `
+    <div class="card">
+        <div class="slbl">Open a Market</div>
+        <button class="btn btn-p btn-full"
+            onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
+            🔔 Host on this phone
+        </button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin-top:8px">
+            3–8 traders — put the TV up with the room code for the trading floor
+        </div>
+    </div>`;
+    const tvCard = `
+    <div class="card">
+        <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-p btn-full" onclick="hostOnTV()">📺 Host the party on this screen</button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin:6px 0 10px">
+            Shows a big QR code — the first phone to join becomes 👑 Captain
+        </div>
+        <hr>
+        <div class="fg">
+            <label>…or show an existing market</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')joinAsViewer(fVCode)">
+        </div>
+        <button class="btn btn-g btn-full"
+            onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code.';render()}">
+            📺 Open trading floor
+        </button>
+    </div>`;
+    return `
+    ${hdrHTML('open outcry · brightly coloured jackets · ring the bell')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+}
+
+function marketCardHTML(playerCount, settings) {
+    const comms = COMMODITIES.slice(0, Math.max(MIN_PLAYERS, Math.min(playerCount, MAX_PLAYERS)));
+    return `
+    <div class="card">
+        <div class="slbl">Today's market — ${comms.length} commodities for ${playerCount} trader${playerCount === 1 ? '' : 's'}</div>
+        <div class="seg-row">${comms.map(c =>
+            `<span class="chip" style="background:${c.bg};color:${c.fg};border-color:transparent">${esc(c.name)} ${c.pts}</span>`).join('')}
+        ${settings.bullBear ? `<span class="chip" style="background:${SPECIALS.Bull.bg};color:${SPECIALS.Bull.fg};border-color:transparent">🐂 Bull</span><span class="chip" style="background:${SPECIALS.Bear.bg};color:${SPECIALS.Bear.fg};border-color:transparent">🐻 Bear</span>` : ''}</div>
+    </div>`;
+}
+
+function renderLobbyH() {
+    const pList = H.players.map((p, i) =>
+        `<div class="player-row" style="--i:${i}">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            ${badgeHTML(p.name)}
+            <div style="flex:1">${esc(p.name)}${i === 0 ? ' <span style="color:var(--muted)">(you — host)</span>' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    return `
+    ${hdrHTML('Host Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card highlight">
+        <div class="slbl">Scan to join — or share the code</div>
+        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        <div class="room-code">${esc(roomCode)}</div>
+        <div class="share-row">
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.share&&navigator.share({title:'Join Corner the Market',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
+        </div>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center">Open the trading floor on a TV with code <b style="color:var(--gold)">${esc(roomCode)}</b></div>
+    </div>
+    <div class="card">
+        <div class="slbl">Traders (${H.players.length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    ${marketCardHTML(H.players.length, H.settings)}
+    <div class="card">
+        <div class="slbl">Settings</div>
+        ${settingsSegsHTML(H.settings, patch => `hostSet(${patch})`)}
+    </div>
+    <button class="btn btn-up btn-full" style="font-size:1.08rem;padding:16px" onclick="hostStartRound(true)">🔔 Ring the opening bell</button>`;
+}
+
+function renderLobbyG() {
+    const cap = isCaptain();
+    const pList = (D.players || []).map((p, i) =>
+        `<div class="player-row" style="--i:${i}">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            ${badgeHTML(p.name)}
+            <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--muted)">(you)</span>' : ''}${D.tvHost && p.name === D.captain ? ' 👑' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    const s = D.settings || {};
+    return `
+    ${hdrHTML(cap ? '👑 You are the Captain' : 'Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card">
+        <div class="slbl">Room ${esc(D.roomCode || '')} — Traders (${(D.players || []).length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    ${marketCardHTML((D.players || []).length, s)}
+    ${cap ? `
+    <div class="card highlight">
+        <div class="slbl">👑 Captain's Settings</div>
+        ${settingsSegsHTML(s, patch => `guestCtl('set',${patch})`)}
+    </div>
+    <button class="btn btn-up btn-full" style="font-size:1.08rem;padding:16px" onclick="guestCtl('start')">🔔 Ring the opening bell</button>`
+    : `
+    <div class="card">
+        <div class="slbl">Settings</div>
+        <div style="font-weight:700;font-size:.82rem;line-height:1.9">
+            🎯 First to ${s.winScore} · 🐂🐻 Bull &amp; Bear ${s.bullBear ? 'on' : 'off'}
+        </div>
+        <div style="color:var(--muted);font-size:.72rem;font-weight:700;margin-top:8px">
+            Waiting for ${D.tvHost ? `👑 ${esc(D.captain || 'the captain')}` : 'the host'} to ring the bell…
+        </div>
+    </div>`}`;
+}
+
+function cornerBtnHTML(msg) {
+    if (!msg.canCorner || !msg.cornerInfo) return '';
+    const c = msg.cornerInfo;
+    return `<button class="btn-corner" onclick="ringBell()">🔔 CORNER ${esc(c.commodity.toUpperCase())}! +${c.pts}${c.kind !== 'standard' ? ' · ' + kindLabel(c.kind) : ''}</button>`;
+}
+
+function shoutBarHTML() {
+    if (!D || D.myOffer) return '';
+    const { cards, valid, comm } = selInfo();
+    const n = cards.length;
+    const label = n ? `${handSigHTML(n)} SHOUT ${n}! ${n}! ${n}!` : '📢 Pick 1–4 cards to trade';
+    return `
+    <div class="shout-bar">
+        <button class="btn btn-p" ${valid ? '' : 'disabled'} onclick="shout()">${label}</button>
+        ${n ? `<button class="btn btn-g" style="flex:0 0 auto" onclick="selection.clear();patchHandSelection();patchShoutBar();patchScoresStrip()">✕</button>` : ''}
+    </div>
+    ${comm && valid ? `<div style="text-align:center;color:var(--muted);font-size:.7rem;font-weight:700;margin-top:6px">Trading ${n} × ${esc(comm)}${cards.some(isSpecial) ? ' (specials hidden inside!)' : ''}</div>` : ''}`;
+}
+
+function offerZoneHTML(msg) {
+    if (!msg.myOffer) return '';
+    const n = msg.myOffer.count;
+    const wait = msg.autoMatch === false ? 'someone can grab you, or grab a match below' : 'waiting for a match…';
+    return `
+    <div class="offer-banner">${handSigHTML(n, 'big')} You're shouting “${n}! ${n}! ${n}!” — ${wait}</div>
+    <button class="btn btn-g btn-full" style="margin-top:9px" onclick="cancelShout()">🤫 Stop shouting</button>`;
+}
+
+
+function handCardHTML(name, i) {
+    const c = commOf(name);
+    const big = isSpecial(name) ? SPECIALS[name].emoji : name[0];
+    return `<button class="pcard${selection.has(i) ? ' sel' : ''}" style="${cardStyle(name)};--i:${i}" onclick="toggleCard(${i})">
+        <span class="big">${big}</span><span class="nm">${esc(name)}</span><span class="pt">${isSpecial(name) ? '−20 trap' : c.pts + ' pts'}</span>
+    </button>`;
+}
+
+function renderGame() {
+    return `
+    <div class="scores-strip" id="scores-strip">${scoresStripHTML(D)}</div>
+    <div class="card">
+        <div class="slbl">Your hand — round ${D.round} · first to ${D.winScore}</div>
+        <div class="hand-grid">${D.myHand.map((n, i) => handCardHTML(n, i)).join('')}</div>
+    </div>
+    <div class="card">
+        <div class="slbl">Trading floor — ${'🤝 '}<span id="trade-count">${D.tradeCount}</span> trades</div>
+        <div class="feed" id="feed">${feedHTML(D.feed)}</div>
+    </div>
+    <div class="game-actions">
+        <div id="corner-wrap">${cornerBtnHTML(D)}</div>
+        <div id="shout-zone">${shoutBarHTML()}</div>
+        <div id="offer-zone">${offerZoneHTML(D)}</div>
+    </div>`;
+}
+
+function renderCorner() {
+    const lc = D.lastCorner || {};
+    const mine = lc.name === myName;
+    const pens = (lc.penalties || []).map(p =>
+        `<span class="chip pen">🐻 ${esc(p.name)} −${p.amount}</span>`).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-up btn-full" style="font-size:1.02rem;padding:15px" onclick="guestCtl('next')">🔔 Next round</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.72rem;font-weight:700">${D.tvHost ? `👑 ${esc(D.captain || '')} starts the next round` : 'The host starts the next round'}…</div>`;
+    return `
+    <div class="card bell-card${mine ? ' highlight' : ''}">
+        <div class="bell">🔔</div>
+        <div class="ct">${mine ? 'YOU CORNERED IT!' : esc((lc.name || '').toUpperCase()) + ' CORNERS!'}</div>
+        <div style="font-weight:800;color:var(--gold);margin-top:4px">${esc((lc.commodity || '').toUpperCase())} ${lc.kind && lc.kind !== 'standard' ? '· ' + kindLabel(lc.kind) : ''}</div>
+        <div class="cpts">+${lc.pts || 0}</div>
+        ${D.myDelta < 0 ? `<div class="chip pen" style="margin-top:8px">You were caught with specials: ${D.myDelta}</div>` : ''}
+        ${pens ? `<div style="margin-top:8px">${pens}</div>` : ''}
+    </div>
+    ${standingsHTML(D.players, true)}
+    ${driveBtn}`;
+}
+
+function renderGameover() {
+    const st = standingsOf(D.players);
+    const s = D.stats || {};
+    const awards = [
+        s.corners ? `<span class="chip">🔔 Bell ringer: ${esc(s.corners.name)} (${s.corners.n})</span>` : '',
+        s.trades ? `<span class="chip">🤝 Most trades: ${esc(s.trades.name)} (${s.trades.n})</span>` : '',
+        s.biggest ? `<span class="chip">💼 Biggest swap: ${esc(s.biggest.a)} ⇄ ${esc(s.biggest.b)} (${s.biggest.count})</span>` : '',
+    ].join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.02rem;padding:15px" onclick="guestCtl('again')">🔁 Play again</button>` : '';
+    return `
+    ${hdrHTML('Market closed!')}
+    <div class="card bell-card highlight">
+        <div class="bell">🏆</div>
+        <div class="ct">${D.winner === myName ? 'YOU WIN!' : esc((D.winner || '').toUpperCase()) + ' WINS!'}</div>
+        <div style="margin-top:10px">${awards}</div>
+        <div style="color:var(--muted);font-size:.72rem;font-weight:700;margin-top:8px">${s.totalTrades || 0} trades this game</div>
+    </div>
+    ${standingsHTML(D.players)}
+    ${driveBtn}`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — TV screens
+// ═══════════════════════════════════════════
+function tvShell(inner, meta, ticker) {
+    return `<div class="tv">
+        ${pitCrowdHTML()}
+        <div class="tv-top">
+            <div class="tv-logo">🔔 CORNER THE MARKET</div>
+            <div class="tv-meta">${esc(meta || ('Room ' + (vD.roomCode || roomCode || '')))}</div>
+        </div>
+        ${inner}
+        ${ticker ? tickerHTML() : ''}
+    </div>`;
+}
+
+function tickerHTML() {
+    const n = Math.max(MIN_PLAYERS, Math.min((vD.players || []).length, MAX_PLAYERS));
+    const comms = COMMODITIES.slice(0, n);
+    const one = comms.map((c, i) =>
+        `<span class="tk" style="color:${c.bg === '#7c2d12' || c.bg === '#b45309' ? '#f8b26a' : c.fg}">${c.name.toUpperCase()} <span class="${i % 2 ? 'dn' : 'up'}">${i % 2 ? '▼' : '▲'} ${c.pts}</span></span>`).join('') +
+        (vD.bullBear ? `<span class="tk">🐂 BULL</span><span class="tk">🐻 BEAR −20</span>` : '') +
+        `<span class="tk" style="color:var(--gold)">FIRST TO ${vD.winScore || ''} WINS</span>`;
+    return `<div class="ticker"><div class="ticker-inner">${one}${one}</div></div>`;
+}
+
+function renderViewer() {
+    if (!vD) return renderSpinner('Waiting for the floor…');
+    if (vD.type === 'viewer_lobby') return renderViewerLobby();
+    if (vD.phase === 'trading') return renderViewerTrading();
+    if (vD.phase === 'corner') return renderViewerCorner();
+    if (vD.phase === 'gameover') return renderViewerPodium();
+    return renderSpinner('Waiting for the floor…');
+}
+
+function renderViewerLobby() {
+    const s = vD.settings || {};
+    return tvLobby({
+        title: 'CORNER THE MARKET',
+        accent: '#fbbf24',
+        roomCode: vD.roomCode,
+        isTvHost: vD.tvHost,
+        captainName: vD.captain,
+        settings: `🎯 first to ${s.winScore} · 🐂🐻 ${s.bullBear ? 'on' : 'off'}`,
+        players: (vD.players || []).map(p => ({ name: p.name, color: p.color, captain: p.name === vD.captain })),
+    });
+}
+
+function tvTradersHTML(msg) {
+    return standingsOf(msg.players).map(p => `
+        <div class="tv-trader" data-name="${esc(p.name)}">
+            <span class="tdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="min-width:0">
+                <div class="tname">${badgeHTML(p.name, 'ontv')} ${esc(p.name)}</div>
+                <div class="tcards">${p.cards} cards · ${p.trades} trades</div>
+            </div>
+            ${p.offerCount ? `<span class="tsig">${handSigHTML(p.offerCount, 'ontv')}</span><span class="tpill">${p.offerCount}!</span>` : ''}
+            <span class="tscore">${p.score}</span>
+        </div>`).join('');
+}
+
+function renderViewerTrading() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-floor" id="v-floor">${tvTradersHTML(vD)}</div>
+        <div class="tv-side">
+            <div class="tv-panel">
+                <div class="ptitle">Trades this game</div>
+                <div class="tv-bigstat"><span id="v-trades">${vD.tradeCount}</span><small>shout a number, match a bundle</small></div>
+            </div>
+            <div class="tv-panel tv-feed">
+                <div class="ptitle">Trading floor</div>
+                <div class="rows" id="v-feed">${feedHTML(vD.feed, true)}</div>
+            </div>
+        </div>
+    </div>`, `Round ${vD.round} · first to ${vD.winScore}`, true);
+}
+
+function renderViewerCorner() {
+    const lc = vD.lastCorner || {};
+    const pens = (lc.penalties || []).map(p => `<span class="chip pen">🐻 ${esc(p.name)} −${p.amount}</span>`).join('');
+    const lead = standingsOf(vD.players).map(p =>
+        `<div class="rail-chip"><span class="pdot" style="background:${p.color};color:${p.color}"></span>${badgeHTML(p.name, 'ontv')} ${esc(p.name)}<span class="sc">${p.score}</span>${p.delta ? `<span style="color:${p.delta > 0 ? 'var(--up)' : 'var(--down)'};font-size:1.5vmin">${p.delta > 0 ? '+' : ''}${p.delta}</span>` : ''}</div>`).join('');
+    const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: “Next round” is on your phone` : 'Host: “Next round” is on your phone';
+    return tvShell(`
+    <div class="tv-bell">
+        <div class="bell">🔔</div>
+        <div class="who" style="color:${lc.color || 'var(--gold)'}">${esc((lc.name || '').toUpperCase())} CORNERS ${esc((lc.commodity || '').toUpperCase())}!</div>
+        <div class="what">+${lc.pts || 0} ${lc.kind && lc.kind !== 'standard' ? '· ' + kindLabel(lc.kind) : ''}</div>
+        ${pens ? `<div class="pens">${pens}</div>` : ''}
+        <div class="tv-lead">${lead}</div>
+        <div class="tv-waiting">${hint}</div>
+    </div>`, `Round ${vD.round}`);
+}
+
+function renderViewerPodium() {
+    const st = standingsOf(vD.players);
+    const medals = ['🥇', '🥈', '🥉'];
+    const ranks = rankByScore(st, 'score');   // ties share a place → joint medals
+    const wm = st.map((p, i) => ({ ...p, medal: medals[ranks[i]] || '', mr: ranks[i] }));
+    const podOrder = [wm[1], wm[0], wm[2]].filter(Boolean);
+    const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
+    const pods = podOrder.map((p, i) => `
+        <div class="pod ${cls[i]} mrank-${Math.min(p.mr, 2)}" style="animation-delay:${i * 0.18}s">
+            <div class="pname"><span class="pdot" style="background:${p.color};color:${p.color};display:inline-block;vertical-align:middle;margin-right:.6vmin"></span>${badgeHTML(p.name, 'ontv')} ${esc(p.name)}</div>
+            <div class="pscore">${p.score} pts</div>
+            <div class="block">${p.medal}</div>
+        </div>`).join('');
+    const s = vD.stats || {};
+    const awards = [
+        s.corners ? `<div class="award">🔔 <span class="aw-t">Bell ringer</span><br>${esc(s.corners.name)} — ${s.corners.n} corner${s.corners.n === 1 ? '' : 's'}</div>` : '',
+        s.trades ? `<div class="award">🤝 <span class="aw-t">Most trades</span><br>${esc(s.trades.name)} — ${s.trades.n}</div>` : '',
+        s.biggest ? `<div class="award">💼 <span class="aw-t">Biggest swap</span><br>${esc(s.biggest.a)} ⇄ ${esc(s.biggest.b)} — ${s.biggest.count} cards</div>` : '',
+    ].join('');
+    const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: “Play again” is on your phone` : 'Host: “Play again” is on your phone';
+    return tvShell(`
+    <div class="tv-main" style="flex-direction:column">
+        <div class="podium-wrap">${pods}</div>
+        <div class="awards-row">${awards}</div>
+        <div class="tv-waiting" style="text-align:center;padding-bottom:1.5vmin">${hint}</div>
+    </div>`, '🏆 Market closed');
+}
+
+// ═══════════════════════════════════════════
+// SIMULATION MODES — ?mode=tvsimulation | playersimulation  (&players=N)
+// Self-driving demos with no PeerJS and no real people. Bots are counted as
+// "connected" via stub guestConns so the normal host flow drives everything.
+//   • tvsimulation     — watch the big-screen TRADING FLOOR play itself
+//   • playersimulation — watch a phone TRADER play itself (your hand, your
+//     SHOUT with hand signals, your pulsing CORNER button)
+// (?mode=simulation stays as an alias for tvsimulation.)
+// ═══════════════════════════════════════════
+let simTimer = null, simMode = 'tv';
+const SIM_NAMES = ['Ace', 'Bux', 'Cash', 'Duke', 'Edie', 'Fox', 'Gwen', 'Hawk'];
+
+function startSimulation(nPlayers, mode) {
+    simMode = mode === 'player' ? 'player' : 'tv';
+    roomCode = 'DEMO';
+    H.settings.bullBear = true;
+    H.settings.winScore = 300;
+    H.settings.autoMatch = false;   // showcase the "Open outcry" pick-your-trade flow
+    H.players = []; guestConns = {}; viewerConns = {};
+    const n = Math.max(MIN_PLAYERS, Math.min(nPlayers || 4, MAX_PLAYERS));
+    if (simMode === 'tv') {
+        isHost = true; isTvHost = true; myId = '__sim_host__';
+        document.body.classList.add('viewer-mode');
+    } else {
+        isHost = true; isTvHost = false; myName = 'You'; myId = '__you__';
+        hostAddPlayer(myId, myName);                 // you are trader #1 (the host)
+    }
+    for (let i = H.players.length; i < n; i++) {
+        const id = '__bot_' + i;
+        hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length]);
+        guestConns[id] = { peer: id, send() {} };    // stub so bots count as present
+    }
+    broadcastLobby();                                // show the lobby first
+    simTimer = setTimeout(() => simRound(true), 2400);
+}
+
+function simRound(fresh) {
+    hostStartRound(fresh);                            // deal + phase 'trading' + bell/roar
+    let ticks = 9 + Math.floor(Math.random() * 7);
+    const step = () => {
+        if (H.phase !== 'trading') return;
+        simBotAction();
+        if (simMode === 'player' && Math.random() < 0.55) simYouAction();
+        if (--ticks > 0) simTimer = setTimeout(step, 650 + Math.random() * 450);
+        else simTimer = setTimeout(simForceCorner, 1100);
+    };
+    // in player mode wait out the phone's 3-2-1 opening-bell overlay first
+    simTimer = setTimeout(step, simMode === 'player' ? 3600 : 1500);
+}
+
+// A bot either completes a standing offer it can fulfil (tap-to-trade) or posts
+// its own offer of the least-held commodity. Works with auto-match on or off.
+function simBotAction() {
+    const free = H.players.filter(p => !p.offer && !(simMode === 'player' && p.id === myId));
+    if (!free.length) return;
+    const bot = free[Math.floor(Math.random() * free.length)];
+    const held = {};
+    bot.hand.forEach(c => { if (!isSpecial(c)) held[c] = (held[c] || 0) + 1; });
+    const names = Object.keys(held);
+    if (!names.length) return;
+    names.sort((a, b) => held[a] - held[b]);
+    const dump = names[0], dumpMax = held[dump];
+    const targets = H.players.filter(p => p.offer && p.id !== bot.id && p.offer.count <= dumpMax);
+    if (targets.length && Math.random() < 0.75) {
+        const t = targets[Math.floor(Math.random() * targets.length)];
+        hostTradeWith(bot, H.players.indexOf(t), Array(t.offer.count).fill(dump));
+    } else {
+        const k = Math.min(dumpMax, 1 + Math.floor(Math.random() * 3));
+        hostOffer(bot, Array(k).fill(dump));
+    }
+}
+
+// You (phone demo): tap a couple of cards then SHOUT — through the real UI
+// functions so the selection outline, ticker clicks and hand signal all animate
+function simYouAction() {
+    if (H.phase !== 'trading' || !D || D.myOffer) return;
+    const hand = D.myHand || [];
+    const held = {};
+    hand.forEach((c, i) => { if (!isSpecial(c)) (held[c] = held[c] || []).push(i); });
+    const names = Object.keys(held);
+    if (!names.length) return;
+    names.sort((a, b) => held[a].length - held[b].length);
+    const idxs = held[names[0]].slice(0, 1 + Math.floor(Math.random() * 2));   // 1–2 cards
+    selection.clear(); patchHandSelection(); patchShoutBar();
+    idxs.forEach((idx, j) => setTimeout(() => { if (H.phase === 'trading') toggleCard(idx); }, j * 280));
+    setTimeout(() => { if (selection.size && D && !D.myOffer) shout(); }, idxs.length * 280 + 520);
+}
+
+// Force a winning corner so the demo always resolves; sometimes a Bull corner,
+// and drop a Bear on someone else to show the penalty. In player mode it's
+// sometimes YOU — then the pulsing CORNER button shows before it's rung.
+function simForceCorner() {
+    if (H.phase !== 'trading') return;
+    const comms = activeCommodities();
+    const youMode = simMode === 'player';
+    const me = H.players.find(x => x.id === myId);
+    const p = (youMode && me && Math.random() < 0.5) ? me
+        : H.players[Math.floor(Math.random() * H.players.length)];
+    const comm = comms[Math.floor(Math.random() * comms.length)].name;
+    const bull = H.settings.bullBear && Math.random() < 0.4;
+    p.hand = bull ? [...Array(8).fill(comm), 'Bull'] : Array(9).fill(comm);
+    if (H.settings.bullBear) {
+        const other = H.players.filter(q => q.id !== p.id)[0];
+        if (other) { const oc = comms[(comms.findIndex(c => c.name === comm) + 1) % comms.length].name; other.hand = [...Array(8).fill(oc), 'Bear']; }
+    }
+    if (youMode && p.id === myId) {
+        broadcastState();                             // pulsing 🔔 CORNER button appears on the phone
+        simTimer = setTimeout(() => { ringBell(); simAfterCorner(); }, 1500);
+    } else {
+        hostCorner(p);
+        simAfterCorner();
+    }
+}
+
+function simAfterCorner() {
+    if (H.phase === 'gameover') simTimer = setTimeout(simRestart, 7000);
+    else simTimer = setTimeout(() => simRound(false), 4200);
+}
+
+function simRestart() {
+    hostNewGame();
+    simTimer = setTimeout(() => simRound(true), 2600);
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    if (!musicOn) $id('tog-music').classList.add('off');
+    if (!sfxOn) $id('tog-sfx').classList.add('off');
+    const mode = (params.get('mode') || '').toLowerCase();
+    const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (mode === 'playersimulation') { startSimulation(simPlayers, 'player'); return; }
+    if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
+    // A refresh mid-game shouldn't cost you your seat: if this tab was already in a
+    // room, walk straight back in (the host restores the slot by device id/name).
+    const back = typeof savedRoom === 'function' ? savedRoom() : null;
+    if (back && (!room || room === back.code)) {
+        if (back.role === 'viewer') { joinAsViewer(back.code); return; }
+        joinGame(back.code, (typeof savedName === 'function' && savedName()) || 'Player');
+        return;
+    }
+    render();
+})();
+</script>
+</body>
+</html>

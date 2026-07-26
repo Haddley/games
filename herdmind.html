@@ -1,0 +1,2026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Herd Mind</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230b1c10' width='100' height='100' rx='20'/><text x='50' y='68' font-size='52' text-anchor='middle'>🐄</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="common.js"></script><script src="fx.js"></script><script src="audio.js"></script>
+    <script src="p2p.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0b1c10;
+            --paper: #f8f4e3; --paper2: #efe8cf; --ink: #2f3b24; --ink-soft: #6e7a58;
+            --cream: #f2eeda; --muted: #9fb18c;
+            --grass: #4ade80; --pink: #f472b6; --sun: #fde047; --bad: #ef4444;
+        }
+        /* ── Day / light mode (toggled by common.js toggleTheme/applySavedTheme) ──
+           Warm "sun-bleached paper" palette. --bg flips to soft cream, panel vars
+           go near-white so cards pop, and the text vars (--cream is the body text,
+           --ink the on-card text, --muted the labels) go warm dark brown. Accents
+           are darkened for contrast on a light page. */
+        body.day {
+            --bg: #f3ead9;
+            --paper: #fffdf8; --paper2: #fbf6ea; --ink: #2c2416; --ink-soft: #6d6046;
+            --cream: #2c2416; --muted: #6d6046;
+            --grass: #16a34a; --pink: #db2777; --sun: #c47f0a; --bad: #dc2626;
+        }
+        body.day::before { opacity: .5; }
+        /* dark-green card / TV surfaces → warm near-white with a soft border */
+        body.day .card.dark,
+        body.day .rail-row,
+        body.day .tv-pcard,
+        body.day .award,
+        body.day #sound-togs button {
+            background: rgba(255,255,255,0.92);
+            box-shadow: inset 0 0 0 1px rgba(90,70,35,0.18);
+        }
+        body.day .err { color: #b91c1c; }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--cream);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 26px 16px 48px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 70% 45% at 50% -5%, rgba(253,224,71,0.10) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 10% 100%, rgba(74,222,128,0.12) 0%, transparent 65%),
+                radial-gradient(ellipse 60% 40% at 92% 100%, rgba(244,114,182,0.08) 0%, transparent 65%);
+        }
+        body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
+
+        /* faint drifting sky behind the phone screens (TV keeps its own #meadow) */
+        #sky-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+        body.viewer-mode #sky-bg { display: none; }
+        #sky-bg span {
+            position: absolute; bottom: -12vh; left: var(--x); font-size: var(--s, 2rem); opacity: 0;
+            filter: drop-shadow(0 3px 9px rgba(0,0,0,.28));
+            animation: skyFloat var(--d, 34s) linear var(--dl, 0s) infinite;
+        }
+        @keyframes skyFloat {
+            0%   { transform: translateY(0) rotate(-8deg); opacity: 0; }
+            12%  { opacity: .07; }
+            88%  { opacity: .07; }
+            100% { transform: translateY(-126vh) rotate(10deg); opacity: 0; }
+        }
+
+        h1.logo {
+            font-family: 'Baloo 2', sans-serif; font-weight: 800; letter-spacing: 1px;
+            font-size: clamp(1.7rem, 7vw, 2.6rem); text-align: center; color: var(--grass);
+            text-shadow: 0 2px 0 rgba(0,0,0,.35), 0 0 30px rgba(74,222,128,.35);
+        }
+        .sub { color: var(--muted); font-size: .7rem; letter-spacing: 2.5px; text-transform: uppercase; margin: 6px 0 22px; text-align: center; font-weight: 800; }
+
+        #app { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 14px; }
+        body.viewer-mode #app { max-width: none; height: 100dvh; display: block; }
+
+        .card {
+            background: var(--paper); color: var(--ink); border-radius: 18px;
+            padding: 20px; box-shadow: 0 14px 40px rgba(0,0,0,.45), inset 0 0 0 1px rgba(110,122,88,.2);
+        }
+        .card.dark { background: rgba(28,46,28,.72); color: var(--cream); box-shadow: 0 10px 30px rgba(0,0,0,.4), inset 0 0 0 1px rgba(74,222,128,.16); }
+        .card.highlight { outline: 3px solid var(--grass); outline-offset: 2px; }
+        .card.cow { outline: 3px solid var(--pink); outline-offset: 2px; }
+        .slbl { font-size: .68rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 12px; }
+        .card.dark .slbl { color: var(--muted); }
+
+        .fg { margin-bottom: 12px; }
+        .fg label { display: block; font-size: .68rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 5px; }
+        input[type=text] {
+            width: 100%; padding: 12px 14px; font-family: inherit; font-size: 1.05rem; font-weight: 700;
+            border: 2px solid rgba(110,122,88,.4); border-radius: 12px; background: #fffdf2; color: var(--ink);
+            outline: none;
+        }
+        input[type=text]:focus { border-color: var(--grass); }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            font-family: inherit; font-weight: 900; font-size: .95rem; letter-spacing: .4px;
+            padding: 13px 18px; border: none; border-radius: 14px; cursor: pointer;
+            transition: filter .12s, opacity .12s, box-shadow .12s; user-select: none; -webkit-user-select: none;
+        }
+        .btn:active { filter: brightness(.92); }
+        .btn-p { background: linear-gradient(180deg, #86efac, #22c55e); color: #062812; box-shadow: 0 5px 0 #14532d, 0 10px 22px rgba(74,222,128,.3); }
+        .btn-p:active { box-shadow: 0 2px 0 #14532d; }
+        .btn-c { background: linear-gradient(180deg, #f9a8d4, #ec4899); color: #3d0a24; box-shadow: 0 5px 0 #831843, 0 10px 22px rgba(244,114,182,.3); }
+        .btn-c:active { box-shadow: 0 2px 0 #831843; }
+        .btn-g { background: rgba(47,59,36,.12); color: inherit; box-shadow: inset 0 0 0 2px rgba(110,122,88,.4); }
+        .card.dark .btn-g, body.viewer-mode .btn-g { box-shadow: inset 0 0 0 2px rgba(159,177,140,.4); }
+        .btn-full { width: 100%; }
+        .btn-sm { padding: 8px 13px; font-size: .78rem; border-radius: 11px; }
+        .btn:disabled { opacity: .45; cursor: default; }
+
+        .err {
+            background: rgba(239,68,68,.14); border: 1px solid rgba(239,68,68,.5); color: #ffb3b3;
+            padding: 11px 14px; border-radius: 12px; font-size: .82rem; font-weight: 700; text-align: center;
+        }
+        hr { border: none; border-top: 1px dashed rgba(110,122,88,.4); margin: 14px 0; }
+
+        .connecting { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 46px 0; color: var(--muted); font-weight: 700; }
+        .spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid rgba(74,222,128,.2); border-top-color: var(--grass); animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .avrow { display: flex; flex-wrap: wrap; gap: 7px; }
+        .av {
+            width: 42px; height: 42px; border-radius: 12px; font-size: 1.35rem; display: flex; align-items: center; justify-content: center;
+            background: #fffdf2; border: 2px solid rgba(110,122,88,.35); cursor: pointer;
+        }
+        .av.sel { border-color: var(--pink); background: #ffe9f4; box-shadow: 0 4px 12px rgba(244,114,182,.35); }
+
+        .player-row { display: flex; align-items: center; gap: 11px; padding: 9px 4px; border-bottom: 1px dashed rgba(110,122,88,.3); font-weight: 800; }
+        .player-row:last-child { border-bottom: none; }
+        .pav { width: 38px; height: 38px; border-radius: 11px; background: var(--paper2); border: 2px solid rgba(110,122,88,.3); font-size: 1.25rem; display: flex; align-items: center; justify-content: center; }
+        .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--grass); box-shadow: 0 0 8px var(--grass); }
+        .qr-wrap { width: min(220px, 60vw); margin: 6px auto 10px; border-radius: 14px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.25); }
+        .qr-wrap svg { display: block; width: 100%; height: auto; }
+        .room-code { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 2.3rem; letter-spacing: 12px; text-align: center; color: var(--ink); padding-left: 12px; }
+        .share-row { display: flex; gap: 8px; justify-content: center; margin: 10px 0 6px; }
+        .seg-row { display: flex; flex-wrap: wrap; gap: 7px; }
+
+        /* phone: answer phase */
+        .prompt-card .pr { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 1.35rem; line-height: 1.35; }
+        .prompt-kicker { font-size: .66rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: #d9488f; margin-bottom: 8px; }
+        .locked-note { text-align: center; font-weight: 900; color: var(--grass); font-size: 1rem; padding: 8px 0 2px; }
+        .waiting-big { text-align: center; padding: 30px 10px; }
+        .waiting-big .big { font-size: 3.2rem; animation: bob 2.2s ease-in-out infinite; }
+        @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+        .waiting-big .t { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 1.3rem; margin-top: 8px; }
+        .waiting-big .s { color: var(--ink-soft); font-weight: 700; font-size: .82rem; margin-top: 5px; }
+
+        /* judge merge UI */
+        .herd-chip {
+            display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+            background: #fffdf2; border: 2px solid rgba(110,122,88,.35); border-radius: 13px;
+            padding: 11px 13px; font-family: inherit; font-weight: 800; font-size: .95rem; color: var(--ink);
+            cursor: pointer; margin-bottom: 8px;
+        }
+        .herd-chip.selme { border-color: var(--pink); background: #ffe9f4; box-shadow: 0 0 0 3px rgba(244,114,182,.25); }
+        .herd-chip .hc-count { margin-left: auto; background: var(--grass); color: #062812; border-radius: 10px; padding: 2px 10px; font-weight: 900; }
+        .herd-chip .hc-names { font-size: .68rem; color: var(--ink-soft); font-weight: 700; }
+
+        /* phone verdict */
+        .verdict { text-align: center; padding: 8px 0 4px; }
+        .verdict .vico { font-size: 3.2rem; }
+        .verdict .vt { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 1.5rem; margin-top: 4px; }
+        .verdict .vpts { font-size: 2rem; font-weight: 900; color: #16a34a; margin-top: 2px; }
+        .chip { display: inline-block; padding: 4px 12px; border-radius: 12px; background: rgba(74,222,128,.16); border: 1px solid rgba(34,197,94,.45); color: #15803d; font-weight: 900; font-size: .78rem; margin: 3px; }
+        .chip.cowchip { background: rgba(244,114,182,.14); border-color: rgba(244,114,182,.5); color: #d9488f; }
+        .standings .sc { margin-left: auto; font-weight: 900; }
+        .standings .delta { color: #16a34a; font-size: .75rem; font-weight: 900; margin-left: 7px; }
+
+        /* ═════════ TV ═════════ */
+        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 3vmin 3.4vmin; gap: 2vmin; }
+        .tv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 2vmin; }
+        .tv-logo { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 3.4vmin; color: var(--grass); text-shadow: 0 0 24px rgba(74,222,128,.4); }
+        .tv-meta { font-size: 1.9vmin; font-weight: 900; letter-spacing: .4vmin; text-transform: uppercase; color: var(--muted); }
+        .tv-main { flex: 1; display: flex; gap: 2.6vmin; min-height: 0; }
+        .tv-stage { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+        .tv-rail { width: 30vmin; min-width: 240px; display: flex; flex-direction: column; gap: 1.4vmin; overflow: hidden; }
+        .tv-rail .rail-title { font-size: 1.7vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .rail-row {
+            display: flex; align-items: center; gap: 1.2vmin; background: rgba(28,46,28,.7);
+            border: 1px solid rgba(74,222,128,.18); border-radius: 1.6vmin; padding: 1.2vmin 1.5vmin;
+            font-weight: 800; font-size: 2vmin; position: relative;
+        }
+        .rail-row .rav { font-size: 2.6vmin; }
+        .rail-row .rname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rail-row .rsc { font-weight: 900; color: var(--sun); font-variant-numeric: tabular-nums; }
+        .rail-row .rcow { font-size: 2.4vmin; }
+        .rail-row.locked::after { content: '✓'; color: var(--grass); font-weight: 900; font-size: 2vmin; }
+        .rail-row .rdelta { position: absolute; right: 1vmin; top: -1.3vmin; font-size: 1.6vmin; font-weight: 900; color: #86efac; text-shadow: 0 2px 6px rgba(0,0,0,.6); animation: riseIn .5s ease both; }
+        @keyframes riseIn { from { opacity: 0; transform: translateY(1vmin); } to { opacity: 1; transform: none; } }
+
+        .tv-paper {
+            flex: 1; background: var(--paper); color: var(--ink); border-radius: 2.4vmin;
+            box-shadow: 0 18px 60px rgba(0,0,0,.55), inset 0 0 0 1px rgba(110,122,88,.25);
+            padding: 4vmin 5vmin; overflow: auto; display: flex; flex-direction: column;
+        }
+        .tv-paper .prompt-kicker { font-size: 1.6vmin; letter-spacing: .45vmin; margin-bottom: 1.6vmin; }
+        .tv-paper .tv-prompt { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 4.2vmin; line-height: 1.35; }
+        .tv-pen { margin-top: auto; text-align: center; font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 3vmin; color: var(--ink-soft); }
+        .tv-pen b { color: #16a34a; }
+
+        .herd-rows { flex: 1; display: flex; flex-direction: column; gap: 1.4vmin; justify-content: center; }
+        .herd-row {
+            display: flex; align-items: center; gap: 1.6vmin; background: #fffdf2;
+            border: 2px solid rgba(110,122,88,.3); border-radius: 1.8vmin; padding: 1.4vmin 2vmin;
+            animation: popIn .45s ease both;
+        }
+        .herd-row.win { border-color: #22c55e; box-shadow: 0 0 26px rgba(74,222,128,.4); }
+        .herd-row.cowrow { border-color: var(--pink); box-shadow: 0 0 26px rgba(244,114,182,.4); }
+        .herd-row .h-count { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 3.6vmin; width: 6vmin; text-align: center; color: #16a34a; }
+        .herd-row.cowrow .h-count { color: #d9488f; }
+        .herd-row .h-label { font-weight: 900; font-size: 2.6vmin; color: var(--ink); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .herd-row .h-members { display: flex; gap: .6vmin; font-size: 2.6vmin; flex-wrap: wrap; justify-content: flex-end; }
+        @keyframes popIn { from { opacity: 0; transform: scale(.75); } to { opacity: 1; transform: scale(1); } }
+        .cow-banner {
+            text-align: center; font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 3vmin;
+            color: var(--pink); text-shadow: 0 0 20px rgba(244,114,182,.35); animation: popIn .5s ease both;
+        }
+
+        /* TV lobby */
+        .tv-lobby { flex: 1; display: flex; gap: 4vmin; align-items: center; min-height: 0; }
+        .tv-lobby .qr-side { background: var(--paper); color: var(--ink); border-radius: 2.4vmin; padding: 3.4vmin; text-align: center; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+        .tv-lobby .qr-side .qr-wrap { width: 34vmin; margin: 1.5vmin auto; }
+        .tv-lobby .qr-side .room-code { font-size: 5vmin; letter-spacing: 2vmin; padding-left: 2vmin; }
+        .tv-lobby .join-hint { font-size: 1.8vmin; font-weight: 800; color: var(--ink-soft); }
+        .tv-players { flex: 1; display: flex; flex-direction: column; gap: 1.6vmin; min-width: 0; }
+        .tv-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20vmin, 1fr)); gap: 1.6vmin; }
+        .tv-pcard {
+            background: rgba(28,46,28,.72); border: 1px solid rgba(74,222,128,.2); border-radius: 1.8vmin;
+            padding: 1.8vmin; text-align: center; font-weight: 900; font-size: 2vmin;
+            animation: popIn .35s ease both, sway 4.5s calc(1s + var(--i, 0) * .7s) ease-in-out infinite alternate;
+        }
+        .tv-pcard .pav-big { font-size: 4.4vmin; }
+        .tv-waiting { color: var(--muted); font-weight: 800; font-size: 2vmin; }
+
+        /* podium */
+        .podium-wrap { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2.4vmin; padding-bottom: 2vmin; }
+        .pod { text-align: center; font-weight: 900; animation: podRise .6s cubic-bezier(.2,.8,.3,1) both; }
+        .pod .pname { font-size: 2.4vmin; margin-bottom: 1vmin; }
+        .pod .pscore { font-size: 2vmin; color: var(--sun); margin-bottom: 1vmin; }
+        .pod .block { border-radius: 1.6vmin 1.6vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.4vmin; font-size: 3.4vmin; width: 18vmin; }
+        /* height is podium staging (centre tallest); colour follows the medal RANK so joint places match */
+        .pod.p1 .block { height: 22vmin; }
+        .pod.p2 .block { height: 15vmin; }
+        .pod.p3 .block { height: 10vmin; }
+        .pod.mrank-0 .block { background: linear-gradient(180deg, #86efac, #15803d); }   /* gold */
+        .pod.mrank-1 .block { background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }   /* silver */
+        .pod.mrank-2 .block { background: linear-gradient(180deg, #f9a8d4, #be3d86); }   /* bronze */
+        .pod .pav-big { font-size: 5vmin; }
+        .awards-row { display: flex; gap: 1.6vmin; justify-content: center; flex-wrap: wrap; }
+        .award {
+            background: rgba(28,46,28,.75); border: 1px solid rgba(253,224,71,.3); border-radius: 1.6vmin;
+            padding: 1.4vmin 2.2vmin; font-weight: 800; font-size: 1.9vmin; text-align: center;
+        }
+        .award .aw-t { color: var(--sun); font-weight: 900; }
+
+        #confetti-cv { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+
+        /* sound toggles */
+        #sound-togs { position: fixed; top: 10px; right: 10px; z-index: 80; display: flex; gap: 6px; }
+        #sound-togs button {
+            width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer; font-size: 1rem;
+            background: rgba(28,46,28,.78); box-shadow: inset 0 0 0 1px rgba(74,222,128,.25);
+            transition: opacity .2s, transform .12s;
+        }
+        #sound-togs button:active { transform: scale(.88); }
+        #sound-togs button.off { opacity: .35; filter: grayscale(1); }
+        body.viewer-mode .tv-top { padding-right: 96px; }
+
+        /* FX layer — particles + floating pop text */
+        .pt {
+            position: fixed; width: 9px; height: 9px; border-radius: 2px;
+            z-index: 950; pointer-events: none;
+            animation: ptFly .75s cubic-bezier(.15,.65,.4,1) forwards;
+        }
+        @keyframes ptFly {
+            0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity: 1; }
+            100% { transform: translate(var(--dx), var(--dy)) rotate(560deg) scale(.3); opacity: 0; }
+        }
+        .pop {
+            position: fixed; z-index: 960; pointer-events: none;
+            font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 1.5rem;
+            animation: popUp 1.1s cubic-bezier(.2,.8,.3,1) forwards;
+            text-shadow: 0 2px 12px rgba(0,0,0,.6); white-space: nowrap;
+        }
+        .pop.good { color: var(--grass); }
+        .pop.cow  { color: var(--pink); }
+        @keyframes popUp {
+            0%   { transform: translate(-50%, 0) scale(.5); opacity: 0; }
+            15%  { transform: translate(-50%, -12px) scale(1.25); opacity: 1; }
+            100% { transform: translate(-50%, -78px) scale(1); opacity: 0; }
+        }
+
+        /* screen entrances — only on phase changes (#app.fresh), so patches never re-trigger */
+        @keyframes cardIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+        #app.fresh .card { animation: cardIn .35s cubic-bezier(.2,.8,.3,1) both; }
+        #app.fresh .tv-paper, #app.fresh .qr-side { animation: cardIn .4s cubic-bezier(.2,.8,.3,1) both; }
+        @keyframes rowIn { from { opacity: 0; transform: scale(.92) translateY(6px); } to { opacity: 1; transform: none; } }
+        #app.fresh .player-row, #app.fresh .herd-chip { animation: rowIn .3s cubic-bezier(.2,.8,.3,1) both; animation-delay: calc(var(--i, 0) * 40ms); }
+        @keyframes vicoPop { 0% { transform: scale(0) rotate(-14deg); } 60% { transform: scale(1.25) rotate(4deg); } 100% { transform: scale(1) rotate(0); } }
+        #app.fresh .vico { animation: vicoPop .5s cubic-bezier(.2,.8,.3,1) both; display: inline-block; }
+        @keyframes vptsPop { 0% { opacity: 0; transform: scale(.4); } 60% { transform: scale(1.15); } 100% { opacity: 1; transform: scale(1); } }
+        #app.fresh .vpts { animation: vptsPop .45s .18s cubic-bezier(.2,.8,.3,1) both; }
+        @keyframes cowWobble {
+            0%, 100% { transform: rotate(0); } 20% { transform: rotate(-2.5deg); }
+            40% { transform: rotate(2deg); } 60% { transform: rotate(-1.5deg); } 80% { transform: rotate(1deg); }
+        }
+        #app.fresh .card.verdict.cow { animation: cardIn .35s cubic-bezier(.2,.8,.3,1) both, cowWobble .8s .38s ease-in-out both; }
+        @keyframes podRise { from { transform: translateY(35%); opacity: 0; } to { transform: none; opacity: 1; } }
+
+        /* herd avatars stampede into the row; winning row gets a green shine sweep */
+        .herd-row { position: relative; overflow: hidden; }
+        .herd-row .h-members span { display: inline-block; animation: runIn .4s cubic-bezier(.2,.8,.3,1) both; animation-delay: var(--ad, 0s); }
+        @keyframes runIn { from { opacity: 0; transform: translateX(4vmin); } to { opacity: 1; transform: none; } }
+        .herd-row.win::after {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background: linear-gradient(115deg, transparent 30%, rgba(74,222,128,.3) 50%, transparent 70%);
+            transform: translateX(-110%); animation: herdShine 1.2s var(--sh, .8s) ease forwards;
+        }
+        @keyframes herdShine { to { transform: translateX(110%); } }
+
+        /* TV pen counter squash-pop on every lock-in */
+        .tv-pen b { display: inline-block; }
+        .tv-pen.bump b { animation: penBump .45s cubic-bezier(.2,.8,.3,1); }
+        @keyframes penBump { 0% { transform: scale(1); } 40% { transform: scale(1.5); color: #16a34a; } 100% { transform: scale(1); } }
+
+        /* the cow stomps into the banner */
+        .cow-banner { animation: popIn .5s ease both, cowWobble .9s .55s ease-in-out both; }
+        .cow-stomp { display: inline-block; font-size: 5vmin; animation: cowStomp 1.5s cubic-bezier(.2,.8,.3,1) .25s both; }
+        @keyframes cowStomp {
+            0%  { transform: translateX(-9vmin) rotate(-10deg); opacity: 0; }
+            35% { opacity: 1; }
+            60% { transform: translateX(1.6vmin) rotate(7deg); }
+            100% { transform: translateX(0) rotate(0); opacity: 1; }
+        }
+
+        /* phone verdict edge flash (green = herd, pink = cow) */
+        .edge-flash { position: fixed; inset: 0; pointer-events: none; z-index: 940; animation: edgeFade 1.2s ease forwards; }
+        .edge-flash.good { box-shadow: inset 0 0 70px 16px rgba(74,222,128,.45); }
+        .edge-flash.cow { box-shadow: inset 0 0 70px 16px rgba(244,114,182,.5); }
+        @keyframes edgeFade { from { opacity: 1; } to { opacity: 0; } }
+
+        /* falling farm emoji (podium) */
+        .fall-emoji { position: fixed; top: -8vmin; z-index: 945; pointer-events: none; font-size: var(--sz, 4vmin); animation: fallDown var(--t, 3.2s) linear forwards; }
+        @keyframes fallDown { to { transform: translateY(120vh) rotate(var(--rot, 60deg)); } }
+
+        /* rail score pops when it just went up */
+        .rail-row .rsc.gained { display: inline-block; animation: scorePop .6s .3s cubic-bezier(.2,.8,.3,1) both; }
+        @keyframes scorePop { 0% { transform: scale(1); } 45% { transform: scale(1.55); color: #86efac; } 100% { transform: scale(1); } }
+
+        /* lobby player cards idle-sway once they've popped in */
+        @keyframes sway { from { transform: rotate(-1deg) translateY(0); } to { transform: rotate(1.1deg) translateY(-.4vmin); } }
+
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <div id="sky-bg" aria-hidden="true">
+        <span style="--x:9%;--d:36s;--dl:0s;--s:2rem">☁️</span>
+        <span style="--x:31%;--d:46s;--dl:-18s;--s:1.5rem">🐄</span>
+        <span style="--x:54%;--d:30s;--dl:-9s;--s:2.3rem">☁️</span>
+        <span style="--x:73%;--d:42s;--dl:-24s;--s:1.6rem">🦋</span>
+        <span style="--x:90%;--d:33s;--dl:-13s;--s:1.8rem">🌿</span>
+    </div>
+    <div id="app"></div>
+    <canvas id="confetti-cv"></canvas>
+    <div id="sound-togs">
+        <button id="tog-music" title="Music on/off" onclick="toggleMusic()">🎵</button>
+        <button id="tog-sfx" title="Sound effects on/off" onclick="toggleSfx()">🔊</button>
+    </div>
+<script>
+// ICE_CFG + rankByScore now come from common.js (loaded in <head>).
+
+'use strict';
+
+// ═══════════════════════════════════════════
+// CONSTANTS & CONTENT
+// ═══════════════════════════════════════════
+const PFX = 'HERDMIND-';
+const MAX_PLAYERS = 12, MIN_PLAYERS = 2;
+const AVATARS = ['🐄', '🐷', '🐔', '🐴', '🦆', '🐐', '🐰', '🦔', '🐶', '🐱', '🦉', '🐸'];
+
+const PROMPTS = [
+    'Name a food you eat with your hands',
+    'The best pizza topping',
+    'A sound the dog makes',
+    'Something you lose down the sofa',
+    'The best superpower',
+    'An animal that would make a terrible pet',
+    'Something you shout at the TV',
+    'The best thing about the weekend',
+    'A smell that means home',
+    'Something that always goes missing from the kitchen',
+    'The best dinosaur',
+    'A job a robot should never do',
+    'The tastiest colour of sweet',
+    'Something you should never microwave',
+    'The best thing to build a fort from',
+    'A noise that wakes the whole house',
+    'The best breakfast',
+    'Something grandparents always say',
+    'An excuse for being late to school',
+    'The best ice cream flavour',
+    'Something you find at the bottom of a school bag',
+    'The best animal to ride to school',
+    'A word that is fun to say',
+    'The worst chore',
+    'Something you take to the beach',
+    'The best cheese',
+    'A thing that lives under the bed',
+    'The best cartoon animal',
+    'Something you do when nobody is watching',
+    'The best sandwich filling',
+    'A sport that should be in the Olympics',
+    'Something that tastes better dipped in something else',
+    'The scariest vegetable',
+    'A famous person who would be a fun uncle',
+    'The best board game',
+    'Something you always forget to pack on holiday',
+    'The best thing to do on a rainy day',
+    'An instrument that is mostly annoying',
+    'Something a pirate keeps in their pocket',
+    'The best biscuit for dunking',
+    'A place you are not allowed to run',
+    'The best thing about birthdays',
+    'Something you should not tell the dentist',
+    'The comfiest place in the house',
+    'A fruit that thinks it is better than the others',
+    'Something knights argue about',
+    'The best playground equipment',
+    'A thing you pretend to understand',
+    'The best kind of chip',
+    'Something that is always in the way',
+    'A magic spell everyone needs',
+    'The best sea creature',
+    'Something you say when you drop your phone',
+    'The best day of the week',
+    'A snack that is basically breakfast',
+    'Something wizards keep in the fridge',
+    'The best thing to draw',
+    'A rule that should not exist',
+    'The best jungle animal',
+    'Something that smells better than it tastes',
+    'A thing that should glow in the dark',
+    'The best pancake topping',
+    'Something you hide when guests come over',
+    'The best mode of transport',
+    'A noise a spaceship makes',
+    'The best pet name for a goldfish',
+    'Something you should never say to a chef',
+    'The best season of the year',
+    'A thing you find in a wizard school',
+    'The best sauce',
+    'Something monsters are scared of',
+    'The best thing in the freezer',
+    'A song everyone knows the words to',
+    'The best farm animal',
+    'Something you do on a long car ride',
+    'The world\'s most useless invention',
+    'The best kind of cake',
+    'Something a superhero keeps in their pocket',
+    'The best bedtime snack',
+    'A thing that always breaks on Christmas day',
+];
+
+function $id(id) { return document.getElementById(id); }
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// answer normalization: lowercase, trim, collapse spaces, naive singular
+function normAnswer(s) {
+    let t = String(s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+    if (t.length > 3 && t.endsWith('s') && !t.endsWith('ss')) t = t.slice(0, -1);
+    return t;
+}
+
+// ── QR code (themed SVG) ──
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+        let rects = '';
+        for (let r = 0; r < n; r++)
+            for (let c = 0; c < n; c++)
+                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+            `<rect width="${size}" height="${size}" fill="#fffdf2"/>` +
+            `<g fill="#22321c">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+
+// ── Confetti ──
+const CONFETTI_COLS = ['#4ade80', '#f472b6', '#fde047', '#86efac', '#f9a8d4', '#f8f4e3'];
+
+// ═══════════════════════════════════════════
+// AUDIO — procedural pastoral chiptune + SFX
+// (G-major folk: plucky triangle lead over
+//  drone-fifth bass; the melody repeats itself
+//  like a herd copying. Gesture-started,
+//  music ~0.33 vol, SFX on top.)
+// ═══════════════════════════════════════════
+let AC = null, masterGain = null, musicGain = null, sfxGain = null, noiseBuf = null;
+let leadBus = null, musicDelay = null;
+let musicOn = localStorage.getItem('herd-music') !== '0';
+let sfxOn = localStorage.getItem('herd-sfx') !== '0';
+
+function ac() {
+    if (!AC) {
+        try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+        masterGain = AC.createGain(); masterGain.gain.value = 1; masterGain.connect(AC.destination);
+        musicGain = AC.createGain(); musicGain.gain.value = musicOn ? 0.33 : 0; musicGain.connect(masterGain);
+        sfxGain = AC.createGain(); sfxGain.gain.value = sfxOn ? 0.55 : 0; sfxGain.connect(masterGain);
+        // Lead bus with a gentle barn echo
+        leadBus = AC.createGain(); leadBus.gain.value = 1; leadBus.connect(musicGain);
+        musicDelay = AC.createDelay(1.5); musicDelay.delayTime.value = 0.28;
+        const fb = AC.createGain(); fb.gain.value = 0.2;
+        const dlp = AC.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 2000;
+        const wet = AC.createGain(); wet.gain.value = 0.18;
+        leadBus.connect(musicDelay); musicDelay.connect(dlp); dlp.connect(fb); fb.connect(musicDelay);
+        dlp.connect(wet); wet.connect(musicGain);
+        const len = AC.sampleRate * 1.2;
+        noiseBuf = AC.createBuffer(1, len, AC.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (AC.state === 'suspended') AC.resume();
+    return AC;
+}
+
+function noiseHit(dur, { vol = 0.3, when = 0, hp = 6000, dest = null } = {}) {
+    if (!AC) return;
+    const t = AC.currentTime + when;
+    const src = AC.createBufferSource(); src.buffer = noiseBuf;
+    const f = AC.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hp;
+    const g = AC.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(dest || sfxGain);
+    src.start(t); src.stop(t + dur + 0.05);
+}
+
+const mf = m => 440 * Math.pow(2, (m - 69) / 12); // midi → freq
+
+// ── SFX (meadow palette: plucks, bells, one proper moo) ──
+// New cow trots into the pen: two-note triangle pop (G→D)
+function sJoin() {
+    if (!sfxOn || !AC) return;
+    tone(mf(67), 0.09, { type: 'triangle', vol: 0.24 });
+    tone(mf(74), 0.16, { type: 'triangle', vol: 0.24, when: 0.07 });
+}
+// Round starts: three quick rising plucks (G-B-D)
+function sStart() {
+    if (!sfxOn || !AC) return;
+    [67, 71, 74].forEach((m, i) => tone(mf(m), 0.11, { type: 'triangle', vol: 0.22, when: i * 0.07 }));
+}
+// Answer locked: soft bell (fundamental + faint 12th shimmer)
+function sLock() {
+    if (!sfxOn || !AC) return;
+    tone(mf(79), 0.28, { type: 'sine', vol: 0.26 });
+    tone(mf(91), 0.14, { type: 'sine', vol: 0.07, when: 0.01 });
+    noiseHit(0.03, { vol: 0.05, hp: 8000 });
+}
+// TV pen counter tick — one more cow in
+function sPen() { if (!sfxOn || !AC) return; tone(mf(83), 0.06, { type: 'triangle', vol: 0.1 }); }
+// Pen closes → grouping: wooden gate thunk + latch
+function sClose() {
+    if (!sfxOn || !AC) return;
+    noiseHit(0.12, { vol: 0.16, hp: 1200 });
+    tone(98, 0.2, { type: 'sine', vol: 0.3, slide: 65 });
+    tone(mf(74), 0.06, { type: 'triangle', vol: 0.12, when: 0.13 });
+}
+// Judge merges two herds: two pitches squish into one + pop
+function sMerge() {
+    if (!sfxOn || !AC) return;
+    tone(mf(71), 0.15, { type: 'triangle', vol: 0.16, slide: mf(74) });
+    tone(mf(78), 0.15, { type: 'triangle', vol: 0.16, slide: mf(74) });
+    tone(mf(74), 0.14, { type: 'triangle', vol: 0.22, when: 0.15 });
+    noiseHit(0.05, { vol: 0.07, when: 0.15, hp: 6000 });
+}
+// MATCH! chorus chime — G-major pentatonic climb + a detuned "chorus"
+// double per note; grows with how many matched
+function sHerd(n) {
+    if (!sfxOn || !AC) return;
+    duckMusic(0.8);
+    const PENT = [0, 2, 4, 7, 9, 12, 14, 16, 19];
+    const count = Math.min(3 + (n || 2), PENT.length);
+    for (let i = 0; i < count; i++) {
+        const f = mf(74 + PENT[i]);
+        tone(f, 0.12, { type: 'triangle', vol: 0.26, when: i * 0.06 });
+        tone(f * 1.006, 0.12, { type: 'triangle', vol: 0.1, when: i * 0.06 });
+    }
+    if ((n || 0) >= 4) noiseHit(0.28, { vol: 0.12, when: count * 0.06, hp: 8000 });
+}
+// The pink cow: a proper two-part sawtooth moo, then a lonely boop
+function sMoo() {
+    if (!sfxOn || !AC) return;
+    duckMusic(1.4);
+    tone(165, 0.18, { type: 'sawtooth', vol: 0.16, slide: 215, lp: 900 });
+    tone(215, 0.55, { type: 'sawtooth', vol: 0.2, when: 0.17, slide: 115, lp: 800 });
+    tone(mf(76), 0.12, { type: 'sine', vol: 0.14, when: 0.9 });
+    tone(mf(72), 0.22, { type: 'sine', vol: 0.11, when: 1.05 });
+}
+// No herd, no cow: soft downward shrug (never harsh)
+function sAlone() {
+    if (!sfxOn || !AC) return;
+    tone(mf(64), 0.16, { type: 'triangle', vol: 0.14 });
+    tone(mf(62), 0.26, { type: 'triangle', vol: 0.11, when: 0.14 });
+}
+// TV drum-roll into the herd reveal
+function sReveal() {
+    if (!sfxOn || !AC) return;
+    for (let i = 0; i < 8; i++) noiseHit(0.04, { vol: 0.05 + i * 0.013, when: i * 0.05, hp: 4000 });
+    tone(mf(67), 0.3, { type: 'triangle', vol: 0.2, when: 0.42 });
+}
+// Win fanfare: quotes the lobby folk motif (the herd's own tune takes the bow),
+// then the closing trill + crash
+function sWin() {
+    if (!sfxOn || !AC) return;
+    duckMusic(1.6);
+    [74, 71, 67, 71, 74, 74, 76, 79].forEach((m, i) => tone(mf(m), 0.15, { type: 'triangle', vol: 0.26, when: i * 0.12 }));
+    [83, 81, 83, 81, 83, 86].forEach((m, i) => tone(mf(m), 0.08, { type: 'triangle', vol: 0.2, when: 1.0 + i * 0.06 }));
+    noiseHit(0.7, { vol: 0.16, when: 1.38, hp: 5000 });
+}
+// Comedy baa for a big winning herd: pulsed saw bleats, then the tail-off
+function sBaa() {
+    if (!sfxOn || !AC) return;
+    [0, 0.09, 0.18].forEach((w, i) => tone(660 - i * 40, 0.07, { type: 'sawtooth', vol: 0.09, when: w, lp: 1600 }));
+    tone(520, 0.32, { type: 'sawtooth', vol: 0.11, when: 0.27, slide: 430, lp: 1400 });
+}
+// Soft ascending pops matching the herd rows landing on the TV
+function sRowPops(n) {
+    if (!sfxOn || !AC) return;
+    const PENT = [0, 2, 4, 7, 9];
+    for (let i = 0; i < Math.min(n, 8); i++)
+        tone(mf(67 + PENT[i % 5] + Math.floor(i / 5) * 12), 0.07, { type: 'triangle', vol: 0.12, when: i * 0.14 });
+}
+// Duck the music briefly so big stingers read clearly (sidechain feel)
+function duckMusic(dur = 0.5) {
+    if (!AC || !musicGain || !musicOn) return;
+    const t = AC.currentTime;
+    musicGain.gain.cancelScheduledValues(t);
+    musicGain.gain.setValueAtTime(0.1, t);
+    musicGain.gain.linearRampToValueAtTime(0.33, t + dur);
+}
+
+// ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
+// G-major pastoral folk. null = rest; numbers are midi notes.
+// The unison-motif joke: lead phrases state a bar, then the second
+// half copies it (or copies it a step off) — the herd copies.
+// bassBars follow the pads' chords; waves pick warm oscillators.
+const TRACKS = {
+    // Meadow lobby: swung stroll, drone-fifth bass (G/C · Em/D)
+    lobby: { bpm: 106, swing: 0.12, arp: 2, leadLp: 4000,
+        waves: { bass: 'triangle', lead: 'triangle', stab: 'sine', arpW: 'sine' },
+        bassBars: [
+            [43,null,null,null, 50,null,null,null, 43,null,null,null, 50,null,43,null, 48,null,null,null, 55,null,null,null, 48,null,null,null, 55,null,48,null],
+            [40,null,null,null, 47,null,null,null, 40,null,null,null, 47,null,40,null, 50,null,null,null, 45,null,null,null, 50,null,null,null, 45,null,50,null],
+        ],
+        leads: [
+            [74,null,71,null, 67,null,71,null, 74,null,74,null, 76,null,null,null, 74,null,71,null, 67,null,71,null, 74,null,74,null, 76,null,null,null],
+            [76,null,74,null, 71,null,74,null, 76,null,76,null, 79,null,null,null, 74,null,72,null, 69,null,72,null, 74,null,74,null, 78,null,null,null],
+            [67,null,null,69, 71,null,72,null, 74,null,null,null, null,null,71,null, 72,null,null,71, 69,null,67,null, 64,null,null,null, null,null,62,null],
+            [null,null,null,null, null,null,null,null, 64,null,66,null, 67,null,69,null, 74,null,null,null, 72,null,69,null, 66,null,null,null, null,null,null,null],
+        ],
+        hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        kick: [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,1,0],
+        stab: [0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0],
+        pads: [
+            { 0: [55,59,62], 16: [55,60,64] },
+            { 0: [52,55,59], 16: [54,57,62] },
+        ] },
+    // Everyone's thinking: ponderous sine cells — each question asked twice
+    think: { bpm: 84, swing: 0, arp: 4, leadLp: 3000,
+        waves: { bass: 'sine', lead: 'sine', stab: 'sine', arpW: 'sine' },
+        bassBars: [
+            [43,null,null,null, null,null,null,null, null,null,50,null, null,null,null,null, 45,null,null,null, null,null,null,null, null,null,52,null, null,null,null,null],
+            [48,null,null,null, null,null,null,null, null,null,55,null, null,null,null,null, 50,null,null,null, null,null,null,null, null,null,45,null, null,null,null,null],
+        ],
+        leads: [
+            [null,null,74,null, 71,null,null,null, null,null,74,null, 71,null,null,null, null,null,72,null, 69,null,null,null, null,null,72,null, 69,null,null,null],
+            [null,null,76,null, 72,null,null,null, null,null,76,null, 72,null,null,null, null,null,72,null, 67,null,null,null, null,null,74,null, 66,null,null,null],
+        ],
+        hat:  [0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,0,0],
+        kick: [1,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+        stab: [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+        pads: [
+            { 0: [55,59,62], 16: [57,60,64] },
+            { 0: [55,60,64], 16: [54,57,62] },
+        ] },
+    // The farmer sorts: tiptoe pizzicato (Am/D · G/Em)
+    sort: { bpm: 112, swing: 0, arp: 2, leadLp: 3600,
+        waves: { bass: 'triangle', lead: 'triangle', stab: 'sine', arpW: 'sine' },
+        bassBars: [
+            [45,null,null,45, null,null,52,null, 45,null,null,45, null,null,52,null, 50,null,null,50, null,null,45,null, 50,null,null,50, null,null,54,null],
+            [43,null,null,43, null,null,50,null, 43,null,null,43, null,null,50,null, 40,null,null,40, null,null,47,null, 40,null,null,40, null,null,47,null],
+        ],
+        leads: [
+            [69,null,67,null, 69,null,null,null, 69,null,67,null, 69,null,null,null, 66,null,64,null, 66,null,null,null, 66,null,69,null, 74,null,null,null],
+            [71,null,69,null, 71,null,null,null, 71,null,69,null, 71,null,null,null, 67,null,66,null, 64,null,null,null, 62,null,64,null, 67,null,null,null],
+        ],
+        hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        kick: [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+        stab: [0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,0],
+        pads: [
+            { 0: [57,60,64], 16: [54,57,62] },
+            { 0: [55,59,62], 16: [52,55,59] },
+        ] },
+    // The herds land: warm IV-V-I stroll that keeps resolving home to G
+    reveal: { bpm: 104, swing: 0.1, arp: 2, leadLp: 4200,
+        waves: { bass: 'triangle', lead: 'triangle', stab: 'sine', arpW: 'sine' },
+        bassBars: [
+            [48,null,null,null, 55,null,null,null, 48,null,55,null, 48,null,null,null, 50,null,null,null, 57,null,null,null, 50,null,57,null, 50,null,null,null],
+            [43,null,null,null, 50,null,null,null, 43,null,50,null, 55,null,null,null, 48,null,null,null, 55,null,null,null, 48,null,55,null, 48,null,null,null],
+        ],
+        leads: [
+            [72,null,74,null, 76,null,null,null, 72,null,74,null, 76,null,null,null, 74,null,null,null, 78,null,74,null, 69,null,72,null, 74,null,null,null],
+            [79,null,null,null, 74,null,71,null, 67,null,71,null, 74,null,null,null, 76,null,null,null, 72,null,67,null, 64,null,67,null, 72,null,null,null],
+        ],
+        hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        kick: [1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,1,0],
+        stab: [0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0],
+        pads: [
+            { 0: [55,60,64], 16: [54,57,62] },
+            { 0: [55,59,62], 16: [55,60,64] },
+        ] },
+    // Podium: celebratory barn dance (G/C · D/G)
+    over: { bpm: 120, swing: 0, arp: 1, leadLp: 5000,
+        waves: { bass: 'triangle', lead: 'triangle', stab: 'sine', arpW: 'sine' },
+        bassBars: [
+            [43,null,55,null, 43,null,55,null, 43,null,55,null, 43,null,55,null, 48,null,55,null, 48,null,55,null, 48,null,55,null, 48,null,55,null],
+            [50,null,57,null, 50,null,57,null, 50,null,57,null, 50,null,57,null, 43,null,55,null, 43,null,55,null, 43,null,55,null, 43,null,50,null],
+        ],
+        leads: [
+            [67,67,null,71, null,74,null,79, 76,null,74,null, 71,null,null,null, 72,72,null,76, null,79,null,76, 74,null,72,null, 74,null,null,null],
+            [74,74,null,78, null,81,null,78, 74,null,72,null, 71,null,null,null, 79,null,74,null, 71,null,74,null, 79,null,null,null, null,null,null,null],
+        ],
+        hat:  [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+        kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,1,0],
+        stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        pads: [
+            { 0: [55,59,62], 16: [55,60,64] },
+            { 0: [54,57,62], 16: [55,59,62] },
+        ] },
+};
+let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
+// Adaptive arrangement: 1 = rhythm + lead, 2 = full (stabs + shimmer).
+// Key shift lifts everything a whole tone once someone's at match point.
+let musicIntensity = 2, musicKeyShift = 0;
+
+function playMusicStep(i, t, bar) {
+    const tr = TRACKS[musicTrack];
+    const stepDur = 60 / tr.bpm / 4;
+    const w = tr.waves || {};
+    const k = musicKeyShift;
+    const full = musicIntensity >= 2 || musicUrgent;
+    // Swing: push every off-16th slightly late for a looser folk sway
+    const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
+    if (tr.kick[i]) tone(140, 0.24, { type: 'sine', vol: 0.42, when: rel, slide: 42, dest: musicGain });
+    if (tr.hat[i]) {
+        const hv = (i % 4 === 2 ? 0.11 : 0.055) * (0.8 + Math.random() * 0.4);
+        noiseHit(0.045, { vol: hv, when: rel, hp: 9500, dest: musicGain });
+    }
+    const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
+    const b = bassArr[i];
+    if (b != null) tone(mf(b + k), stepDur * 1.6, { type: w.bass || 'triangle', vol: 0.3, when: rel, dest: musicGain, lp: 1000, attack: 0.006 });
+    const pad = tr.pads[bar % tr.pads.length];
+    const ch = i < 16 ? pad[0] : pad[16];
+    if (full && tr.stab && tr.stab[i] && ch)
+        ch.forEach(m => tone(mf(m + 12 + k), stepDur * 0.9, { type: w.stab || 'sine', vol: 0.035, when: rel, lp: 2600, dest: musicGain, attack: 0.005 }));
+    let l = tr.leads[bar % tr.leads.length][i];
+    if (l != null && (musicIntensity >= 1 || musicUrgent)) {
+        if (musicUrgent) l += 12;
+        // Plucky lead: short attack, lowpassed triangle
+        tone(mf(l + k), stepDur * 1.5, { type: w.lead || 'triangle', vol: 0.13 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3800, attack: 0.005 });
+    }
+    // Music-box shimmer two octaves above the pads
+    if (full && tr.arp && i % tr.arp === 0 && ch)
+        tone(mf(ch[(i / tr.arp) % ch.length] + 24 + k), stepDur * tr.arp * 0.9, { type: w.arpW || 'sine', vol: 0.045, when: rel, lp: 5200, dest: musicGain, attack: 0.004 });
+    if (musicUrgent && i % 4 === 0) noiseHit(0.035, { vol: 0.1, when: rel + stepDur * 2, hp: 11000, dest: musicGain });
+}
+
+function musicScheduler() {
+    const tr = TRACKS[musicTrack];
+    const stepDur = 60 / tr.bpm / 4;
+    while (musicNext < AC.currentTime + 0.18) {
+        playMusicStep(musicStep, musicNext, musicBar);
+        musicNext += stepDur;
+        musicStep++;
+        if (musicStep === 32) { musicStep = 0; musicBar++; }
+    }
+}
+
+function setMusic(track) {
+    if (musicTrack === track) return;
+    const wasPlaying = !!(AC && musicTimer);
+    musicTrack = track;
+    musicStep = 0;
+    musicBar = 0;
+    // adaptive: thinking starts lean (rhythm + lead), fills out at half locked-in
+    musicIntensity = track === 'think' ? 1 : 2;
+    if (track === 'lobby' || track === 'over') musicKeyShift = 0;
+    if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[track].bpm * 0.5;
+    if (track !== 'think') musicUrgent = false;
+    // one-beat snare fill so phase changes land on a downbeat instead of a hard cut
+    if (wasPlaying) {
+        const s = 60 / TRACKS[track].bpm / 4;
+        for (let f = 0; f < 4; f++) noiseHit(0.06, { vol: 0.1 + f * 0.035, when: f * s, hp: 2800 + f * 900, dest: musicGain });
+        musicNext = AC.currentTime + 4 * s;
+    }
+}
+// Adaptive layers: the full arrangement joins once half the herd has locked in
+function bumpThinkIntensity(locked, total) {
+    if (total && locked / total >= 0.5) musicIntensity = Math.max(musicIntensity, 2);
+}
+// Match point: lift the key a whole tone when someone could win next round
+function checkMatchPoint(scores, target) {
+    if (!target) return;
+    musicKeyShift = Math.max(0, ...(scores || [])) >= target - 1 ? 2 : 0;
+}
+
+function toggleMusic() {
+    musicOn = !musicOn;
+    localStorage.setItem('herd-music', musicOn ? '1' : '0');
+    if (!AC && musicOn) { ac(); startMusicLoop(); }
+    if (AC && musicGain) musicGain.gain.linearRampToValueAtTime(musicOn ? 0.33 : 0, AC.currentTime + 0.2);
+    $id('tog-music').classList.toggle('off', !musicOn);
+}
+function toggleSfx() {
+    sfxOn = !sfxOn;
+    localStorage.setItem('herd-sfx', sfxOn ? '1' : '0');
+    if (AC && sfxGain) sfxGain.gain.value = sfxOn ? 0.55 : 0;
+    $id('tog-sfx').classList.toggle('off', !sfxOn);
+}
+
+// Unlock audio on first interaction (browser autoplay policy)
+let _audioUnlocked = false;
+document.addEventListener('pointerdown', () => {
+    if (_audioUnlocked) return;
+    _audioUnlocked = true;
+    if (ac()) startMusicLoop();
+}, { capture: true });
+
+// ── Particle bursts + floating score text ──
+// Full-screen edge glow — green for the herd, pink for the cow
+function flashEdge(cls) {
+    if (REDUCED) return;
+    const d = document.createElement('div');
+    d.className = 'edge-flash ' + cls;
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 1300);
+}
+// Farm emoji rain (podium garnish on top of the confetti)
+function emojiRain(chars, n) {
+    if (REDUCED) return;
+    for (let i = 0; i < n; i++) {
+        setTimeout(() => {
+            const el = document.createElement('div');
+            el.className = 'fall-emoji';
+            el.textContent = chars[Math.floor(Math.random() * chars.length)];
+            el.style.left = (Math.random() * 94) + '%';
+            el.style.setProperty('--t', (2.6 + Math.random() * 1.9) + 's');
+            el.style.setProperty('--sz', (2.6 + Math.random() * 2.4) + 'vmin');
+            el.style.setProperty('--rot', ((Math.random() - 0.5) * 260) + 'deg');
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 5000);
+        }, i * 160);
+    }
+}
+
+typeof mountScene === 'function' && mountScene('cows');   // Herd Mind's herd is cattle — the cow is the game's token
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let peer = null, myId = '', myName = '', myAvatar = '', isHost = false, isTvHost = false, isViewer = false, roomCode = '';
+let hostConn = null, guestConns = {}, viewerConns = {};
+let ui = 'home';   // home|creating|connecting|lobby_h|lobby_g|answer|grouping|reveal|podium|viewer
+let uiErr = '';
+let fName = (typeof savedName === 'function' ? savedName() : '');
+let fAvatar = localStorage.getItem('herd-avatar') || '';
+let fCode = '', fVCode = '';
+let D = null, vD = null;
+
+// phone-local
+let myText = '', mergeSel = null;
+
+// Host authoritative state
+let H = {
+    phase: 'lobby',            // lobby|answer|grouping|reveal|podium
+    players: [],               // [{id,name,avatar,score,hasCow,majorities,cowPickups,lastGain,gotCowNow,answer}]
+    settings: { target: 8 },
+    round: 0,
+    promptOrder: [], promptIx: -1, prompt: '',
+    groups: [],                // [{key,label,members:[ids]}] — during grouping/reveal
+    winningKeys: [], cowTaker: null, pendingWinner: null,
+};
+
+// ═══════════════════════════════════════════
+// NETWORK
+// ═══════════════════════════════════════════
+function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('send err', e); } }
+function broadcastViewers(msg) { Object.values(viewerConns).forEach(c => send(c, msg)); }
+function connectedPlayers() {
+    return H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+}
+
+// ── 👑 captain (TV-host rooms) ──────────────────────────────────────────────
+// The captain is the first *CONNECTED* player, not simply H.players[0]: a captain
+// whose phone drops mid-game must not stall the room. Their slot survives the drop
+// (zombie takeover by name), so when they rejoin they're first again and the crown
+// comes straight back.
+function capPlayer() { return isTvHost ? (connectedPlayers()[0] || H.players[0] || null) : null; }
+function capName() { return isTvHost ? (capPlayer()?.name || null) : null; }
+// The crown moved — push the change out.
+function capSync(prevId) {
+    if (!isTvHost || H.phase === 'lobby') return;      // lobby re-broadcasts anyway
+    if ((capPlayer()?.id || null) !== prevId) broadcastAll();
+}
+function judgePlayer() { return isTvHost ? (connectedPlayers()[0] || H.players[0] || null) : null; }
+function judgeName() { return isTvHost ? (judgePlayer()?.name || null) : null; }
+
+function hostAddPlayer(id, name, avatar) {
+    if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
+    const taken = new Set(H.players.map(p => p.avatar));
+    const av = avatar && !taken.has(avatar) ? avatar : (AVATARS.find(a => !taken.has(a)) || '🐄');
+    H.players.push({ id, name, avatar: av, score: 0, hasCow: false, majorities: 0, cowPickups: 0, lastGain: 0, gotCowNow: false, answer: null });
+}
+
+function railPlayers() {
+    return H.players
+        .map(p => ({ name: p.name, avatar: p.avatar, score: p.score, hasCow: p.hasCow, locked: p.answer !== null, delta: p.lastGain }))
+        .sort((a, b) => b.score - a.score);
+}
+function standings() {
+    return H.players.slice().sort((a, b) => b.score - a.score)
+        .map(p => ({ name: p.name, avatar: p.avatar, score: p.score, hasCow: p.hasCow, delta: p.lastGain, majorities: p.majorities, cowPickups: p.cowPickups }));
+}
+
+function lobbyMsg() {
+    return {
+        type: 'lobby', roomCode,
+        players: H.players.map(p => ({ name: p.name, avatar: p.avatar })),
+        settings: { ...H.settings },
+        tvHost: isTvHost, captain: judgeName(),
+    };
+}
+function answerMsgFor(p) {
+    return {
+        type: 'answer', round: H.round, prompt: H.prompt, target: H.settings.target,
+        lockedCount: H.players.filter(q => q.answer !== null).length,
+        playerCount: connectedPlayers().length,
+        myLocked: p ? p.answer !== null : false, myAnswer: p ? p.answer : null,
+        tvHost: isTvHost, captain: judgeName(),
+    };
+}
+function groupsPayload() {
+    return H.groups.map(g => ({
+        key: g.key, label: g.label, count: g.members.length,
+        names: g.members.map(id => H.players.find(p => p.id === id)?.name || '?'),
+        avatars: g.members.map(id => H.players.find(p => p.id === id)?.avatar || '❔'),
+    })).sort((a, b) => b.count - a.count);
+}
+function groupingMsgFor(p) {
+    const judge = (isHost && !isTvHost) ? (p && p.id === myId) : (isTvHost && p && p.id === judgePlayer()?.id);
+    return {
+        type: 'grouping', round: H.round, prompt: H.prompt,
+        isJudge: judge, groups: judge ? groupsPayload() : null,
+        tvHost: isTvHost, captain: judgeName(),
+    };
+}
+function revealMsgFor(p) {
+    return {
+        type: 'reveal', round: H.round, prompt: H.prompt, target: H.settings.target,
+        groups: groupsPayload(), winningKeys: H.winningKeys, cowTaker: H.cowTaker,
+        my: p ? { gain: p.lastGain, gotCow: p.gotCowNow, hasCow: p.hasCow, answer: p.answer } : null,
+        standings: standings(), pendingWinner: H.pendingWinner,
+        tvHost: isTvHost, captain: judgeName(),
+    };
+}
+function podiumMsg() {
+    const most = k => H.players.filter(p => p[k] > 0).sort((a, b) => b[k] - a[k])[0];
+    const awards = [];
+    const hl = most('majorities');
+    if (hl) awards.push({ emoji: '🏆', title: 'Herd Leader', name: hl.name, detail: hl.majorities + '× with the herd' });
+    const lc = most('cowPickups');
+    if (lc) awards.push({ emoji: '🐄', title: 'Lone Cow', name: lc.name, detail: lc.cowPickups + '× got the cow' });
+    return { type: 'podium', standings: standings(), awards, tvHost: isTvHost, captain: judgeName() };
+}
+function phaseSnapshotFor(p) {
+    if (H.phase === 'answer') return answerMsgFor(p);
+    if (H.phase === 'grouping') return groupingMsgFor(p);
+    if (H.phase === 'reveal') return revealMsgFor(p);
+    if (H.phase === 'podium') return podiumMsg();
+    return lobbyMsg();
+}
+function viewerSnapshot() {
+    if (H.phase === 'answer') return { ...answerMsgFor(null), type: 'viewer_answer', players: railPlayers() };
+    if (H.phase === 'grouping') return { type: 'viewer_grouping', round: H.round, prompt: H.prompt, groupCount: H.groups.length, captain: judgeName(), tvHost: isTvHost, players: railPlayers() };
+    if (H.phase === 'reveal') return { ...revealMsgFor(null), type: 'viewer_reveal', players: railPlayers() };
+    if (H.phase === 'podium') return { ...podiumMsg(), type: 'viewer_podium' };
+    return { ...lobbyMsg(), type: 'viewer_lobby' };
+}
+
+function broadcastAll() {
+    H.players.forEach(p => {
+        if (p.id === myId) return;
+        const c = guestConns[p.id];
+        if (c) send(c, phaseSnapshotFor(p));
+    });
+    broadcastViewers(viewerSnapshot());
+    hostSyncSelf();
+}
+function hostSyncSelf() {
+    if (isTvHost) { applyViewerMsg(viewerSnapshot()); return; }
+    if (isHost) applyMsg(phaseSnapshotFor(H.players.find(p => p.id === myId)));
+}
+function broadcastLobby() { broadcastAll(); }
+
+// ── Host: incoming connections ──
+function setupGuestConn(conn) {
+    conn.on('open', () => { conn._role = null; });
+
+    conn.on('data', msg => {
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer';
+            viewerConns[conn.peer] = conn;
+            send(conn, viewerSnapshot());
+            return;
+        }
+        if (conn._role === null) {
+            conn._role = 'player';
+            guestConns[conn.peer] = conn;
+        }
+        const player = H.players.find(p => p.id === conn.peer);
+        switch (msg.type) {
+            case 'join': {
+                const prevCap = capPlayer()?.id || null;
+                setTimeout(() => capSync(prevCap), 0);
+                const name = String(msg.name || 'Player').slice(0, 16);
+                const zombie = H.players.find(p => msg.cid && p.cid === msg.cid && p.id !== conn.peer && !guestConns[p.id])
+                    || H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
+                if (zombie) zombie.id = conn.peer;
+                else hostAddPlayer(conn.peer, name, msg.avatar);
+                const p2 = H.players.find(p => p.id === conn.peer);
+                if (p2 && msg.cid) p2.cid = msg.cid;          // this device now owns the slot
+                if (!p2) { send(conn, lobbyMsg()); break; }
+                broadcastAll();
+                break;
+            }
+            case 'answer': if (player) hostAnswer(player, msg.text); break;
+            case 'ctl': {
+                if (!isTvHost || !player || player.id !== judgePlayer()?.id) break;
+                hostCtl(msg.action, msg);
+                break;
+            }
+        }
+    });
+
+    conn.on('close', () => {
+        const prevCap = capPlayer()?.id || null;
+        setTimeout(() => capSync(prevCap), 0);
+        delete guestConns[conn.peer];
+        delete viewerConns[conn.peer];
+        if (H.phase === 'lobby') {
+            const pi = H.players.findIndex(p => p.id === conn.peer);
+            if (pi >= 0) { H.players.splice(pi, 1); broadcastAll(); }
+        } else if (H.phase === 'answer') {
+            maybeCloseAnswers();
+        }
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+function hostCtl(action, msg) {
+    if (action === 'start' && H.phase === 'lobby') hostStartGame();
+    else if (action === 'close' && H.phase === 'answer') hostCloseAnswers(true);
+    else if (action === 'merge' && H.phase === 'grouping') hostMerge(msg.a, msg.b);
+    else if (action === 'confirm' && H.phase === 'grouping') hostConfirm();
+    else if (action === 'next' && H.phase === 'reveal') hostNext();
+    else if (action === 'again' && H.phase === 'podium') hostNewGame();
+    else if (action === 'set' && H.phase === 'lobby') {
+        if ([5, 8, 12].includes(msg.target)) H.settings.target = msg.target;
+        broadcastAll();
+    }
+}
+function guestCtl(action, extra) {
+    if (isHost && !isTvHost) { hostCtl(action, extra || {}); return; }
+    if (hostConn) send(hostConn, { type: 'ctl', action, ...(extra || {}) });
+}
+
+// ── Create a room ──
+function makeRoom(onOpen) {
+    forgetRoom();                    // hosting now — this tab is nobody's guest
+    roomCode = makeRoomCode();
+    peer = hostPeer(PFX + roomCode, {
+        onOpen: id => { myId = id; isHost = true; onOpen(); },
+        onConnection: conn => setupGuestConn(conn),
+        onFatalError: e => {
+            uiErr = 'Connection error: ' + e.message;
+            isHost = false; isTvHost = false;
+            document.body.classList.remove('viewer-mode');
+            ui = 'home'; render();
+        },
+    });
+}
+
+function hostGame(name) {
+    myName = name.trim().slice(0, 16) || 'Host';
+    myAvatar = fAvatar || AVATARS[0];
+    saveName(myName);
+    localStorage.setItem('herd-avatar', myAvatar);
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        hostAddPlayer(myId, myName, myAvatar);
+        ui = 'lobby_h';
+        render();
+    });
+}
+
+function hostOnTV() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        isTvHost = true;
+        document.body.classList.add('viewer-mode');
+        applyViewerMsg(viewerSnapshot());
+    });
+}
+
+function joinGame(code, name) {
+    myName = name.trim().slice(0, 16) || 'Player';
+    myAvatar = fAvatar || AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    saveName(myName);
+    localStorage.setItem('herd-avatar', myAvatar);
+    uiErr = ''; ui = 'connecting'; render();
+
+    let connected = false;
+    joinPeer({
+        hostFullId: PFX + code.trim().toUpperCase(),
+        attempts: 3, delayMs: 700,
+        isConnected: () => connected,
+        onReady: (p, id, hc) => {
+            peer = p; myId = id; isHost = false; hostConn = hc;
+            hostConn.on('open', () => { connected = true; rememberRoom(code.trim().toUpperCase(), 'player'); send(hostConn, { type: 'join', cid: clientId(), name: myName, avatar: myAvatar }); });
+            hostConn.on('data', msg => applyMsg(msg));
+            // hostConn errors AFTER connect aren't retried (isConnected guards the retry)
+        },
+        onLost: () => { connected = false; },   // → auto-rejoin behind the curtain
+        onGiveUp: wasIn => { forgetRoom(); uiErr = wasIn ? 'Lost connection to the game — tap Join to get back in.' : 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.'; ui = 'home'; D = null; render(); },
+    });
+}
+
+function joinAsViewer(code) {
+    isViewer = true;
+    uiErr = ''; ui = 'connecting'; render();
+
+    let connected = false;
+    joinPeer({
+        hostFullId: PFX + code.trim().toUpperCase(),
+        attempts: 2, delayMs: 600,
+        isConnected: () => connected,
+        onReady: (p, id, hc) => {
+            peer = p; myId = id; hostConn = hc;
+            hostConn.on('open', () => { connected = true; rememberRoom(code.trim().toUpperCase(), 'viewer'); send(hostConn, { type: 'join_viewer' }); });
+            hostConn.on('data', msg => applyViewerMsg(msg));
+        },
+        onLost: () => { connected = false; },   // → auto-rejoin behind the curtain
+        onGiveUp: wasIn => { forgetRoom(); uiErr = wasIn ? 'Lost connection to the game.' : 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.'; isViewer = false; vD = null; document.body.classList.remove('viewer-mode'); ui = 'home'; render(); },
+    });
+}
+
+// ═══════════════════════════════════════════
+// HOST GAME FLOW
+// ═══════════════════════════════════════════
+function hostStartGame() {
+    if (connectedPlayers().length < MIN_PLAYERS) { uiErr = 'Need at least ' + MIN_PLAYERS + ' players.'; if (ui === 'lobby_h') render(); return; }
+    H.round = 0;
+    H.promptOrder = shuffle(PROMPTS.map((_, i) => i));
+    H.promptIx = -1;
+    H.players.forEach(p => { p.score = 0; p.hasCow = false; p.majorities = 0; p.cowPickups = 0; p.lastGain = 0; p.gotCowNow = false; p.answer = null; });
+    H.pendingWinner = null;
+    hostStartRound();
+}
+
+function hostStartRound() {
+    H.round += 1;
+    H.promptIx += 1;
+    if (H.promptIx >= H.promptOrder.length) { H.promptOrder = shuffle(PROMPTS.map((_, i) => i)); H.promptIx = 0; }
+    H.prompt = PROMPTS[H.promptOrder[H.promptIx]];
+    H.players.forEach(p => { p.answer = null; p.lastGain = 0; p.gotCowNow = false; });
+    H.groups = []; H.winningKeys = []; H.cowTaker = null;
+    H.phase = 'answer';
+    broadcastAll();
+}
+
+function hostAnswer(player, text) {
+    if (H.phase !== 'answer' || player.answer !== null) return;
+    const t = String(text || '').trim().slice(0, 24);
+    if (!t) return;
+    player.answer = t;
+    // patch-style broadcast: everyone gets a fresh answer msg (clients patch counts by id)
+    broadcastAll();
+    maybeCloseAnswers();
+}
+
+function maybeCloseAnswers() {
+    if (H.phase !== 'answer') return;
+    const active = connectedPlayers();
+    if (active.length >= MIN_PLAYERS && active.every(p => p.answer !== null)) hostCloseAnswers(false);
+}
+
+function hostCloseAnswers(manual) {
+    if (H.phase !== 'answer') return;
+    const answered = H.players.filter(p => p.answer !== null);
+    if (answered.length < 2) { if (manual) return; return; }   // nothing to herd
+    // auto-group by normalized answer
+    const map = new Map();
+    answered.forEach(p => {
+        const key = normAnswer(p.answer);
+        if (!map.has(key)) map.set(key, { key, label: p.answer.trim(), members: [] });
+        map.get(key).members.push(p.id);
+    });
+    H.groups = [...map.values()];
+    H.phase = 'grouping';
+    broadcastAll();
+}
+
+function hostMerge(a, b) {
+    if (H.phase !== 'grouping' || a === b) return;
+    const ga = H.groups.find(g => g.key === a), gb = H.groups.find(g => g.key === b);
+    if (!ga || !gb) return;
+    // merge smaller into larger (keep the larger group's label)
+    const [big, small] = ga.members.length >= gb.members.length ? [ga, gb] : [gb, ga];
+    big.members.push(...small.members);
+    H.groups = H.groups.filter(g => g !== small);
+    broadcastAll();
+}
+
+function hostConfirm() {
+    if (H.phase !== 'grouping') return;
+    // score: biggest herd(s) of size >= 2
+    const max = Math.max(0, ...H.groups.map(g => g.members.length));
+    H.winningKeys = max >= 2 ? H.groups.filter(g => g.members.length === max).map(g => g.key) : [];
+    const winnerIds = new Set(H.groups.filter(g => H.winningKeys.includes(g.key)).flatMap(g => g.members));
+    // cow: exactly one singleton group in the whole round
+    const singletons = H.groups.filter(g => g.members.length === 1);
+    H.cowTaker = null;
+    if (singletons.length === 1) {
+        const cowId = singletons[0].members[0];
+        const taker = H.players.find(p => p.id === cowId);
+        if (taker && !taker.hasCow) {
+            H.players.forEach(p => { p.hasCow = false; });
+            taker.hasCow = true;
+            taker.cowPickups += 1;
+            taker.gotCowNow = true;
+            H.cowTaker = taker.name;
+        }
+    }
+    H.players.forEach(p => {
+        if (winnerIds.has(p.id)) { p.lastGain = 1; p.score += 1; p.majorities += 1; }
+        else p.lastGain = 0;
+    });
+    const contenders = H.players.filter(p => p.score >= H.settings.target && !p.hasCow);
+    H.pendingWinner = contenders.length ? contenders.sort((a, b) => b.score - a.score)[0].name : null;
+    H.phase = 'reveal';
+    broadcastAll();
+}
+
+function hostNext() {
+    if (H.pendingWinner) { H.phase = 'podium'; broadcastAll(); }
+    else hostStartRound();
+}
+
+function hostNewGame() {
+    H.phase = 'lobby';
+    H.round = 0; H.prompt = ''; H.groups = []; H.pendingWinner = null;
+    H.players.forEach(p => { p.score = 0; p.hasCow = false; p.majorities = 0; p.cowPickups = 0; p.lastGain = 0; p.gotCowNow = false; p.answer = null; });
+    H.players = H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+    broadcastAll();
+    if (isHost && !isTvHost) { ui = 'lobby_h'; render(); }
+}
+
+function hostSet(patch) {
+    Object.assign(H.settings, patch);
+    broadcastAll();
+    if (ui === 'lobby_h') render();
+}
+
+// ═══════════════════════════════════════════
+// CLIENT (phone) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+// biggest winning herd size — scales the MATCH! chorus chime
+function winHerdSize(msg) {
+    return Math.max(0, ...(msg.groups || [])
+        .filter(g => (msg.winningKeys || []).includes(g.key))
+        .map(g => g.count));
+}
+
+function applyMsg(msg) {
+    switch (msg.type) {
+        case 'lobby': {
+            const prevN = D && D.type === 'lobby' ? (D.players || []).length : -1;
+            D = msg;
+            ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g';
+            setMusic('lobby');
+            if (prevN >= 0 && (msg.players || []).length > prevN) sJoin();
+            render();
+            break;
+        }
+        case 'answer': {
+            const prev = D;
+            D = msg;
+            setMusic('think');
+            bumpThinkIntensity(msg.lockedCount, msg.playerCount);
+            const fresh = !prev || prev.type !== 'answer' || prev.round !== msg.round;
+            if (fresh) { myText = ''; ui = 'answer'; render(); sStart(); }
+            else if (ui === 'answer') {
+                // PATCH ONLY — never re-render while someone may be typing
+                const lc = $id('locked-count');
+                if (lc) lc.textContent = `🐄 ${msg.lockedCount} of ${msg.playerCount} in the pen`;
+                if (msg.myLocked && !prev.myLocked) { render(); sLock(); }
+            } else { ui = 'answer'; render(); }
+            break;
+        }
+        case 'grouping': {
+            const was = ui === 'grouping';
+            D = msg;
+            mergeSel = null;
+            ui = 'grouping';
+            setMusic('sort');
+            if (!was) sClose();
+            render();
+            break;
+        }
+        case 'reveal': {
+            D = msg;
+            ui = 'reveal';
+            setMusic('reveal');
+            checkMatchPoint((msg.standings || []).map(s => s.score), msg.target);
+            render();
+            const my = msg.my || {};
+            if (my.gotCow) {
+                sMoo();
+                flashEdge('cow');
+                popText(innerWidth / 2, innerHeight * 0.28, '🐄 MOO!', 'cow');
+                burst(innerWidth / 2, innerHeight * 0.28 + 20, ['#f472b6', '#f9a8d4', '#fde047'], 16);
+                try { navigator.vibrate && navigator.vibrate([80, 60, 200]); } catch (e) {}
+            } else if (my.gain > 0) {
+                sHerd(winHerdSize(msg));
+                flashEdge('good');
+                popText(innerWidth / 2, innerHeight * 0.28, '+1', 'good');
+                burst(innerWidth / 2, innerHeight * 0.28 + 20, ['#4ade80', '#86efac', '#fde047', '#f8f4e3'], 14);
+            } else if (my.answer != null) sAlone();
+            break;
+        }
+        case 'podium':
+            D = msg;
+            ui = 'podium';
+            setMusic('over');
+            render();
+            sWin(); startConfetti(3600); emojiRain(['🐄', '🐄', '🐐', '🐄'], 7);
+            break;
+    }
+}
+
+function lockAnswer() {
+    const inp = $id('ans-input');
+    const text = (inp ? inp.value : myText).trim();
+    if (!text) return;
+    myText = text;
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostAnswer(me, text);
+    } else send(hostConn, { type: 'answer', text });
+}
+
+function tapMerge(key) {
+    if (!mergeSel) { mergeSel = key; render(); return; }
+    if (mergeSel === key) { mergeSel = null; render(); return; }
+    const a = mergeSel; mergeSel = null;
+    sMerge();
+    guestCtl('merge', { a, b: key });
+}
+
+// ═══════════════════════════════════════════
+// VIEWER (TV) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+function applyViewerMsg(msg) {
+    document.body.classList.add('viewer-mode');
+    ui = 'viewer';
+    const prev = vD;
+    vD = msg;
+    if (msg.type === 'viewer_answer' && prev && prev.type === 'viewer_answer' && prev.round === msg.round) {
+        // patch the pen counter + rail only
+        const pen = $id('v-pen');
+        if (pen) pen.innerHTML = `<b>${msg.lockedCount}</b> of ${msg.playerCount} in the pen 🐄`;
+        const rail = $id('v-rail');
+        if (rail) rail.innerHTML = railRowsHTML(msg.players, true);
+        bumpThinkIntensity(msg.lockedCount, msg.playerCount);
+        if (msg.lockedCount > prev.lockedCount) {
+            sPen();
+            if (pen) { pen.classList.remove('bump'); void pen.offsetWidth; pen.classList.add('bump'); }
+        }
+        return;
+    }
+    switch (msg.type) {
+        case 'viewer_lobby':
+            setMusic('lobby');
+            if (prev && prev.type === 'viewer_lobby' && (msg.players || []).length > (prev.players || []).length) sJoin();
+            break;
+        case 'viewer_answer':
+            setMusic('think');
+            bumpThinkIntensity(msg.lockedCount, msg.playerCount);
+            if (!prev || prev.type !== 'viewer_answer') sStart();
+            break;
+        case 'viewer_grouping':
+            setMusic('sort');
+            if (!prev || prev.type !== 'viewer_grouping') sClose();
+            break;
+        case 'viewer_reveal':
+            setMusic('reveal');
+            checkMatchPoint((msg.players || []).map(p => p.score), msg.target);
+            break;
+        case 'viewer_podium': setMusic('over'); break;
+    }
+    render();
+    if (msg.type === 'viewer_reveal' && (!prev || prev.type !== 'viewer_reveal')) {
+        sReveal();   // drum-roll, then the verdict sound lands after it
+        sRowPops((msg.groups || []).length);   // pops in time with the rows landing
+        setTimeout(() => {
+            if (msg.cowTaker) {
+                sMoo();
+                burst(innerWidth / 2, innerHeight * 0.3, ['#f472b6', '#f9a8d4', '#fde047'], 22);
+            } else if (msg.winningKeys?.length) {
+                const n = winHerdSize(msg);
+                sHerd(n);
+                if (n >= 4) setTimeout(sBaa, 550);   // big herd → the flock answers back
+            }
+        }, 620);
+    }
+    if (msg.type === 'viewer_podium') { sWin(); startConfetti(5200); emojiRain(['🐄', '🐄', '🐐', '🐄'], 14); }
+}
+
+// ═══════════════════════════════════════════
+// RENDER — shared bits
+// ═══════════════════════════════════════════
+function hdrHTML(sub) {
+    return `<h1 class="logo">🐄 Herd Mind</h1><div class="sub">${esc(sub || 'think like the family — or take the cow')}</div>`;
+}
+function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+function isFarmer() { return !!(D && D.tvHost && D.captain && D.captain === myName); }
+function canDrive() { return (isHost && !isTvHost) || isFarmer(); }
+
+function avatarPickerHTML() {
+    return `<div class="fg"><label>Pick your animal</label><div class="avrow">${
+        AVATARS.map(a => `<div class="av${fAvatar === a ? ' sel' : ''}" onclick="fAvatar='${a}';localStorage.setItem('herd-avatar','${a}');render()">${a}</div>`).join('')
+    }</div></div>`;
+}
+
+function railRowsHTML(players, showLocked) {
+    return (players || []).map(p => `
+        <div class="rail-row${showLocked && p.locked ? ' locked' : ''}">
+            <span class="rav">${esc(p.avatar)}</span>
+            <span class="rname">${esc(p.name)}</span>
+            ${p.hasCow ? '<span class="rcow">🐄</span>' : ''}
+            <span class="rsc${!showLocked && p.delta ? ' gained' : ''}">${p.score}</span>
+            ${!showLocked && p.delta ? `<span class="rdelta">+${p.delta}</span>` : ''}
+        </div>`).join('');
+}
+
+function standingsHTML(st) {
+    const medals = ['🥇', '🥈', '🥉'];
+    const ranks = rankByScore(st);   // ties share a place → joint medals
+    const target = D?.target ?? D?.settings?.target;
+    return `<div class="card standings"><div class="slbl">Scores${target ? ` — first to ${esc(String(target))} without the cow` : ''}</div>${
+        st.map((p, i) => `
+        <div class="player-row" style="--i:${i}">
+            <span style="width:22px;text-align:center">${medals[ranks[i]] || (ranks[i] + 1)}</span>
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:#d9488f">(you)</span>' : ''} ${p.hasCow ? '🐄' : ''}</div>
+            <div class="sc">${p.score}${p.delta ? `<span class="delta">+${p.delta}</span>` : ''}</div>
+        </div>`).join('')
+    }</div>`;
+}
+
+function settingsSegsHTML(settings, expr) {
+    const seg = (opts, curV, key) => `<div class="seg-row">${opts.map(o =>
+        `<button class="btn btn-sm ${curV === o.v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{${key}:${o.j}}`)}">${o.l}</button>`).join('')}</div>`;
+    return `<div class="fg"><label>Points to win</label>${seg(
+        [5, 8, 12].map(v => ({ v, j: v, l: v })), settings.target, 'target')}</div>`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — phone screens
+// ═══════════════════════════════════════════
+let _lastUi = '', _lastVType = '';
+function render() {
+    const app = $id('app');
+    if (isTvHost || isViewer) ui = 'viewer';
+    // 'fresh' marks a real screen change → entrance animations run once,
+    // never on same-screen re-renders (merge taps, joins, lock-in)
+    const vt = ui === 'viewer' ? (vD?.type || '') : '';
+    const fresh = ui !== _lastUi || vt !== _lastVType;
+    _lastUi = ui; _lastVType = vt;
+    let html = '';
+    switch (ui) {
+        case 'home':       html = renderHome(); break;
+        case 'creating':   html = renderSpinner('Opening the meadow…'); break;
+        case 'connecting': html = renderSpinner('Joining the herd…'); break;
+        case 'lobby_h':    html = renderLobbyH(); break;
+        case 'lobby_g':    html = renderLobbyG(); break;
+        case 'answer':     html = renderAnswer(); break;
+        case 'grouping':   html = renderGrouping(); break;
+        case 'reveal':     html = renderReveal(); break;
+        case 'podium':     html = renderPodium(); break;
+        case 'viewer':     html = renderViewer(); break;
+        default:           html = renderHome();
+    }
+    // guarded: a stale common.js (no setHTML) must never blank the game
+    if (typeof setHTML === 'function') setHTML(app, html); else app.innerHTML = html;
+    app.classList.toggle('fresh', fresh);
+}
+
+function renderSpinner(msg) {
+    return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`;
+}
+
+function renderHome() {
+    const fromQR = !!fCode;
+    const youCard = `
+    <div class="card">
+        <div class="slbl">Who are you?</div>
+        <div class="fg">
+            <label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
+                ${fromQR ? 'autofocus' : ''} data-save-name oninput="fName=this.value">
+        </div>
+        ${avatarPickerHTML()}
+    </div>`;
+    const joinCard = `
+    <div class="card${fromQR ? ' highlight' : ''}">
+        <div class="slbl">Join a Game</div>
+        <div class="fg">
+            <label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fCode)}"
+                oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
+        </div>
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">
+            📱 Join with your phone
+        </button>
+    </div>`;
+    const hostCard = `
+    <div class="card">
+        <div class="slbl">Start a Game</div>
+        <button class="btn btn-p btn-full"
+            onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
+            🐄 Host on this phone
+        </button>
+        <div style="font-size:.68rem;color:var(--ink-soft);text-align:center;margin-top:8px">
+            2–12 players — best with 4+ · put a TV up with the room code
+        </div>
+    </div>`;
+    const tvCard = `
+    <div class="card dark">
+        <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-p btn-full" onclick="hostOnTV()">📺 Host the party on this screen</button>
+        <div style="font-size:.68rem;color:var(--muted);text-align:center;margin:6px 0 10px">
+            Shows a big QR code — the first phone to join becomes 👑 the Farmer
+        </div>
+        <hr>
+        <div class="fg">
+            <label>…or show an existing game</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')joinAsViewer(fVCode)">
+        </div>
+        <button class="btn btn-g btn-full"
+            onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code.';render()}">
+            📺 Open TV screen
+        </button>
+    </div>`;
+    return `
+    ${hdrHTML('match the majority · dodge the pink cow')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+}
+
+function renderLobbyH() {
+    const pList = H.players.map((p, i) =>
+        `<div class="player-row" style="--i:${i}">
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1">${esc(p.name)}${i === 0 ? ' <span style="color:var(--ink-soft)">(you — host)</span>' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    return `
+    ${hdrHTML('Host Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card highlight">
+        <div class="slbl">Scan to join — or share the code</div>
+        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        <div class="room-code">${esc(roomCode)}</div>
+        <div class="share-row">
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.share&&navigator.share({title:'Join Herd Mind',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
+        </div>
+    </div>
+    <div class="card">
+        <div class="slbl">The herd (${H.players.length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    <div class="card">
+        <div class="slbl">Settings</div>
+        ${settingsSegsHTML(H.settings, patch => `hostSet(${patch})`)}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.08rem;padding:16px" onclick="hostStartGame()">🐄 Round up the herd</button>`;
+}
+
+function renderLobbyG() {
+    const cap = isFarmer();
+    const pList = (D.players || []).map((p, i) =>
+        `<div class="player-row" style="--i:${i}">
+            <div class="pav">${esc(p.avatar)}</div>
+            <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--ink-soft)">(you)</span>' : ''}${D.tvHost && p.name === D.captain ? ' 👑' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    const s = D.settings || {};
+    return `
+    ${hdrHTML(cap ? '👑 You are the Farmer' : 'Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card">
+        <div class="slbl">Room ${esc(D.roomCode || '')} — the herd (${(D.players || []).length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    ${cap ? `
+    <div class="card highlight">
+        <div class="slbl">👑 Farmer's Settings</div>
+        ${settingsSegsHTML(s, patch => `guestCtl('set',${patch})`)}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.08rem;padding:16px" onclick="guestCtl('start')">🐄 Round up the herd</button>`
+    : `
+    <div class="card dark">
+        <div class="slbl">Settings</div>
+        <div style="font-weight:800;font-size:.85rem">🎯 First to ${s.target} points (cow-free) wins</div>
+        <div style="color:var(--muted);font-size:.75rem;font-weight:700;margin-top:8px">
+            Waiting for ${D.tvHost ? `👑 ${esc(D.captain || 'the farmer')}` : 'the host'} to start…
+        </div>
+    </div>`}`;
+}
+
+function renderAnswer() {
+    const counter = `<div class="locked-note" id="locked-count">🐄 ${D.lockedCount} of ${D.playerCount} in the pen</div>`;
+    const closeBtn = canDrive()
+        ? `<button class="btn btn-g btn-full" onclick="guestCtl('close')">🚪 Close the pen early</button>` : '';
+    if (D.myLocked) {
+        return `
+        <div class="card waiting-big">
+            <div class="big">🐄</div>
+            <div class="t">Locked in!</div>
+            <div class="s">You said: <b>${esc(D.myAnswer)}</b></div>
+            <div class="s">Now think herd thoughts…</div>
+        </div>
+        ${counter}${closeBtn}`;
+    }
+    return `
+    <div class="card prompt-card">
+        <div class="prompt-kicker">Round ${D.round} — think like everyone else!</div>
+        <div class="pr">${esc(D.prompt)}</div>
+    </div>
+    <div class="card">
+        <div class="fg">
+            <label>Your answer (match the herd!)</label>
+            <input type="text" id="ans-input" maxlength="24" placeholder="Type your answer"
+                value="${esc(myText)}" oninput="myText=this.value"
+                onkeydown="if(event.key==='Enter')lockAnswer()">
+        </div>
+        <button class="btn btn-p btn-full" onclick="lockAnswer()">🔒 Lock it in</button>
+    </div>
+    ${counter}${closeBtn}`;
+}
+
+function renderGrouping() {
+    if (!D.isJudge) {
+        return `
+        <div class="card waiting-big">
+            <div class="big">🧑‍🌾</div>
+            <div class="t">The farmer is sorting the herds…</div>
+            <div class="s">${D.tvHost ? `👑 ${esc(D.captain || '')}` : 'The host'} is checking for matching answers</div>
+        </div>`;
+    }
+    const chips = (D.groups || []).map((g, i) => `
+        <button class="herd-chip${mergeSel === g.key ? ' selme' : ''}" style="--i:${i}" onclick="tapMerge('${esc(g.key).replace(/'/g, "\\'")}')">
+            <span>${esc(g.label)}<br><span class="hc-names">${g.names.map(esc).join(', ')}</span></span>
+            <span class="hc-count">${g.count}</span>
+        </button>`).join('');
+    return `
+    ${hdrHTML('🧑‍🌾 You are the Farmer')}
+    <div class="card">
+        <div class="slbl">“${esc(D.prompt)}”</div>
+        <div style="font-size:.78rem;font-weight:700;color:var(--ink-soft);margin-bottom:10px">
+            ${mergeSel ? '👉 Now tap the herd to merge it into' : 'Tap two herds that mean the same thing to merge them'}
+        </div>
+        ${chips}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.05rem;padding:15px" onclick="guestCtl('confirm')">✅ These herds look right</button>`;
+}
+
+function renderReveal() {
+    const my = D.my || {};
+    let vico = '😶', vt = 'No herd for you', vpts = '';
+    if (my.gotCow) { vico = '🐄'; vt = 'MOO! You got the cow!'; }
+    else if (my.gain > 0) { vico = '🐄'; vt = 'You ran with the herd!'; vpts = '+1'; }
+    const herds = (D.groups || []).map((g, i) => {
+        const win = (D.winningKeys || []).includes(g.key);
+        const cowrow = g.count === 1 && D.cowTaker && g.names[0] === D.cowTaker;
+        return `<div class="player-row" style="--i:${i};${win ? 'color:#15803d;font-weight:900' : ''}">
+            <span style="width:26px;text-align:center;font-weight:900">${g.count}</span>
+            <div style="flex:1">${esc(g.label)} ${win ? '🏆' : ''}${cowrow ? '🐄' : ''}</div>
+            <div style="font-size:.85rem">${g.avatars.map(esc).join(' ')}</div>
+        </div>`;
+    }).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.05rem;padding:15px" onclick="guestCtl('next')">${D.pendingWinner ? '🏆 See the podium' : '➡️ Next prompt'}</button>`
+        : `<div style="text-align:center;color:var(--muted);font-size:.75rem;font-weight:800">${D.tvHost ? `👑 ${esc(D.captain || '')} taps next` : 'The host taps next'}…</div>`;
+    return `
+    <div class="card verdict${my.gotCow ? ' cow' : (my.gain > 0 ? ' highlight' : '')}">
+        <div class="vico">${vico}</div>
+        <div class="vt">${vt}</div>
+        ${vpts ? `<div class="vpts">${vpts}</div>` : ''}
+        ${my.answer ? `<div style="color:var(--ink-soft);font-weight:800;font-size:.8rem;margin-top:6px">You said: “${esc(my.answer)}”</div>` : ''}
+        ${my.gotCow ? `<div class="chip cowchip" style="margin-top:8px">You can't win while you hold the cow!</div>` : ''}
+    </div>
+    <div class="card">
+        <div class="slbl">The herds — “${esc(D.prompt)}”</div>
+        ${herds}
+    </div>
+    ${standingsHTML(D.standings || [])}
+    ${driveBtn}`;
+}
+
+function renderPodium() {
+    const st = D.standings || [];
+    const awards = (D.awards || []).map(a =>
+        `<span class="chip${a.emoji === '🐄' ? ' cowchip' : ''}">${a.emoji} ${esc(a.title)}: ${esc(a.name)} (${esc(a.detail)})</span>`).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.05rem;padding:15px" onclick="guestCtl('again')">🔁 Play again</button>` : '';
+    return `
+    ${hdrHTML('The herd has spoken!')}
+    <div class="card verdict highlight">
+        <div class="vico">🏆</div>
+        <div class="vt">${esc(st[0]?.name || '')} wins!</div>
+        <div style="margin-top:8px">${awards}</div>
+    </div>
+    ${standingsHTML(st)}
+    ${driveBtn}`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — TV screens
+// ═══════════════════════════════════════════
+function tvShell(inner, meta) {
+    return `<div class="tv">
+        <div class="tv-top">
+            <div class="tv-logo">🐄 Herd Mind</div>
+            <div class="tv-meta">${esc(meta || ('Room ' + (vD.roomCode || roomCode || '')))}</div>
+        </div>
+        ${inner}
+    </div>`;
+}
+
+function renderViewer() {
+    if (!vD) return renderSpinner('Waiting for the game…');
+    switch (vD.type) {
+        case 'viewer_lobby':    return renderViewerLobby();
+        case 'viewer_answer':   return renderViewerAnswer();
+        case 'viewer_grouping': return renderViewerGrouping();
+        case 'viewer_reveal':   return renderViewerReveal();
+        case 'viewer_podium':   return renderViewerPodium();
+        default:                return renderSpinner('Waiting for the game…');
+    }
+}
+
+function renderViewerLobby() {
+    const players = vD.players || [];
+    const s = vD.settings || {};
+    return tvLobby({
+        title: 'HERD MIND',
+        accent: '#7be38b',
+        roomCode: vD.roomCode,
+        isTvHost: vD.tvHost,
+        captainName: vD.captain,
+        hint: vD.captain
+            ? `👑 ${vD.captain} is the Farmer — start from their phone`
+            : '👑 First player to join becomes the Farmer and starts the game',
+        settings: `first to ${s.target || 12} · cow-free`,
+        players: players.map(p => ({ name: p.name, avatar: p.avatar, captain: p.name === vD.captain })),
+    });
+}
+
+function renderViewerAnswer() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-paper">
+                <div class="prompt-kicker">Round ${vD.round} — everyone answers in secret</div>
+                <div class="tv-prompt">${esc(vD.prompt)}</div>
+                <div class="tv-pen" id="v-pen"><b>${vD.lockedCount}</b> of ${vD.playerCount} in the pen 🐄</div>
+            </div>
+        </div>
+        <div class="tv-rail" id="v-rail-wrap">
+            <div class="rail-title">Locked in</div>
+            <div id="v-rail" style="display:flex;flex-direction:column;gap:1.4vmin">${railRowsHTML(vD.players, true)}</div>
+        </div>
+    </div>`, `Round ${vD.round} · first to ${vD.target} 🐄-free`);
+}
+
+function renderViewerGrouping() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-paper" style="align-items:center;justify-content:center;text-align:center">
+                <div style="font-size:8vmin">🧑‍🌾</div>
+                <div class="tv-prompt" style="font-size:3.4vmin;margin-top:1.5vmin">The farmer is sorting the herds…</div>
+                <div style="color:var(--ink-soft);font-weight:800;font-size:2vmin;margin-top:1.2vmin">
+                    ${vD.groupCount} different answer${vD.groupCount === 1 ? '' : 's'} to “${esc(vD.prompt)}”
+                </div>
+            </div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">Scores</div>
+            ${railRowsHTML(vD.players)}
+        </div>
+    </div>`, `Round ${vD.round}`);
+}
+
+function renderViewerReveal() {
+    const rows = (vD.groups || []).map((g, i) => {
+        const win = (vD.winningKeys || []).includes(g.key);
+        const cowrow = g.count === 1 && vD.cowTaker && g.names[0] === vD.cowTaker;
+        const avs = g.avatars.map((a, j) =>
+            `<span style="--ad:${(i * 0.14 + 0.22 + j * 0.07).toFixed(2)}s">${esc(a)}</span>`).join(' ');
+        return `<div class="herd-row${win ? ' win' : ''}${cowrow ? ' cowrow' : ''}" style="animation-delay:${i * 0.14}s;--sh:${(i * 0.14 + 0.65).toFixed(2)}s">
+            <div class="h-count">${g.count}</div>
+            <div class="h-label">${esc(g.label)}${win ? ' 🏆' : ''}${cowrow ? ' 🐄' : ''}</div>
+            <div class="h-members">${avs}</div>
+        </div>`;
+    }).join('');
+    const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Farmer')}: tap ${vD.pendingWinner ? '“See the podium”' : '“Next prompt”'} on your phone` : `Host: tap ${vD.pendingWinner ? '“See the podium”' : '“Next prompt”'} on your phone`;
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-paper">
+                <div class="prompt-kicker">“${esc(vD.prompt)}”</div>
+                ${vD.cowTaker ? `<div class="cow-banner"><span class="cow-stomp">🐄</span> MOOOO! ${esc(vD.cowTaker)} is all alone — take the cow!</div>` : ''}
+                <div class="herd-rows">${rows}</div>
+            </div>
+            <div style="text-align:center;color:var(--muted);font-weight:800;font-size:1.8vmin;margin-top:1.4vmin">${hint}</div>
+        </div>
+        <div class="tv-rail">
+            <div class="rail-title">Scores</div>
+            ${railRowsHTML(vD.players)}
+        </div>
+    </div>`, `Round ${vD.round} · first to ${vD.target} 🐄-free`);
+}
+
+function renderViewerPodium() {
+    const st = vD.standings || [];
+    const medals = ['🥇', '🥈', '🥉'];
+    const ranks = rankByScore(st);   // ties share a place → joint medals
+    const wm = st.map((p, i) => ({ ...p, medal: medals[ranks[i]] || '', mr: ranks[i] }));
+    const podOrder = [wm[1], wm[0], wm[2]].filter(Boolean);
+    const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
+    const pods = podOrder.map((p, i) => `
+        <div class="pod ${cls[i]} mrank-${Math.min(p.mr, 2)}" style="animation-delay:${i * 0.18}s">
+            <div class="pav-big">${esc(p.avatar)}</div>
+            <div class="pname">${esc(p.name)} ${p.hasCow ? '🐄' : ''}</div>
+            <div class="pscore">${p.score} pts</div>
+            <div class="block">${p.medal}</div>
+        </div>`).join('');
+    const awards = (vD.awards || []).map(a =>
+        `<div class="award">${a.emoji} <span class="aw-t">${esc(a.title)}</span><br>${esc(a.name)} — ${esc(a.detail)}</div>`).join('');
+    const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Farmer')}: “Play again” is on your phone` : 'Host: “Play again” is on your phone';
+    return tvShell(`
+    <div class="tv-main" style="flex-direction:column">
+        <div class="podium-wrap">${pods}</div>
+        <div class="awards-row">${awards}</div>
+        <div class="tv-waiting" style="text-align:center;margin-top:1.6vmin">${hint}</div>
+    </div>`, '🏆 Final scores');
+}
+
+// ═══════════════════════════════════════════
+// SIMULATION MODES — ?mode=tvsimulation | playersimulation  (&players=N)
+// Self-driving demos with no PeerJS and no real people. Bots are counted as
+// "connected" via stub guestConns so the normal host flow drives everything.
+//   • tvsimulation     — watch the big-screen HERD play itself
+//   • playersimulation — watch a phone farmer ("You") play itself
+// (?mode=simulation stays as an alias for tvsimulation.)
+// ═══════════════════════════════════════════
+let simTimer = null, simMode = 'tv', simRounds = 0;
+const SIM_NAMES = ['Ace', 'Bux', 'Cash', 'Duke', 'Edie', 'Fox', 'Gwen', 'Hawk'];
+const SIM_ANSWERS = ['Pizza', 'Tacos', 'Cheese', 'Waffles', 'Mango', 'Bacon'];
+
+function startSimulation(nPlayers, mode) {
+    simMode = mode === 'player' ? 'player' : 'tv';
+    roomCode = 'DEMO';
+    H.settings.target = 4;                         // short game so the demo loops
+    H.players = []; guestConns = {}; viewerConns = {};
+    const n = Math.max(MIN_PLAYERS, Math.min(nPlayers || 4, MAX_PLAYERS));
+    if (simMode === 'tv') {
+        isHost = true; isTvHost = true; myId = '__sim_host__';
+        document.body.classList.add('viewer-mode');
+    } else {
+        isHost = true; isTvHost = false; myName = 'You'; myId = '__you__';
+        myAvatar = AVATARS[0];
+        hostAddPlayer(myId, myName, myAvatar);     // You are the farmer / host
+    }
+    for (let i = H.players.length; i < n; i++) {
+        const id = '__bot_' + i;
+        hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length], AVATARS[(i + 1) % AVATARS.length]);
+        guestConns[id] = { peer: id, send() {} };   // stub so bots count as present
+    }
+    broadcastLobby();
+    simRounds = 0;
+    simTimer = setTimeout(() => { if (H.phase === 'lobby') { hostStartGame(); simDrive(); } }, 2400);
+}
+
+// Phase-driven driver: acts on the current phase, then reschedules itself.
+function simDrive() {
+    switch (H.phase) {
+        case 'answer':
+            simAnswerStep();
+            simTimer = setTimeout(simDrive, 750 + Math.random() * 350);
+            break;
+        case 'grouping':
+            simTimer = setTimeout(() => { if (H.phase === 'grouping') hostConfirm(); simDrive(); }, 1600);
+            break;
+        case 'reveal':
+            simTimer = setTimeout(() => { if (H.phase === 'reveal') { simMaybeForce(); hostNext(); } simDrive(); }, 3400);
+            break;
+        case 'podium':
+            simTimer = setTimeout(simRestart, 6800);
+            break;
+        default:
+            simTimer = setTimeout(simDrive, 900);
+    }
+}
+
+// One un-answered player locks in a plausible answer (first 3 answers cluster so
+// herds reliably form; the rest occasionally produce a lone singleton = the cow).
+function simAnswerStep() {
+    if (H.phase !== 'answer') return;
+    const pending = H.players.filter(p => p.answer === null);
+    if (!pending.length) return;
+    const p = pending[Math.floor(Math.random() * pending.length)];
+    const pool = Math.random() < 0.8 ? 3 : SIM_ANSWERS.length;
+    const ans = SIM_ANSWERS[Math.floor(Math.random() * pool)];
+    if (simMode === 'player' && p.id === myId) {
+        myText = ans;
+        const inp = $id('ans-input'); if (inp) inp.value = ans;
+        lockAnswer();                               // through the real phone path
+    } else {
+        hostAnswer(p, ans);
+    }
+}
+
+// Safety net: if nobody has crossed the line after a while, hand the top scorer
+// the win so the demo always reaches the podium and loops.
+function simMaybeForce() {
+    simRounds++;
+    if (simRounds >= 12 && !H.pendingWinner) {
+        const top = H.players.slice().sort((a, b) => b.score - a.score)[0];
+        if (top) { top.hasCow = false; top.score = Math.max(top.score, H.settings.target); H.pendingWinner = top.name; }
+    }
+}
+
+function simRestart() {
+    hostNewGame();
+    simRounds = 0;
+    simTimer = setTimeout(() => { if (H.phase === 'lobby') { hostStartGame(); simDrive(); } }, 2600);
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    if (!musicOn) $id('tog-music').classList.add('off');
+    if (!sfxOn) $id('tog-sfx').classList.add('off');
+    const mode = (params.get('mode') || '').toLowerCase();
+    const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (mode === 'playersimulation') { startSimulation(simPlayers, 'player'); return; }
+    if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
+    if (!fAvatar) fAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    // A refresh mid-game shouldn't cost you your seat: if this tab was already in a
+    // room, walk straight back in (the host restores the slot by device id/name).
+    const back = typeof savedRoom === 'function' ? savedRoom() : null;
+    if (back && (!room || room === back.code)) {
+        if (back.role === 'viewer') { joinAsViewer(back.code); return; }
+        joinGame(back.code, (typeof savedName === 'function' && savedName()) || 'Player');
+        return;
+    }
+    render();
+})();
+</script>
+</body>
+</html>

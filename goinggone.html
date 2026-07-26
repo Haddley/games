@@ -1,0 +1,2011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Going, Going, GONE! — Auction House</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23150a1e' width='100' height='100' rx='20'/><rect x='16' y='78' width='52' height='10' rx='5' fill='%237a4e16'/><rect x='16' y='78' width='52' height='4.5' rx='2.2' fill='%23a06a20'/><g transform='rotate(40 58 40)'><rect x='53' y='36' width='9' height='46' rx='4.5' fill='%23b97e26'/><rect x='34' y='26' width='48' height='27' rx='9.5' fill='%23f4b63e'/><rect x='34' y='26' width='10' height='27' rx='4.5' fill='%23d1901f'/><rect x='72' y='26' width='10' height='27' rx='4.5' fill='%23d1901f'/><rect x='40' y='31' width='36' height='4' rx='2' fill='%23ffd777'/></g></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="common.js"></script><script src="fx.js"></script><script src="audio.js"></script>
+    <script src="p2p.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        .gav { display: inline-block; width: 1em; height: 1em; vertical-align: -.18em; overflow: visible; }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #150a1e; --panel: rgba(45,26,64,0.72); --panel2: rgba(60,36,86,0.85);
+            --border: rgba(232,183,90,0.3); --border2: rgba(160,130,190,0.28);
+            --text: #f6eefb; --muted: #a893bd;
+            --gold: #e8b75a; --gold2: #f5d38a; --up: #4ade80; --down: #f87171; --plum: #b478e0;
+        }
+        body.day {
+            --bg: #f3ecdf; --panel: rgba(255,255,255,0.93); --panel2: #ffffff;
+            --border: rgba(70,50,20,0.16); --border2: rgba(70,50,20,0.16);
+            --text: #241a10; --muted: #6b5c45;
+            --gold: #cf8f12; --gold2: #f5d38a; --up: #2f9e5b; --down: #d64545; --plum: #b478e0;
+        }
+        body.day::before { opacity: .55; }
+        body.day input[type=text] { background: rgba(70,50,20,.05); }
+        body.day .btn-g { background: rgba(70,50,20,.06); }
+        body.day .shelf .sh-item { background: rgba(70,50,20,.05); }
+        body.day .gavel-wrap,
+        body.day .tv-gavel-wrap { background: rgba(70,50,20,.12); }
+        body.day .tv-lobby .qr-side { background: #ffffff; }
+        body.day #sound-togs button { background: rgba(255,255,255,.85); }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 26px 16px 48px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 55% 42% at 50% 0%, rgba(232,183,90,0.16) 0%, transparent 62%),
+                radial-gradient(ellipse 45% 38% at 10% 100%, rgba(180,120,224,0.12) 0%, transparent 65%),
+                radial-gradient(ellipse 45% 38% at 92% 100%, rgba(232,183,90,0.08) 0%, transparent 65%);
+        }
+        body.viewer-mode { padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw; }
+
+        h1.logo {
+            font-family: 'Playfair Display', serif; font-weight: 900; letter-spacing: .5px;
+            font-size: clamp(1.45rem, 6.2vw, 2.2rem); text-align: center; color: var(--gold);
+            text-shadow: 0 2px 0 rgba(0,0,0,.4), 0 0 30px rgba(232,183,90,.4);
+        }
+        .sub { color: var(--muted); font-size: .68rem; letter-spacing: 2.5px; text-transform: uppercase; margin: 7px 0 22px; text-align: center; font-weight: 800; }
+
+        #app { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 13px; }
+        body.viewer-mode #app { max-width: none; height: 100dvh; display: block; }
+
+        .card {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 16px;
+            padding: 18px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 12px 34px rgba(0,0,0,.5);
+        }
+        .card.highlight { border-color: var(--gold); box-shadow: 0 0 26px rgba(232,183,90,.16), 0 12px 34px rgba(0,0,0,.5); }
+        .slbl { font-size: .64rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 11px; }
+
+        .fg { margin-bottom: 12px; }
+        .fg label { display: block; font-size: .64rem; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+        input[type=text] {
+            width: 100%; padding: 12px 14px; font-family: inherit; font-size: 1rem; font-weight: 700;
+            border: 2px solid var(--border2); border-radius: 11px; background: rgba(21,10,30,.7); color: var(--text);
+            outline: none;
+        }
+        input[type=text]:focus { border-color: var(--gold); }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            font-family: inherit; font-weight: 900; font-size: .92rem; letter-spacing: .4px;
+            padding: 13px 18px; border: none; border-radius: 13px; cursor: pointer;
+            transition: filter .12s, opacity .12s, box-shadow .12s; user-select: none; -webkit-user-select: none;
+            color: var(--text);
+        }
+        .btn { transition: filter .12s, opacity .12s, box-shadow .12s, transform .1s; }
+        .btn:active { filter: brightness(1.15); transform: scale(.97); }
+        .btn-p { background: linear-gradient(180deg, var(--gold2), #c99334); color: #2a1a05; box-shadow: 0 5px 0 #8a6220, 0 10px 22px rgba(232,183,90,.3); }
+        .btn-p:active { box-shadow: 0 2px 0 #8a6220; }
+        .btn-g { background: rgba(160,130,190,.14); box-shadow: inset 0 0 0 2px var(--border2); }
+        .btn-full { width: 100%; }
+        .btn-sm { padding: 8px 13px; font-size: .74rem; border-radius: 10px; }
+        .btn:disabled { opacity: .38; cursor: default; }
+
+        .err {
+            background: rgba(248,113,113,.12); border: 1px solid rgba(248,113,113,.5); color: #fda4af;
+            padding: 11px 14px; border-radius: 12px; font-size: .8rem; font-weight: 700; text-align: center;
+        }
+        hr { border: none; border-top: 1px dashed var(--border2); margin: 13px 0; }
+
+        .connecting { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 46px 0; color: var(--muted); font-weight: 700; }
+        .spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid rgba(232,183,90,.15); border-top-color: var(--gold); animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .player-row { display: flex; align-items: center; gap: 11px; padding: 8px 4px; border-bottom: 1px dashed var(--border2); font-weight: 800; font-size: .92rem; }
+        .player-row:last-child { border-bottom: none; }
+        .pdot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 10px currentColor; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up); box-shadow: 0 0 8px var(--up); margin-left: auto; }
+        .qr-wrap { width: min(210px, 58vw); margin: 6px auto 10px; border-radius: 13px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.4); }
+        .qr-wrap svg { display: block; width: 100%; height: auto; }
+        .room-code { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 2.3rem; letter-spacing: 11px; text-align: center; color: var(--gold); padding-left: 11px; text-shadow: 0 0 18px rgba(232,183,90,.4); }
+        .share-row { display: flex; gap: 8px; justify-content: center; margin: 10px 0 6px; }
+        .seg-row { display: flex; flex-wrap: wrap; gap: 7px; }
+
+        /* ── phone: lot & bidding ── */
+        .lot-card { text-align: center; padding: 22px 16px; }
+        .lot-card .lemoji { font-size: 3.4rem; }
+        .lot-card .lname { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 1.4rem; margin-top: 8px; }
+        .lot-card .ldesc { color: var(--muted); font-weight: 700; font-size: .85rem; margin-top: 6px; font-style: italic; }
+        .lot-kicker { font-size: .62rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold); margin-bottom: 6px; }
+        .price-big { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 3rem; color: var(--gold); text-shadow: 0 0 22px rgba(232,183,90,.35); font-variant-numeric: tabular-nums; }
+        .lead-banner {
+            border-radius: 13px; padding: 11px; font-weight: 900; text-align: center;
+            background: rgba(74,222,128,.12); border: 1px solid rgba(74,222,128,.45); color: #a7f3c9;
+        }
+        .lead-banner.other { background: rgba(160,130,190,.12); border-color: var(--border2); color: var(--muted); }
+        .bid-btns { display: flex; gap: 9px; }
+        .bid-btns .btn { flex: 1; font-size: 1.05rem; padding: 16px 8px; }
+        .gavel-wrap { height: 10px; border-radius: 6px; background: rgba(255,255,255,.09); overflow: hidden; }
+        .gavel-bar { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--gold), var(--down)); transition: width .1s linear; }
+        .coins-chip { display: inline-block; padding: 4px 12px; border-radius: 11px; background: rgba(232,183,90,.12); border: 1px solid var(--border); color: var(--gold); font-weight: 900; font-size: .8rem; }
+        .shelf { display: flex; flex-wrap: wrap; gap: 6px; }
+        .shelf .sh-item {
+            background: rgba(21,10,30,.6); border: 1px solid var(--border2); border-radius: 10px;
+            padding: 6px 10px; font-size: .72rem; font-weight: 800;
+        }
+        .shelf .sh-item .val { font-weight: 900; }
+        .shelf .sh-item .val.plus { color: var(--up); }
+        .shelf .sh-item .val.minus { color: var(--down); }
+
+        .sold-card { text-align: center; padding: 26px 16px; }
+        .sold-card .gavel { font-size: 3.6rem; display: inline-block; animation: bang .7s ease; }
+        @keyframes bang { 0% { transform: rotate(-38deg) translateY(-14px); } 55% { transform: rotate(8deg); } 75% { transform: rotate(-6deg); } 100% { transform: rotate(0); } }
+        .sold-card .st { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 1.6rem; margin-top: 6px; }
+        .chip { display: inline-block; padding: 4px 12px; border-radius: 11px; background: rgba(232,183,90,.12); border: 1px solid var(--border); color: var(--gold); font-weight: 900; font-size: .74rem; margin: 3px; }
+        .standings .sc { margin-left: auto; font-weight: 900; font-variant-numeric: tabular-nums; }
+
+        /* ═════════ TV ═════════ */
+        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 2.6vmin 3.2vmin; gap: 1.8vmin; }
+        .tv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 2vmin; }
+        .tv-logo { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 3.1vmin; color: var(--gold); text-shadow: 0 0 24px rgba(232,183,90,.4); }
+        .tv-meta { font-size: 1.8vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .tv-main { flex: 1; display: flex; gap: 2.4vmin; min-height: 0; }
+        .tv-stage { flex: 1.7; display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: 1.6vmin; }
+        .tv-rail { flex: 1; display: flex; flex-direction: column; gap: 1.2vmin; min-width: 0; overflow: hidden; }
+        .rail-title { font-size: 1.5vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
+        .rail-row {
+            display: flex; align-items: center; gap: 1.2vmin; background: var(--panel);
+            border: 1px solid var(--border2); border-radius: 1.5vmin; padding: 1.2vmin 1.5vmin;
+            font-weight: 800; font-size: 2vmin;
+        }
+        .rail-row .rname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rail-row .rcoins { font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; }
+        .rail-row .rlots { color: var(--muted); font-size: 1.5vmin; }
+        .rail-row.leader { border-color: var(--gold); box-shadow: 0 0 18px rgba(232,183,90,.22); }
+
+        .tv-lot {
+            flex: 1; background: var(--panel); border: 1px solid var(--border); border-radius: 2.2vmin;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2vmin;
+            text-align: center; padding: 3vmin; position: relative; overflow: hidden;
+        }
+        .tv-lot::before {
+            content: ''; position: absolute; inset: -30%; pointer-events: none;
+            background: radial-gradient(ellipse 45% 38% at 50% 18%, rgba(232,183,90,.14) 0%, transparent 60%);
+        }
+        .tv-lot .lemoji { font-size: 9.5vmin; filter: drop-shadow(0 1vmin 2.4vmin rgba(0,0,0,.5)); }
+        .tv-lot .lname { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 4.2vmin; }
+        .tv-lot .ldesc { color: var(--muted); font-weight: 700; font-size: 2.1vmin; font-style: italic; max-width: 60vmin; }
+        .tv-lot .lkick { font-size: 1.7vmin; font-weight: 900; letter-spacing: .45vmin; text-transform: uppercase; color: var(--gold); }
+        .tv-price { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 7vmin; color: var(--gold); text-shadow: 0 0 30px rgba(232,183,90,.4); font-variant-numeric: tabular-nums; line-height: 1; }
+        .tv-leader { font-size: 2.3vmin; font-weight: 900; }
+        .tv-gavel-row { display: flex; align-items: center; gap: 2vmin; }
+        .tv-gavel-row .going { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 2.6vmin; color: var(--down); min-width: 22vmin; text-align: right; }
+        .tv-gavel-wrap { flex: 1; height: 1.6vmin; border-radius: .9vmin; background: rgba(255,255,255,.09); overflow: hidden; }
+        .tv-gavel-bar { height: 100%; background: linear-gradient(90deg, var(--gold), var(--down)); border-radius: .9vmin; transition: width .1s linear; }
+
+        .tv-sold {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 1.6vmin; text-align: center;
+        }
+        .tv-sold .gavel { font-size: 13vmin; animation: bang .8s ease; }
+        .tv-sold .who { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 5.4vmin; color: var(--gold); }
+        .tv-sold .sub2 { font-size: 2.4vmin; font-weight: 800; color: var(--muted); }
+
+        /* valuation */
+        .tv-val { flex: 1; display: flex; flex-direction: column; gap: 1.6vmin; min-height: 0; }
+        .val-card {
+            background: var(--panel); border: 1px solid var(--border); border-radius: 2vmin;
+            padding: 2.2vmin 3vmin; display: flex; align-items: center; gap: 2.2vmin; animation: valIn .5s ease both;
+        }
+        @keyframes valIn { from { opacity: 0; transform: translateY(2vmin); } to { opacity: 1; transform: none; } }
+        .val-card .vemoji { font-size: 4.6vmin; }
+        .val-card .vname { font-weight: 900; font-size: 2.4vmin; font-family: 'Playfair Display', serif; }
+        .val-card .vpaid { color: var(--muted); font-weight: 800; font-size: 1.8vmin; }
+        .val-card .vworth { margin-left: auto; text-align: right; font-weight: 900; font-size: 2.6vmin; font-variant-numeric: tabular-nums; }
+        .val-card .vworth .profit { font-size: 1.9vmin; display: block; }
+        .val-card .vworth .profit.plus { color: var(--up); }
+        .val-card .vworth .profit.minus { color: var(--down); }
+        .val-list { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 1.2vmin; justify-content: flex-end; }
+
+        /* TV lobby */
+        .tv-lobby { flex: 1; display: flex; gap: 4vmin; align-items: center; min-height: 0; }
+        .tv-lobby .qr-side { background: #241333; border: 1px solid var(--border); border-radius: 2.2vmin; padding: 3.2vmin; text-align: center; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+        .tv-lobby .qr-side .qr-wrap { width: 32vmin; margin: 1.4vmin auto; }
+        .tv-lobby .qr-side .room-code { font-size: 4.6vmin; letter-spacing: 1.9vmin; padding-left: 1.9vmin; }
+        .tv-lobby .join-hint { font-size: 1.7vmin; font-weight: 800; color: var(--muted); }
+        .tv-players { flex: 1; display: flex; flex-direction: column; gap: 1.5vmin; min-width: 0; }
+        .tv-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20vmin, 1fr)); gap: 1.5vmin; }
+        .tv-pcard {
+            background: var(--panel); border: 1px solid var(--border2); border-radius: 1.7vmin;
+            padding: 1.7vmin; text-align: center; font-weight: 900; font-size: 2vmin;
+        }
+        .tv-pcard .pdot { width: 2.2vmin; height: 2.2vmin; margin: 0 auto 1vmin; }
+        @keyframes popIn { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+        .tv-waiting { color: var(--muted); font-weight: 800; font-size: 1.9vmin; }
+
+        /* podium */
+        .podium-wrap { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2.4vmin; padding-bottom: 1vmin; }
+        .pod { text-align: center; font-weight: 900; }
+        .pod .pname { font-size: 2.4vmin; margin-bottom: .8vmin; }
+        .pod .pscore { font-size: 2vmin; color: var(--gold); margin-bottom: .8vmin; font-family: 'Playfair Display', serif; }
+        .pod .block { border-radius: 1.5vmin 1.5vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.3vmin; font-size: 3.2vmin; width: 17vmin; }
+        .pod.p1 .block { height: 21vmin; }
+        .pod.p2 .block { height: 14vmin; }
+        .pod.p3 .block { height: 9.5vmin; }
+        .pod.mrank-0 .block { background: linear-gradient(180deg, var(--gold2), #8a6220); }
+        .pod.mrank-1 .block { background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
+        .pod.mrank-2 .block { background: linear-gradient(180deg, #e8a06a, #9c5a33); }
+        .awards-row { display: flex; gap: 1.5vmin; justify-content: center; flex-wrap: wrap; padding-bottom: 2vmin; }
+        .award { background: var(--panel); border: 1px solid var(--border); border-radius: 1.5vmin; padding: 1.3vmin 2vmin; font-weight: 800; font-size: 1.8vmin; text-align: center; }
+        .award .aw-t { color: var(--gold); font-weight: 900; }
+
+        #confetti-cv { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+
+        /* sound toggles */
+        #sound-togs { position: fixed; top: 10px; right: 10px; z-index: 80; display: flex; gap: 6px; }
+        #sound-togs button {
+            width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer; font-size: 1rem;
+            background: rgba(45,26,64,.78); box-shadow: inset 0 0 0 1px var(--border);
+            transition: opacity .2s, transform .12s;
+        }
+        #sound-togs button:active { transform: scale(.88); }
+        #sound-togs button.off { opacity: .35; filter: grayscale(1); }
+        body.viewer-mode #sound-togs { top: auto; bottom: 10px; right: 10px; opacity: .75; }
+
+        /* FX layer — particles + floating text */
+        .pt {
+            position: fixed; width: 9px; height: 9px; border-radius: 2px;
+            z-index: 950; pointer-events: none;
+            animation: ptFly .75s cubic-bezier(.15,.65,.4,1) forwards;
+        }
+        @keyframes ptFly {
+            0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity: 1; }
+            100% { transform: translate(var(--dx), var(--dy)) rotate(560deg) scale(.3); opacity: 0; }
+        }
+        .pop {
+            position: fixed; z-index: 960; pointer-events: none;
+            font-family: 'Playfair Display', serif; font-weight: 900; font-size: 1.5rem;
+            animation: popUp 1.1s cubic-bezier(.2,.8,.3,1) forwards;
+            text-shadow: 0 2px 12px rgba(0,0,0,.6); white-space: nowrap;
+        }
+        .pop.good { color: var(--up); }
+        .pop.gold { color: var(--gold); }
+        .pop.bad  { color: var(--down); font-size: 1.15rem; }
+        @keyframes popUp {
+            0%   { transform: translate(-50%, 0) scale(.5); opacity: 0; }
+            15%  { transform: translate(-50%, -12px) scale(1.25); opacity: 1; }
+            100% { transform: translate(-50%, -78px) scale(1); opacity: 0; }
+        }
+
+        /* screen entrances — only on phase changes (#app.fresh), never on same-screen re-renders */
+        @keyframes cardIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+        #app.fresh .card { animation: cardIn .35s cubic-bezier(.2,.8,.3,1) both; }
+        @keyframes rowIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+        #app.fresh .player-row { animation: rowIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 40ms); }
+        @keyframes tvIn { from { opacity: 0; transform: translateY(2.4vmin); } to { opacity: 1; transform: none; } }
+        #app.fresh .tv-lot, #app.fresh .qr-side, #app.fresh .tv-sold, #app.fresh .tv-val { animation: tvIn .4s cubic-bezier(.2,.8,.3,1) both; }
+        #app.fresh .tv-pcard { animation: popIn .35s ease both; animation-delay: calc(var(--i, 0) * 50ms); }
+        #app.fresh .pod { animation: popIn .5s ease both; }
+        #app.fresh .award { animation: valIn .5s ease both; animation-delay: calc(.9s + var(--i, 0) * .15s); }
+
+        /* bidding feedback */
+        @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
+        .price-big.bump, .tv-price.bump { animation: bump .28s ease; }
+        @keyframes shakeX {
+            10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); }
+            30%, 50%, 70% { transform: translateX(-6px); } 40%, 60% { transform: translateX(6px); }
+        }
+        #lead-banner.shake { animation: shakeX .45s both; }
+        .gavel-bar.low, .tv-gavel-bar.low { background: linear-gradient(90deg, var(--down), #dc2626); }
+        @keyframes goingPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: .72; } }
+        #going-lbl.low, #v-going.low { animation: goingPulse .55s ease-in-out infinite; }
+
+        /* ── ambient auction-house backdrop: drifting gavels, price-tags & coins ── */
+        #ambient { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+        #ambient .amb {
+            position: absolute; top: var(--y, 50%); left: var(--x, 50%);
+            font-size: var(--sz, 3rem); line-height: 1; opacity: 0; will-change: transform;
+            filter: drop-shadow(0 3px 8px rgba(0,0,0,.4));
+            animation: ambDrift var(--d, 30s) ease-in-out var(--dl, 0s) infinite;
+        }
+        #ambient .amb.coin {
+            width: var(--sz, 2.4rem); height: var(--sz, 2.4rem); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: calc(var(--sz, 2.4rem) * .5);
+            font-family: 'Playfair Display', serif; font-weight: 900; color: #5a3d10;
+            background: radial-gradient(circle at 36% 30%, var(--gold2) 0%, var(--gold) 55%, #9c7420 100%);
+            box-shadow: inset 0 0 0 2px rgba(255,255,255,.35), inset 0 -4px 8px rgba(0,0,0,.25);
+        }
+        @keyframes ambDrift {
+            0%   { opacity: 0; transform: translate3d(0, 12px, 0) rotate(var(--r0, -8deg)) scale(.9); }
+            14%  { opacity: var(--o, .16); }
+            50%  { transform: translate3d(var(--dx, 20px), -18px, 0) rotate(var(--r1, 10deg)) scale(1.04); }
+            86%  { opacity: var(--o, .16); }
+            100% { opacity: 0; transform: translate3d(0, 12px, 0) rotate(var(--r0, -8deg)) scale(.9); }
+        }
+        body.viewer-mode #ambient .amb { font-size: var(--tsz, var(--sz, 4vmin)); }
+
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } #ambient { display: none; } }
+    </style>
+</head>
+<body>
+    <div id="ambient" aria-hidden="true">
+        <span class="amb" style="--x:8%;--y:16%;--sz:3.2rem;--tsz:6vmin;--d:26s;--dl:-3s;--dx:34px;--r0:-14deg;--r1:12deg;--o:.15"><svg class="gav" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="16" y="78" width="52" height="10" rx="5" fill="#7a4e16"/><rect x="16" y="78" width="52" height="4.5" rx="2.2" fill="#a06a20"/><g transform="rotate(40 58 40)"><rect x="53" y="36" width="9" height="46" rx="4.5" fill="#b97e26"/><rect x="34" y="26" width="48" height="27" rx="9.5" fill="#f4b63e"/><rect x="34" y="26" width="10" height="27" rx="4.5" fill="#d1901f"/><rect x="72" y="26" width="10" height="27" rx="4.5" fill="#d1901f"/><rect x="40" y="31" width="36" height="4" rx="2" fill="#ffd777"/></g></svg></span>
+        <span class="amb" style="--x:82%;--y:22%;--sz:2.6rem;--tsz:5vmin;--d:32s;--dl:-11s;--dx:-30px;--r0:10deg;--r1:-8deg;--o:.13">🏷️</span>
+        <span class="amb coin" style="--x:26%;--y:70%;--sz:2.8rem;--tsz:5vmin;--d:30s;--dl:-7s;--dx:26px;--r0:-6deg;--r1:8deg;--o:.2">$</span>
+        <span class="amb" style="--x:68%;--y:62%;--sz:3rem;--tsz:5.6vmin;--d:34s;--dl:-19s;--dx:-38px;--r0:12deg;--r1:-10deg;--o:.12">💰</span>
+        <span class="amb" style="--x:46%;--y:34%;--sz:2.4rem;--tsz:4.6vmin;--d:29s;--dl:-14s;--dx:30px;--r0:-10deg;--r1:14deg;--o:.11"><svg class="gav" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="16" y="78" width="52" height="10" rx="5" fill="#7a4e16"/><rect x="16" y="78" width="52" height="4.5" rx="2.2" fill="#a06a20"/><g transform="rotate(40 58 40)"><rect x="53" y="36" width="9" height="46" rx="4.5" fill="#b97e26"/><rect x="34" y="26" width="48" height="27" rx="9.5" fill="#f4b63e"/><rect x="34" y="26" width="10" height="27" rx="4.5" fill="#d1901f"/><rect x="72" y="26" width="10" height="27" rx="4.5" fill="#d1901f"/><rect x="40" y="31" width="36" height="4" rx="2" fill="#ffd777"/></g></svg></span>
+        <span class="amb coin" style="--x:92%;--y:78%;--sz:2.2rem;--tsz:4.2vmin;--d:33s;--dl:-24s;--dx:-22px;--r0:8deg;--r1:-6deg;--o:.18">$</span>
+        <span class="amb" style="--x:14%;--y:88%;--sz:2.6rem;--tsz:5vmin;--d:31s;--dl:-9s;--dx:28px;--r0:-8deg;--r1:10deg;--o:.12">🏷️</span>
+        <span class="amb coin" style="--x:58%;--y:12%;--sz:2rem;--tsz:3.8vmin;--d:28s;--dl:-17s;--dx:-24px;--r0:6deg;--r1:-10deg;--o:.16">$</span>
+    </div>
+    <div id="app"></div>
+    <canvas id="confetti-cv"></canvas>
+    <div id="sound-togs">
+        <button id="tog-music" title="Music on/off" onclick="toggleMusic()">🎵</button>
+        <button id="tog-sfx" title="Sound effects on/off" onclick="toggleSfx()">🔊</button>
+    </div>
+<script>
+const GAVEL = '<svg class="gav" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="16" y="78" width="52" height="10" rx="5" fill="#7a4e16"/><rect x="16" y="78" width="52" height="4.5" rx="2.2" fill="#a06a20"/><g transform="rotate(40 58 40)"><rect x="53" y="36" width="9" height="46" rx="4.5" fill="#b97e26"/><rect x="34" y="26" width="48" height="27" rx="9.5" fill="#f4b63e"/><rect x="34" y="26" width="10" height="27" rx="4.5" fill="#d1901f"/><rect x="72" y="26" width="10" height="27" rx="4.5" fill="#d1901f"/><rect x="40" y="31" width="36" height="4" rx="2" fill="#ffd777"/></g></svg>';
+// ICE_CFG + rankByScore now come from common.js (loaded in <head>).
+typeof mountScene === 'function' && mountScene('auction');   // themed ambient scene along the bottom of the TV
+
+'use strict';
+
+// ═══════════════════════════════════════════
+// CONSTANTS & CONTENT
+// ═══════════════════════════════════════════
+const PFX = 'GAVEL-';
+const MAX_PLAYERS = 10, MIN_PLAYERS = 2;
+const START_COINS = 1000;
+const RAISES = [10, 50, 100];
+const GAVEL_MS = 5000, INTRO_MS = 3500, SOLD_MS = 3200, PASSED_MS = 2500, REVEAL_MS = 2600;
+const PLAYER_COLORS = ['#e8b75a', '#22d3ee', '#f472b6', '#4ade80', '#b478e0', '#fb923c', '#f87171', '#38bdf8', '#a3e635', '#fcd34d'];
+
+const LOTS = [
+    // ── treasures (300–600) ──
+    { emoji: '🪿', name: 'The Slightly-Golden Goose', desc: 'Lays 9-carat eggs. She is trying her best.', value: 520 },
+    { emoji: '🗺️', name: 'Treasure Map (One Coffee Stain)', desc: 'The X is under the stain. Probably.', value: 430 },
+    { emoji: '🛋️', name: 'The Never-Lose-The-Remote Sofa', desc: 'Cushions legally required to surrender the remote.', value: 380 },
+    { emoji: '🕰️', name: 'Grandfather Clock', desc: 'Perfect time, six days a week. Hates Mondays.', value: 340 },
+    { emoji: '🐕', name: 'Robot Dog, Walks Itself', desc: 'Also walks you, if you look like you need it.', value: 560 },
+    { emoji: '🎻', name: 'Almost-Famous Violin', desc: 'Once played by someone famous\'s neighbour.', value: 310 },
+    { emoji: '🚀', name: 'Slightly Used Rocket', desc: 'One careful astronaut. Parking sensors fitted.', value: 600 },
+    { emoji: '🍯', name: 'Lifetime Supply of Artisan Honey', desc: 'Bees included. Bees non-negotiable.', value: 480 },
+    { emoji: '🖼️', name: 'Polite Haunted Painting', desc: 'Follows you with its eyes, but apologises.', value: 350 },
+    { emoji: '🏝️', name: 'Timeshare: Very Small Island', desc: 'Room for one deckchair. Sunset included.', value: 590 },
+    { emoji: '⛲', name: 'Wishing Well (Refurbished)', desc: '40% wish success rate — industry leading.', value: 540 },
+    { emoji: '🦜', name: 'Trilingual Parrot', desc: 'Fluent in three languages. All compliments.', value: 460 },
+    { emoji: '👑', name: 'Crown of a Very Minor Royal', desc: 'Fourteenth in line to a small duchy.', value: 410 },
+    { emoji: '🧥', name: 'Invisibility Cloak', desc: 'Visible on weekends and bank holidays.', value: 330 },
+    { emoji: '🚗', name: 'Vintage Car, Sings Opera', desc: 'The engine is a baritone. The horn is a soprano.', value: 500 },
+    { emoji: '📚', name: 'First Edition Nobody Finished', desc: 'Pristine after chapter three. Suspiciously pristine.', value: 300 },
+    { emoji: '🐄', name: 'The Pre-Whipped Cream Cow', desc: 'Moo-velous. Chills the bowl herself.', value: 570 },
+    // ── duds (10–80) ──
+    { emoji: '🍞', name: 'Haunted Toaster', desc: 'The ghost only does one side.', value: 40 },
+    { emoji: '☂️', name: 'Ventilated Umbrella', desc: 'For people who like to know it\'s raining.', value: 20 },
+    { emoji: '🧦', name: 'Sock. Singular. Left.', desc: 'A confident single sock with references.', value: 10 },
+    { emoji: '🪑', name: 'Five-Legged Chair', desc: 'The fifth leg does not help.', value: 30 },
+    { emoji: '🔮', name: 'Crystal Ball (Buffering)', desc: 'Your future is loading. 3%.', value: 60 },
+    { emoji: '🎺', name: 'Trumpet, One Previous Owner', desc: 'The previous owner was a toddler.', value: 25 },
+    { emoji: '🗿', name: 'Garden Gnome, Trust Issues', desc: 'Faces the wall. Won\'t say why.', value: 70 },
+    { emoji: '🖊️', name: 'The Apology Pen', desc: 'Only writes apologies. Deeply sincere ones.', value: 35 },
+    { emoji: '🧲', name: 'Reverse Fridge Magnet', desc: 'Repels fridges. Science can\'t explain it.', value: 15 },
+    { emoji: '🕯️', name: 'Scented Candle: “Wet Dog”', desc: 'Remarkably accurate.', value: 45 },
+    { emoji: '📻', name: 'Radio Between Two Stations', desc: 'Jazz AND the shipping forecast. Forever.', value: 50 },
+    { emoji: '🥄', name: 'Cursed Antique Spoon', desc: 'Allegedly cursed. Definitely bent.', value: 55 },
+    { emoji: '🧩', name: 'Jigsaw: 999 of 1000 Pieces', desc: 'The missing piece is sky.', value: 30 },
+    { emoji: '🚲', name: 'Exercise Bike / Coat Rack', desc: 'Excellent at one of these jobs.', value: 80 },
+    { emoji: '🐌', name: 'Retired Racing Snail', desc: 'Career best: second place. Field of two.', value: 20 },
+    { emoji: '🎩', name: 'Magician\'s Top Hat', desc: 'Rabbit not included. Hole included.', value: 65 },
+    { emoji: '🧯', name: 'Confetti Extinguisher', desc: 'Makes fires more festive.', value: 75 },
+    // ── mystery boxes (value 0–700, hint only) ──
+    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'It rattles when you shake it.', value: 700 },
+    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'Something inside is humming.', value: 60 },
+    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'Heavier than it looks.', value: 500 },
+    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'Smells faintly of victory.', value: 150 },
+    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'The previous owner winked.', value: 0 },
+    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'Ticks. Probably a clock.', value: 300 },
+];
+
+// ═══════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════
+function $id(id) { return document.getElementById(id); }
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
+        let rects = '';
+        for (let r = 0; r < n; r++)
+            for (let c = 0; c < n; c++)
+                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+            `<rect width="${size}" height="${size}" fill="#fdf6ec"/>` +
+            `<g fill="#241333">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+
+// ── Confetti ──
+const CONFETTI_COLS = ['#e8b75a', '#b478e0', '#4ade80', '#22d3ee', '#f472b6', '#f6eefb'];
+
+// ═══════════════════════════════════════════
+// AUDIO — procedural auction-house engine
+// (E-minor urgency: galloping bass, lowpassed
+//  sawtooth brass, gavel percussion. Gesture-
+//  started; music ~0.33 vol, SFX on top.)
+// ═══════════════════════════════════════════
+let AC = null, masterGain = null, musicGain = null, sfxGain = null, noiseBuf = null;
+let leadBus = null, musicDelay = null;
+let musicOn = localStorage.getItem('gavel-music') !== '0';
+let sfxOn = localStorage.getItem('gavel-sfx') !== '0';
+
+function ac() {
+    if (!AC) {
+        try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+        masterGain = AC.createGain(); masterGain.gain.value = 1; masterGain.connect(AC.destination);
+        musicGain = AC.createGain(); musicGain.gain.value = musicOn ? 0.33 : 0; musicGain.connect(masterGain);
+        sfxGain = AC.createGain(); sfxGain.gain.value = sfxOn ? 0.55 : 0; sfxGain.connect(masterGain);
+        // Lead bus with a short dry slapback — big saleroom, hard walls
+        leadBus = AC.createGain(); leadBus.gain.value = 1; leadBus.connect(musicGain);
+        musicDelay = AC.createDelay(1.2); musicDelay.delayTime.value = 0.24;
+        const fb = AC.createGain(); fb.gain.value = 0.16;
+        const dlp = AC.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 2000;
+        const wet = AC.createGain(); wet.gain.value = 0.14;
+        leadBus.connect(musicDelay); musicDelay.connect(dlp); dlp.connect(fb); fb.connect(musicDelay);
+        dlp.connect(wet); wet.connect(musicGain);
+        const len = AC.sampleRate * 1.2;
+        noiseBuf = AC.createBuffer(1, len, AC.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (AC.state === 'suspended') AC.resume();
+    return AC;
+}
+
+function noiseHit(dur, { vol = 0.3, when = 0, hp = 6000, dest = null } = {}) {
+    if (!AC) return;
+    const t = AC.currentTime + when;
+    const src = AC.createBufferSource(); src.buffer = noiseBuf;
+    const f = AC.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hp;
+    const g = AC.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(dest || sfxGain);
+    src.start(t); src.stop(t + dur + 0.05);
+}
+
+const mf = m => 440 * Math.pow(2, (m - 69) / 12); // midi → freq
+
+// ── SFX (saleroom: coin clinks, brass stings, one very real gavel) ──
+function sJoin() {
+    if (!sfxOn || !AC) return;
+    tone(mf(76), 0.07, { type: 'triangle', vol: 0.22 });
+    tone(mf(83), 0.13, { type: 'triangle', vol: 0.22, when: 0.06 });
+}
+// "Lot N!" — two lowpassed sawtooth brass stabs + a herald note
+function sLotIntro() {
+    if (!sfxOn || !AC) return;
+    duckMusic(0.8);
+    [52, 55, 59].forEach(m => tone(mf(m + 12), 0.14, { type: 'sawtooth', vol: 0.07, lp: 1700, attack: 0.006 }));
+    [52, 55, 59].forEach(m => tone(mf(m + 12), 0.22, { type: 'sawtooth', vol: 0.08, lp: 1700, when: 0.17, attack: 0.006 }));
+    tone(mf(76), 0.18, { type: 'square', vol: 0.15, lp: 3500, when: 0.35 });
+}
+// Coin clink — pitch climbs with the bid amount
+function sBid(price) {
+    if (!sfxOn || !AC) return;
+    const m = 76 + Math.min(19, Math.floor((price || 0) / 60));
+    tone(mf(m), 0.05, { type: 'square', vol: 0.16, lp: 6500 });
+    tone(mf(m + 12), 0.09, { type: 'triangle', vol: 0.2, when: 0.035 });
+    noiseHit(0.025, { vol: 0.07, hp: 9000 });
+}
+// You've been outbid — two-note alert dive
+function sOutbid() {
+    if (!sfxOn || !AC) return;
+    tone(mf(70), 0.08, { type: 'square', vol: 0.2, lp: 3200 });
+    tone(mf(64), 0.18, { type: 'square', vol: 0.18, when: 0.08, slide: mf(58), lp: 2600 });
+}
+// "Going once… going twice…" — tense brass stings
+function sGoing(n) {
+    if (!sfxOn || !AC) return;
+    if (n === 1) {
+        tone(mf(59), 0.3, { type: 'sawtooth', vol: 0.12, lp: 1300 });
+        tone(mf(47), 0.3, { type: 'sawtooth', vol: 0.09, lp: 900 });
+    } else {
+        [0, 0.13].forEach(w => {
+            tone(mf(62), 0.16, { type: 'sawtooth', vol: 0.12, lp: 1500, when: w });
+            tone(mf(50), 0.16, { type: 'sawtooth', vol: 0.09, lp: 1000, when: w });
+        });
+    }
+}
+// THE GAVEL — deep thump, wood body, crack, little bounce
+function sGavel() {
+    if (!sfxOn || !AC) return;
+    duckMusic(1.0);
+    tone(110, 0.3, { type: 'sine', vol: 0.65, slide: 36 });
+    tone(210, 0.08, { type: 'square', vol: 0.22, lp: 800, slide: 110 });
+    noiseHit(0.12, { vol: 0.4, hp: 1400 });
+    noiseHit(0.05, { vol: 0.22, hp: 6000 });
+    tone(95, 0.18, { type: 'sine', vol: 0.28, slide: 40, when: 0.14 });
+}
+// Winner's coin flourish, riding out of the gavel bang
+function sWonLot() {
+    if (!sfxOn || !AC) return;
+    [0, 4, 7, 12].forEach((s, i) => tone(mf(76 + s), 0.09, { type: 'triangle', vol: 0.24, when: 0.35 + i * 0.055 }));
+}
+// Passed lot — a feather falls
+function sPassed() {
+    if (!sfxOn || !AC) return;
+    tone(mf(52), 0.35, { type: 'sawtooth', vol: 0.08, lp: 1000, slide: mf(45) });
+    tone(mf(40), 0.4, { type: 'sine', vol: 0.14, when: 0.08, slide: mf(35) });
+}
+// Budget blown — womp womp
+function sBroke() {
+    if (!sfxOn || !AC) return;
+    tone(mf(50), 0.28, { type: 'sawtooth', vol: 0.1, lp: 1100, slide: mf(48) });
+    tone(mf(46), 0.42, { type: 'sawtooth', vol: 0.11, lp: 1000, when: 0.26, slide: mf(42) });
+}
+// Valuation cha-ching — arpeggio grows with the profit
+function sProfit(p) {
+    if (!sfxOn || !AC) return;
+    duckMusic(0.7);
+    const steps = p >= 300 ? [0, 4, 7, 12, 16, 19, 24] : p >= 120 ? [0, 4, 7, 12, 16] : [0, 4, 7, 12];
+    steps.forEach((s, i) => tone(mf(76 + s), 0.09, { type: 'square', vol: 0.19, lp: 5200, when: i * 0.055 }));
+    if (p >= 300) noiseHit(0.3, { vol: 0.13, when: 0.42, hp: 8000 });
+}
+// Valuation loss — sad trombone, extra-low tag for a real bath
+function sLoss(l) {
+    if (!sfxOn || !AC) return;
+    duckMusic(0.9);
+    [63, 61, 59, 55].forEach((m, i) => tone(mf(m), 0.24, { type: 'sawtooth', vol: 0.09, lp: 1200, when: i * 0.2, slide: mf(m - 1) }));
+    if (l <= -200) tone(mf(40), 0.5, { type: 'sine', vol: 0.18, when: 0.82, slide: mf(35) });
+}
+// Final hammer — then the lobby gallop motif takes the bow, closing trill + crash
+function sWin() {
+    if (!sfxOn || !AC) return;
+    duckMusic(1.6);
+    tone(110, 0.28, { type: 'sine', vol: 0.55, slide: 38 });
+    noiseHit(0.1, { vol: 0.3, hp: 1500 });
+    [64, 67, 71, 72, 71, 67, 64, 60].forEach((m, i) => tone(mf(m), 0.14, { type: 'square', vol: 0.2, lp: 4000, when: 0.45 + i * 0.11 }));
+    [83, 81, 83, 81, 83, 88].forEach((m, i) => tone(mf(m), 0.08, { type: 'triangle', vol: 0.2, when: 1.6 + i * 0.06 }));
+    noiseHit(0.7, { vol: 0.18, when: 2.0, hp: 5000 });
+}
+// Duck the music briefly so big stingers read clearly (sidechain feel)
+function duckMusic(dur = 0.5) {
+    if (!AC || !musicGain || !musicOn) return;
+    const t = AC.currentTime;
+    musicGain.gain.cancelScheduledValues(t);
+    musicGain.gain.setValueAtTime(0.1, t);
+    musicGain.gain.linearRampToValueAtTime(0.33, t + dur);
+}
+
+// ── Music sequencer (32 sixteenth-note steps per bar-pair) ──
+// E-minor auction-house grooves. null = rest; numbers are midi notes.
+// bassBars follows the pads' chords bar-to-bar; waves picks the palette
+// (lowpassed sawtooth = the house brass); knock = gavel-tap percussion.
+const TRACKS = {
+    // Lobby: 112bpm gallop — Em→C / Am→B. Punters filing in.
+    lobby: { bpm: 112, swing: 0.06, arp: 2, leadLp: 2600,
+        waves: { bass: 'sawtooth', lead: 'sawtooth', stab: 'sawtooth', arpW: 'triangle' },
+        bassBars: [
+            [40,null,40,40, 40,null,40,40, 40,null,43,40, 40,null,47,45, 36,null,36,36, 36,null,36,36, 36,null,40,36, 36,null,43,44],
+            [45,null,45,45, 45,null,45,45, 45,null,48,45, 45,null,52,50, 47,null,47,47, 47,null,47,47, 47,null,51,47, 47,null,43,42],
+        ],
+        leads: [
+            [64,null,null,67, 71,null,null,72, 71,null,67,null, 64,null,null,null, 60,null,null,64, 67,null,null,71, 72,null,71,null, 67,null,null,null],
+            [69,null,null,72, 76,null,74,null, 72,null,69,null, 71,null,null,null, 71,null,null,75, 78,null,75,null, 71,null,66,null, 71,null,null,null],
+            [76,null,null,74, 72,null,71,null, 72,null,74,null, 76,null,null,null, 72,null,null,71, 69,null,67,null, 64,null,67,null, 72,null,null,null],
+            [null,null,null,null, null,null,null,null, 69,null,72,null, 76,null,null,null, null,null,null,null, null,null,null,null, 71,null,74,null, 75,null,null,null],
+        ],
+        hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        kick: [1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,0,0],
+        stab: [0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,0],
+        pads: [
+            { 0: [52,55,59], 16: [48,52,55] },
+            { 0: [45,48,52], 16: [47,51,54] },
+        ] },
+    // Bidding: 132bpm, insistent 16th hats, Em pedal with chromatic pushes,
+    // the "going… going…" semitone figure in the leads.
+    bidding: { bpm: 132, swing: 0, arp: 1, leadLp: 3200,
+        waves: { bass: 'sawtooth', lead: 'square', stab: 'sawtooth', arpW: 'triangle' },
+        bassBars: [
+            [40,null,40,40, 40,null,40,40, 40,null,40,40, 40,null,45,46, 40,null,40,40, 40,null,40,40, 40,null,40,40, 45,null,46,47],
+            [48,null,48,48, 48,null,48,48, 48,null,48,48, 48,null,47,46, 47,null,47,47, 47,null,47,47, 47,null,47,47, 47,null,50,51],
+        ],
+        leads: [
+            [null,null,null,null, 71,72,71,null, null,null,null,null, 71,72,74,null, null,null,null,null, 76,75,76,null, null,null,null,null, 74,null,71,null],
+            [null,null,null,null, 72,74,72,null, null,null,null,null, 72,74,76,null, null,null,null,null, 75,74,75,null, 78,null,75,null, 71,null,null,null],
+            [64,null,66,null, 67,null,69,null, 71,null,72,null, 74,null,75,null, 76,null,null,null, null,null,74,null, 71,null,72,null, 71,null,67,null],
+            [null,null,null,null, null,null,null,null, 76,null,75,null, 72,null,null,null, null,null,null,null, null,null,null,null, 75,null,71,null, 75,null,null,null],
+        ],
+        hat:  [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
+        kick: [1,0,0,0, 1,0,0,1, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,1, 1,0,0,0, 1,0,1,0],
+        stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        pads: [
+            { 0: [52,55,59], 16: [52,55,59] },
+            { 0: [48,52,55], 16: [47,51,54] },
+        ] },
+    // Valuation: 96bpm gavel-knock strut — Em→G / Am→B. The reckoning.
+    results: { bpm: 96, swing: 0.08, arp: 2, leadLp: 2400,
+        waves: { bass: 'sawtooth', lead: 'sawtooth', stab: 'sawtooth', arpW: 'triangle' },
+        bassBars: [
+            [40,null,null,40, null,null,40,null, 43,null,null,null, 45,null,47,null, 43,null,null,43, null,null,43,null, 47,null,null,null, 45,null,43,null],
+            [45,null,null,45, null,null,45,null, 48,null,null,null, 50,null,52,null, 47,null,null,47, null,null,47,null, 51,null,null,null, 50,null,47,null],
+        ],
+        leads: [
+            [76,null,74,null, 71,null,null,null, null,null,72,null, 71,null,69,null, 67,null,71,null, 74,null,null,null, null,null,71,null, 67,null,64,null],
+            [69,null,72,null, 76,null,null,null, null,null,74,null, 72,null,71,null, 71,null,75,null, 78,null,null,null, null,null,75,null, 71,null,null,null],
+        ],
+        hat:  [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        kick: [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+        knock:[1,0,1,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 1,0,1,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+        stab: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+        pads: [
+            { 0: [52,55,59], 16: [43,47,50] },
+            { 0: [45,48,52], 16: [47,51,54] },
+        ] },
+    // Podium: 120bpm E-major march — E→A / B→E. Hammer down, house wins.
+    over: { bpm: 120, swing: 0, arp: 1, leadLp: 3600,
+        waves: { bass: 'sawtooth', lead: 'square', stab: 'sawtooth', arpW: 'triangle' },
+        bassBars: [
+            [40,null,52,null, 40,null,52,null, 40,null,52,null, 40,null,47,null, 45,null,57,null, 45,null,57,null, 45,null,52,null, 45,null,50,null],
+            [47,null,54,null, 47,null,54,null, 47,null,54,null, 47,null,51,null, 40,null,52,null, 40,null,52,null, 40,null,52,null, 40,null,47,null],
+        ],
+        leads: [
+            [76,null,null,76, null,75,null,76, 78,null,76,null, 75,null,71,null, 73,null,null,73, null,71,null,73, 76,null,73,null, 71,null,null,null],
+            [71,null,null,75, 78,null,75,null, 76,null,78,null, 80,null,null,null, 76,null,null,75, 76,null,78,null, 80,null,78,null, 76,null,null,null],
+        ],
+        hat:  [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+        kick: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,1,0],
+        stab: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        pads: [
+            { 0: [52,56,59], 16: [45,49,52] },
+            { 0: [47,51,54], 16: [52,56,59] },
+        ] },
+};
+let musicTrack = 'lobby', musicStep = 0, musicBar = 0, musicNext = 0, musicTimer = null, musicUrgent = false;
+// Adaptive arrangement: intensity gates the upper voices in/out;
+// keyShift lifts every melodic lane for the final lot's drama
+let musicIntensity = 2, musicKeyShift = 0;
+
+function playMusicStep(i, t, bar) {
+    const tr = TRACKS[musicTrack];
+    const stepDur = 60 / tr.bpm / 4;
+    const w = tr.waves || {};
+    const k = musicKeyShift;
+    const full = musicIntensity >= 2 || musicUrgent;
+    // Swing: push every off-16th slightly late for a looser strut
+    const rel = t - AC.currentTime + (i % 2 ? stepDur * (tr.swing || 0) : 0);
+    if (tr.kick[i]) tone(145, 0.22, { type: 'sine', vol: 0.48, when: rel, slide: 44, dest: musicGain });
+    if (tr.hat[i]) {
+        const hv = (i % 4 === 2 ? 0.13 : 0.06) * (0.8 + Math.random() * 0.4);
+        noiseHit(0.045, { vol: hv, when: rel, hp: 9500, dest: musicGain });
+    }
+    // Gavel-tap percussion (results track): woody double knock
+    if (tr.knock && tr.knock[i]) {
+        tone(185, 0.07, { type: 'square', vol: 0.16, lp: 750, when: rel, slide: 95, dest: musicGain });
+        noiseHit(0.05, { vol: 0.09, when: rel, hp: 2200, dest: musicGain });
+    }
+    const bassArr = tr.bassBars ? tr.bassBars[bar % tr.bassBars.length] : tr.bass;
+    const b = bassArr[i];
+    if (b != null) tone(mf(b + k), stepDur * 1.5, { type: w.bass || 'sawtooth', vol: 0.24, when: rel, dest: musicGain, lp: 950, attack: 0.005 });
+    const pad = tr.pads[bar % tr.pads.length];
+    const ch = i < 16 ? pad[0] : pad[16];
+    // Brass stabs — lowpassed sawtooth comping, the auction house signature
+    if (tr.stab && tr.stab[i] && ch && full)
+        ch.forEach(m => tone(mf(m + 12 + k), stepDur * 0.9, { type: w.stab || 'sawtooth', vol: 0.032, when: rel, lp: 1900, dest: musicGain, attack: 0.005 }));
+    let l = tr.leads[bar % tr.leads.length][i];
+    if (l != null && (musicIntensity >= 1 || musicUrgent)) {
+        if (musicUrgent) l += 12;
+        tone(mf(l + k), stepDur * 1.4, { type: w.lead || 'sawtooth', vol: 0.11 * (0.9 + Math.random() * 0.2), when: rel, dest: leadBus, lp: tr.leadLp || 3000, attack: 0.005 });
+    }
+    // Ticking arpeggio an octave up — the room counting along
+    if (tr.arp && i % tr.arp === 0 && ch && full)
+        tone(mf(ch[(i / tr.arp) % ch.length] + 12 + k), stepDur * tr.arp * 0.9, { type: w.arpW || 'triangle', vol: 0.04, when: rel, lp: 5200, dest: musicGain, attack: 0.003 });
+    if (musicUrgent && i % 4 === 0) noiseHit(0.035, { vol: 0.11, when: rel + stepDur * 2, hp: 11000, dest: musicGain });
+}
+
+function musicScheduler() {
+    const tr = TRACKS[musicTrack];
+    const stepDur = 60 / tr.bpm / 4;
+    while (musicNext < AC.currentTime + 0.18) {
+        playMusicStep(musicStep, musicNext, musicBar);
+        musicNext += stepDur;
+        musicStep++;
+        if (musicStep === 32) { musicStep = 0; musicBar++; }
+    }
+}
+
+function setMusic(track) {
+    if (musicTrack === track) return;
+    const wasPlaying = !!(AC && musicTimer);
+    musicTrack = track;
+    musicStep = 0;
+    musicBar = 0;
+    // Bidding opens stripped back — the gavel countdown brings the full band in
+    musicIntensity = track === 'bidding' ? 1 : 2;
+    if (track === 'lobby' || track === 'over') musicKeyShift = 0;
+    if (musicDelay) musicDelay.delayTime.value = 60 / TRACKS[track].bpm * 0.5;
+    if (track !== 'bidding') musicUrgent = false;
+    // one-beat snare fill so phase changes land on a downbeat instead of a hard cut
+    if (wasPlaying) {
+        const s = 60 / TRACKS[track].bpm / 4;
+        for (let f = 0; f < 4; f++) noiseHit(0.06, { vol: 0.1 + f * 0.035, when: f * s, hp: 2800 + f * 900, dest: musicGain });
+        musicNext = AC.currentTime + 4 * s;
+    }
+}
+
+function toggleMusic() {
+    musicOn = !musicOn;
+    localStorage.setItem('gavel-music', musicOn ? '1' : '0');
+    if (!AC && musicOn) { ac(); startMusicLoop(); }
+    if (AC && musicGain) musicGain.gain.linearRampToValueAtTime(musicOn ? 0.33 : 0, AC.currentTime + 0.2);
+    $id('tog-music').classList.toggle('off', !musicOn);
+}
+function toggleSfx() {
+    sfxOn = !sfxOn;
+    localStorage.setItem('gavel-sfx', sfxOn ? '1' : '0');
+    if (AC && sfxGain) sfxGain.gain.value = sfxOn ? 0.55 : 0;
+    $id('tog-sfx').classList.toggle('off', !sfxOn);
+}
+
+// Unlock audio on first interaction (browser autoplay policy)
+let _audioUnlocked = false;
+document.addEventListener('pointerdown', () => {
+    if (_audioUnlocked) return;
+    _audioUnlocked = true;
+    if (ac()) startMusicLoop();
+}, { capture: true });
+
+// ── Particle bursts + floating text ──
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let peer = null, myId = '', myName = '', isHost = false, isTvHost = false, isViewer = false, roomCode = '';
+let hostConn = null, guestConns = {}, viewerConns = {};
+let ui = 'home';   // home|creating|connecting|lobby_h|lobby_g|lot|bidding|sold|valuation|podium|viewer
+let uiErr = '';
+let fName = (typeof savedName === 'function' ? savedName() : '');
+let fCode = '', fVCode = '';
+let D = null, vD = null;
+let _localGavelEnd = 0, _gavelTickClient = null;
+
+// Host authoritative state
+let H = {
+    phase: 'lobby',              // lobby|lot_intro|bidding|sold|valuation|podium
+    players: [],                 // [{id,name,color,coins,lots:[{lotIdx,paid}]}]
+    settings: { lotCount: 8 },
+    lotOrder: [], lotIndex: -1,
+    bid: null,                   // {price, leaderId, endsAt}
+    soldInfo: null,              // {lotIdx, winner, color, price} | {passed:true, lotIdx}
+    reveals: [], revealIndex: -1,
+    standings: null, awards: null, winner: null,
+};
+let _lotTimer = null, _gavelTick = null, _revealTimer = null;
+function clearHostTimers() { clearTimeout(_lotTimer); clearInterval(_gavelTick); clearTimeout(_revealTimer); }
+
+// ═══════════════════════════════════════════
+// NETWORK
+// ═══════════════════════════════════════════
+function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('send err', e); } }
+function broadcastViewers(msg) { Object.values(viewerConns).forEach(c => send(c, msg)); }
+function connectedPlayers() {
+    return H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+}
+
+// ── 👑 captain (TV-host rooms) ──────────────────────────────────────────────
+// The captain is the first *CONNECTED* player, not simply H.players[0]: a captain
+// whose phone drops mid-game must not stall the room. Their slot survives the drop
+// (zombie takeover by name), so when they rejoin they're first again and the crown
+// comes straight back.
+function capPlayer() { return isTvHost ? (connectedPlayers()[0] || H.players[0] || null) : null; }
+function capName() { return isTvHost ? (capPlayer()?.name || null) : null; }
+// The crown moved — re-sync the phones losing/gaining it, plus the TV. Deliberately
+// not a full broadcast: everyone else may be mid-interaction on their own screen.
+function capSync(prevId) {
+    if (!isTvHost || H.phase === 'lobby') return;      // lobby re-broadcasts anyway
+    const nowId = capPlayer()?.id || null;
+    if (nowId === prevId) return;
+    [prevId, nowId].forEach(id => {
+        const p = id && H.players.find(x => x.id === id);
+        const c = p && guestConns[p.id];
+        if (c) send(c, stateFor(p));
+    });
+    broadcastViewers(viewerStateMsg());
+    tvHostSync();
+}
+
+function hostAddPlayer(id, name) {
+    if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
+    H.players.push({
+        id, name, color: PLAYER_COLORS[H.players.length % PLAYER_COLORS.length],
+        coins: START_COINS, lots: [],
+    });
+}
+
+function lobbyMsg() {
+    return {
+        type: 'lobby', roomCode,
+        players: H.players.map(p => ({ name: p.name, color: p.color })),
+        settings: { ...H.settings },
+        tvHost: isTvHost, captain: capName(),
+    };
+}
+function broadcastLobby() {
+    H.players.forEach(p => { if (p.id !== myId && guestConns[p.id]) send(guestConns[p.id], lobbyMsg()); });
+    broadcastViewers({ ...lobbyMsg(), type: 'viewer_lobby' });
+    hostSyncSelf(lobbyMsg());
+}
+
+function curLot() { return H.lotIndex >= 0 ? LOTS[H.lotOrder[H.lotIndex]] : null; }
+function lotView(lot) {
+    if (!lot) return null;
+    return { emoji: lot.emoji, name: lot.name, desc: lot.desc, mystery: !!lot.mystery };
+}
+
+function stateFor(p) {
+    const lot = curLot();
+    const leader = H.bid && H.bid.leaderId ? H.players.find(q => q.id === H.bid.leaderId) : null;
+    return {
+        type: 'state',
+        phase: H.phase, roomCode,
+        lotNum: H.lotIndex + 1, lotTotal: H.lotOrder.length,
+        lot: lotView(lot),
+        bid: H.bid ? {
+            price: H.bid.price,
+            leader: leader ? leader.name : null,
+            leaderColor: leader ? leader.color : null,
+            youLead: !!(p && leader && leader.id === p.id),
+            endsIn: Math.max(0, H.bid.endsAt - Date.now()),
+        } : null,
+        myCoins: p ? p.coins : 0,
+        myLots: p ? p.lots.map(l => ({ name: LOTS[l.lotIdx].name, emoji: LOTS[l.lotIdx].emoji, paid: l.paid, lotIdx: l.lotIdx })) : [],
+        soldInfo: H.soldInfo ? { ...H.soldInfo, lot: lotView(LOTS[H.soldInfo.lotIdx]) } : null,
+        reveals: H.phase === 'valuation' || H.phase === 'podium' ? H.reveals : null,
+        revealIndex: H.revealIndex,
+        standings: H.standings, awards: H.awards, winner: H.winner,
+        players: H.players.map(q => ({ name: q.name, color: q.color, coins: q.coins, lotCount: q.lots.length })),
+        tvHost: isTvHost, captain: capName(),
+    };
+}
+function viewerStateMsg() { return { ...stateFor(null), type: 'viewer_state' }; }
+function broadcastState() {
+    H.players.forEach(p => {
+        if (p.id === myId) return;
+        const conn = guestConns[p.id];
+        if (conn) send(conn, stateFor(p));
+    });
+    broadcastViewers(viewerStateMsg());
+    hostSyncSelf(isTvHost ? null : stateFor(H.players.find(p => p.id === myId)));
+}
+
+// ── Host: incoming connections ──
+function setupGuestConn(conn) {
+    conn.on('open', () => { conn._role = null; });
+
+    conn.on('data', msg => {
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer';
+            viewerConns[conn.peer] = conn;
+            send(conn, H.phase === 'lobby' ? { ...lobbyMsg(), type: 'viewer_lobby' } : viewerStateMsg());
+            return;
+        }
+        if (conn._role === null) {
+            conn._role = 'player';
+            guestConns[conn.peer] = conn;
+        }
+        const player = H.players.find(p => p.id === conn.peer);
+        switch (msg.type) {
+            case 'join': {
+                const prevCap = capPlayer()?.id || null;
+                setTimeout(() => capSync(prevCap), 0);
+                const name = String(msg.name || 'Bidder').slice(0, 16);
+                const zombie = H.players.find(p => msg.cid && p.cid === msg.cid && p.id !== conn.peer && !guestConns[p.id])
+                    || H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
+                if (zombie) zombie.id = conn.peer;
+                else hostAddPlayer(conn.peer, name);
+                const p2 = H.players.find(p => p.id === conn.peer);
+                if (p2 && msg.cid) p2.cid = msg.cid;          // this device now owns the slot
+                if (!p2) { send(conn, lobbyMsg()); break; }
+                if (H.phase === 'lobby') broadcastLobby();
+                else { send(conn, stateFor(p2)); broadcastViewers(viewerStateMsg()); if (isTvHost) tvHostSync(); }
+                break;
+            }
+            case 'bid': if (player) hostBid(player, msg.raise); break;
+            case 'ctl': {
+                if (!isTvHost || !player || player.id !== capPlayer()?.id) break;
+                hostCtl(msg.action, msg);
+                break;
+            }
+        }
+    });
+
+    conn.on('close', () => {
+        const prevCap = capPlayer()?.id || null;
+        setTimeout(() => capSync(prevCap), 0);
+        delete guestConns[conn.peer];
+        delete viewerConns[conn.peer];
+        if (H.phase === 'lobby') {
+            const pi = H.players.findIndex(p => p.id === conn.peer);
+            if (pi >= 0) { H.players.splice(pi, 1); broadcastLobby(); }
+        }
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+function hostCtl(action, msg) {
+    if (action === 'start' && H.phase === 'lobby') hostStartAuction();
+    else if (action === 'again' && H.phase === 'podium') hostNewGame();
+    else if (action === 'set' && H.phase === 'lobby') {
+        if ([6, 8, 10].includes(msg.lotCount)) H.settings.lotCount = msg.lotCount;
+        broadcastLobby();
+    }
+}
+function guestCtl(action, extra) {
+    if (isHost && !isTvHost) { hostCtl(action, extra || {}); return; }
+    if (hostConn) send(hostConn, { type: 'ctl', action, ...(extra || {}) });
+}
+
+// ── Create a room ──
+function makeRoom(onOpen) {
+    forgetRoom();                    // hosting now — this tab is nobody's guest
+    roomCode = makeRoomCode();
+    peer = hostPeer(PFX + roomCode, {
+        onOpen: id => { myId = id; isHost = true; onOpen(); },
+        onConnection: conn => setupGuestConn(conn),
+        onFatalError: e => {
+            uiErr = 'Connection error: ' + e.message;
+            isHost = false; isTvHost = false;
+            document.body.classList.remove('viewer-mode');
+            ui = 'home'; render();
+        },
+    });
+}
+
+function hostGame(name) {
+    myName = name.trim().slice(0, 16) || 'Host';
+    saveName(myName);
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        hostAddPlayer(myId, myName);
+        ui = 'lobby_h';
+        render();
+    });
+}
+
+function hostOnTV() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        isTvHost = true;
+        document.body.classList.add('viewer-mode');
+        tvHostSync();
+        render();
+    });
+}
+
+function joinGame(code, name) {
+    myName = name.trim().slice(0, 16) || 'Bidder';
+    saveName(myName);
+    uiErr = ''; ui = 'connecting'; render();
+
+    let connected = false;
+    joinPeer({
+        hostFullId: PFX + code.trim().toUpperCase(),
+        attempts: 3, delayMs: 700,
+        isConnected: () => connected,
+        onReady: (p, id, hc) => {
+            peer = p; myId = id; isHost = false; hostConn = hc;
+            hostConn.on('open', () => { connected = true; rememberRoom(code.trim().toUpperCase(), 'player'); send(hostConn, { type: 'join', cid: clientId(), name: myName }); });
+            hostConn.on('data', msg => applyMsg(msg));
+        },
+        onLost: () => { connected = false; },   // → auto-rejoin behind the curtain
+        onGiveUp: wasIn => { forgetRoom(); uiErr = wasIn ? 'Lost connection to the game — tap Join to get back in.' : 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.'; ui = 'home'; D = null; render(); },
+    });
+}
+
+function joinAsViewer(code) {
+    isViewer = true;
+    uiErr = ''; ui = 'connecting'; render();
+    let connected = false;
+    joinPeer({
+        hostFullId: PFX + code.trim().toUpperCase(),
+        attempts: 2, delayMs: 600,
+        isConnected: () => connected,
+        onReady: (p, id, hc) => {
+            peer = p; myId = id; hostConn = hc;
+            hostConn.on('open', () => { connected = true; rememberRoom(code.trim().toUpperCase(), 'viewer'); send(hostConn, { type: 'join_viewer' }); });
+            hostConn.on('data', msg => applyViewerMsg(msg));
+        },
+        onLost: () => { connected = false; },   // → auto-rejoin behind the curtain
+        onGiveUp: wasIn => { forgetRoom(); uiErr = wasIn ? 'Lost connection to the game.' : 'Could not reach room "' + code.toUpperCase() + '". Check the code and try again.'; isViewer = false; vD = null; document.body.classList.remove('viewer-mode'); ui = 'home'; render(); },
+    });
+}
+
+function tvHostSync() {
+    if (!isTvHost) return;
+    applyViewerMsg(H.phase === 'lobby' ? { ...lobbyMsg(), type: 'viewer_lobby' } : viewerStateMsg());
+}
+function hostSyncSelf(msg) {
+    if (isTvHost) { tvHostSync(); return; }
+    if (isHost && msg) applyMsg(msg);
+}
+
+// ═══════════════════════════════════════════
+// HOST AUCTION FLOW
+// ═══════════════════════════════════════════
+function buildLotOrder(count) {
+    const idx = LOTS.map((_, i) => i);
+    const treasures = shuffle(idx.filter(i => !LOTS[i].mystery && LOTS[i].value >= 300));
+    const duds = shuffle(idx.filter(i => !LOTS[i].mystery && LOTS[i].value < 300));
+    const mysteries = shuffle(idx.filter(i => LOTS[i].mystery));
+    const nT = Math.round(count * 0.4), nD = Math.round(count * 0.35);
+    const nM = Math.max(1, count - nT - nD);
+    return shuffle([...treasures.slice(0, nT), ...duds.slice(0, nD), ...mysteries.slice(0, nM)]).slice(0, count);
+}
+
+function hostStartAuction() {
+    if (connectedPlayers().length < MIN_PLAYERS) { uiErr = 'Need at least ' + MIN_PLAYERS + ' bidders.'; if (ui === 'lobby_h') render(); return; }
+    clearHostTimers();
+    H.lotOrder = buildLotOrder(H.settings.lotCount);
+    H.lotIndex = -1;
+    H.players.forEach(p => { p.coins = START_COINS; p.lots = []; });
+    H.reveals = []; H.revealIndex = -1;
+    H.standings = null; H.awards = null; H.winner = null;
+    startLot();
+}
+
+function startLot() {
+    clearHostTimers();
+    H.lotIndex += 1;
+    H.bid = null; H.soldInfo = null;
+    if (H.lotIndex >= H.lotOrder.length) { startValuation(); return; }
+    H.phase = 'lot_intro';
+    broadcastState();
+    _lotTimer = setTimeout(startBidding, INTRO_MS);
+}
+
+function startBidding() {
+    if (H.phase !== 'lot_intro') return;
+    H.phase = 'bidding';
+    H.bid = { price: 0, leaderId: null, endsAt: Date.now() + GAVEL_MS };
+    broadcastState();
+    clearInterval(_gavelTick);
+    _gavelTick = setInterval(checkGavel, 120);
+}
+
+function hostBid(player, raise) {
+    if (H.phase !== 'bidding' || !H.bid || !RAISES.includes(raise)) return;
+    if (H.bid.leaderId === player.id) return;               // can't outbid yourself
+    const newPrice = H.bid.price + raise;
+    if (player.coins < newPrice) return;                     // must be able to pay
+    H.bid.price = newPrice;
+    H.bid.leaderId = player.id;
+    H.bid.endsAt = Date.now() + GAVEL_MS;                    // gavel resets
+    broadcastState();
+}
+
+function checkGavel() {
+    if (H.phase !== 'bidding' || !H.bid) { clearInterval(_gavelTick); return; }
+    if (Date.now() < H.bid.endsAt) return;
+    clearInterval(_gavelTick);
+    const lotIdx = H.lotOrder[H.lotIndex];
+    const leader = H.bid.leaderId ? H.players.find(p => p.id === H.bid.leaderId) : null;
+    if (leader) {
+        leader.coins -= H.bid.price;
+        leader.lots.push({ lotIdx, paid: H.bid.price });
+        H.soldInfo = { lotIdx, winner: leader.name, color: leader.color, price: H.bid.price };
+    } else {
+        H.soldInfo = { lotIdx, passed: true };
+    }
+    H.phase = 'sold';
+    H.bid = null;
+    broadcastState();
+    _lotTimer = setTimeout(startLot, H.soldInfo.passed ? PASSED_MS : SOLD_MS);
+}
+
+function startValuation() {
+    clearHostTimers();
+    H.reveals = [];
+    H.lotOrder.forEach(lotIdx => {
+        const owner = H.players.find(p => p.lots.some(l => l.lotIdx === lotIdx));
+        if (!owner) return;
+        const entry = owner.lots.find(l => l.lotIdx === lotIdx);
+        const lot = LOTS[lotIdx];
+        H.reveals.push({
+            player: owner.name, color: owner.color,
+            lotName: lot.name, emoji: lot.emoji, mystery: !!lot.mystery,
+            paid: entry.paid, value: lot.value, profit: lot.value - entry.paid,
+        });
+    });
+    H.revealIndex = -1;
+    if (!H.reveals.length) { finishValuation(); return; }
+    H.phase = 'valuation';
+    broadcastState();
+    _revealTimer = setTimeout(revealStep, 1400);
+}
+
+function revealStep() {
+    H.revealIndex += 1;
+    if (H.revealIndex >= H.reveals.length) {
+        _revealTimer = setTimeout(finishValuation, 1600);
+        broadcastState();
+        return;
+    }
+    broadcastState();
+    _revealTimer = setTimeout(revealStep, REVEAL_MS);
+}
+
+function finishValuation() {
+    clearHostTimers();
+    const rows = H.players.map(p => {
+        const shelf = p.lots.reduce((s, l) => s + LOTS[l.lotIdx].value, 0);
+        return { name: p.name, color: p.color, coins: p.coins, shelf, net: p.coins + shelf, lots: p.lots.length };
+    }).sort((a, b) => b.net - a.net || b.coins - a.coins);
+    H.standings = rows;
+    H.winner = rows[0] ? rows[0].name : null;
+    const awards = [];
+    let eagle = null, mug = null;
+    H.reveals.forEach(r => {
+        if (r.profit > 0 && (!eagle || r.profit > eagle.profit)) eagle = r;
+        if (r.profit < 0 && (!mug || r.profit < mug.profit)) mug = r;
+    });
+    if (eagle) awards.push({ emoji: '🦅', title: 'Eagle Eye', name: eagle.player, detail: `+${eagle.profit} on ${eagle.lotName}` });
+    if (mug) awards.push({ emoji: '🫠', title: 'Mug of the Match', name: mug.player, detail: `${mug.profit} on ${mug.lotName}` });
+    const scrooge = H.players.slice().sort((a, b) => b.coins - a.coins)[0];
+    if (scrooge) awards.push({ emoji: '🪙', title: 'Scrooge', name: scrooge.name, detail: `${scrooge.coins} coins unspent` });
+    H.awards = awards;
+    H.phase = 'podium';
+    broadcastState();
+}
+
+function hostNewGame() {
+    clearHostTimers();
+    H.phase = 'lobby';
+    H.lotOrder = []; H.lotIndex = -1; H.bid = null; H.soldInfo = null;
+    H.reveals = []; H.revealIndex = -1; H.standings = null; H.awards = null; H.winner = null;
+    H.players.forEach(p => { p.coins = START_COINS; p.lots = []; });
+    H.players = H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
+    broadcastLobby();
+    if (isHost && !isTvHost) { ui = 'lobby_h'; render(); }
+}
+
+function hostSet(patch) {
+    Object.assign(H.settings, patch);
+    broadcastLobby();
+    if (ui === 'lobby_h') render();
+}
+
+// ═══════════════════════════════════════════
+// CLIENT (phone) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+let _lastLotKey = '', _lastPrice = -1, _lastRevealIdx = -1, _goingStage = 0;
+function stopClientTick() { clearInterval(_gavelTickClient); _gavelTickClient = null; _goingStage = 0; musicUrgent = false; }
+
+function applyMsg(msg) {
+    switch (msg.type) {
+        case 'lobby': {
+            const prevN = D && D.type === 'lobby' ? (D.players || []).length : -1;
+            D = msg;
+            stopClientTick();
+            setMusic('lobby');
+            if (prevN >= 0 && (msg.players || []).length > prevN) sJoin();
+            ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g';
+            render();
+            break;
+        }
+        case 'state': {
+            const prev = D;
+            D = msg;
+            const lotKey = msg.phase + '|' + msg.lotNum;
+            if (msg.phase === 'lot_intro') {
+                stopClientTick();
+                setMusic('bidding');
+                musicIntensity = 1;   // new lot: strip back until the gavel countdown
+                musicKeyShift = msg.lotNum === msg.lotTotal ? 2 : 0;   // final lot: key up
+                if (_lastLotKey !== lotKey) { _lastLotKey = lotKey; _lastPrice = -1; ui = 'lot'; render(); sLotIntro(); }
+                break;
+            }
+            if (msg.phase === 'bidding') {
+                setMusic('bidding');
+                if (ui !== 'bidding' || _lastLotKey !== lotKey) {
+                    _lastLotKey = lotKey;
+                    ui = 'bidding';
+                    render();
+                    startClientGavel(msg);
+                    _lastPrice = msg.bid ? msg.bid.price : 0;
+                } else {
+                    const priceUp = !!(msg.bid && msg.bid.price !== _lastPrice);
+                    const diff = priceUp ? msg.bid.price - Math.max(0, _lastPrice) : 0;
+                    const wasLeading = !!(prev && prev.phase === 'bidding' && prev.bid && prev.bid.youLead);
+                    const couldBefore = !(prev && prev.phase === 'bidding' && prev.bid) || prev.myCoins >= prev.bid.price + RAISES[0];
+                    if (priceUp) _lastPrice = msg.bid.price;
+                    patchBidding(msg);
+                    startClientGavel(msg);
+                    if (priceUp) {
+                        if (wasLeading && !msg.bid.youLead) {
+                            sOutbid();
+                            try { navigator.vibrate && navigator.vibrate([60, 40, 60]); } catch (e) {}
+                            const lb = $id('lead-banner');
+                            if (lb) { lb.classList.remove('shake'); void lb.offsetWidth; lb.classList.add('shake'); }
+                        } else {
+                            sBid(msg.bid.price);
+                            try { navigator.vibrate && navigator.vibrate(30); } catch (e) {}
+                        }
+                        const pe = $id('p-price');
+                        if (pe) {
+                            pe.classList.remove('bump'); void pe.offsetWidth; pe.classList.add('bump');
+                            if (diff > 0) { const r = pe.getBoundingClientRect(); popText(r.left + r.width / 2, r.top + 6, '+' + diff, 'gold'); }
+                        }
+                        // priced out of this lot just now? womp.
+                        if (!msg.bid.youLead && couldBefore && msg.myCoins < msg.bid.price + RAISES[0]) sBroke();
+                    }
+                }
+                break;
+            }
+            if (msg.phase === 'sold') {
+                stopClientTick();
+                if (_lastLotKey !== lotKey) {
+                    _lastLotKey = lotKey; ui = 'sold'; render();
+                    const si = msg.soldInfo || {};
+                    if (si.passed) sPassed();
+                    else {
+                        sGavel();
+                        burst(innerWidth / 2, innerHeight * 0.3, ['#e8b75a', '#f5d38a', '#f6eefb'], 16);
+                        if (si.winner === myName) sWonLot();
+                    }
+                }
+                break;
+            }
+            if (msg.phase === 'valuation') {
+                stopClientTick();
+                setMusic('results');
+                ui = 'valuation';
+                render();
+                if (msg.revealIndex !== _lastRevealIdx && msg.revealIndex >= 0 && msg.revealIndex < (msg.reveals || []).length) {
+                    _lastRevealIdx = msg.revealIndex;
+                    const r = msg.reveals[msg.revealIndex];
+                    if (r.profit >= 0) sProfit(r.profit); else sLoss(r.profit);
+                }
+                break;
+            }
+            if (msg.phase === 'podium') {
+                stopClientTick();
+                setMusic('over');
+                if (ui !== 'podium') { ui = 'podium'; render(); sWin(); startConfetti(3600); }
+                else render();
+                break;
+            }
+            render();
+            break;
+        }
+    }
+}
+
+function startClientGavel(msg) {
+    _localGavelEnd = Date.now() + (msg.bid ? msg.bid.endsIn : 0);
+    if (_gavelTickClient) return;
+    _gavelTickClient = setInterval(() => {
+        const left = Math.max(0, _localGavelEnd - Date.now());
+        const frac = left / GAVEL_MS;
+        const stage = left === 0 ? 0 : frac < 0.25 ? 2 : frac < 0.5 ? 1 : 0;
+        const bar = $id('gavel-bar');
+        if (bar) { bar.style.width = (frac * 100) + '%'; bar.classList.toggle('low', stage > 0); }
+        const gl = $id('going-lbl');
+        if (gl) {
+            gl.textContent = left === 0 ? '' : stage === 2 ? 'going… GOING…' : stage === 1 ? 'going…' : '';
+            gl.classList.toggle('low', stage > 0);
+        }
+        musicUrgent = left > 0 && stage > 0;
+        if (musicUrgent) musicIntensity = 2;   // "going…" reached: full band stays in
+        if (stage > _goingStage && left > 0) sGoing(stage);
+        _goingStage = stage;   // a new bid refills the bar → stage drops → stings re-arm
+    }, 100);
+}
+
+function sendBid(raise) {
+    if (!D || D.phase !== 'bidding' || !D.bid || D.bid.youLead) return;
+    if (D.myCoins < D.bid.price + raise) return;
+    if (isHost && !isTvHost) {
+        const me = H.players.find(p => p.id === myId);
+        if (me) hostBid(me, raise);
+    } else send(hostConn, { type: 'bid', raise });
+}
+
+function patchBidding(msg) {
+    const price = $id('p-price');
+    if (price) price.textContent = msg.bid.price;
+    const lb = $id('lead-banner');
+    if (lb) lb.innerHTML = leadBannerHTML(msg);
+    const bb = $id('bid-btns');
+    if (bb) bb.innerHTML = bidBtnsHTML(msg);
+    const mc = $id('my-coins');
+    if (mc) mc.textContent = msg.myCoins;
+}
+
+// ═══════════════════════════════════════════
+// VIEWER (TV) MESSAGE HANDLING
+// ═══════════════════════════════════════════
+let _vLotKey = '', _vPrice = -1, _vRevealIdx = -1, _vGavelEnd = 0, _vGavelTick = null, _vGoingStage = 0;
+function stopViewerTick() { clearInterval(_vGavelTick); _vGavelTick = null; _vGoingStage = 0; musicUrgent = false; }
+
+function applyViewerMsg(msg) {
+    document.body.classList.add('viewer-mode');
+    ui = 'viewer';
+    const prevV = vD;
+    vD = msg;
+    if (msg.type === 'viewer_lobby') {
+        stopViewerTick();
+        setMusic('lobby');
+        const prevN = prevV && prevV.type === 'viewer_lobby' ? (prevV.players || []).length : -1;
+        render();
+        if (prevN >= 0 && (msg.players || []).length > prevN) sJoin();
+        return;
+    }
+    const lotKey = msg.phase + '|' + msg.lotNum;
+    if (msg.phase === 'lot_intro') {
+        stopViewerTick();
+        setMusic('bidding');
+        musicIntensity = 1;   // new lot: strip back until the gavel countdown
+        musicKeyShift = msg.lotNum === msg.lotTotal ? 2 : 0;   // final lot: key up
+        if (_vLotKey !== lotKey) { _vLotKey = lotKey; _vPrice = -1; render(); sLotIntro(); }
+        return;
+    }
+    if (msg.phase === 'bidding') {
+        setMusic('bidding');
+        if (_vLotKey !== lotKey) {
+            _vLotKey = lotKey;
+            render();
+            _vPrice = msg.bid ? msg.bid.price : 0;
+        } else {
+            const priceUp = !!(msg.bid && msg.bid.price !== _vPrice);
+            const diff = priceUp ? msg.bid.price - Math.max(0, _vPrice) : 0;
+            if (priceUp) _vPrice = msg.bid.price;
+            patchViewerBidding(msg);
+            if (priceUp) {
+                sBid(msg.bid.price);
+                const pe = $id('v-price');
+                if (pe) {
+                    pe.classList.remove('bump'); void pe.offsetWidth; pe.classList.add('bump');
+                    if (diff > 0) { const r = pe.getBoundingClientRect(); popText(r.left + r.width / 2, r.top, '+' + diff, 'gold'); }
+                }
+            }
+        }
+        startViewerGavel(msg);
+        return;
+    }
+    if (msg.phase === 'sold') {
+        stopViewerTick();
+        if (_vLotKey !== lotKey) {
+            _vLotKey = lotKey; render();
+            const si = msg.soldInfo || {};
+            if (si.passed) sPassed();
+            else { sGavel(); burst(innerWidth / 2, innerHeight * 0.34, ['#e8b75a', '#f5d38a', '#f6eefb', '#b478e0'], 26); }
+        }
+        return;
+    }
+    if (msg.phase === 'valuation') {
+        stopViewerTick();
+        setMusic('results');
+        render();
+        if (msg.revealIndex !== _vRevealIdx && msg.revealIndex >= 0 && msg.revealIndex < (msg.reveals || []).length) {
+            _vRevealIdx = msg.revealIndex;
+            const r = msg.reveals[msg.revealIndex];
+            if (r.profit >= 0) sProfit(r.profit); else sLoss(r.profit);
+            const el = document.querySelector('.val-list .val-card:last-child');
+            if (el) {
+                const rc = el.getBoundingClientRect();
+                popText(rc.right - 70, rc.top + 8, (r.profit >= 0 ? '+' : '') + r.profit, r.profit >= 0 ? 'good' : 'bad');
+                if (r.profit >= 200) burst(rc.right - 70, rc.top + rc.height / 2, ['#4ade80', '#e8b75a', '#f6eefb'], 14);
+            }
+        }
+        return;
+    }
+    if (msg.phase === 'podium') {
+        stopViewerTick();
+        setMusic('over');
+        if (_vLotKey !== 'podium') { _vLotKey = 'podium'; render(); sWin(); startConfetti(5200); }
+        else render();
+        return;
+    }
+    render();
+}
+
+function startViewerGavel(msg) {
+    _vGavelEnd = Date.now() + (msg.bid ? msg.bid.endsIn : 0);
+    if (_vGavelTick) return;
+    _vGavelTick = setInterval(() => {
+        const left = Math.max(0, _vGavelEnd - Date.now());
+        const frac = left / GAVEL_MS;
+        const stage = left === 0 ? 0 : frac < 0.25 ? 2 : frac < 0.5 ? 1 : 0;
+        const bar = $id('v-gavel-bar');
+        if (bar) { bar.style.width = (frac * 100) + '%'; bar.classList.toggle('low', stage > 0); }
+        const gl = $id('v-going');
+        if (gl) {
+            gl.textContent = left === 0 ? '' : stage === 2 ? 'going… GOING…' : stage === 1 ? 'going…' : '';
+            gl.classList.toggle('low', stage > 0);
+        }
+        musicUrgent = left > 0 && stage > 0;
+        if (musicUrgent) musicIntensity = 2;   // "going…" reached: full band stays in
+        if (stage > _vGoingStage && left > 0) sGoing(stage);
+        _vGoingStage = stage;
+    }, 100);
+}
+
+function patchViewerBidding(msg) {
+    const price = $id('v-price');
+    if (price) price.textContent = msg.bid.price === 0 ? 'Any bids?' : msg.bid.price;
+    const lead = $id('v-leader');
+    if (lead) lead.innerHTML = msg.bid.leader
+        ? `<span style="color:${msg.bid.leaderColor}">${esc(msg.bid.leader)}</span> holds the bid`
+        : 'Opening bid, anyone?';
+    const rail = $id('v-rail');
+    if (rail) rail.innerHTML = railRowsHTML(msg);
+}
+
+// ═══════════════════════════════════════════
+// RENDER — shared bits
+// ═══════════════════════════════════════════
+function hdrHTML(sub) {
+    return `<h1 class="logo">${GAVEL} Going, Going, GONE!</h1><div class="sub">${esc(sub || 'bid big · regret bigger')}</div>`;
+}
+function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+function isCaptain() { return !!(D && D.tvHost && D.captain && D.captain === myName); }
+function canDrive() { return (isHost && !isTvHost) || isCaptain(); }
+
+function settingsSegsHTML(settings, expr) {
+    return `
+        <div class="fg"><label>Lots under the hammer</label><div class="seg-row">${[6, 8, 10].map(v =>
+            `<button class="btn btn-sm ${settings.lotCount === v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{lotCount:${v}}`)}">${v}</button>`).join('')}</div></div>`;
+}
+
+function leadBannerHTML(msg) {
+    if (!msg.bid) return '';
+    if (msg.bid.youLead) return `<div class="lead-banner">🏆 You're winning this lot!</div>`;
+    if (msg.bid.leader) return `<div class="lead-banner other"><span style="color:${msg.bid.leaderColor}">●</span> ${esc(msg.bid.leader)} holds the bid</div>`;
+    return `<div class="lead-banner other">No bids yet — be brave!</div>`;
+}
+
+function bidBtnsHTML(msg) {
+    if (!msg.bid || msg.bid.youLead) return '';
+    return RAISES.map(r => {
+        const afford = msg.myCoins >= msg.bid.price + r;
+        return `<button class="btn btn-p" ${afford ? '' : 'disabled'} onclick="sendBid(${r})">+${r}</button>`;
+    }).join('');
+}
+
+function shelfHTML(msg) {
+    if (!msg.myLots.length) return '<div style="color:var(--muted);font-size:.75rem;font-weight:700">Nothing yet — your shelf awaits.</div>';
+    const revealedVal = l => {
+        if (!msg.reveals) return null;
+        const ri = msg.reveals.findIndex(r => r.lotIdx === l.lotIdx);
+        return ri >= 0 && ri <= msg.revealIndex ? msg.reveals[ri] : null;
+    };
+    return `<div class="shelf">${msg.myLots.map(l => {
+        const r = revealedVal(l);
+        return `<span class="sh-item">${l.emoji} ${esc(l.name)} · paid ${l.paid}${
+            r ? ` → worth ${r.value} <span class="val ${r.profit >= 0 ? 'plus' : 'minus'}">(${r.profit >= 0 ? '+' : ''}${r.profit})</span>` : ''}</span>`;
+    }).join('')}</div>`;
+}
+
+function railRowsHTML(msg) {
+    return (msg.players || []).map(p => `
+        <div class="rail-row${msg.bid && msg.bid.leader === p.name ? ' leader' : ''}">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <span class="rname">${esc(p.name)}</span>
+            <span class="rlots">${p.lotCount} lot${p.lotCount === 1 ? '' : 's'}</span>
+            <span class="rcoins">🪙${p.coins}</span>
+        </div>`).join('');
+}
+
+function lotHeaderHTML(msg, small) {
+    const l = msg.lot;
+    if (!l) return '';
+    return `
+    <div class="card lot-card" ${small ? 'style="padding:14px 12px"' : ''}>
+        <div class="lot-kicker">Lot ${msg.lotNum} of ${msg.lotTotal}${l.mystery ? ' · ❓ mystery' : ''}</div>
+        <div class="lemoji" ${small ? 'style="font-size:2.1rem"' : ''}>${l.emoji}</div>
+        <div class="lname" ${small ? 'style="font-size:1.05rem"' : ''}>${esc(l.name)}</div>
+        <div class="ldesc">“${esc(l.desc)}”</div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — phone screens
+// ═══════════════════════════════════════════
+let _lastUi = '', _lastVKey = '';
+function render() {
+    const app = $id('app');
+    if (isTvHost || isViewer) ui = 'viewer';
+    // 'fresh' marks a real screen change → entrance animations run once,
+    // never on same-screen re-renders (joins, bids, reveal steps)
+    const vk = ui === 'viewer' ? (vD ? (vD.type === 'viewer_lobby' ? 'lobby' : (vD.phase || '')) : '') : '';
+    const fresh = ui !== _lastUi || vk !== _lastVKey;
+    _lastUi = ui; _lastVKey = vk;
+    let html = '';
+    switch (ui) {
+        case 'home':       html = renderHome(); break;
+        case 'creating':   html = renderSpinner('Opening the auction house…'); break;
+        case 'connecting': html = renderSpinner('Taking your seat…'); break;
+        case 'lobby_h':    html = renderLobbyH(); break;
+        case 'lobby_g':    html = renderLobbyG(); break;
+        case 'lot':        html = renderLotIntro(); break;
+        case 'bidding':    html = renderBidding(); break;
+        case 'sold':       html = renderSold(); break;
+        case 'valuation':  html = renderValuation(); break;
+        case 'podium':     html = renderPodium(); break;
+        case 'viewer':     html = renderViewer(); break;
+        default:           html = renderHome();
+    }
+    // guarded: a stale common.js (no setHTML) must never blank the game
+    if (typeof setHTML === 'function') setHTML(app, html); else app.innerHTML = html;
+    app.classList.toggle('fresh', fresh);
+}
+
+function renderSpinner(msg) {
+    return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`;
+}
+
+function renderHome() {
+    const fromQR = !!fCode;
+    const youCard = `
+    <div class="card">
+        <div class="slbl">Who are you?</div>
+        <div class="fg">
+            <label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
+                ${fromQR ? 'autofocus' : ''} data-save-name oninput="fName=this.value">
+        </div>
+    </div>`;
+    const joinCard = `
+    <div class="card${fromQR ? ' highlight' : ''}">
+        <div class="slbl">Join an Auction</div>
+        <div class="fg">
+            <label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fCode)}"
+                oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
+        </div>
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">
+            📱 Join with your phone
+        </button>
+    </div>`;
+    const hostCard = `
+    <div class="card">
+        <div class="slbl">Open an Auction</div>
+        <button class="btn btn-p btn-full"
+            onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
+            ${GAVEL} Host on this phone
+        </button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin-top:8px">
+            2–10 bidders · 1,000 coins each · values revealed at the end
+        </div>
+    </div>`;
+    const tvCard = `
+    <div class="card">
+        <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-p btn-full" onclick="hostOnTV()">📺 Host the party on this screen</button>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center;margin:6px 0 10px">
+            Shows a big QR code — the first phone to join becomes 👑 Captain
+        </div>
+        <hr>
+        <div class="fg">
+            <label>…or show an existing auction</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')joinAsViewer(fVCode)">
+        </div>
+        <button class="btn btn-g btn-full"
+            onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code.';render()}">
+            📺 Open auction floor
+        </button>
+    </div>`;
+    return `
+    ${hdrHTML('the family auction house')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+}
+
+function renderLobbyH() {
+    const pList = H.players.map((p, i) =>
+        `<div class="player-row" style="--i:${i}">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1">${esc(p.name)}${i === 0 ? ' <span style="color:var(--muted)">(you — host)</span>' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    return `
+    ${hdrHTML('Host Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card highlight">
+        <div class="slbl">Scan to join — or share the code</div>
+        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        <div class="room-code">${esc(roomCode)}</div>
+        <div class="share-row">
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
+            <button class="btn btn-g btn-sm"
+                onclick="navigator.share&&navigator.share({title:'Join the auction!',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
+        </div>
+        <div style="font-size:.66rem;color:var(--muted);text-align:center">Put the auction floor on a TV with code <b style="color:var(--gold)">${esc(roomCode)}</b></div>
+    </div>
+    <div class="card">
+        <div class="slbl">Bidders (${H.players.length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    <div class="card">
+        <div class="slbl">Settings</div>
+        ${settingsSegsHTML(H.settings, patch => `hostSet(${patch})`)}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.08rem;padding:16px" onclick="hostStartAuction()">${GAVEL} Start the auction</button>`;
+}
+
+function renderLobbyG() {
+    const cap = isCaptain();
+    const pList = (D.players || []).map((p, i) =>
+        `<div class="player-row" style="--i:${i}">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--muted)">(you)</span>' : ''}${D.tvHost && p.name === D.captain ? ' 👑' : ''}</div>
+            <div class="dot"></div>
+        </div>`).join('');
+    const s = D.settings || {};
+    return `
+    ${hdrHTML(cap ? '👑 You are the Captain' : 'Lobby')}
+    ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+    <div class="card">
+        <div class="slbl">Room ${esc(D.roomCode || '')} — Bidders (${(D.players || []).length}/${MAX_PLAYERS})</div>
+        ${pList}
+    </div>
+    ${cap ? `
+    <div class="card highlight">
+        <div class="slbl">👑 Captain's Settings</div>
+        ${settingsSegsHTML(s, patch => `guestCtl('set',${patch})`)}
+    </div>
+    <button class="btn btn-p btn-full" style="font-size:1.08rem;padding:16px" onclick="guestCtl('start')">${GAVEL} Start the auction</button>`
+    : `
+    <div class="card">
+        <div class="slbl">Settings</div>
+        <div style="font-weight:800;font-size:.85rem">${GAVEL} ${s.lotCount} lots · 🪙 1,000 coins each</div>
+        <div style="color:var(--muted);font-size:.72rem;font-weight:700;margin-top:8px">
+            Waiting for ${D.tvHost ? `👑 ${esc(D.captain || 'the captain')}` : 'the host'} to start…
+        </div>
+    </div>`}`;
+}
+
+function renderLotIntro() {
+    return `
+    ${lotHeaderHTML(D)}
+    <div class="card" style="text-align:center">
+        <div style="font-weight:900;color:var(--gold)">Bidding opens in a moment…</div>
+        <div style="margin-top:8px"><span class="coins-chip">🪙 <span id="my-coins">${D.myCoins}</span> coins</span></div>
+    </div>
+    <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>`;
+}
+
+function renderBidding() {
+    return `
+    ${lotHeaderHTML(D, true)}
+    <div class="card" style="text-align:center">
+        <div class="lot-kicker">Current price</div>
+        <div class="price-big" id="p-price">${D.bid.price}</div>
+        <div class="gavel-wrap" style="margin:10px 0 4px"><div class="gavel-bar" id="gavel-bar" style="width:100%"></div></div>
+        <div id="going-lbl" style="min-height:1.2em;font-weight:900;color:var(--down)"></div>
+    </div>
+    <div id="lead-banner">${leadBannerHTML(D)}</div>
+    <div class="bid-btns" id="bid-btns">${bidBtnsHTML(D)}</div>
+    <div style="text-align:center"><span class="coins-chip">🪙 <span id="my-coins">${D.myCoins}</span> coins left</span></div>
+    <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>`;
+}
+
+function renderSold() {
+    const s = D.soldInfo || {};
+    const mine = s.winner === myName;
+    const inner = s.passed
+        ? `<div class="gavel">🪶</div><div class="st">PASSED</div>
+           <div style="color:var(--muted);font-weight:700;margin-top:6px">Not a single bid for ${esc(s.lot ? s.lot.name : '')}. Brutal.</div>`
+        : `<div class="gavel">${GAVEL}</div><div class="st">${mine ? 'YOU WON IT!' : 'SOLD!'}</div>
+           <div style="font-weight:800;color:var(--gold);margin-top:6px">${esc(s.lot ? s.lot.emoji + ' ' + s.lot.name : '')}</div>
+           <div style="font-weight:900;font-size:1.3rem;margin-top:4px">${mine ? `You paid ${s.price}` : `${esc(s.winner)} pays ${s.price}`}</div>`;
+    return `
+    <div class="card sold-card${mine ? ' highlight' : ''}">${inner}</div>
+    <div style="text-align:center"><span class="coins-chip">🪙 ${D.myCoins} coins left</span></div>
+    <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>`;
+}
+
+function renderValuation() {
+    return `
+    ${hdrHTML('The Valuation')}
+    <div class="card" style="text-align:center">
+        <div style="font-size:2.6rem">🧐</div>
+        <div style="font-weight:900;font-size:1.15rem;margin-top:6px">The valuer is in — eyes on the TV!</div>
+        <div style="color:var(--muted);font-weight:700;font-size:.78rem;margin-top:6px">True values revealed one lot at a time…</div>
+    </div>
+    <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>
+    <div style="text-align:center"><span class="coins-chip">🪙 ${D.myCoins} coins left</span></div>`;
+}
+
+function renderPodium() {
+    const st = D.standings || [];
+    const winner = st[0];
+    const awards = (D.awards || []).map(a =>
+        `<span class="chip">${a.emoji} ${esc(a.title)}: ${esc(a.name)} (${esc(a.detail)})</span>`).join('');
+    const driveBtn = canDrive()
+        ? `<button class="btn btn-p btn-full" style="font-size:1.02rem;padding:15px" onclick="guestCtl('again')">🔁 Play again</button>` : '';
+    const medals = ['🥇', '🥈', '🥉'];
+    return `
+    ${hdrHTML('Auction closed!')}
+    <div class="card sold-card highlight">
+        <div class="gavel">🏆</div>
+        <div class="st">${esc((winner?.name || '').toUpperCase())} WINS!</div>
+        <div style="color:var(--muted);font-weight:700;font-size:.78rem;margin-top:4px">net worth ${winner ? winner.net : 0} — coins + shelf value</div>
+        <div style="margin-top:10px">${awards}</div>
+    </div>
+    <div class="card standings"><div class="slbl">Net worth</div>${(() => { const ranks = rankByScore(st, 'net'); return st.map((p, i) => `
+        <div class="player-row" style="--i:${i}">
+            <span style="width:22px;text-align:center">${medals[ranks[i]] || (ranks[i] + 1)}</span>
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--gold)">(you)</span>' : ''}</div>
+            <div class="sc">${p.net} <span style="color:var(--muted);font-size:.7rem">(🪙${p.coins} + 🖼️${p.shelf})</span></div>
+        </div>`).join(''); })()}
+    </div>
+    ${driveBtn}`;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — TV screens
+// ═══════════════════════════════════════════
+function tvShell(inner, meta) {
+    return `<div class="tv">
+        <div class="tv-top">
+            <div class="tv-logo">${GAVEL} GOING, GOING, GONE!</div>
+            <div class="tv-meta">${esc(meta || ('Room ' + (vD.roomCode || roomCode || '')))}</div>
+        </div>
+        ${inner}
+    </div>`;
+}
+
+function renderViewer() {
+    if (!vD) return renderSpinner('Waiting for the auction…');
+    if (vD.type === 'viewer_lobby') return renderViewerLobby();
+    if (vD.phase === 'lot_intro') return renderViewerLotIntro();
+    if (vD.phase === 'bidding') return renderViewerBidding();
+    if (vD.phase === 'sold') return renderViewerSold();
+    if (vD.phase === 'valuation') return renderViewerValuation();
+    if (vD.phase === 'podium') return renderViewerPodium();
+    return renderSpinner('Waiting for the auction…');
+}
+
+function renderViewerLobby() {
+    const players = vD.players || [];
+    const s = vD.settings || {};
+    return tvLobby({
+        title: 'GOING, GOING, GONE!', accent: '#e8b75a',
+        roomCode: vD.roomCode, isTvHost: vD.tvHost, captainName: vD.captain,
+        settings: `${s.lotCount} lots · 🪙 1,000 coins each`,
+        players: players.map(p => ({ name: p.name, color: p.color, captain: p.name === vD.captain })),
+    });
+}
+
+function tvLotCardHTML(msg, compact) {
+    const l = msg.lot;
+    return `
+    <div class="tv-lot" ${compact ? 'style="flex:0 0 auto;padding:2vmin 3vmin"' : ''}>
+        <div class="lkick">Lot ${msg.lotNum} of ${msg.lotTotal}${l.mystery ? ' · ❓ mystery box' : ''}</div>
+        <div class="lemoji" ${compact ? 'style="font-size:5.5vmin"' : ''}>${l.emoji}</div>
+        <div class="lname" ${compact ? 'style="font-size:3vmin"' : ''}>${esc(l.name)}</div>
+        <div class="ldesc">“${esc(l.desc)}”</div>
+        ${compact ? '' : '<div class="tv-waiting" style="margin-top:1.4vmin">bidding opens in a moment…</div>'}
+    </div>`;
+}
+
+function renderViewerLotIntro() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">${tvLotCardHTML(vD)}</div>
+        <div class="tv-rail"><div class="rail-title">Bidders</div><div id="v-rail" style="display:flex;flex-direction:column;gap:1.2vmin">${railRowsHTML(vD)}</div></div>
+    </div>`, `Lot ${vD.lotNum} of ${vD.lotTotal}`);
+}
+
+function renderViewerBidding() {
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            ${tvLotCardHTML(vD, true)}
+            <div class="tv-lot" style="flex:1;gap:1.6vmin">
+                <div class="lkick">Current price</div>
+                <div class="tv-price" id="v-price">${vD.bid.price === 0 ? 'Any bids?' : vD.bid.price}</div>
+                <div class="tv-leader" id="v-leader">${vD.bid.leader
+                    ? `<span style="color:${vD.bid.leaderColor}">${esc(vD.bid.leader)}</span> holds the bid`
+                    : 'Opening bid, anyone?'}</div>
+                <div class="tv-gavel-row" style="width:80%">
+                    <div class="tv-gavel-wrap"><div class="tv-gavel-bar" id="v-gavel-bar" style="width:100%"></div></div>
+                    <div class="going" id="v-going"></div>
+                </div>
+            </div>
+        </div>
+        <div class="tv-rail"><div class="rail-title">Bidders</div><div id="v-rail" style="display:flex;flex-direction:column;gap:1.2vmin">${railRowsHTML(vD)}</div></div>
+    </div>`, `Lot ${vD.lotNum} of ${vD.lotTotal}`);
+}
+
+function renderViewerSold() {
+    const s = vD.soldInfo || {};
+    const inner = s.passed
+        ? `<div class="gavel">🪶</div>
+           <div class="who">PASSED</div>
+           <div class="sub2">Not one bid for ${esc(s.lot ? s.lot.name : '')}. The auctioneer is hurt.</div>`
+        : `<div class="gavel">${GAVEL}</div>
+           <div class="who">SOLD to <span style="color:${s.color}">${esc(s.winner)}</span> for ${s.price}!</div>
+           <div class="sub2">${esc(s.lot ? s.lot.emoji + ' ' + s.lot.name : '')} — worth… well, we'll find out.</div>`;
+    return tvShell(`<div class="tv-sold">${inner}</div>`, `Lot ${vD.lotNum} of ${vD.lotTotal}`);
+}
+
+function netWorthRows(msg) {
+    const revealedByPlayer = {};
+    (msg.reveals || []).forEach((r, i) => {
+        if (i <= msg.revealIndex) revealedByPlayer[r.player] = (revealedByPlayer[r.player] || 0) + r.value;
+    });
+    return (msg.players || [])
+        .map(p => ({ ...p, net: p.coins + (revealedByPlayer[p.name] || 0) }))
+        .sort((a, b) => b.net - a.net)
+        .map(p => `
+        <div class="rail-row">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <span class="rname">${esc(p.name)}</span>
+            <span class="rcoins">${p.net}</span>
+        </div>`).join('');
+}
+
+function renderViewerValuation() {
+    const shown = (vD.reveals || []).slice(0, Math.max(0, vD.revealIndex + 1)).slice(-6);
+    const cards = shown.map((r, i) => `
+    <div class="val-card" ${i === shown.length - 1 ? '' : 'style="animation:none;opacity:.65"'}>
+        <div class="vemoji">${r.emoji}</div>
+        <div>
+            <div class="vname">${esc(r.lotName)}</div>
+            <div class="vpaid"><span style="color:${r.color}">${esc(r.player)}</span> paid ${r.paid}</div>
+        </div>
+        <div class="vworth">worth ${r.value}
+            <span class="profit ${r.profit >= 0 ? 'plus' : 'minus'}">${r.profit >= 0 ? '+' : ''}${r.profit}</span>
+        </div>
+    </div>`).join('');
+    return tvShell(`
+    <div class="tv-main">
+        <div class="tv-stage">
+            <div class="tv-val">
+                <div class="rail-title">🧐 The Valuation — what was it all actually worth?</div>
+                <div class="val-list">${cards || '<div class="tv-waiting">Fetching the valuer\'s monocle…</div>'}</div>
+            </div>
+        </div>
+        <div class="tv-rail"><div class="rail-title">Net worth (so far)</div>${netWorthRows(vD)}</div>
+    </div>`, 'The Valuation');
+}
+
+function renderViewerPodium() {
+    const st = vD.standings || [];
+    const medals = ['🥇', '🥈', '🥉'];
+    const ranks = rankByScore(st, 'net');   // ties share a place → joint medals
+    const wm = st.map((p, i) => ({ ...p, medal: medals[ranks[i]] || '', mr: ranks[i] }));
+    const podOrder = [wm[1], wm[0], wm[2]].filter(Boolean);
+    const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
+    const pods = podOrder.map((p, i) => `
+        <div class="pod ${cls[i]} mrank-${Math.min(p.mr, 2)}" style="animation-delay:${i * 0.18}s">
+            <div class="pname"><span class="pdot" style="background:${p.color};color:${p.color};display:inline-block;vertical-align:middle;margin-right:.6vmin"></span>${esc(p.name)}</div>
+            <div class="pscore">${p.net} net</div>
+            <div class="block">${p.medal}</div>
+        </div>`).join('');
+    const awards = (vD.awards || []).map((a, i) =>
+        `<div class="award" style="--i:${i}">${a.emoji} <span class="aw-t">${esc(a.title)}</span><br>${esc(a.name)} — ${esc(a.detail)}</div>`).join('');
+    const hint = vD.tvHost ? `👑 ${esc(vD.captain || 'Captain')}: “Play again” is on your phone` : 'Host: “Play again” is on your phone';
+    return tvShell(`
+    <div class="tv-main" style="flex-direction:column">
+        <div class="podium-wrap">${pods}</div>
+        <div class="awards-row">${awards}</div>
+        <div class="tv-waiting" style="text-align:center;padding-bottom:1.5vmin">${hint}</div>
+    </div>`, '🏆 Auction closed');
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+
+// ═══════════════════════════════════════════
+// SIMULATION MODES — ?mode=tvsimulation | playersimulation  (&players=N)
+// Self-driving demos with no PeerJS and no real people. Bots are counted as
+// "connected" via stub guestConns so the normal host auction flow drives itself.
+//   • tvsimulation     — watch the big-screen AUCTION HOUSE play itself
+//   • playersimulation — watch a phone BIDDER ("You") play itself
+// (?mode=simulation stays as an alias for tvsimulation.)
+// ═══════════════════════════════════════════
+let simTimer = null, simMode = 'tv', simActive = false, simLotKey = '', simBidsLeft = 0;
+const SIM_NAMES = ['Ace', 'Bux', 'Cash', 'Duke', 'Edie', 'Fox', 'Gwen', 'Hawk'];
+
+function startSimulation(nPlayers, mode) {
+    simMode = mode === 'player' ? 'player' : 'tv';
+    simActive = true;
+    roomCode = 'DEMO';
+    H.settings.lotCount = 5;                          // shorter auctions for the demo loop
+    H.players = []; guestConns = {}; viewerConns = {};
+    const n = Math.max(MIN_PLAYERS, Math.min(nPlayers || 4, MAX_PLAYERS));
+    if (simMode === 'tv') {
+        isHost = true; isTvHost = true; myId = '__sim_host__';
+        document.body.classList.add('viewer-mode');
+    } else {
+        isHost = true; isTvHost = false; myName = 'You'; myId = '__you__';
+        hostAddPlayer(myId, myName);                  // you are bidder #1 (the host)
+    }
+    for (let i = H.players.length; i < n; i++) {
+        const id = '__bot_' + i;
+        hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length]);
+        guestConns[id] = { peer: id, send() {} };     // stub so bots count as present
+    }
+    broadcastLobby();                                 // show the lobby first
+    simTimer = setTimeout(() => { hostStartAuction(); simLoop(); }, 2400);
+}
+
+// The host auction timers (lot_intro → bidding → sold → … → valuation → podium)
+// run on their own; the loop just injects a few bot bids per lot and restarts.
+function simLoop() {
+    if (!simActive) return;
+    if (H.phase === 'podium') { simTimer = setTimeout(simRestart, 6500); return; }
+    if (H.phase === 'bidding') simBidStep();
+    simTimer = setTimeout(simLoop, 650 + Math.random() * 450);
+}
+
+function simBidStep() {
+    if (!H.bid) return;
+    const key = 'L' + H.lotIndex;
+    if (key !== simLotKey) { simLotKey = key; simBidsLeft = 2 + Math.floor(Math.random() * 4); }
+    if (simBidsLeft <= 0 || Math.random() < 0.28) return;   // let the gavel fall
+    const price = H.bid.price;
+    const cands = H.players.filter(p => p.id !== H.bid.leaderId && p.coins >= price + RAISES[0]);
+    if (!cands.length) { simBidsLeft = 0; return; }
+    const bidder = cands[Math.floor(Math.random() * cands.length)];
+    const affordable = RAISES.filter(r => bidder.coins >= price + r);
+    const raise = affordable[Math.floor(Math.random() * affordable.length)];
+    if (simMode === 'player' && bidder.id === myId) {
+        // drive You through the real phone bid button so the lead/outbid FX fire
+        if (D && D.phase === 'bidding' && D.bid && !D.bid.youLead && D.myCoins >= D.bid.price + raise) sendBid(raise);
+    } else {
+        hostBid(bidder, raise);
+    }
+    simBidsLeft--;
+}
+
+function simRestart() {
+    if (!simActive) return;
+    hostNewGame();
+    simTimer = setTimeout(() => { hostStartAuction(); simLoop(); }, 2400);
+}
+
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    if (!musicOn) $id('tog-music').classList.add('off');
+    if (!sfxOn) $id('tog-sfx').classList.add('off');
+    const mode = (params.get('mode') || '').toLowerCase();
+    const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (mode === 'playersimulation') { startSimulation(simPlayers, 'player'); return; }
+    if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
+    // A refresh mid-game shouldn't cost you your seat: if this tab was already in a
+    // room, walk straight back in (the host restores the slot by device id/name).
+    const back = typeof savedRoom === 'function' ? savedRoom() : null;
+    if (back && (!room || room === back.code)) {
+        if (back.role === 'viewer') { joinAsViewer(back.code); return; }
+        joinGame(back.code, (typeof savedName === 'function' && savedName()) || 'Player');
+        return;
+    }
+    render();
+})();
+</script>
+</body>
+</html>
