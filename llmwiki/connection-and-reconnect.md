@@ -212,3 +212,46 @@ player id and asserts `hostRekeyPlayer` mentions each one. It caught `H.moved` w
 minute of being written — a field I had missed. Add a new id-keyed field and the test fails
 until you handle it. `tests/plumptrek.e2e.spec.js` and `tests/oddsheep.e2e.spec.js` both
 drive a real refresh mid-round and check the player gets their turn and their vote back.
+
+## `conn.on('close')` does not fire when a tab closes (measured, July 2026)
+
+This was assumed for a long time and it is wrong. A phone whose tab is closed, whose battery
+dies, or which is force-quit does **not** trigger `conn.on('close')` on the host. The WebRTC
+data channel simply goes quiet; there is no FIN. `guestConns` therefore still lists them, and
+every "are they here?" check built on it answers **yes** for a device that is gone.
+
+Measured in Plump Trek, TV host + three phones, one phone closed on its own turn:
+
+```
+t+5s … t+65s   turn=Cal  phase=turn  closeEvents=0  liveConns=3
+t+70s          turn=Cal  phase=moving                    ← the idle-roll fired
+t+75s          turn=Ava  phase=turn
+```
+
+Zero close events across 75 seconds. The 12-second "they've gone" fallback armed in
+`conn.on('close')` never ran — it only ever fires on a *graceful* disconnect, which is the
+rarer case. What actually rescued the room was `IDLE_ROLL_MS` (70s), which rolls on the
+absent player's behalf.
+
+**Why that mattered.** `beginTurn` skips absent players with
+`if (!guestConns[p.id]) continue`, but `guestConns` still held the dead phone — so the skip
+never triggered and the room waited the full 70 seconds **every single lap**. In a four-player
+game with one dead phone, that is over a minute of dead air per round.
+
+**The fix** is to stop trusting `guestConns` alone and add a pessimistic flag:
+
+- when the idle-roll timeout actually fires, the host has real evidence — it waited 70s and
+  heard nothing — so it sets `p.away = true` as well as rolling for them;
+- `beginTurn` skips `p.away`, so the wait is paid **once**, not per lap;
+- **any** inbound message from that phone clears the flag and puts them back in the rotation;
+- `playersWire` reports `away`, so the rail shows it and nobody wonders why they're skipped.
+
+So the answer to "does the captain ever need to drop a disconnected player?" is **no** — the
+room recovers on its own, and no human has to notice or press anything. It just costs one
+idle-roll timeout to work it out.
+
+**A heartbeat would be better** and is the obvious next step if this ever needs to be
+tighter: phones ping every few seconds, the host marks anyone unheard-from for ~15s as away.
+That would cut the one-off 70s to ~15s and would also stop a dead phone holding the 👑 crown
+(`capPlayer()` is built on `guestConns` too, so it has the same blind spot). It belongs in
+`p2p.js` so every game gets it, which is why it hasn't been done as part of a bug fix.

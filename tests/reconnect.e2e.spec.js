@@ -13,6 +13,18 @@
 
 const { test, expect } = require('@playwright/test');
 
+// This spec is the most peer-heavy in the repo: every test opens a TV, two or three phones,
+// and then deliberately DROPS and re-registers some of them — so one test can put half a
+// dozen registrations through the public PeerJS broker in a few seconds. A burst like that
+// occasionally gets throttled and a join never lands, which is the shared external service
+// misbehaving, not a game bug. The other peer-heavy specs already carry this; this one was
+// missed.
+//
+// Verified before adding, rather than reaching for a retry to hide a race: the failing test
+// passed 3/3 run on its own, and only ever failed when queued behind two other specs that
+// had just opened rooms of their own.
+test.describe.configure({ retries: 1 });
+
 const PHONE = { width: 390, height: 844 };
 const TV = { width: 1920, height: 1080 };
 

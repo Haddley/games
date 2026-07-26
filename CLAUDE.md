@@ -91,6 +91,15 @@ The P2P pattern is identical across `boggle.html`, `cornerthemarket.html`, `lett
 - **Two client roles**, decided by the first message on a connection: `{type:'join', name}` → player (tracked in `guestConns{}`), `{type:'join_viewer'}` → TV/scoreboard (tracked in `viewerConns{}`). Viewers get their own `viewer_*` message variants with spectator-shaped payloads.
 - **TV-host mode**: the big screen itself can create the room. It runs the authoritative host logic but renders the viewer UI (`isTvHost`), and the **first player to join becomes captain** — their phone drives settings/start/next via `{type:'ctl', action}` messages that the host only accepts from `H.players[0]`.
 - **Rendering** is string-built `innerHTML` from a `render()` switch on a global `ui` state string. High-frequency updates (timer ticks, counters) **patch DOM nodes by id** instead of re-rendering, so in-progress touch interaction is never interrupted.
+- **`conn.on('close')` does NOT fire when a tab closes.** A closed tab, a flat battery or a
+  force-quit leaves the data channel quiet with no FIN, so `guestConns` still lists a device
+  that is gone (measured: zero close events across 75s). Every "are they here?" check built on
+  `guestConns` — including `capPlayer()` — has this blind spot. Plump Trek therefore also
+  keeps a pessimistic `p.away`, set when the `IDLE_ROLL_MS` timeout actually fires (real
+  evidence: waited 70s, heard nothing) and cleared by any inbound message; `beginTurn` skips
+  it, so the room pays that wait **once** instead of every lap. A heartbeat in `p2p.js` would
+  be the proper fix and would also stop a dead phone holding the crown. See
+  `llmwiki/connection-and-reconnect.md`.
 - **A player IS their peer id, and a refresh mints a new one.** Re-pointing their row in
   `H.players` is *not enough* — the id is also the key in every other place the host stored
   it (`H.turn`, `H.turnOrder`, `H.order`, `H.card.who`, `H.choice.who`, `H.moved.id`,

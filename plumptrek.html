@@ -1338,7 +1338,8 @@ function boardWire() {
 function playersWire() {
     return H.players.map(p => ({
         id: p.id, name: p.name, col: p.col, pos: p.pos, cards: (p.hand || []).length,
-        skip: p.skip || 0, done: !!p.done, here: !!(guestConns[p.id] || p.id === myId),
+        skip: p.skip || 0, done: !!p.done, away: !!p.away,
+        here: !!(guestConns[p.id] || p.id === myId) && !p.away,
         place: placeOf(p),
     }));
 }
@@ -1394,6 +1395,8 @@ function setupGuestConn(conn) {
         }
         if (conn._role === null) { conn._role = 'player'; guestConns[conn.peer] = conn; }
         const player = H.players.find(p => p.id === conn.peer);
+        // Anything at all from this phone is proof it's alive, so it rejoins the rotation.
+        if (player && player.away) { player.away = false; broadcastAll(); }
         switch (msg.type) {
             case 'join': {
                 const prevCap = capPlayer()?.id || null;
@@ -1404,10 +1407,25 @@ function setupGuestConn(conn) {
                 if (zombie) hostRekeyPlayer(zombie, conn.peer);
                 else hostAddPlayer(conn.peer, name, msg.seat);
                 const p2 = H.players.find(p => p.id === conn.peer);
+                if (p2) p2.away = false;                      // they're back in the rotation
                 if (p2 && msg.cid) p2.cid = msg.cid;          // this device now owns the slot
                 if (!p2) { send(conn, lobbyMsg()); break; }
                 if (H.phase === 'lobby') broadcastLobby();
                 else {
+                    // They're back before the pack gave up on them, and it is STILL their
+                    // turn. Two things have to happen or the room waits forever:
+                    //   • the 12s "they've gone" fallback armed by conn.on('close') is now
+                    //     wrong — it was going to skip them — so drop it;
+                    //   • it also *replaced* the ordinary idle-roll timer, so without
+                    //     re-arming, a player who reconnects and then puts their phone down
+                    //     has no safety net at all for this turn.
+                    if (H.turn === conn.peer && ['turn', 'choose'].includes(H.phase)) {
+                        clearHostTimers();
+                        if (H.phase === 'choose') armChoiceTimeout();
+                        else _phaseTimeout = setTimeout(() => {
+                            if (H.phase === 'turn' && H.turn === p2.id) hostRoll(p2);
+                        }, IDLE_ROLL_MS);
+                    }
                     send(conn, phaseSnapshotFor(p2));
                     broadcastViewers(viewerSnapshot());
                     if (isTvHost) tvHostSync();
@@ -1555,6 +1573,7 @@ function hostStartGame() {
     H.players.forEach(p => { p.pos = 0; p.hand = []; p.skip = 0; p.mods = []; p.route = 0; p.done = false; p.gates = {}; });
     H.build = H.settings.build ? BUILDS[rndInt(BUILDS.length)] : null;
     if (H.build && H.build.b === 'chaos') H.chaos = true;
+    H.players.forEach(p => { p.away = false; });
     H.turnOrder = H.players.map(p => p.id);
     H.turnIdx = -1;
     sStart();
@@ -1590,7 +1609,12 @@ function beginTurn() {
         if (H.turnIdx === 0 && !H.reverse) endOfRound();
         const p = turnPlayer();
         if (!p || p.done) continue;
-        if (!guestConns[p.id] && p.id !== myId) continue;     // away: their pawn waits
+        // Away, by either test. `guestConns` is the optimistic one and it LIES: a phone
+        // whose tab is closed or whose battery dies never triggers conn.on('close') — the
+        // data channel just goes quiet — so the host still lists them as connected. `p.away`
+        // is the pessimistic one, set when we actually waited IDLE_ROLL_MS for them and
+        // nothing came back. Either way their pawn waits.
+        if ((!guestConns[p.id] && p.id !== myId) || p.away) continue;
         if (p.skip > 0) { p.skip -= 1; H.msg = p.name + ' misses a turn'; continue; }
         H.turn = p.id; H.roll = null; H.moved = null; H.card = null; H.choice = null;
         // standing on a fork? choose the route before rolling, as the original demands
@@ -1598,7 +1622,14 @@ function beginTurn() {
         if (H.phase === 'choose') H.choice = { kind: 'route', who: p.id, opts: H.board[p.pos].routes };
         broadcastAll();
         if (H.phase === 'choose') armChoiceTimeout();
-        else _phaseTimeout = setTimeout(() => { if (H.phase === 'turn' && H.turn === p.id) hostRoll(p); }, IDLE_ROLL_MS);
+        else _phaseTimeout = setTimeout(() => {
+            if (H.phase !== 'turn' || H.turn !== p.id) return;
+            // We gave them IDLE_ROLL_MS and heard nothing. Roll for them so the game moves —
+            // and mark them away, so the room doesn't sit through that same wait EVERY lap.
+            // A phone that comes back clears the flag with its next message (see markHere).
+            p.away = true;
+            hostRoll(p);
+        }, IDLE_ROLL_MS);
         return;
     }
     showPodium();

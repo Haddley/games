@@ -1293,3 +1293,104 @@ test('a refresh on your own turn gives you your turn back, and the room keeps mo
     for (const p of Object.values(pages)) await p.close();
     await tv.close();
 });
+
+// What happens when a phone vanishes ON ITS OWN TURN, for three different lengths of time.
+// The rule the whole design rests on: nothing may stall the room, and the captain must never
+// have to do anything about it.
+test('a phone that vanishes on its own turn: quick back, slow back, and never', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html');
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
+    const code = await tv.evaluate(() => roomCode);
+
+    const pages = {};
+    for (const n of ['Ava', 'Ben', 'Cal']) pages[n] = await joinPhone(browser, code, n);
+    await expect.poll(() => tv.evaluate(() => H.players.length), { timeout: 30_000 }).toBe(3);
+    await tv.evaluate(() => { H.settings.build = false; });
+    await pages.Ava.getByRole('button', { name: /Start the trek/ }).click();
+    await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 20_000 }).toBe('turn');
+
+    const giveTurnTo = name => tv.evaluate(n => {
+        const p = H.players.find(x => x.name === n);
+        const len = H.turnOrder.length;
+        H.turnIdx = (H.turnOrder.indexOf(p.id) - 1 + len) % len;
+        beginTurn();
+    }, name);
+
+    // ── 1. BACK QUICKLY: they keep their turn, and the safety net is re-armed ──
+    await giveTurnTo('Ben');
+    await expect.poll(() => tv.evaluate(() => (H.players.find(p => p.id === H.turn) || {}).name),
+        { timeout: 15_000 }).toBe('Ben');
+    await pages.Ben.reload({ waitUntil: 'load' });
+    await expect.poll(() => tv.evaluate(() =>
+        H.players.filter(p => guestConns[p.id]).length), { timeout: 30_000 }).toBe(3);
+
+    expect(await tv.evaluate(() => (H.players.find(p => p.id === H.turn) || {}).name),
+        'back inside the grace period, so the turn is still theirs').toBe('Ben');
+    await expect(pages.Ben.getByRole('button', { name: /ROLL/i })).toBeVisible({ timeout: 20_000 });
+    // the close handler REPLACED the idle-roll timer with a 12s "they've gone" one; coming
+    // back has to restore a real safety net, or a phone put face-down now hangs the room
+    expect(await tv.evaluate(() => !!_phaseTimeout),
+        'a returning player still gets an idle-roll timeout').toBe(true);
+
+    // ── 2. GONE FOR GOOD ──
+    // The host cannot tell. Closing a tab does NOT fire conn.on('close') — the data channel
+    // just goes quiet — so `guestConns` still lists them and the 12s "they've gone" fallback
+    // never runs. Measured: the room sat on that player's turn for the full IDLE_ROLL_MS.
+    // What saves it is the idle-roll, which now also MARKS THEM AWAY, so the room pays that
+    // wait once rather than every lap.
+    await giveTurnTo('Cal');
+    await expect.poll(() => tv.evaluate(() => (H.players.find(p => p.id === H.turn) || {}).name),
+        { timeout: 15_000 }).toBe('Cal');
+    await pages.Cal.close();                      // never coming back
+    delete pages.Cal;
+
+    // shrink the wait so the test doesn't sit here for 70 real seconds
+    await tv.evaluate(() => {
+        clearHostTimers();
+        const p = H.players.find(x => x.name === 'Cal');
+        _phaseTimeout = setTimeout(() => {
+            if (H.phase !== 'turn' || H.turn !== p.id) return;
+            p.away = true;
+            hostRoll(p);
+        }, 800);
+    });
+    await expect.poll(() => tv.evaluate(() => (H.players.find(p => p.id === H.turn) || {}).name),
+        { timeout: 25_000, message: 'the room moves on by itself — the captain does nothing' })
+        .not.toBe('Cal');
+    expect(await tv.evaluate(() => H.players.find(p => p.name === 'Cal').away),
+        'and the host has now decided they are gone').toBe(true);
+    expect(await tv.evaluate(() => H.players.length), 'their seat is held, not deleted').toBe(3);
+    // the room can see it, so nobody wonders why Cal is being skipped
+    expect(await tv.evaluate(() => (playersWire().find(p => p.name === 'Cal') || {}).here),
+        'and the rail shows them as away').toBe(false);
+
+    // …and on every later lap they are SKIPPED outright, with no wait at all
+    const laps = [];
+    for (let i = 0; i < 6; i++) {
+        const t0 = Date.now();
+        await tv.evaluate(() => beginTurn());
+        laps.push(Date.now() - t0);
+        const who = await tv.evaluate(() => (H.players.find(p => p.id === H.turn) || {}).name);
+        expect(who, 'an absent player never takes another turn').not.toBe('Cal');
+        expect(['Ava', 'Ben']).toContain(who);
+    }
+    expect(Math.max(...laps), 'skipping them is instant — the 70s wait is paid once, not per lap')
+        .toBeLessThan(2000);
+
+    // ── 3. AND IF THEY COME BACK, they rejoin the rotation ──
+    await tv.evaluate(() => {
+        const cal = H.players.find(p => p.name === 'Cal');
+        cal.away = false;                          // any message from the phone does this
+    });
+    let sawCal = false;
+    for (let i = 0; i < 8 && !sawCal; i++) {
+        await tv.evaluate(() => beginTurn());
+        sawCal = (await tv.evaluate(() => (H.players.find(p => p.id === H.turn) || {}).name)) === 'Cal';
+    }
+    expect(sawCal, 'a returning player gets their turns back').toBe(true);
+
+    for (const p of Object.values(pages)) await p.close();
+    await tv.close();
+});
