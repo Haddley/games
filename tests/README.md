@@ -10,7 +10,16 @@ screenshots every screen so you can eyeball the UI.
 | `<game>.e2e.spec.js` | that game's full flow, lobby → play → podium (letterstorm, familytrivia, fibbers, doodleparty, oddsheep, herdmind, categoryclash, bestguess, brokenpencil, moonlightvillage, goinggone, bingo, cornerthemarket, buzzin, lastlaugh, ticktacktoe) |
 | `reconnect.e2e.spec.js` | a dropped phone rejoining its own seat, a browser refresh mid-round, the 👑 crown passing when the captain drops and returning when they rejoin |
 | `relay.e2e.spec.js` | the connection path against the **real** TURN server: forced `iceTransportPolicy:'relay'` must light 📡 on both ends; a normal link reports 🏠/🌐; `?net=0` hides the badge |
+| `shared.e2e.spec.js` | what common.js promises EVERY game: the control strip on all of them, day/night and your name carrying between games, `setHTML` keeping focus + caret, every `?mode=tvsimulation` attract mode playing itself cleanly, every launcher card resolving |
+| `dice.e2e.spec.js` | the shared die on its own: every value lands on its face, throws vary in length, no scale pop, `settleDie` snaps mid-throw, `onTick`/`onLand` fire in order |
 | `plumptrek.e2e.spec.js` | the board game end to end: Build card → a real phone roll → each Gimmick flavour (a movement card, a dare with its Done button, a kept card) → a rigged Finale → podium; plus the fork, and the self-playing demo |
+
+`unit/` alongside holds the fast, browser-free tests (`npm run test:unit`): the shared
+files' pure helpers, and Plump Trek's board maths and deck integrity.
+
+The peer-heavy specs allow **one retry** — several rooms opened back-to-back sometimes get
+throttled by the public PeerJS broker and a join never lands. That's the external service;
+don't add a retry to hide a real race.
 
 The screenshot table below is Letter Storm's (the original suite); the other
 specs follow the same naming.

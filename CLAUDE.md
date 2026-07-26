@@ -4,20 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-Multiplayer browser games served by GitHub Pages at https://haddley.github.io/games/ — published straight from the `main` branch root (`.nojekyll`). **There is no build, lint, or bundle step.** Each game is one (almost) self-contained HTML file with all CSS/JS inline; the shared dependencies are CDN scripts (PeerJS 1.5.4, qrcode-generator 1.4.4), Google Fonts, a Metered TURN relay (see "Connection transport" below), and **five small first-party shared files** at the repo root — **`common.js`**, **`p2p.js`**, **`fx.js`**, **`audio.js`** and **`ambient.js`** (see **Shared files** below). The core is **`common.js`**, which every P2P game loads via `<script src="common.js">`. It provides `ICE_CFG` (TURN config), the `rankByScore` podium helper, the shared **day/night theme + player-name prefs** and the injected top-right **control strip** (⛶ fullscreen · 🌙 day/night · 🎵 music · 🔊 sound), the shared **TV "waiting for players" lobby** (`tvLobby`), and an **ambient-scene engine** (`mountScene(theme)` / `mountMeadow()`): a themed CSS scene of figures ambling along the bottom of the TV/viewer screen (shown only under `body.viewer-mode`). Each game opts in with one line — **always guarded**: `typeof mountScene === 'function' && mountScene('pirates');` (the call sits at the TOP of the game's inline script; without the guard, a browser serving a *stale cached common.js* without `mountScene` throws a ReferenceError that halts the whole script → blank page, no QR. Keep the guard on every `mountScene`/`mountMeadow` call). Themes live in `SCENE_THEMES` in common.js (`meadow` = the CSS-drawn woolly flock for the farm games; the rest are themed emoji casts — `pirates`, `night`, `letters`, `library`, `carnival`, `art`, `bingo`, `auction`, `masks`, `mystery`, `market`, `tictactoe`, `rps`). `bingo` and `cows` are CSS-drawn actors (not emoji), like `meadow`'s flock. The scene shows under `body.viewer-mode` **or** `body.tv-mode` (ticktacktoe uses the latter). ticktacktoe loads common.js for `mountScene`, the control strip and the reconnect helpers — but still uses its own inline `TTT_PEER_OPTS` for connections, not `ICE_CFG`/`rankByScore`. index.html doesn't load common.js.
+Multiplayer browser games served by GitHub Pages at https://haddley.github.io/games/ — published straight from the `main` branch root (`.nojekyll`). **There is no build, lint, or bundle step.** Each game is one (almost) self-contained HTML file with all CSS/JS inline; the shared dependencies are CDN scripts (PeerJS 1.5.4, qrcode-generator 1.4.4), Google Fonts, a Metered TURN relay (see "Connection transport" below), and **six small first-party shared files** at the repo root — **`common.js`**, **`p2p.js`**, **`fx.js`**, **`dice.js`**, **`audio.js`** and **`ambient.js`** (see **Shared files** below). The core is **`common.js`**, which every P2P game loads via `<script src="common.js">`. It provides `ICE_CFG` (TURN config), the `rankByScore` podium helper, the shared **day/night theme + player-name prefs** and the injected top-right **control strip** (⛶ fullscreen · 🌙 day/night · 🎵 music · 🔊 sound), the shared **TV "waiting for players" lobby** (`tvLobby`), and an **ambient-scene engine** (`mountScene(theme)` / `mountMeadow()`): a themed CSS scene of figures ambling along the bottom of the TV/viewer screen (shown only under `body.viewer-mode`). Each game opts in with one line — **always guarded**: `typeof mountScene === 'function' && mountScene('pirates');` (the call sits at the TOP of the game's inline script; without the guard, a browser serving a *stale cached common.js* without `mountScene` throws a ReferenceError that halts the whole script → blank page, no QR. Keep the guard on every `mountScene`/`mountMeadow` call). Themes live in `SCENE_THEMES` in common.js (`meadow` = the CSS-drawn woolly flock for the farm games; the rest are themed emoji casts — `pirates`, `night`, `letters`, `library`, `carnival`, `art`, `bingo`, `auction`, `masks`, `mystery`, `market`, `tictactoe`, `rps`). `bingo` and `cows` are CSS-drawn actors (not emoji), like `meadow`'s flock. The scene shows under `body.viewer-mode` **or** `body.tv-mode` (ticktacktoe uses the latter). ticktacktoe loads common.js for `mountScene`, the control strip and the reconnect helpers — but still uses its own inline `TTT_PEER_OPTS` for connections, not `ICE_CFG`/`rankByScore`. index.html doesn't load common.js.
 
 `index.html` is the launcher grid — add a card there when adding a game. Each game has a companion plan (`letterstormplan.md`, `familytrivia.md`, …) written before the game was built; keep these as the reference for game rules and protocol design.
 
 ## Shared files (repo root)
 
-Five tiny, stable first-party scripts hold everything that was identical across games. Each game loads the ones it needs in `<head>` **before** its inline `<script>`, so their names are globals. **A syntax error in any of these breaks every game that loads it — always run the smoke e2e (`npx playwright test tests/smoke.e2e.spec.js`) after editing one; a `node` "new Function" parse check only catches *syntax*, not a runtime `ReferenceError`** (a stray `mode` token once parsed fine but blanked every game — see the memory note).
+Six tiny, stable first-party scripts hold everything that was identical across games. Each game loads the ones it needs in `<head>` **before** its inline `<script>`, so their names are globals. **A syntax error in any of these breaks every game that loads it — always run the smoke e2e (`npx playwright test tests/smoke.e2e.spec.js`) after editing one; a `node` "new Function" parse check only catches *syntax*, not a runtime `ReferenceError`** (a stray `mode` token once parsed fine but blanked every game — see the memory note).
 
 - **`common.js`** — the P2P/UI core: `ICE_CFG` (TURN), `rankByScore` podium helper, the ambient-scene engine (`mountScene`/`SCENE_THEMES`), the shared TV lobby (`tvLobby`), the injected top-right **control strip** (`mountControls`: ⛶ fullscreen · 🌙 day/night · 🎵 music · 🔊 sound — self-mounts on `DOMContentLoaded`, reusing the game's `#sound-togs`/`.audio-togs` container), shared prefs (`savedName`/`saveName` via any `<input data-save-name>` + the shared `games-name` key; `savedTheme`/`applySavedTheme`/`toggleTheme` + `body.day` light mode + the shared `games-theme` key), and the **connection-resilience helpers**: `clientId()` (per-tab device id in sessionStorage, sent with every `join` so a host can match a returning player), `rememberRoom`/`savedRoom`/`forgetRoom` (per-tab memory of the room, so a refresh rejoins), `setNetState('relay'|'stun'|'local'|'checking'|'none')` / `setRelayBadge(on)` (the connection-path button in the strip — **every game shows it once connected**, naming the mechanism that actually got the two devices talking: 📡 TURN relay, 🌐 STUN hole-punch (direct across networks), 🏠 same wifi/LAN (no server at all), ⏳ still settling, `'none'` = not in a room, badge hidden. Tapping explains it. `?net=0` on any game URL hides it for good, `?net=1` restores it, sticky per browser) and `setHTML(el, html)` (innerHTML swap that blurs/restores focus so a phase change can't strand the iOS keyboard — every game's `render()` goes through it, guarded). Every P2P game loads it; `index.html` loads it too (for the strip + theme).
 - **`p2p.js`** — PeerJS hardening: `makeRoomCode()`, `hostPeer(fullId,{…})` (broker-drop reconnect), `joinPeer({…})` (join retry **and** mid-game auto-rejoin), `p2pCurtain(on)` (the self-contained "Reconnecting…" overlay) and `p2pWatchRelay(conn)` / `p2pPath()` (polls `getStats()` for the selected candidate pair and maps its candidate types to relay/srflx+prflx/host → `setNetState`; tries `transport.selectedCandidatePairId`, then a nominated/succeeded pair, then the raw candidate list for older WebKit, and accepts WebKit's `relayed` spelling. A host holding several connections shows the most notable path: relay > stun > local). Every P2P game routes `new Peer` through these (always with `ICE_CFG`). A game opts into auto-rejoin by passing `onLost: () => { connected = false; }` to `joinPeer`; `onGiveUp(wasIn)` says whether it was a failed join or a lost game.
 - **`fx.js`** — visual FX: `burst(x,y,colors,n)` (particles; self-contained `.fxp` CSS), `popText(x,y,text,cls)` (floating text; uses the game's own `.pop` CSS), `startConfetti(ms,cols)` (owns one `#fx-confetti` canvas; reads the game's `const CONFETTI_COLS`). All early-return on a global `REDUCED`. (`emojiRain`/`flashEdge` are still inline in the 1–2 games that use them.)
+- **`dice.js`** — a rollable 3D die: `diceHTML({id, value, sides, cls})` for the markup, `throwDie(id, value, {onTick, onLand})` to roll it (returns the duration it picked), `settleDie(id, value)` to snap to a face. Injects its own namespaced CSS on **first use**, so a game that never rolls pays nothing; size and skin are CSS variables (`--d3d-size`, `--d3d-bg`, `--d3d-ink`…). Makes no sound — pass `onTick`/`onLand` and play your game's own stingers. Values over 6 switch to numerals. Used by plumptrek. **liarsdice deliberately does NOT use it** — see the note below.
 - **audio — pick exactly ONE profile per game:**
   - **`audio.js`** — the full step-sequencer engine's byte-identical core (`tone()`, `startMusicLoop()`). A game using it still writes inline `ac()`, `TRACKS`, `playMusicStep()`, `setMusic()`, `duckMusic()` and its `s*` stingers — those are hand-tuned per game. Used by the 15 music games.
   - **`ambient.js`** — the *lightweight* alternative: a drifting chord pad + simple `tone()` + SFX bus (`ac`, `tone`, `duck`, `startPad`/`stopPad`; pad mood via `const AMBIENT_CHORDS`). Almost no authoring — good default for a new game that doesn't need composed music. Used by rockpaperscissors. **Never load both** (both define `ac()`/`tone()`).
+
+**Why liarsdice keeps its own dice.** `dieSVG(face, {size, hi, dim, anim})` in liarsdice.html is not duplication to be tidied away. Its dice do a different job: up to 40 on screen at once, read at a glance in three *states* that carry the game's meaning (`hi` = matches the bid at the reveal, `dim` = doesn't), at half a dozen sizes down to 28px, in a weathered-bone pirate skin. Flat SVG is right for that; forty 3D cubes would be heavier and less legible, and the component has no concept of hi/dim. `dice.js` is for a single hero die that gets *thrown*. Don't unify them.
 
 ticktacktoe is the partial exception: it keeps its own class-based connection code and inline `TTT_PEER_OPTS` + audio (and its TV room runs a **knockout tournament** — `this.tour`, see `ticktacktoeplan.md`), but loads `common.js` (for `mountScene`, the strip, `clientId`, `rememberRoom`) and `p2p.js` (only for `p2pCurtain` + `p2pWatchRelay`, both called through guarded `ttt*` wrappers).
 
@@ -25,7 +28,7 @@ ticktacktoe is the partial exception: it keeps its own class-based connection co
 
 ```sh
 npm install && npx playwright install chromium   # one-time setup
-npm run test:unit                                # fast unit tests for common.js (Node built-in runner, no browser)
+npm run test:unit                                # fast unit tests, no browser (common.js, p2p.js, dice.js, plumptrek logic)
 npm run test:e2e                                 # all E2E tests (headless)
 npm run test:e2e:headed                          # watch the games play
 npx playwright test tests/smoke.e2e.spec.js      # broad smoke net (every game loads + scene + square QR)
@@ -33,14 +36,36 @@ npx playwright test tests/familytrivia.e2e.spec.js   # one game's suite
 python3 -m http.server 8231                      # manual dev server (Playwright starts its own)
 ```
 
-`unit/` holds pure-JS unit tests for `common.js` (`node --test`, no deps). `tests/`
+`unit/` holds pure-JS unit tests (`node --test`, no deps): `common.js` helpers and its
+storage/badge state, `p2p.js`'s room codes + error classes + ICE-candidate mapping,
+`dice.js`'s pips and orientations, and Plump Trek's board maths. Browser scripts are
+tested by evaluating the file with `new Function` and pulling out the names — pass
+`sessionStorage`/`localStorage`/`location` as **function parameters** to stub them
+without touching globals (see `unit/common-prefs.test.js`). For a game's inline script,
+slice the block you want out of the HTML by its declaration (`unit/plumptrek.test.js`).
+
+**Test data against the code that reads it.** Plump Trek's cards are data interpreted by
+`applyOps`, so `unit/plumptrek.test.js` greps the engine for the ops/kinds/ids it
+actually implements and asserts every card only uses those — a typo'd key used to leave a
+card that silently did nothing and failed no test. Worth copying for any data-driven
+content.
+
+`tests/`
 holds the Playwright e2e specs, incl. `smoke.e2e.spec.js` which loads **every** game
 and asserts common.js is wired, the ambient scene builds, the TV-lobby QR is square,
 a stale `common.js` can't blank a game, and the 📡 relay badge + reconnect curtain
 mount/unmount. `reconnect.e2e.spec.js` covers the resilience end to end (a dropped
 phone rejoining its seat, a browser refresh, the crown passing and coming back);
 `ticktacktoe.e2e.spec.js` does the same for its bespoke connection code; `relay.e2e.spec.js`
-forces `iceTransportPolicy:'relay'` so a real TURN-relayed link must light the 📡 badge.
+forces `iceTransportPolicy:'relay'` so a real TURN-relayed link must light the 📡 badge;
+`shared.e2e.spec.js` checks what common.js promises EVERY game (control strip, prefs
+carrying between games, focus surviving a re-render, every attract mode playing itself,
+every launcher card resolving); `dice.e2e.spec.js` tests the die component on its own.
+
+The peer-heavy specs set `test.describe.configure({ retries: 1 })`: several rooms opened
+in quick succession sometimes get throttled by the **public** PeerJS broker and a join
+never lands. That's the shared external service, not a game — but don't reach for a retry
+to paper over a real race.
 
 Remember that a direct connection is the *normal* result even for two phones on
 different networks — STUN hole-punches through most home NATs, and TURN only takes
@@ -117,14 +142,14 @@ couple of goes to get right — copy them rather than reinventing:
   rows apart. Every square carries its number, and a chevron sits in the *gap* after it
   (`.sqa.r/.l/.d`), so the route is a continuous chain from START to WIN. Square size
   scales with the row count (`--sqs`) so an epic board still fits a 1080p screen.
-- **The die.** A real CSS cube (`.cube` + six pipped `.face`es, `FACE_ROT` maps a value
-  to the rotation that brings its face forward), thrown with a randomised duration and a
-  spin that scales with it, so no two throws look alike. The landing is the easing curve
-  over-rotating slightly and rocking back — **not** a scale pop, and **not** a low thud
-  with a music duck; both were tried and both read as a separate event bolted onto the
-  end rather than the die settling. Throws are capped under `DIE_WAIT`, the beat the host
-  holds before walking the pawn, so the die has always landed before the piece moves.
-  Over 6 shows numerals instead of pips (the SPEEDRUN build swaps in a d20).
+- **The die** now lives in **`dice.js`** (extracted so any game can roll one); this game
+  supplies only its size/skin via `.die` and its own rattle through `onTick`/`onLand`.
+  Worth knowing about the motion, because it took several goes: the landing is the easing
+  curve over-rotating slightly and rocking back — **not** a scale pop, and **not** a low
+  thud with a music duck. Both were tried; both read as a separate event bolted onto the
+  end rather than the die settling. The duration the component picks is always under
+  `DIE_WAIT`, the beat the host holds before walking the pawn, so the die has landed
+  before the piece moves.
 
 Inspired by Chungus Odyssey 2 (TTS) — mechanics only; the cast, cards and art are ours,
 and the source pack is gitignored, not in the repo. See `plumptrekplan.md`.

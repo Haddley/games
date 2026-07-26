@@ -73,6 +73,27 @@ Every P2P game routes its `new Peer` calls through these — always with `ICE_CF
 The full story, including browser quirks and the symptom→cause table, is in
 [connection-and-reconnect.md](connection-and-reconnect.md).
 
+## `dice.js` — a rollable 3D die
+
+`diceHTML({id, value, sides, cls})` → markup; `throwDie(id, value, {onTick, onLand})` →
+rolls it and **returns the duration it picked** (0.62–1.4s, varied per throw, with the
+spin scaled to match so a long throw tumbles more rather than slower); `settleDie(id,
+value)` → snap to a face with no animation, for a re-render landing mid-throw.
+
+Self-contained: namespaced `.d3d*` CSS injected on **first use**, so a game that never
+rolls a die pays nothing for loading the file. Size and skin are CSS variables
+(`--d3d-size`, `--d3d-box`, `--d3d-bg`, `--d3d-ink`, `--d3d-pip`). Silent by design —
+SFX are per-game, so pass `onTick(duration)` / `onLand()` and play your own.
+
+The landing deliberately comes from the easing curve over-rotating onto the face. A scale
+pop and a low thud-plus-music-duck were both tried and both read as a separate event
+stapled to the end of the roll rather than a die settling.
+
+**Not used by liarsdice, on purpose.** Its `dieSVG(face, {size, hi, dim, anim})` draws up
+to 40 flat dice at once, in three states that carry meaning (`hi` = matches the bid at the
+reveal, `dim` = doesn't), down to 28px, in a bone-and-brass pirate skin. That's a different
+job from one hero die being thrown, and the component has no notion of hi/dim.
+
 ## `fx.js` — visual FX
 
 - **`burst(x, y, colors, n=14)`** — particle explosion; self-contained (injects its own
@@ -119,6 +140,7 @@ the guard — the page has already loaded by then.
 
 ## Who loads what
 
+- **plumptrek** additionally loads **`dice.js`** for its die.
 - **The 18 P2P party games** load `common.js` + `p2p.js` + `fx.js`, and one audio profile:
   bestguess, bingo, letterstorm, brokenpencil, buzzin, categoryclash, cornerthemarket,
   doodleparty, familytrivia, fibbers, goinggone, herdmind, lastlaugh, liarsdice,

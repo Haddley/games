@@ -37,13 +37,12 @@ function grab(start, end) {
 const api = new Function(CONTENT + `
 ;return { GIMMICKS, FINALES, BUILDS, makeBoard, BOARD_LENS, seedRng, rnd, rndInt, rshuffle, SPACE_LABEL };`)();
 const { GIMMICKS, FINALES, BUILDS, makeBoard, BOARD_LENS, seedRng, rnd, rshuffle } = api;
-const { placeSquare, BOARD_RUN, PIPS, FACE_ROT } = new Function([
+const { placeSquare, BOARD_RUN } = new Function([
     grab('const BOARD_RUN', ';'),
     grab('function placeSquare(k) {', '\n}'),
-    grab('const PIPS = {', '\n};'),
-    grab('const FACE_ROT = {', '\n};'),
-    'return { placeSquare, BOARD_RUN, PIPS, FACE_ROT };',
+    'return { placeSquare, BOARD_RUN };',
 ].join('\n'))();
+// the die itself is dice.js now — see unit/dice.test.js
 
 // ── the seeded RNG: same seed, same game ─────────────────────────────────────
 test('seedRng: the same seed replays the same numbers', () => {
@@ -173,31 +172,6 @@ test('placeSquare: no two squares share a cell', () => {
         assert.ok(!seen.has(key), `square ${k + 1} lands on top of another at ${key}`);
         seen.add(key);
     }
-});
-
-// ── the die ──────────────────────────────────────────────────────────────────
-test('PIPS: each face has the right number of dots, in a symmetric layout', () => {
-    for (let v = 1; v <= 6; v++) {
-        assert.ok(PIPS[v], `face ${v} exists`);
-        assert.strictEqual(PIPS[v].length, v, `face ${v} has ${v} pips`);
-        PIPS[v].forEach(i => assert.ok(i >= 0 && i < 9, 'pips sit in the 3×3 grid'));
-        assert.strictEqual(new Set(PIPS[v]).size, v, 'no pip drawn twice');
-    }
-});
-test('PIPS: odd faces use the centre, even faces never do', () => {
-    for (const v of [1, 3, 5]) assert.ok(PIPS[v].includes(4), `face ${v} has a middle pip`);
-    for (const v of [2, 4, 6]) assert.ok(!PIPS[v].includes(4), `face ${v} has no middle pip`);
-});
-test('FACE_ROT: every face has a rotation that brings it forward', () => {
-    for (let v = 1; v <= 6; v++) {
-        assert.ok(Array.isArray(FACE_ROT[v]), `face ${v}`);
-        assert.strictEqual(FACE_ROT[v].length, 2, 'an X and a Y rotation');
-        FACE_ROT[v].forEach(deg => assert.ok(Math.abs(deg) % 90 === 0, 'square angles only'));
-    }
-});
-test('FACE_ROT: no two faces share a rotation', () => {
-    const seen = new Set(Object.values(FACE_ROT).map(r => r.join(',')));
-    assert.strictEqual(seen.size, 6, 'six distinct orientations');
 });
 
 // ── deck integrity: no card may quietly do nothing ───────────────────────────

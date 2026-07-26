@@ -7,7 +7,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%231a0f24' width='100' height='100' rx='20'/><text x='50' y='70' font-size='54' text-anchor='middle'>🐇</text></svg>">
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-    <script src="common.js"></script><script src="fx.js"></script><script src="audio.js"></script>
+    <script src="common.js"></script><script src="fx.js"></script><script src="audio.js"></script><script src="dice.js"></script>
     <script src="p2p.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -376,33 +376,9 @@
         /* the stage: die, drawn card, finale */
         .stage { text-align: center; }
         .stlbl { font-size: 1.5vmin; letter-spacing: .28vmin; text-transform: uppercase; color: var(--muted); font-weight: 900; margin-bottom: 1.2vmin; }
-        /* ── The die ──────────────────────────────────────────────────────────
-           A real cube: six pipped faces in 3D, thrown with a few full turns and
-           eased to a stop on the face it rolled, then a landing bump. A flat
-           spinning square reads as a card; this reads as a die. */
-        .die { width: 16vmin; height: 16vmin; margin: 0 auto; display: flex; align-items: center; justify-content: center;
-            perspective: 60vmin; }
-        .cube { position: relative; width: 11vmin; height: 11vmin; transform-style: preserve-3d;
-            transform: rotateX(-22deg) rotateY(28deg); }
-        /* The overshoot in this curve IS the landing: the cube rotates a few degrees
-           past the face and rocks back onto it. Dice don't grow, so nothing scales. */
-        .cube.throwing { transition: transform 1.05s cubic-bezier(.16,.78,.28,1.045); }   /* duration set per throw */
-        .face { position: absolute; inset: 0; border-radius: 1.6vmin; display: grid; padding: 1.1vmin;
-            grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
-            background: linear-gradient(150deg, #fffdf6, #ffd98a); border: 1px solid rgba(120,80,0,.25);
-            box-shadow: inset 0 0 2vmin rgba(160,110,0,.25); backface-visibility: hidden; }
-        .face .pip { width: 1.9vmin; height: 1.9vmin; border-radius: 50%; align-self: center; justify-self: center;
-            background: radial-gradient(circle at 35% 30%, #6b4a12, #241503);
-            box-shadow: inset 0 -.2vmin .2vmin rgba(0,0,0,.4); }
-        .face .num { grid-column: 1 / -1; grid-row: 1 / -1; align-self: center; justify-self: center;
-            font-family: 'Fraunces', serif; font-weight: 900; font-size: 5.5vmin; color: #2b1a00; }
-        .f1 { transform: translateZ(5.5vmin); }
-        .f6 { transform: rotateY(180deg) translateZ(5.5vmin); }
-        .f3 { transform: rotateY(90deg) translateZ(5.5vmin); }
-        .f4 { transform: rotateY(-90deg) translateZ(5.5vmin); }
-        .f2 { transform: rotateX(90deg) translateZ(5.5vmin); }
-        .f5 { transform: rotateX(-90deg) translateZ(5.5vmin); }
-        @media (prefers-reduced-motion: reduce) { .cube.throwing { transition: none; } }
+        /* ── The die ── the cube itself is dice.js; this is just its size and skin ── */
+        .die { --d3d-box: 16vmin; --d3d-size: 11vmin; --d3d-persp: 60vmin;
+            --d3d-bg: linear-gradient(150deg, #fffdf6, #ffd98a); --d3d-ink: #2b1a00; }
         .bigmsg { margin-top: 1.4vmin; font-weight: 900; font-size: 2vmin; color: var(--text); }
         .gcard, .fcard, .bcard { border-radius: 1.6vmin; padding: 14px 16px; text-align: center;
             background: linear-gradient(160deg, #fffaf0, #f3e6cf); color: #2a1c0c; box-shadow: 0 8px 26px rgba(0,0,0,.45); }
@@ -1799,69 +1775,31 @@ function guestSend(m) {
 // ═══════════════════════════════════════════
 // TV — message handling
 // ═══════════════════════════════════════════
-// Pip layouts: which of the 3×3 cells carry a dot, for each face value.
-const PIPS = {
-    1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
-};
-function faceHTML(v, n) {
-    // over 6 (the SPEEDRUN build swaps in a d20) pips stop making sense — use the numeral
-    if (n != null && n > 6) return `<div class="face f${v}"><span class="num">${v === 1 ? n : 1 + Math.floor(Math.random() * 20)}</span></div>`;
-    const on = new Set(PIPS[v] || []);
-    return `<div class="face f${v}">${Array.from({ length: 9 }, (_, i) => on.has(i) ? '<span class="pip"></span>' : '<span></span>').join('')}</div>`;
-}
+// The die is the shared component (dice.js) — this game only supplies its size, its skin
+// (see .die in the CSS) and its own rattle.
 function dieHTML(roll) {
-    return `<div class="die"><div class="cube" id="v-cube">${[1, 2, 3, 4, 5, 6].map(v => faceHTML(v, roll)).join('')}</div></div>`;
+    return typeof diceHTML === 'function'
+        ? diceHTML({ id: 'v-cube', value: roll, sides: dieMax(), cls: 'die' })
+        : `<div class="die">${roll != null ? roll : '🎲'}</div>`;      // stale dice.js: still readable
 }
-// Bring face `v` to the front: the inverse of how that face was placed on the cube.
-const FACE_ROT = {
-    1: [0, 0], 2: [-90, 0], 3: [0, -90], 4: [0, 90], 5: [90, 0], 6: [0, 180],
-};
 
 // The die tumbles before it settles — the host already knows the number, but watching
 // it land is most of the fun of rolling.
-let _dieSpin = null;
 function spinDie(finalN) {
-    clearTimeout(_dieSpin);
-    const cube = document.getElementById('v-cube');
-    if (!cube) return;
-    const face = finalN > 6 ? 1 : finalN;                    // d20 lands on the numeral face
-    const [fx, fy] = FACE_ROT[face] || [0, 0];
-    if (REDUCED) { cube.style.transform = `rotateX(${fx}deg) rotateY(${fy}deg)`; return; }
-
-    // No two throws alike: a real die sometimes skitters and sometimes drops dead. The
-    // duration varies, and the spin varies WITH it — a long throw genuinely tumbles more
-    // rather than just running in slow motion. Capped so it always lands before the pawn
-    // sets off (the host waits DIE_WAIT).
-    const dur = 620 + Math.floor(Math.random() * 780);           // 0.62s – 1.4s
-    const turns = 2 + Math.round(dur / 420);
-    cube.classList.remove('throwing');
-    cube.style.transform = `rotateX(${-40 + Math.random() * 80}deg) rotateY(${-40 + Math.random() * 80}deg)`;
-    sDiceRoll(dur);
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-        cube.classList.add('throwing');
-        cube.style.transitionDuration = dur + 'ms';
-        cube.style.transform = `rotateX(${fx + 360 * turns}deg) rotateY(${fy + 360 * (turns + 1)}deg)`;
-    }));
-    _dieSpin = setTimeout(() => {
-        const c = document.getElementById('v-cube');
-        if (!c) return;
-        sDiceLand();
-        // only after a real tap — Chrome logs a console error for a blocked vibrate,
-        // which is noise in the attract mode and fails the demo's clean-run test
-        if (_audioUnlocked) { try { navigator.vibrate && navigator.vibrate(35); } catch (e) {} }
-    }, dur + 20);
+    if (typeof throwDie !== 'function') return;
+    throwDie('v-cube', finalN, {
+        onTick: dur => sDiceRoll(dur),
+        onLand: () => {
+            sDiceLand();
+            // only after a real tap — Chrome logs a console error for a blocked vibrate,
+            // which is noise in the attract mode and fails the demo's clean-run test
+            if (_audioUnlocked) { try { navigator.vibrate && navigator.vibrate(35); } catch (e) {} }
+        },
+    });
 }
 
 // A re-render (someone joined, a card landed) must not leave the die mid-throw.
-function settleDie(n) {
-    const cube = document.getElementById('v-cube');
-    if (!cube) return;
-    clearTimeout(_dieSpin);
-    const [fx, fy] = FACE_ROT[n > 6 ? 1 : n] || [0, 0];
-    cube.classList.remove('throwing');                 // snap, don't animate the correction
-    cube.style.transitionDuration = '';
-    cube.style.transform = `rotateX(${fx}deg) rotateY(${fy}deg)`;
-}
+function snapDie(n) { if (typeof settleDie === 'function') settleDie('v-cube', n); }
 
 function applyViewerMsg(msg) {
     if (!msg) return;
@@ -1872,7 +1810,7 @@ function applyViewerMsg(msg) {
     setMusic(msg.type === 'viewer_lobby' ? 'lobby' : msg.phase === 'podium' ? 'over' : msg.phase === 'finale' ? 'finale' : 'game');
     render();
     if (msg.phase === 'moving' && msg.roll != null && !msg.moved) spinDie(msg.roll);
-    else if (msg.roll != null) settleDie(msg.roll);
+    else if (msg.roll != null) snapDie(msg.roll);
     if (msg.phase === 'card' && prevPhase !== 'card') sPlay();
     if (msg.phase === 'finale' && prevPhase !== 'finale') sFlip();
     if (msg.phase === 'podium' && prevPhase !== 'podium') { sWin(); startConfetti(3200); }
