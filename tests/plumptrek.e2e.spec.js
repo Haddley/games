@@ -13,6 +13,11 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 
+// Each test opens a TV plus 2–3 phones, i.e. several PeerJS peers in quick succession.
+// The public broker occasionally throttles a burst of registrations, which shows up as a
+// join that never completes — a network flake, not a game bug. One retry covers it.
+test.describe.configure({ retries: 1 });
+
 const PHONE = { width: 390, height: 844 };
 const TV = { width: 1920, height: 1080 };
 const SHOTS = 'screenshots';
@@ -232,6 +237,175 @@ test('the fork: picking a path actually works', async ({ browser }) => {
     }, who), { timeout: 15_000 }).toBe(true);
 
     expect(errs, errs.join('\n')).toEqual([]);
+    for (const p of Object.values(pages)) await p.close();
+    await tv.close();
+});
+
+// ── Build cards bend a rule for the whole game ────────────────────────────────
+test('the SPEEDRUN build swaps the d6 for a d20', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+    await tv.evaluate(() => { clearInterval(simTimer); clearTimeout(simTimer); clearHostTimers(); });
+
+    expect(await tv.evaluate(() => dieMax())).toBe(6, 'a plain game rolls a d6');
+    await tv.evaluate(() => { H.build = BUILDS.find(b => b.b === 'd20'); });
+    expect(await tv.evaluate(() => dieMax())).toBe(20);
+
+    // and over six, the cube shows numerals instead of pips (pips stop making sense)
+    const html = await tv.evaluate(() => dieHTML(17));
+    expect(html).toContain('num');
+    expect(await tv.evaluate(() => dieHTML(4))).toContain('pip');
+    await tv.close();
+});
+
+test('HANDICAP halves the leader\'s roll; FAMILY helps last place', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+    await tv.evaluate(() => { clearInterval(simTimer); clearTimeout(simTimer); clearHostTimers(); });
+
+    // rig a clear leader and a clear last place, then roll each of them many times
+    const stats = await tv.evaluate(() => {
+        H.build = BUILDS.find(b => b.b === 'handicap');
+        H.players[0].pos = 20; H.players[1].pos = 10; H.players[2].pos = 1;
+        const rolls = { leader: [], last: [] };
+        for (let i = 0; i < 60; i++) {
+            for (const who of ['leader', 'last']) {
+                const p = who === 'leader' ? H.players[0] : H.players[2];
+                const keep = p.pos;
+                H.phase = 'turn'; H.turn = p.id; p.mods = [];
+                hostRoll(p);
+                rolls[who].push(H.roll);
+                p.pos = keep;
+                clearHostTimers();
+            }
+        }
+        return rolls;
+    });
+    expect(Math.max(...stats.leader)).toBeLessThanOrEqual(3, 'the leader never rolls more than half of six');
+    expect(Math.max(...stats.last)).toBeGreaterThan(3, 'everyone else rolls normally');
+    await tv.close();
+});
+
+// ── a Finale mini-game, played for real ──────────────────────────────────────
+test('the Rock finale: second place is dragged up for rock-paper-scissors', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html');
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
+    const code = await tv.evaluate(() => roomCode);
+
+    const pages = {};
+    for (const n of ['Ava', 'Ben', 'Cal']) pages[n] = await joinPhone(browser, code, n);
+    await expect.poll(() => tv.evaluate(() => H.players.length), { timeout: 30_000 }).toBe(3);
+    await pages.Ava.getByRole('button', { name: /Start the trek/ }).click();
+    await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 20_000 }).toBe('turn');
+
+    // force the Rock finale, and a known 1st/2nd so we know who duels
+    await tv.evaluate(() => {
+        FINALES.length = 1;
+        FINALES[0] = { t: 'Rock.', x: 'Second place joins you: rock, paper, scissors.', k: 'rps' };
+        H.players[0].pos = 5; H.players[1].pos = 4; H.players[2].pos = 1;
+    });
+    await tv.evaluate(() => {
+        const p = H.players[0];
+        H.turn = p.id; H.phase = 'turn';
+        p.pos = H.board.findIndex(s => s.t === 'finale') - 1; p.mods = [];
+        H.roll = 1; walk(p, 1);
+    });
+
+    await expect.poll(() => tv.evaluate(() => H.finaleState && H.finaleState.kind), { timeout: 30_000 }).toBe('rps');
+    const duel = await tv.evaluate(() => ({
+        a: (H.players.find(p => p.id === H.finaleState.a) || {}).name,
+        b: (H.players.find(p => p.id === H.finaleState.b) || {}).name,
+    }));
+    expect([duel.a, duel.b].sort()).toEqual(['Ava', 'Ben'], 'first and second place duel');
+
+    // both duellists get three throw buttons; the watcher gets none
+    await expect(pages[duel.a].locator('.opts.rps .opt')).toHaveCount(3, { timeout: 25_000 });
+    await expect(pages.Cal.locator('.opts.rps .opt')).toHaveCount(0);
+    await shot(tv, 'pt-12-tv-finale-rps');
+
+    // paper beats rock — and the winner takes the whole game
+    await expect(pages[duel.b].locator('.opts.rps .opt')).toHaveCount(3, { timeout: 25_000 });
+    await pages[duel.a].locator('.opts.rps .opt').nth(1).click();     // paper
+    await pages[duel.b].locator('.opts.rps .opt').nth(0).click();     // rock
+    await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 20_000 }).toBe('podium');
+    expect(await tv.evaluate(() => H.lastPodium.standings[0].name)).toBe(duel.a);
+
+    for (const p of Object.values(pages)) await p.close();
+    await tv.close();
+});
+
+// ── STOP gates ───────────────────────────────────────────────────────────────
+test('a STOP gate holds you up until you roll big enough', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html?mode=tvsimulation&players=3');
+    await expect(tv.locator('.sq').first()).toBeVisible({ timeout: 15_000 });
+    await tv.evaluate(() => { clearInterval(simTimer); clearTimeout(simTimer); clearHostTimers(); });
+
+    const out = await tv.evaluate(() => {
+        const gate = H.board.findIndex(s => s.t === 'gate' && !s.sc);
+        const need = H.board[gate].need;
+        const p = H.players[0];
+        p.pos = gate - 2; p.gates = {};
+        H.roll = need - 1;                   // under what the gate asks: it stops them
+        walk(p, need - 1 + 2);
+        const stoppedAt = p.pos;
+        return { gate, stoppedAt, need, tries: p.gates['g' + gate] || 0 };
+    });
+    expect(out.stoppedAt, 'held at the gate rather than sailing past').toBe(out.gate);
+    expect(out.tries).toBe(1, 'the gate remembers the attempt');
+
+    // a big enough roll gets through
+    const through = await tv.evaluate(gate => {
+        const p = H.players[0];
+        p.pos = gate - 1;
+        H.roll = 6;
+        walk(p, 6);
+        return p.pos;
+    }, out.gate);
+    expect(through).toBeGreaterThan(out.gate, 'a big roll clears it');
+    await tv.close();
+});
+
+// ── a sabotage card asks the room a question ──────────────────────────────────
+test('Sabotage! makes the drawer pick a victim, who then misses a turn', async ({ browser }) => {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html');
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
+    const code = await tv.evaluate(() => roomCode);
+
+    const pages = {};
+    for (const n of ['Ava', 'Ben']) pages[n] = await joinPhone(browser, code, n);
+    await expect.poll(() => tv.evaluate(() => H.players.length), { timeout: 30_000 }).toBe(2);
+    await pages.Ava.getByRole('button', { name: /Start the trek/ }).click();
+    await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 20_000 }).toBe('turn');
+
+    await stackDeck(tv, 'Sabotage!');
+    const m = await landOn(tv, 'gimmick');
+    await expect.poll(() => tv.evaluate(() => H.choice && H.choice.kind), { timeout: 30_000 }).toBe('sabotage');
+
+    // only the drawer chooses, and they get one button per rival
+    const chooser = pages[m.who];
+    await expect(chooser.locator('.opt')).toHaveCount(1, { timeout: 25_000 });   // one rival
+    const other = ['Ava', 'Ben'].find(n => n !== m.who);
+    await expect(pages[other].locator('.opt')).toHaveCount(0, 'only the drawer chooses');
+    await shot(chooser, 'pt-13-phone-sabotage');
+
+    const victim = (await chooser.locator('.opt').first().textContent()).trim();
+    await chooser.locator('.opt').first().click();
+    // The room is told who lost a turn. Don't assert on p.skip: if the victim happens to be
+    // next up, beginTurn spends it (and rewords the message to "misses a turn") before we
+    // could look — so accept either wording, and check it names the player we picked.
+    await expect.poll(() => tv.evaluate(() => H.msg || ''), { timeout: 20_000 })
+        .toMatch(/(loses|misses) a turn/);
+    const msg = await tv.evaluate(() => H.msg);
+    const named = msg.replace(/ (loses|misses) a turn/, '').trim();
+    expect(victim, `announced "${msg}" but the button said "${victim}"`).toContain(named);
+
     for (const p of Object.values(pages)) await p.close();
     await tv.close();
 });

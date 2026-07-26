@@ -1546,8 +1546,17 @@ function armChoiceTimeout() {
 }
 function hostChoose(player, value) {
     clearTimeout(_choiceTimeout);
+    if (!player) return;
+    // The Finale mini-games take input WITHOUT setting H.choice — the duellists throw, or
+    // the room votes — so they have to be handled before the H.choice guard, which would
+    // otherwise drop every throw on the floor and hang the game at the finale.
+    const st = H.finaleState;
+    if (H.phase === 'finale' && st) {
+        if (st.kind === 'rps' && (player.id === st.a || player.id === st.b)) { finaleRps(player, value); return; }
+        if (st.kind === 'vote') { finaleVote(player, value); return; }
+    }
     const c = H.choice;
-    if (!c || !player || player.id !== c.who) return;
+    if (!c || player.id !== c.who) return;
     if (c.kind === 'route') {
         player.route = Number(value) === 1 ? 1 : 0;
         H.choice = null; H.phase = 'turn'; H.msg = player.name + ' took ' + (player.route ? 'the short cut' : 'the long way');
@@ -1837,7 +1846,9 @@ function spinDie(finalN) {
         const c = document.getElementById('v-cube');
         if (!c) return;
         sDiceLand();
-        try { navigator.vibrate && navigator.vibrate(35); } catch (e) {}
+        // only after a real tap — Chrome logs a console error for a blocked vibrate,
+        // which is noise in the attract mode and fails the demo's clean-run test
+        if (_audioUnlocked) { try { navigator.vibrate && navigator.vibrate(35); } catch (e) {} }
     }, dur + 20);
 }
 

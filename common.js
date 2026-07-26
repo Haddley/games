@@ -501,12 +501,17 @@ function mountControls() {
 // focus and the caret back if the same field is still on the new screen.
 function setHTML(el, html) {
     const a = document.activeElement;
-    const id = (a && a.id && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA') && el.contains(a)) ? a.id : null;
+    const typing = !!(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA') && el.contains(a));
+    // Prefer the id; fall back to the shared name field, which the games render WITHOUT
+    // an id — and which is exactly where a re-render lands while you're still typing
+    // (someone else joins the lobby, the screen redraws, your name loses the caret).
+    const id = typing && a.id ? a.id : null;
+    const byName = typing && !id && a.hasAttribute('data-save-name');
     let s = 0, e = 0;
-    if (id) { try { s = a.selectionStart; e = a.selectionEnd; } catch (_) {} a.blur(); }
+    if (typing) { try { s = a.selectionStart; e = a.selectionEnd; } catch (_) {} a.blur(); }
     el.innerHTML = html;
-    if (!id) return;
-    const n = document.getElementById(id);
+    if (!typing) return;
+    const n = id ? document.getElementById(id) : (byName ? el.querySelector('input[data-save-name]') : null);
     if (!n) return;
     try { n.focus({ preventScroll: true }); n.setSelectionRange(s, e); } catch (_) {}
 }

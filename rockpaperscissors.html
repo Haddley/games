@@ -566,7 +566,11 @@ function setupGuestConn(conn) {
 function applyMsg(msg) {
     D = msg;
     switch (msg.type) {
-        case 'lobby': ui = 'lobby_g'; break;
+        // A phone HOST must land on its own lobby (which carries the Start button);
+        // sending it to the guest lobby left the host with no way to start the game at
+        // all once somebody joined — the guest lobby's start is captain-only, and a
+        // phone-hosted room has no captain.
+        case 'lobby': ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g'; break;
         case 'throw': ui = 'throw'; break;
         case 'reveal': ui = 'reveal'; break;
         case 'over': ui = 'over'; break;
