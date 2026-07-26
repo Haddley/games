@@ -100,6 +100,12 @@ The P2P pattern is identical across `boggle.html`, `cornerthemarket.html`, `lett
   it, so the room pays that wait **once** instead of every lap. A heartbeat in `p2p.js` would
   be the proper fix and would also stop a dead phone holding the crown. See
   `llmwiki/connection-and-reconnect.md`.
+- **Nothing may require a captain to notice.** Plump Trek recovers from a dropped phone by
+  itself (`p.away` + `beginTurn` skipping). The captain's **👋 Continue without X** and
+  **🏕 Back to the lobby** are a *tidy-up*, offered only when somebody has actually gone, and
+  both are guarded on `MIN_PLAYERS` **in the host**, not just in the UI — a hidden button is
+  a hint, the host decides. "Back to the lobby" keeps the connected players and reopens the
+  door, so the people who dropped out and brand-new players can both join.
 - **A player IS their peer id, and a refresh mints a new one.** Re-pointing their row in
   `H.players` is *not enough* — the id is also the key in every other place the host stored
   it (`H.turn`, `H.turnOrder`, `H.order`, `H.card.who`, `H.choice.who`, `H.moved.id`,

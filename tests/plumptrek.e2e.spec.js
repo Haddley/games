@@ -1394,3 +1394,187 @@ test('a phone that vanishes on its own turn: quick back, slow back, and never', 
     for (const p of Object.values(pages)) await p.close();
     await tv.close();
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// KEEPING EVERYONE ON BOARD
+// ═══════════════════════════════════════════════════════════════════════════════
+// These are rare, and they're also the ones people judge a party game on: if the room ever
+// sits there waiting for a phone that isn't coming back, or somebody can't get back in, the
+// evening is over. The rule under all of them is the same — the game keeps moving on its
+// own, and the captain's controls are a tidy-up, never a requirement.
+
+// a room with the game under way and `n` players
+async function trekRoom(browser, names) {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/plumptrek.html');
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
+    const code = await tv.evaluate(() => roomCode);
+    const pages = {};
+    for (const n of names) pages[n] = await joinPhone(browser, code, n);
+    await expect.poll(() => tv.evaluate(() => H.players.length), { timeout: 30_000 }).toBe(names.length);
+    await tv.evaluate(() => { H.settings.build = false; });
+    await pages[names[0]].getByRole('button', { name: /Start the trek/ }).click();
+    await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 20_000 }).toBe('turn');
+    return { tv, pages, code };
+}
+// pretend a phone has gone for good, the way the host eventually works it out
+const markGone = (tv, name) => tv.evaluate(n => {
+    const p = H.players.find(x => x.name === n);
+    p.away = true;
+    delete guestConns[p.id];
+    broadcastAll();
+}, name);
+
+test('the captain can continue without someone who has gone — but never below the minimum',
+    async ({ browser }) => {
+    const { tv, pages } = await trekRoom(browser, ['Ava', 'Ben', 'Cal']);
+
+    // nothing is offered while everyone is present — no clutter, no scary buttons
+    expect(await tv.evaluate(() => publicState().absent)).toEqual([]);
+    await expect(pages.Ava.locator('.awaycard')).toHaveCount(0);
+
+    await markGone(tv, 'Cal');
+    await expect.poll(() => tv.evaluate(() => publicState().absent), { timeout: 10_000 }).toEqual(['Cal']);
+
+    // the captain is offered it; the other player is told what's happening but gets no button
+    await expect(pages.Ava.locator('.awaycard')).toBeVisible({ timeout: 10_000 });
+    await expect(pages.Ava.getByRole('button', { name: /Continue without/ })).toBeVisible();
+    await expect(pages.Ben.locator('.awaycard')).toBeVisible({ timeout: 10_000 });
+    await expect(pages.Ben.getByRole('button', { name: /Continue without/ })).toHaveCount(0);
+
+    await pages.Ava.getByRole('button', { name: /Continue without/ }).click();
+    await expect.poll(() => tv.evaluate(() => H.players.length), { timeout: 10_000 }).toBe(2);
+    expect(await tv.evaluate(() => H.players.map(p => p.name).sort())).toEqual(['Ava', 'Ben']);
+    // …and nothing anywhere still refers to them
+    expect(await tv.evaluate(() => H.turnOrder.length)).toBe(2);
+    expect(await tv.evaluate(() => (H.players.find(p => p.id === H.turn) || {}).name),
+        'and the game is still on somebody').toBeTruthy();
+
+    // now only two are left, so dropping another would end the game — refuse it
+    await markGone(tv, 'Ben');
+    expect(await tv.evaluate(() => publicState().canDrop),
+        'dropping below the minimum must not be offered').toBe(false);
+    await expect(pages.Ava.getByText(/needs 2 players/)).toBeVisible({ timeout: 10_000 });
+    // and the HOST refuses it even if the message arrives anyway — a button is a suggestion
+    await tv.evaluate(() => hostDropAbsent());
+    expect(await tv.evaluate(() => H.players.length), 'the host is the one that decides').toBe(2);
+
+    for (const p of Object.values(pages)) await p.close();
+    await tv.close();
+});
+
+test('dropping the player whose turn it is gets the game moving again', async ({ browser }) => {
+    // The nastiest version: the room is waiting on exactly the person who left.
+    const { tv, pages } = await trekRoom(browser, ['Ava', 'Ben', 'Cal']);
+    await tv.evaluate(() => {
+        const cal = H.players.find(p => p.name === 'Cal');
+        const n = H.turnOrder.length;
+        H.turnIdx = (H.turnOrder.indexOf(cal.id) - 1 + n) % n;
+        beginTurn();
+    });
+    await expect.poll(() => tv.evaluate(() => (H.players.find(p => p.id === H.turn) || {}).name),
+        { timeout: 15_000 }).toBe('Cal');
+
+    await markGone(tv, 'Cal');
+    await pages.Ava.getByRole('button', { name: /Continue without/ }).click();
+
+    await expect.poll(() => tv.evaluate(() => (H.players.find(p => p.id === H.turn) || {}).name),
+        { timeout: 15_000, message: 'the turn must move to somebody who is actually here' })
+        .toMatch(/Ava|Ben/);
+    expect(await tv.evaluate(() => H.phase), 'and the room is playable, not stuck mid-phase')
+        .toMatch(/turn|choose/);
+    // the captain's own phone shows the roll control if it landed on them
+    const turnName = await tv.evaluate(() => (H.players.find(p => p.id === H.turn) || {}).name);
+    await expect(pages[turnName].getByRole('button', { name: /ROLL/i })).toBeVisible({ timeout: 15_000 });
+
+    for (const p of Object.values(pages)) await p.close();
+    await tv.close();
+});
+
+test('back to the lobby reopens the room — for the people who left AND for new players',
+    async ({ browser }) => {
+    const { tv, pages, code } = await trekRoom(browser, ['Ava', 'Ben', 'Cal']);
+    await tv.evaluate(() => { H.players.forEach((p, i) => { p.pos = 3 + i; }); broadcastAll(); });
+    await markGone(tv, 'Cal');
+
+    await expect(pages.Ava.getByRole('button', { name: /Back to the lobby/ })).toBeVisible({ timeout: 10_000 });
+    await pages.Ava.getByRole('button', { name: /Back to the lobby/ }).click();
+
+    await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 15_000 }).toBe('lobby');
+    // the people still here kept their seats; the one who left did not
+    expect(await tv.evaluate(() => H.players.map(p => p.name).sort())).toEqual(['Ava', 'Ben']);
+    // and the game is properly reset, not half-finished
+    expect(await tv.evaluate(() => H.players.every(p => p.pos === 0 && !p.done && !p.away))).toBe(true);
+    expect(await tv.evaluate(() => [H.turn, H.card, H.choice, H.finale])).toEqual([null, null, null, null]);
+    await expect(pages.Ben.locator('.player-row')).toHaveCount(2, { timeout: 15_000 });
+
+    // the door is open again: the player who dropped out can walk back in…
+    const calAgain = await joinPhone(browser, code, 'Cal');
+    await expect.poll(() => tv.evaluate(() => H.players.length), { timeout: 30_000 }).toBe(3);
+    // …and so can somebody who was never here
+    const dee = await joinPhone(browser, code, 'Dee');
+    await expect.poll(() => tv.evaluate(() => H.players.map(p => p.name).sort()), { timeout: 30_000 })
+        .toEqual(['Ava', 'Ben', 'Cal', 'Dee']);
+    // everyone has a different piece, including the two who just arrived
+    expect(await tv.evaluate(() => new Set(H.players.map(p => p.seat)).size)).toBe(4);
+
+    // and the next trek runs with all four
+    await pages.Ava.getByRole('button', { name: /Start the trek/ }).click();
+    await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 20_000 }).toBe('turn');
+    expect(await tv.evaluate(() => H.turnOrder.length)).toBe(4);
+
+    for (const p of [...Object.values(pages), calAgain, dee]) await p.close();
+    await tv.close();
+});
+
+test('the room never strands itself: two players, one leaves, nothing is offered that would end it',
+    async ({ browser }) => {
+    const { tv, pages } = await trekRoom(browser, ['Ava', 'Ben']);
+    await markGone(tv, 'Ben');
+
+    const st = await tv.evaluate(() => publicState());
+    expect(st.absent).toEqual(['Ben']);
+    expect(st.canDrop, 'dropping Ben would leave one player').toBe(false);
+    expect(st.canLobby, 'and so would going back to the lobby').toBe(false);
+    await expect(pages.Ava.getByRole('button', { name: /Continue without/ })).toHaveCount(0);
+    await expect(pages.Ava.getByRole('button', { name: /Back to the lobby/ })).toHaveCount(0);
+    // the host refuses both outright
+    await tv.evaluate(() => { hostDropAbsent(); hostBackToLobby(); });
+    expect(await tv.evaluate(() => H.players.length)).toBe(2);
+    expect(await tv.evaluate(() => H.phase)).not.toBe('lobby');
+
+    // Ben coming back is all it takes — no captain action needed, ever
+    await tv.evaluate(() => {
+        const ben = H.players.find(p => p.name === 'Ben');
+        ben.away = false; guestConns[ben.id] = { peer: ben.id, send() {} };
+        broadcastAll();
+    });
+    expect(await tv.evaluate(() => publicState().absent)).toEqual([]);
+    await expect(pages.Ava.locator('.awaycard')).toHaveCount(0, { timeout: 10_000 });
+
+    for (const p of Object.values(pages)) await p.close();
+    await tv.close();
+});
+
+test('a player who comes back after the captain dropped them can just join again', async ({ browser }) => {
+    // The unhappiest path: they were tidied away, then their phone reconnects. They must not
+    // be stuck on a dead screen — they get in again as a new player.
+    const { tv, pages, code } = await trekRoom(browser, ['Ava', 'Ben', 'Cal']);
+    await markGone(tv, 'Cal');
+    await pages.Ava.getByRole('button', { name: /Continue without/ }).click();
+    await expect.poll(() => tv.evaluate(() => H.players.length), { timeout: 10_000 }).toBe(2);
+
+    // back to the lobby so there's a room to walk into, then Cal rejoins
+    await pages.Ava.getByRole('button', { name: /Back to the lobby/ }).click().catch(() => {});
+    await tv.evaluate(() => { if (H.phase !== 'lobby') hostBackToLobby(); });
+    await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 15_000 }).toBe('lobby');
+
+    const calAgain = await joinPhone(browser, code, 'Cal');
+    await expect.poll(() => tv.evaluate(() => H.players.map(p => p.name).sort()), { timeout: 30_000 })
+        .toEqual(['Ava', 'Ben', 'Cal']);
+    await expect(calAgain.locator('.player-row')).toHaveCount(3, { timeout: 15_000 });
+
+    for (const p of [...Object.values(pages), calAgain]) await p.close();
+    await tv.close();
+});

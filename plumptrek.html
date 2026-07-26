@@ -596,6 +596,11 @@
         .rrow .rpos, .rail-row .rpos { color: var(--gold); font-weight: 900; }
         /* a kept-card count. Was "🃏1", where the joker emoji shrank to an unreadable
            card face and the bare number read as a card's VALUE. Words are unambiguous. */
+        .awaycard { border-color: rgba(255,210,63,.4); }
+        /* `.hint` is used all over the phone screens but was never given a rule — it was
+           inheriting whatever the card gave it. Define it once, here. */
+        .hint { color: var(--muted); font-size: .74rem; line-height: 1.5; }
+        .hint.dim { opacity: .75; font-size: .68rem; margin-top: 6px; }
         .rcards { font-size: .68rem; color: var(--muted); font-weight: 700; white-space: nowrap;
             border: 1px solid var(--border2); border-radius: 8px; padding: 1px 6px; }
         /* the same creature as on the board, doing the same thing at the same moment */
@@ -1362,6 +1367,12 @@ function publicState() {
         finale: H.finale ? { t: H.finale.t, x: H.finale.x, who: H.finale.who } : null,
         fstate: H.finaleState || null, raceMode: H.raceMode || null,
         winner: H.phase === 'podium' ? (standings()[0] || null) : null,
+        // what the captain may do about anyone who has gone: the counts, so the phone can
+        // offer the right buttons and the TV can explain itself
+        absent: absentPlayers().map(p => p.name),
+        canDrop: absentPlayers().length > 0 && wouldRemain() >= MIN_PLAYERS,
+        canLobby: connectedPlayers().length >= MIN_PLAYERS,
+        minPlayers: MIN_PLAYERS,
         ...capt(),
     };
 }
@@ -1471,6 +1482,8 @@ function hostCtl(action, msg) {
     if (action === 'start' && H.phase === 'lobby') hostStartGame();
     else if (action === 'again' && H.phase === 'podium') hostNewGame();
     else if (action === 'set' && H.phase === 'lobby') { applySettings(msg); broadcastLobby(); }
+    else if (action === 'drop') hostDropAbsent();
+    else if (action === 'tolobby' && H.phase !== 'lobby') hostBackToLobby();
 }
 function guestCtl(action, extra) {
     if (isHost && !isTvHost) { hostCtl(action, extra || {}); return; }
@@ -1972,6 +1985,68 @@ function showPodium() {
     H.lastPodium = { type: 'podium', standings: standings(), ...capt() };
     broadcastAll();
 }
+// ── when somebody has gone for good ──────────────────────────────────────────
+// The room recovers from a dropped phone on its own — see `p.away` and beginTurn. But a
+// player who has genuinely left still holds a seat, still sits on the board, and still
+// turns up in the final standings. So the captain gets two ways to tidy up, and BOTH are
+// gated on the same thing: you can't drop people below the minimum needed to play.
+//
+// "Absent" is deliberately generous — no live connection, OR marked away because we waited a
+// whole turn on them and heard nothing. A phone that is merely reconnecting is neither.
+function absentPlayers() {
+    return H.players.filter(p => (!guestConns[p.id] && p.id !== myId) || p.away);
+}
+// How many would be left if we dropped them all. The guard the captain's buttons obey — and
+// the host re-checks it, because a button is a suggestion and the host decides.
+function wouldRemain() { return H.players.length - absentPlayers().length; }
+
+function hostDropAbsent() {
+    const gone = absentPlayers();
+    if (!gone.length) return;
+    if (wouldRemain() < MIN_PLAYERS) return;         // not enough left to have a game
+    const ids = new Set(gone.map(p => p.id));
+    const wasTheirTurn = ids.has(H.turn);
+
+    H.players = H.players.filter(p => !ids.has(p.id));
+    H.turnOrder = (H.turnOrder || []).filter(id => !ids.has(id));
+    H.order = (H.order || []).filter(id => !ids.has(id));
+    H.finishOrder = (H.finishOrder || []).filter(id => !ids.has(id));
+    // keep turnIdx pointing at the same lap position now the list is shorter
+    if (H.turnIdx >= H.turnOrder.length) H.turnIdx = 0;
+    if (H.card && ids.has(H.card.who)) { H.card = null; H.phase = 'turn'; }
+    if (H.choice && ids.has(H.choice.who)) H.choice = null;
+    gone.forEach(p => { delete guestConns[p.id]; });
+
+    H.msg = gone.length === 1
+        ? gone[0].name + ' left the trek'
+        : gone.length + ' players left the trek';
+    // if we just removed whoever we were waiting on, get the game moving again
+    if (wasTheirTurn || H.phase === 'choose') { clearHostTimers(); beginTurn(); }
+    else broadcastAll();
+    if (isTvHost) tvHostSync();
+}
+
+// Back to the lobby WITHOUT ending the room: the players still here keep their seats, the
+// ones who left lose theirs, and the door is open again — to brand-new players and to the
+// ones who dropped out, who simply join as they did the first time.
+function hostBackToLobby() {
+    if (connectedPlayers().length < MIN_PLAYERS) return;
+    const gone = absentPlayers();
+    const ids = new Set(gone.map(p => p.id));
+    H.players = H.players.filter(p => !ids.has(p.id));
+    gone.forEach(p => { delete guestConns[p.id]; });
+    clearHostTimers();
+    H.phase = 'lobby';
+    H.finale = null; H.finaleState = null; H.raceMode = null; H.build = null;
+    H.order = []; H.finishOrder = []; H.turnOrder = []; H.turnIdx = 0;
+    H.turn = null; H.roll = null; H.moved = null; H.card = null; H.choice = null;
+    H.msg = '';
+    H.players.forEach(p => { p.pos = 0; p.hand = []; p.skip = 0; p.mods = []; p.done = false; p.away = false; });
+    broadcastLobby();
+    if (isTvHost) tvHostSync();
+    if (isHost && !isTvHost) { ui = 'lobby_h'; render(); }
+}
+
 function hostNewGame() {
     clearHostTimers();
     H.phase = 'lobby';
@@ -2672,7 +2747,32 @@ function renderPlay() {
     return `${hdrHTML(d.msg || ('Round ' + (d.round || 1)))}
         ${body}
         ${hand ? `<div class="card"><div class="slbl">Your cards${me.myTurn ? ' — tap to play' : ''}</div>${hand}</div>` : ''}
+        ${absentPanelHTML(d)}
         ${miniRailHTML(d)}`;
+}
+// Shown only when somebody has actually gone, and only to whoever can act on it. A dropped
+// phone is handled without anyone lifting a finger — this is for the case where they are not
+// coming back and the room would rather not keep their pawn on the board.
+function absentPanelHTML(d) {
+    const away = d.absent || [];
+    if (!away.length) return '';
+    const who = away.length === 1 ? esc(away[0]) : away.length + ' players';
+    if (!canDrive()) {
+        return `<div class="card awaycard"><div class="slbl">Waiting on ${who}</div>
+            <div class="hint">The trek carries on without them — they can rejoin any time.
+            ${esc(d.captain ? d.captain + ' can tidy up' : 'The captain can tidy up')} if they're gone for good.</div></div>`;
+    }
+    return `<div class="card awaycard"><div class="slbl">👑 ${who} ${away.length === 1 ? 'has' : 'have'} dropped out</div>
+        <div class="hint">Their pawn is being skipped, and they can rejoin any time. If they're
+            gone for good you can tidy up — you don't have to.</div>
+        ${d.canDrop
+            ? `<button class="btn btn-g btn-full" style="margin-top:10px" onclick="guestCtl('drop')">👋 Continue without ${who}</button>`
+            : `<div class="hint dim">Can't drop them — a trek needs ${d.minPlayers || 2} players.</div>`}
+        ${d.canLobby
+            ? `<button class="btn btn-g btn-full" style="margin-top:8px" onclick="guestCtl('tolobby')">🏕 Back to the lobby</button>
+               <div class="hint dim">Ends this trek and reopens the room, so they — and anyone new — can join again.</div>`
+            : ''}
+    </div>`;
 }
 function ordinal(n) { return n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : n + 'th'; }
 function miniRailHTML(d) {

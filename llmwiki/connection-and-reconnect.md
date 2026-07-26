@@ -255,3 +255,46 @@ tighter: phones ping every few seconds, the host marks anyone unheard-from for ~
 That would cut the one-off 70s to ~15s and would also stop a dead phone holding the 👑 crown
 (`capPlayer()` is built on `guestConns` too, so it has the same blind spot). It belongs in
 `p2p.js` so every game gets it, which is why it hasn't been done as part of a bug fix.
+
+## The captain's tidy-up controls (Plump Trek)
+
+The room already recovers from a dropped phone on its own: the idle-roll marks them `away`,
+`beginTurn` skips them, and anything they send puts them straight back. **No captain action
+is ever required** — that is the rule the whole design rests on, because a party game that
+needs somebody to notice and press a button has already lost the room.
+
+What the captain gets is a *tidy-up*, offered only when somebody has genuinely gone:
+
+| control | what it does | guard |
+|---|---|---|
+| **👋 Continue without X** | drops the absent player from `H.players`, `turnOrder`, `order`, `finishOrder` and any pending card/choice; if it was their turn, `beginTurn()` immediately so the room isn't left waiting | at least `MIN_PLAYERS` must remain |
+| **🏕 Back to the lobby** | ends this trek, keeps everyone still connected in their seats, drops the absent, resets the board — and **reopens the door**, so both the people who dropped out and brand-new players can join | at least `MIN_PLAYERS` still connected |
+
+Three things worth keeping when this is touched:
+
+1. **The guard is enforced on the HOST, not in the UI.** `hostDropAbsent` and
+   `hostBackToLobby` both re-check the minimum and refuse. A hidden button is a hint; the
+   host decides. There's a test that calls them directly with the button hidden.
+2. **Non-captains are told, not given buttons.** They see "Waiting on Cal — the trek carries
+   on without them", so nobody thinks the room is broken.
+3. **Nothing is shown while everyone is present.** `absent` is empty → no panel at all.
+
+`publicState()` carries `absent` (names), `canDrop`, `canLobby` and `minPlayers`, so the
+phone can render the right thing and the TV can explain itself without either of them
+guessing.
+
+### What the tests cover
+
+`tests/plumptrek.e2e.spec.js`, all driving real rooms over real PeerJS:
+
+- a refresh on your own turn — you get the turn and the Roll button back
+- a phone that vanishes on its own turn: back quickly (keeps the turn, idle-net re-armed),
+  gone for good (skipped, no per-lap wait)
+- the captain continues without someone, and **cannot** go below the minimum — checked both
+  through the UI and by calling the host function directly
+- dropping **the player whose turn it is** — the room must start moving again immediately
+- back to the lobby, then the dropped player rejoins **and** a brand-new player joins, and
+  the next game runs with all of them
+- two players, one leaves: neither control is offered, the host refuses both, and the
+  returning player fixes it by simply coming back
+- a player tidied away who then reconnects can just join again rather than being stranded
