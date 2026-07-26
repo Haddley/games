@@ -381,8 +381,13 @@ test('Sabotage! makes the drawer pick a victim, who then misses a turn', async (
     const pages = {};
     for (const n of ['Ava', 'Ben']) pages[n] = await joinPhone(browser, code, n);
     await expect.poll(() => tv.evaluate(() => H.players.length), { timeout: 30_000 }).toBe(2);
+    // No Build card: this test is about Sabotage, and a random Build rule is a second thing
+    // announcing itself into the same banner. UNSTABLE ("Ava and Ben swapped places") landed
+    // between the click and the poll and made this flaky.
+    await tv.evaluate(() => { H.settings.build = false; });
     await pages.Ava.getByRole('button', { name: /Start the trek/ }).click();
     await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 20_000 }).toBe('turn');
+    expect(await tv.evaluate(() => H.build), 'no Build rule in play').toBeNull();
 
     await stackDeck(tv, 'Sabotage!');
     const m = await landOn(tv, 'gimmick');
@@ -396,13 +401,24 @@ test('Sabotage! makes the drawer pick a victim, who then misses a turn', async (
     await shot(chooser, 'pt-13-phone-sabotage');
 
     const victim = (await chooser.locator('.opt').first().textContent()).trim();
+    // H.msg is a banner the next event overwrites, so SAMPLING it is a race no timeout fixes.
+    // Record every value it takes instead, from before the click, and assert on the history.
+    await tv.evaluate(() => {
+        let v = H.msg;
+        window._msgLog = [];
+        Object.defineProperty(H, 'msg', {
+            configurable: true,
+            get: () => v,
+            set: x => { v = x; if (x) window._msgLog.push(x); },
+        });
+    });
     await chooser.locator('.opt').first().click();
-    // The room is told who lost a turn. Don't assert on p.skip: if the victim happens to be
-    // next up, beginTurn spends it (and rewords the message to "misses a turn") before we
-    // could look — so accept either wording, and check it names the player we picked.
-    await expect.poll(() => tv.evaluate(() => H.msg || ''), { timeout: 20_000 })
-        .toMatch(/(loses|misses) a turn/);
-    const msg = await tv.evaluate(() => H.msg);
+    // Don't assert on p.skip either: if the victim happens to be next up, beginTurn spends it
+    // (and rewords the message to "misses a turn") before we could look — so accept either
+    // wording, and check it names the player we picked.
+    await expect.poll(() => tv.evaluate(() => (window._msgLog || []).find(m => /(loses|misses) a turn/.test(m)) || ''),
+        { timeout: 20_000 }).toMatch(/(loses|misses) a turn/);
+    const msg = await tv.evaluate(() => window._msgLog.find(m => /(loses|misses) a turn/.test(m)));
     const named = msg.replace(/ (loses|misses) a turn/, '').trim();
     expect(victim, `announced "${msg}" but the button said "${victim}"`).toContain(named);
 
