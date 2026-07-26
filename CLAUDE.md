@@ -16,7 +16,7 @@ Five tiny, stable first-party scripts hold everything that was identical across 
 - **`p2p.js`** — PeerJS hardening: `makeRoomCode()`, `hostPeer(fullId,{…})` (broker-drop reconnect), `joinPeer({…})` (join retry **and** mid-game auto-rejoin), `p2pCurtain(on)` (the self-contained "Reconnecting…" overlay) and `p2pWatchRelay(conn)` / `p2pPath()` (polls `getStats()` for the selected candidate pair and maps its candidate types to relay/srflx+prflx/host → `setNetState`; tries `transport.selectedCandidatePairId`, then a nominated/succeeded pair, then the raw candidate list for older WebKit, and accepts WebKit's `relayed` spelling. A host holding several connections shows the most notable path: relay > stun > local). Every P2P game routes `new Peer` through these (always with `ICE_CFG`). A game opts into auto-rejoin by passing `onLost: () => { connected = false; }` to `joinPeer`; `onGiveUp(wasIn)` says whether it was a failed join or a lost game.
 - **`fx.js`** — visual FX: `burst(x,y,colors,n)` (particles; self-contained `.fxp` CSS), `popText(x,y,text,cls)` (floating text; uses the game's own `.pop` CSS), `startConfetti(ms,cols)` (owns one `#fx-confetti` canvas; reads the game's `const CONFETTI_COLS`). All early-return on a global `REDUCED`. (`emojiRain`/`flashEdge` are still inline in the 1–2 games that use them.)
 - **audio — pick exactly ONE profile per game:**
-  - **`audio.js`** — the full step-sequencer engine's byte-identical core (`tone()`, `startMusicLoop()`). A game using it still writes inline `ac()`, `TRACKS`, `playMusicStep()`, `setMusic()`, `duckMusic()` and its `s*` stingers — those are hand-tuned per game. Used by the 14 music games.
+  - **`audio.js`** — the full step-sequencer engine's byte-identical core (`tone()`, `startMusicLoop()`). A game using it still writes inline `ac()`, `TRACKS`, `playMusicStep()`, `setMusic()`, `duckMusic()` and its `s*` stingers — those are hand-tuned per game. Used by the 15 music games.
   - **`ambient.js`** — the *lightweight* alternative: a drifting chord pad + simple `tone()` + SFX bus (`ac`, `tone`, `duck`, `startPad`/`stopPad`; pad mood via `const AMBIENT_CHORDS`). Almost no authoring — good default for a new game that doesn't need composed music. Used by rockpaperscissors. **Never load both** (both define `ac()`/`tone()`).
 
 ticktacktoe is the partial exception: it keeps its own class-based connection code and inline `TTT_PEER_OPTS` + audio (and its TV room runs a **knockout tournament** — `this.tour`, see `ticktacktoeplan.md`), but loads `common.js` (for `mountScene`, the strip, `clientId`, `rememberRoom`) and `p2p.js` (only for `p2pCurtain` + `p2pWatchRelay`, both called through guarded `ttt*` wrappers).
@@ -105,9 +105,29 @@ data, not code**: `GIMMICKS`/`FINALES`/`BUILDS` describe effects with a small op
 when the first pawn reaches it — several of them are mini-games (`rps`, `vote`, `guess`,
 `dice`, `coin`). Nothing may stall the room: dares (`DARE_MS`), choices (`CHOICE_MS`) and
 an idle phone (`IDLE_ROLL_MS`) all time out and play on. Board and shuffles come from a
-seeded RNG (`seedRng`/`rnd`), and `?seed=` makes a game reproducible for tests. Inspired
-by Chungus Odyssey 2 (TTS) — mechanics only; the cast, cards and art are ours, and none
-of the source pack's assets are in the repo. See `plumptrekplan.md`.
+seeded RNG (`seedRng`/`rnd`), and `?seed=` makes a game reproducible for tests.
+
+Two bits of presentation here are unlike anything else in the repo, and both took a
+couple of goes to get right — copy them rather than reinventing:
+
+- **Drawing a path so people can follow it.** A plain wrapped grid reads as disconnected
+  rows. `placeSquare(k)` lays the track out in *bands*: `BOARD_RUN` (9) squares across,
+  then one square dropped **vertically** below the last of them, then the next run back
+  the other way. That corner square is what makes the direction obvious and spaces the
+  rows apart. Every square carries its number, and a chevron sits in the *gap* after it
+  (`.sqa.r/.l/.d`), so the route is a continuous chain from START to WIN. Square size
+  scales with the row count (`--sqs`) so an epic board still fits a 1080p screen.
+- **The die.** A real CSS cube (`.cube` + six pipped `.face`es, `FACE_ROT` maps a value
+  to the rotation that brings its face forward), thrown with a randomised duration and a
+  spin that scales with it, so no two throws look alike. The landing is the easing curve
+  over-rotating slightly and rocking back — **not** a scale pop, and **not** a low thud
+  with a music duck; both were tried and both read as a separate event bolted onto the
+  end rather than the die settling. Throws are capped under `DIE_WAIT`, the beat the host
+  holds before walking the pawn, so the die has always landed before the piece moves.
+  Over 6 shows numerals instead of pips (the SPEEDRUN build swaps in a d20).
+
+Inspired by Chungus Odyssey 2 (TTS) — mechanics only; the cast, cards and art are ours,
+and the source pack is gitignored, not in the repo. See `plumptrekplan.md`.
 
 ## Family Trivia specifics
 
@@ -118,4 +138,5 @@ of the source pack's assets are in the repo. See `plumptrekplan.md`.
 - Room codes are 4 letters from `ABCDEFGHJKLMNPQRSTUVWXYZ` (no I/O, to avoid 1/0 confusion).
 - Test tricks for speed: shrink the host timer or `H.qIndex`/`H.timeLeft` via `page.evaluate` rather than waiting out rounds; top-level `let` globals (`roomCode`, `H`) are reachable from `evaluate`.
 - Keep games playable at both phone (390×844) and TV (1920×1080) viewports; TV layouts use `vmin` units under a `body.viewer-mode` class.
+- **Never interpolate prose into an inline handler.** `onclick="doChoose(${JSON.stringify(label)})"` looks fine until the label contains a quote — it closes the attribute and the button silently does nothing. Plump Trek's fork ("The long way round") stalled the whole game this way. Pass an **index or id** in the handler and put the words in the button's text.
 - **Naming & inspiration.** A game's own name (title, `<h1>`, TV logo, filename) must be **original or genuinely generic** — never someone's trademark. Rules and mechanics are free to borrow; names aren't. "Boggle Party" and "Pit!" were renamed to Letter Storm and Corner the Market for exactly this. Where a game *is* inspired by something, say so plainly in a 💡 `.inspo` line on its `index.html` card — preferring the public-domain ancestor when there is one (Fictionary, Guggenheim, Eat Poop You Cat, Werewolf), and naming the commercial game when that's the honest answer. The launcher footer carries the standing disclaimer (original games, not affiliated/endorsed, trademarks belong to their owners). Never copy actual content — card text, word lists, question banks — only mechanics.

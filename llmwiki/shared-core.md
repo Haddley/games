@@ -94,7 +94,7 @@ A game loads **either** `audio.js` **or** `ambient.js`, never both (they both de
 - **`audio.js`** — the byte-identical core of the full step-sequencer engine: `tone()`
   (synth voice) + `startMusicLoop()` (scheduler). A game using it still writes inline
   `ac()`, `TRACKS`, `playMusicStep()`, `setMusic()`, `duckMusic()` and its `s*` stingers —
-  those are hand-tuned by ear and differ per game. Used by the 14 music games. See
+  those are hand-tuned by ear and differ per game. Used by the 15 music games. See
   [animation-conventions.md](animation-conventions.md).
 - **`ambient.js`** — the *lightweight* profile: a drifting chord pad + a simple `tone()` +
   an SFX bus (`ac`, `tone`, `duck`, `startPad`/`stopPad`). The pad mood is the game's
@@ -119,10 +119,11 @@ the guard — the page has already loaded by then.
 
 ## Who loads what
 
-- **The 15 P2P party games** load `common.js` + `p2p.js` + `fx.js`, and one audio profile:
-  bestguess, bingo, letterstorm, brokenpencil, categoryclash, doodleparty, familytrivia,
-  fibbers, goinggone, herdmind, liarsdice, moonlightvillage, oddsheep, pit (all `audio.js`),
-  and **rockpaperscissors** (`ambient.js`; its own DOM confetti, not `fx.js`).
+- **The 18 P2P party games** load `common.js` + `p2p.js` + `fx.js`, and one audio profile:
+  bestguess, bingo, letterstorm, brokenpencil, buzzin, categoryclash, cornerthemarket,
+  doodleparty, familytrivia, fibbers, goinggone, herdmind, lastlaugh, liarsdice,
+  moonlightvillage, oddsheep, **plumptrek** (all `audio.js`), and **rockpaperscissors**
+  (`ambient.js`; its own DOM confetti, not `fx.js`).
 - **ticktacktoe** loads `common.js` (for `mountScene`, the control strip, `clientId`,
   `rememberRoom`) **and** `p2p.js` — but only for `p2pCurtain` + `p2pWatchRelay`, through
   guarded `ttt*` wrappers. It still inlines its own `TTT_PEER_OPTS` and audio, holds its own

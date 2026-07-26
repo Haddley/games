@@ -59,6 +59,14 @@ Nodes are explicit: `{t, label, next:[i]}`. A `fork` node has two `next` entries
 player is asked *before* they roll; movement then walks node to node, so the two routes
 can be different lengths and rejoin wherever we like.
 
+**Laying it out so people can follow it.** A wrapped grid reads as separate rows, and the
+first version of this board genuinely confused everyone who looked at it. `placeSquare(k)`
+now lays the track in *bands*: 9 squares across, then one square dropped **vertically**
+below the last of them, then the next run back the other way. The corner square is what
+makes the turn legible and puts air between the rows. Every square is numbered, and a
+chevron sits in the gap after it, so the route is one continuous chain from START to WIN.
+The square size scales with the number of rows, so an epic board still fits a TV.
+
 ## Cards
 
 **Gimmick deck** (the heart of it). Each card is data, not code — a small op set the
@@ -114,6 +122,21 @@ whether the game is waiting on you. Viewers get the same thing minus `me`.
 Nothing may stall the room: an unconfirmed dare (`DARE_MS` 45s), an unmade choice
 (`CHOICE_MS` 30s) and a phone that's been put down (`IDLE_ROLL_MS` 70s) all time out and
 the game plays on.
+
+## The die
+
+A CSS cube — six pipped faces, `FACE_ROT` maps a value to the rotation that brings its
+face to the front — thrown with a duration that varies per roll (0.62–1.4s) and a spin
+that scales with it, so a long throw genuinely tumbles more rather than running the same
+tumble slowly. The landing is the easing curve over-rotating a few degrees and rocking
+back onto the face; the rattle SFX is generated across the actual duration and ends on
+one last wooden click.
+
+Two things were tried and removed because they read as separate events stapled to the end
+of the roll rather than the die settling: a scale pop (dice don't grow) and a low thud
+with a music duck (that's a drum hit, and ducking the music twenty times a game makes
+every roll feel like a big moment). Throws are capped under `DIE_WAIT`, the beat the host
+holds before walking the pawn, so the die has always settled before the piece sets off.
 
 ## Reuse
 

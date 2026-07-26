@@ -10,6 +10,7 @@ screenshots every screen so you can eyeball the UI.
 | `<game>.e2e.spec.js` | that game's full flow, lobby → play → podium (letterstorm, familytrivia, fibbers, doodleparty, oddsheep, herdmind, categoryclash, bestguess, brokenpencil, moonlightvillage, goinggone, bingo, cornerthemarket, buzzin, lastlaugh, ticktacktoe) |
 | `reconnect.e2e.spec.js` | a dropped phone rejoining its own seat, a browser refresh mid-round, the 👑 crown passing when the captain drops and returning when they rejoin |
 | `relay.e2e.spec.js` | the connection path against the **real** TURN server: forced `iceTransportPolicy:'relay'` must light 📡 on both ends; a normal link reports 🏠/🌐; `?net=0` hides the badge |
+| `plumptrek.e2e.spec.js` | the board game end to end: Build card → a real phone roll → each Gimmick flavour (a movement card, a dare with its Done button, a kept card) → a rigged Finale → podium; plus the fork, and the self-playing demo |
 
 The screenshot table below is Letter Storm's (the original suite); the other
 specs follow the same naming.
