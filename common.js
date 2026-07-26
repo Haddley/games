@@ -623,6 +623,37 @@ function claimSeat(players, msg, newId, conns, inLobby) {
     return players.find(p => p.name === name && p.id !== newId && !isPresent(p, conns)) || null;
 }
 
+// ── the periodic re-check ───────────────────────────────────────────────────
+// Presence tells a game WHO is here; this is what makes it act on it.
+//
+// Every game advances a round with a check like
+//     if (active.every(p => p.answered)) closeRound();
+// and that check is EDGE-TRIGGERED — it is only ever asked when somebody answers. So if the
+// last person present answers while a departed phone still counts as present, nobody asks
+// again. Thirteen seconds later that phone stops counting, the condition is now true, and
+// there is no longer anything to notice it. The room sits there for ever, and in the eight
+// games with no round timer that is the end of the evening.
+//
+// So the host re-asks on a timer, but only when the set of present players has actually
+// CHANGED — no point re-running a game's advance logic every two seconds for nothing.
+let _presenceSweep = null;
+function watchPresence(recheck, ms) {
+    stopPresenceWatch();
+    if (typeof recheck !== 'function') return;
+    let last = null;
+    _presenceSweep = setInterval(() => {
+        let now;
+        try {
+            now = typeof connectedPlayers === 'function'
+                ? connectedPlayers().map(p => p.id).sort().join(',') : '';
+        } catch (_) { return; }
+        if (now === last) return;                 // nobody arrived or left; nothing to re-ask
+        last = now;
+        try { recheck(); } catch (_) {}           // a game's advance logic must never kill the sweep
+    }, ms || 2500);
+}
+function stopPresenceWatch() { if (_presenceSweep) { clearInterval(_presenceSweep); _presenceSweep = null; } }
+
 // ── remembering the room (survive a browser refresh) ────────────────────────
 // A phone that reloads the page — deliberately, or because iOS reaped the tab —
 // used to land back on the home screen and have to re-type the code. We remember

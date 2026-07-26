@@ -179,3 +179,35 @@ test('the heartbeat and presence logic exists in common.js and NOWHERE else', ()
             `${f} calls startHeartbeat unguarded — a stale common.js would blank the page`);
     });
 });
+
+test('the presence sweep only re-asks when the set of present players changes', () => {
+    // Re-running a game's advance logic every two seconds for nothing would be its own bug.
+    const src = SRC.slice(SRC.indexOf('function watchPresence'), SRC.indexOf('function stopPresenceWatch'));
+    assert.match(src, /if \(now === last\) return;/, 'it must skip ticks where nothing changed');
+    assert.match(src, /connectedPlayers\(\)\.map\(p => p\.id\)\.sort\(\)\.join/,
+        'compare the SET of ids, not just the count — a swap is a change too');
+    assert.match(src, /catch \(_\) \{\}/, "a game's advance logic must not be able to kill the sweep");
+    assert.match(SRC, /function stopPresenceWatch\(\)/);
+});
+
+test('every game that waits for all players re-asks when one leaves', () => {
+    // THE stall: `if (active.every(p => p.answered)) close()` is only ever asked when somebody
+    // answers. If the last player present answers while a departed phone still counts, nobody
+    // asks again — and eight of these games have no round timer to rescue them.
+    const root = path.join(__dirname, '..');
+    const waiters = fs.readdirSync(root).filter(f => f.endsWith('.html')).filter(f => {
+        const src = fs.readFileSync(path.join(root, f), 'utf8');
+        return src.split('\n').some(l => !l.trim().startsWith('//') &&
+            /(active|connectedPlayers\(\)|playingNow\(\))\.every\(/.test(l));
+    });
+    assert.ok(waiters.length >= 8, `only found ${waiters.length} games that wait for everyone`);
+    // rockpaperscissors and buzzin moved their gate into a named function during this work,
+    // so the regex above no longer sees them — they still wait for everyone, so name them.
+    ['rockpaperscissors.html', 'buzzin.html'].forEach(f => { if (!waiters.includes(f)) waiters.push(f); });
+    const unwatched = waiters.filter(f => {
+        const src = fs.readFileSync(path.join(root, f), 'utf8');
+        return !(src.includes('hostPresenceRecheck') && src.includes('watchPresence(hostPresenceRecheck)'));
+    });
+    assert.deepStrictEqual(unwatched, [],
+        'these games wait for every player but never re-ask when one leaves — they can stall for ever');
+});

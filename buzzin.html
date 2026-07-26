@@ -1021,11 +1021,27 @@ function guestCtl(action, extra) {
 }
 
 // ── Create / join rooms ──
+// Everyone still here has guessed wrong, so the puzzle is over. Pulled out of hostSubmit so
+// the presence sweep can re-ask it: the LAST person present locking themselves out is not the
+// only way this becomes true — so is the only player still guessing walking away.
+function maybeAllLockedOut() {
+    if (H.phase !== 'puzzle') return false;
+    const active = connectedPlayers();
+    if (!active.length || !active.every(p => H.lockedOut.includes(p.id))) return false;
+    resolvePuzzle(null, false);
+    return true;
+}
+// Re-asked whenever somebody arrives or leaves (common.js watchPresence).
+function hostPresenceRecheck() {
+    if (!isHost) return;
+    maybeAllLockedOut();
+}
+
 function makeRoom(onOpen) {
     forgetRoom();                    // hosting now — this tab is nobody's guest
     roomCode = makeRoomCode();
     peer = hostPeer(PFX + roomCode, {
-        onOpen: id => { myId = id; isHost = true; onOpen(); },
+        onOpen: id => { myId = id; isHost = true; if (typeof watchPresence === 'function') watchPresence(hostPresenceRecheck); onOpen(); },
         onConnection: conn => setupGuestConn(conn),
         onFatalError: e => {
             uiErr = 'Connection error: ' + e.message;
@@ -1146,8 +1162,7 @@ function hostSubmit(player, pid, text) {
         return;
     }
     H.lockedOut.push(player.id);
-    const active = connectedPlayers();
-    if (active.length && active.every(p => H.lockedOut.includes(p.id))) { resolvePuzzle(null, false); return; }
+    if (maybeAllLockedOut()) return;
     // Only the wrong player is re-rendered (to show the locked-out note); everyone else
     // keeps typing undisturbed. The TV updates the locked-out list.
     const wrongMsg = puzzleMsgFor(player);

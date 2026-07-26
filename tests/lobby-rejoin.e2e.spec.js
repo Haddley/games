@@ -299,3 +299,48 @@ test('lastlaugh: restarting the browser QUICKLY still gets your lobby seat, not 
     await karen.ctx.close(); await neil.ctx.close();
     await tv.close();
 });
+
+// ── the stall the presence sweep exists for ──────────────────────────────────
+// Herdmind has NO round timer: it closes the answers when everyone has answered, and that
+// check is only ever asked when somebody answers. So if the last person present answers
+// while a departed phone still counts as present, nobody ever asks again — the room waits
+// for an answer that is never coming, for ever.
+test('herdmind: the round still closes when the player everyone was waiting for has gone',
+    async ({ browser }) => {
+    const spec = GAMES.find(x => x.g === 'herdmind');
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/herdmind.html');
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await expect.poll(() => tv.evaluate(() => roomCode || ''), { timeout: 30_000 }).toMatch(/^[A-Z]{4}$/);
+    const code = await tv.evaluate(() => roomCode);
+
+    const pages = {};
+    for (const n of ['Ava', 'Ben', 'Cal']) pages[n] = (await joinFresh(browser, spec, code, n)).page;
+    await expect.poll(() => tv.evaluate(() => H.players.length), { timeout: 30_000 }).toBe(3);
+    // start it from the host rather than hunting for a button — this test is about the
+    // presence sweep, not about herdmind's lobby chrome
+    await tv.evaluate(() => hostStartGame());
+    await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 20_000 }).toBe('answer');
+
+    // Ava and Ben answer. Cal has walked off — but his phone still LOOKS connected, so the
+    // round cannot close, and Ava/Ben have nothing left to do that would re-ask the question.
+    await tv.evaluate(() => {
+        H.players.filter(p => p.name !== 'Cal').forEach(p => { p.answer = 'x'; p.seen = Date.now(); });
+        maybeCloseAnswers();                       // the edge-triggered check, as it happens live
+    });
+    expect(await tv.evaluate(() => H.phase), 'still open, correctly — Cal might yet answer')
+        .toBe('answer');
+
+    // …and now Cal's phone goes quiet. Nothing else will happen in this room ever again
+    // unless something re-asks.
+    await tv.evaluate(() => {
+        const cal = H.players.find(p => p.name === 'Cal');
+        cal.seen = Date.now() - 60_000;
+    });
+    await expect.poll(() => tv.evaluate(() => H.phase),
+        { timeout: 20_000, message: 'the room must notice Cal has gone and close the round by itself' })
+        .not.toBe('answer');
+
+    for (const p of Object.values(pages)) await p.close();
+    await tv.close();
+});
