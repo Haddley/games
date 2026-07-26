@@ -1235,6 +1235,14 @@ function setupGuestConn(conn) {
         conn._role = null;
     });
     conn.on('data', msg => {
+        // ANY message is proof of life — a heartbeat, a bid, a challenge. This has to be at
+        // the TOP of the handler: it was originally only inside the `join` case, so the
+        // heartbeats this game sends were never actually recorded and a present player still
+        // aged out. The cross-game battery is what caught it.
+        {
+            const alive = H.players && H.players.find(p => p.id === conn.peer);
+            if (alive && typeof notePresence === 'function') notePresence(alive);
+        }
         // Handle viewer join before role is set
         if (conn._role === null && msg.type === 'join_viewer') {
             conn._role = 'viewer';

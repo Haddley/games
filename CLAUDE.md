@@ -100,7 +100,9 @@ The P2P pattern is identical across `boggle.html`, `cornerthemarket.html`, `lett
   `unit/presence.test.js` contains **audit tests** that read every game and fail if one
   hand-rolls any of it, stores a player id in a field its rekey doesn't cover, or waits for
   every player without re-asking when one leaves. Those audits found three games' worth of
-  bugs that six hand-fixes had missed.
+  bugs that six hand-fixes had missed. **`tests/connection-battery.e2e.spec.js`** then asks
+  all nineteen the same five questions over real rooms — join · restart · go silent · come
+  back · no ghosts — which is what caught Liar's Dice sending heartbeats it never recorded.
 - **`conn.on('close')` does NOT fire when a tab closes.** A closed tab, a flat battery or a
   force-quit leaves the data channel quiet with no FIN, so `guestConns` still lists a device
   that is gone (measured: zero close events across 75s). Every "are they here?" check built on

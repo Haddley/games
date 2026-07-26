@@ -101,6 +101,8 @@ The largest body of tests in the repo, because this is where the real bugs were.
 
 | file | what it holds to account |
 |---|---|
+| `tests/connection-battery.e2e.spec.js` | **the same five questions asked of every one of the nineteen games**, over real rooms: join · restart the browser · go silent · come back · no ghosts. This is the middle layer — the unit audits prove a game uses the right code, the per-game specs go deep on one game, this proves all nineteen actually behave |
+| `tests/games.js` | the one table of how to reach each game's lobby, shared by both connection specs. Generated from the real markup after a first version built from card *headings* silently hung |
 | `unit/presence.test.js` | the shared rules (`isPresent`, `claimSeat`, `rekeyPlayerId`, `watchPresence`, `presentPlayers`) **and four AUDIT tests** that read every game and fail if one hand-rolls any of it, stores a player id in a field its rekey doesn't name, waits for every player without re-asking when one leaves, or calls a shared helper unguarded |
 | `tests/lobby-rejoin.e2e.spec.js` | the same person rejoining: a restarted browser must take its seat back, not a second one — driven against six games plus a mid-game repeat-rejoin and the herdmind stall |
 | `tests/reconnect.e2e.spec.js` | a dropped phone rejoining its seat, a refresh, the crown moving and coming back |
@@ -109,6 +111,11 @@ The largest body of tests in the repo, because this is where the real bugs were.
 
 **The audit tests are the valuable part.** They found three games' worth of stranded-id bugs
 that six separate hand-fixes had missed, and they fail when a *new* game drifts.
+
+**The battery earned its keep on the first full run.** Liar's Dice was *sending* heartbeats
+and never recording them — `notePresence` had been wired into its `join` case only, so a
+plain `hb` stamped nothing and a present player still aged out. No unit test could see that;
+it needed the round trip.
 
 ### Writing one of these: read this first
 
