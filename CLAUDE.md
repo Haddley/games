@@ -91,6 +91,14 @@ The P2P pattern is identical across `boggle.html`, `cornerthemarket.html`, `lett
 - **Two client roles**, decided by the first message on a connection: `{type:'join', name}` → player (tracked in `guestConns{}`), `{type:'join_viewer'}` → TV/scoreboard (tracked in `viewerConns{}`). Viewers get their own `viewer_*` message variants with spectator-shaped payloads.
 - **TV-host mode**: the big screen itself can create the room. It runs the authoritative host logic but renders the viewer UI (`isTvHost`), and the **first player to join becomes captain** — their phone drives settings/start/next via `{type:'ctl', action}` messages that the host only accepts from `H.players[0]`.
 - **Rendering** is string-built `innerHTML` from a `render()` switch on a global `ui` state string. High-frequency updates (timer ticks, counters) **patch DOM nodes by id** instead of re-rendering, so in-progress touch interaction is never interrupted.
+- **Connection/presence/rejoin is SHARED and audited.** `common.js` owns `startHeartbeat`,
+  `notePresence`, `isPresent`, `presentPlayers` (behind every game's `connectedPlayers()`),
+  `claimSeat`, `rekeyPlayerId` and `watchPresence`; `p2p.js` owns the connection itself. Games
+  supply only their own field names and their own idea of what absence means in play.
+  `unit/presence.test.js` contains **audit tests** that read every game and fail if one
+  hand-rolls any of it, stores a player id in a field its rekey doesn't cover, or waits for
+  every player without re-asking when one leaves. Those audits found three games' worth of
+  bugs that six hand-fixes had missed.
 - **`conn.on('close')` does NOT fire when a tab closes.** A closed tab, a flat battery or a
   force-quit leaves the data channel quiet with no FIN, so `guestConns` still lists a device
   that is gone (measured: zero close events across 75s). Every "are they here?" check built on

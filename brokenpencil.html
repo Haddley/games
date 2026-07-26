@@ -855,11 +855,13 @@ function broadcastPlayers(fn) {
 // `connectedPlayers().every(p => p.answered)`, so one closed tab meant the room waited for
 // an answer that was never coming — for ever, in the games with no timer. It is also what
 // picks the 👑 captain, so a dead phone could hold the crown and freeze the room.
+// The shared one (common.js presentPlayers) decides; this just supplies this game's state.
+// It used to be a byte-identical copy in all 18 games — see the audit in unit/presence.test.js.
 function connectedPlayers() {
-    return H.players.filter(p => {
-        if (p.id === myId) return isHost && !isTvHost;
-        return typeof isPresent === 'function' ? isPresent(p, guestConns) : !!guestConns[p.id];
-    });
+    if (typeof presentPlayers === 'function') {
+        return presentPlayers(H.players, guestConns, myId, isHost && !isTvHost);
+    }
+    return H.players.filter(p => (p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]));
 }
 
 // ── 👑 captain (TV-host rooms) ──────────────────────────────────────────────
@@ -1045,7 +1047,7 @@ function setupGuestConn(conn) {
                 const zombie = typeof claimSeat === 'function'
                     ? claimSeat(H.players, msg, conn.peer, guestConns, H.phase === 'lobby')
                     : H.players.find(p => msg.cid && p.cid === msg.cid && p.id !== conn.peer);
-                if (zombie) zombie.id = conn.peer;
+                if (zombie) hostRekeyPlayer(zombie, conn.peer);
                 else if (H.phase === 'lobby') hostAddPlayer(conn.peer, name, msg.avatar);
                 const p2 = H.players.find(p => p.id === conn.peer);
                 if (p2 && msg.cid) p2.cid = msg.cid;          // this device now owns the slot
@@ -1105,6 +1107,18 @@ function hostPresenceRecheck() {
     if (!isHost) return;
     if (typeof maybeFinishStep === 'function') maybeFinishStep();
     if (typeof maybeFinishVote === 'function') maybeFinishVote();
+}
+
+
+// Rewrite every place this player's id is stored when they come back on a new peer id.
+// A refresh used to orphan your half-finished book, your vote and your
+// laugh — and since the step only ends when every player has handed one in, the round could
+// never complete.
+function hostRekeyPlayer(player, newId) {
+    const old = player.id;
+    if (!old || old === newId) return;
+    player.id = newId;
+    if (typeof rekeyPlayerId === 'function') rekeyPlayerId(H, old, newId, { maps: ['pending', 'votes', 'lastLolAt'] });
 }
 
 function makeRoom(onOpen) {

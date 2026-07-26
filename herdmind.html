@@ -923,11 +923,13 @@ function broadcastViewers(msg) { Object.values(viewerConns).forEach(c => send(c,
 // `connectedPlayers().every(p => p.answered)`, so one closed tab meant the room waited for
 // an answer that was never coming — for ever, in the games with no timer. It is also what
 // picks the 👑 captain, so a dead phone could hold the crown and freeze the room.
+// The shared one (common.js presentPlayers) decides; this just supplies this game's state.
+// It used to be a byte-identical copy in all 18 games — see the audit in unit/presence.test.js.
 function connectedPlayers() {
-    return H.players.filter(p => {
-        if (p.id === myId) return isHost && !isTvHost;
-        return typeof isPresent === 'function' ? isPresent(p, guestConns) : !!guestConns[p.id];
-    });
+    if (typeof presentPlayers === 'function') {
+        return presentPlayers(H.players, guestConns, myId, isHost && !isTvHost);
+    }
+    return H.players.filter(p => (p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]));
 }
 
 // ── 👑 captain (TV-host rooms) ──────────────────────────────────────────────

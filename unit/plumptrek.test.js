@@ -666,7 +666,10 @@ test('hostRekeyPlayer rewrites every place a player id is stored', () => {
 
     // it must move the id itself, and H.turn is the one that stuck the room
     assert.match(rekey, /player\.id = newId/, 'the player row has to be re-pointed');
-    assert.match(rekey, /H\.turn\b/, 'H.turn is the field that broke a real game');
+    // The shapes now live in common.js (rekeyPlayerId) and the game passes its own field
+    // names, so a field is "covered" if it appears either as H.field or as a quoted name.
+    const covers = f => new RegExp("H\\." + f + "\\b|'" + f + "'").test(rekey);
+    assert.ok(covers('turn'), 'H.turn is the field that broke a real game');
 
     // every `H.<field>` the engine assigns a player id to must appear in the rekey
     const stores = new Set();
@@ -677,7 +680,7 @@ test('hostRekeyPlayer rewrites every place a player id is stored', () => {
     for (const m of SCRIPT.matchAll(/H\.(\w+)\.push\(\s*p(?:layer)?\.id\s*\)/g)) stores.add(m[1]);
     for (const m of SCRIPT.matchAll(new RegExp(ASSIGN + "\\{[^}]*\\bwho:\\s*player\\.id", 'g'))) stores.add(m[1]);
     assert.ok(stores.size >= 4, `only found ${stores.size} id-holding fields — has the engine changed shape?`);
-    stores.forEach(f => assert.match(rekey, new RegExp('H\\.' + f + '\\b'),
+    stores.forEach(f => assert.ok(covers(f),
         `H.${f} holds a player id, but hostRekeyPlayer never rewrites it — a refresh would strand it`));
 
     // …and the ones nested inside H.finaleState, which the regexes above can't see
@@ -699,8 +702,8 @@ test('The Odd Sheep rekeys its id-keyed state too', () => {
     const sheep = fs.readFileSync(path.join(__dirname, '..', 'oddsheep.html'), 'utf8');
     assert.match(sheep, /function hostRekeyPlayer\(player, newId\)/, 'oddsheep needs the same fix');
     const fn = sheep.slice(sheep.indexOf('function hostRekeyPlayer'), sheep.indexOf('\n}', sheep.indexOf('function hostRekeyPlayer')));
-    assert.match(fn, /H\.turnOrder/, 'turnOrder holds player ids');
-    assert.match(fn, /H\.votes/, 'votes is keyed by player id');
+    assert.match(fn, /H\.turnOrder|'turnOrder'/, 'turnOrder holds player ids');
+    assert.match(fn, /H\.votes|'votes'/, 'votes is keyed by player id');
     assert.match(sheep, /if \(zombie\) hostRekeyPlayer\(zombie, conn\.peer\)/);
     assert.doesNotMatch(sheep, /zombie\.id = conn\.peer/);
 });

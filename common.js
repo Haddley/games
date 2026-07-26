@@ -623,6 +623,59 @@ function claimSeat(players, msg, newId, conns, inLobby) {
     return players.find(p => p.name === name && p.id !== newId && !isPresent(p, conns)) || null;
 }
 
+// ── who is actually here ────────────────────────────────────────────────────
+// Every game needs this and every game had its own byte-identical copy of it. It is the
+// single most load-bearing question in the repo: it decides whether a round can close, and it
+// decides who wears the 👑 crown.
+//
+// It asks the HEARTBEAT, not the connection map. `guestConns` still lists a phone whose
+// browser was closed, because conn.on('close') does not fire for that.
+//
+// `self` is the host's own row: a phone host is playing, a TV host is not.
+function presentPlayers(players, conns, selfId, selfPlays) {
+    return (players || []).filter(p => (p.id === selfId ? !!selfPlays : isPresent(p, conns)));
+}
+
+// ── rekeying a returning player ─────────────────────────────────────────────
+// A player IS their peer id, and a refresh mints a new one. Re-pointing their row in
+// `H.players` is the easy half; the id is usually ALSO a key somewhere else, and every one of
+// those keeps pointing at a peer that no longer exists.
+//
+// It is silent and it strands rooms. In Plump Trek it was `H.turn`, so a player who refreshed
+// on their own turn never got the Roll button back and the room waited on nobody. In The Odd
+// Sheep it was `H.votes`, so their vote was orphaned and `every(p => H.votes[p.id])` never
+// came true. In RPS it was `H.eliminated`, so the final standings showed them as "?" and then
+// again by name. Same bug, three shapes.
+//
+// The SHAPES are what's shared, so they live here; each game passes its own field names:
+//
+//   scalars — H.turn, H.buzzedBy      a field that IS an id
+//   arrays  — H.eliminated, H.turnOrder, H.lockedOut, H.order
+//   maps    — H.votes[id], H.answers[id], H.pending[id]   (keyed BY id)
+//   whoObjs — H.card.who, H.choice.who
+//   idObjs  — H.moved.id
+//
+// Anything not one of those shapes is genuinely game-specific and stays in the game — but
+// most of it is one of these.
+function rekeyPlayerId(H, oldId, newId, spec) {
+    if (!H || !oldId || oldId === newId) return;
+    const f = spec || {};
+    (f.scalars || []).forEach(k => { if (H[k] === oldId) H[k] = newId; });
+    (f.arrays || []).forEach(k => {
+        if (Array.isArray(H[k])) H[k] = H[k].map(v => (v === oldId ? newId : v));
+    });
+    (f.maps || []).forEach(k => {
+        const m = H[k];
+        if (!m || typeof m !== 'object') return;
+        if (Object.prototype.hasOwnProperty.call(m, oldId)) { m[newId] = m[oldId]; delete m[oldId]; }
+        // a value that POINTS AT the returning player has to follow them too — a vote cast
+        // for them, say
+        Object.keys(m).forEach(k2 => { if (m[k2] === oldId) m[k2] = newId; });
+    });
+    (f.whoObjs || []).forEach(k => { if (H[k] && H[k].who === oldId) H[k].who = newId; });
+    (f.idObjs || []).forEach(k => { if (H[k] && H[k].id === oldId) H[k].id = newId; });
+}
+
 // ── the periodic re-check ───────────────────────────────────────────────────
 // Presence tells a game WHO is here; this is what makes it act on it.
 //
@@ -634,21 +687,23 @@ function claimSeat(players, msg, newId, conns, inLobby) {
 // there is no longer anything to notice it. The room sits there for ever, and in the eight
 // games with no round timer that is the end of the evening.
 //
-// So the host re-asks on a timer, but only when the set of present players has actually
-// CHANGED — no point re-running a game's advance logic every two seconds for nothing.
+// So the host re-asks on a timer.
+//
+// It re-asks EVERY tick, and the first version of this was cleverer than that: it only
+// re-asked when the set of present players had changed. That looked like an obvious saving
+// and it was quietly wrong, because the set can change BEFORE the game reaches the state
+// where the answer matters — somebody leaves during the question, the round then moves to
+// the answering phase, and the set never changes again, so the re-check never runs and the
+// room stalls anyway. It made the test for this flaky, which is how it was caught.
+//
+// The checks are cheap and idempotent — each is an `every()` over a handful of players that
+// does nothing unless its condition is already true — so asking every couple of seconds
+// costs nothing worth having. Correctness over cleverness.
 let _presenceSweep = null;
 function watchPresence(recheck, ms) {
     stopPresenceWatch();
     if (typeof recheck !== 'function') return;
-    let last = null;
     _presenceSweep = setInterval(() => {
-        let now;
-        try {
-            now = typeof connectedPlayers === 'function'
-                ? connectedPlayers().map(p => p.id).sort().join(',') : '';
-        } catch (_) { return; }
-        if (now === last) return;                 // nobody arrived or left; nothing to re-ask
-        last = now;
         try { recheck(); } catch (_) {}           // a game's advance logic must never kill the sweep
     }, ms || 2500);
 }

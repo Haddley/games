@@ -298,3 +298,58 @@ guessing.
 - two players, one leaves: neither control is offered, the host refuses both, and the
   returning player fixes it by simply coming back
 - a player tidied away who then reconnects can just join again rather than being stranded
+
+## The audit (July 2026) — what is shared, and what each game still owns
+
+Everything below is enforced by tests in `unit/presence.test.js`, several of which are
+*audits*: they read every game and fail if a new one drifts. That matters more than the fixes,
+because every bug in this document was in code that had been copy-pasted and then diverged.
+
+### Shared — `common.js`
+
+| function | what it settles |
+|---|---|
+| `startHeartbeat` / `stopHeartbeat` | every phone says "still here" every 4s |
+| `notePresence(player)` | any message stamps `player.seen` — a heartbeat, a roll, a vote |
+| `isPresent(player, conns)` | heard from within 13s **and** holding a connection |
+| `presentPlayers(...)` | who is actually here; backs every game's `connectedPlayers()` |
+| `claimSeat(players, msg, id, conns, inLobby)` | is this returning join the same person? |
+| `rekeyPlayerId(H, old, new, spec)` | move an id in every shape a game stores one |
+| `watchPresence(recheck)` | re-ask "can the round close?" when someone arrives or leaves |
+| `hostPeer` / `joinPeer` / `p2pCurtain` (p2p.js) | the connection itself |
+
+### Owned by each game — and correctly so
+
+- **Which fields hold an id.** The *shapes* are shared (`scalars`, `arrays`, `maps`,
+  `whoObjs`, `idObjs`); the field names are the game's. Plump Trek passes ten, Family Trivia
+  passes one.
+- **What "absent" means during play.** Plump Trek skips your turn, RPS skips your round,
+  Herdmind closes the answers without you. That is game design, not infrastructure.
+- **ticktacktoe's connection class.** It calls the same `common.js` functions but keeps its
+  own peer plumbing and stores *seats* rather than players.
+
+### The four bugs this came from, and why each was invisible
+
+1. **`conn.on('close')` never fires when a browser closes.** Measured: zero close events in 75
+   seconds. Everything built on `guestConns` therefore answered "yes, they're here" about a
+   switched-off phone.
+2. **A refresh mints a new peer id**, stranding every other field that held the old one. Found
+   in six games; three had been fixed by hand, three (`brokenpencil`, `buzzin`,
+   `familytrivia`) were found only by the audit test.
+3. **`sessionStorage` is cleared when a browser closes**, so a restart presents a *new* device
+   id and only the name is left to match on — which the old rule refused to do while the seat
+   still looked live. That is the ghost lobby: "Neil, Karen, Karen, Karen".
+4. **The "can we advance?" checks are edge-triggered.** They are only asked when somebody
+   answers, so the last answer arriving before a departure is noticed leaves the room waiting
+   for ever. Eight games have no timer to rescue that.
+
+### Writing a test for any of this
+
+**Closing a Playwright browser context is not the same as a phone dying.** Playwright tears
+the peer connection down gracefully, so `conn.on('close')` fires — the one signal the real
+world never sends, and precisely what the buggy code needed in order to work. Two of these
+tests passed against the bug before that was spotted.
+
+Simulate **silence** instead: leave the page open, `stopHeartbeat()` on it, and (for the
+mid-game case) age the seat's `seen`. And check every such test **fails on the old code**
+before believing it.

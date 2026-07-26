@@ -333,6 +333,10 @@ test('herdmind: the round still closes when the player everyone was waiting for 
 
     // …and now Cal's phone goes quiet. Nothing else will happen in this room ever again
     // unless something re-asks.
+    // Stop his heartbeat FIRST. Ageing `seen` alone is not enough — his page is still open,
+    // so the next beat four seconds later stamps it fresh and he is never absent at all. (An
+    // earlier version of this test passed on timing luck for exactly that reason.)
+    await pages.Cal.evaluate(() => { if (typeof stopHeartbeat === 'function') stopHeartbeat(); });
     await tv.evaluate(() => {
         const cal = H.players.find(p => p.name === 'Cal');
         cal.seen = Date.now() - 60_000;

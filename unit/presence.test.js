@@ -180,13 +180,15 @@ test('the heartbeat and presence logic exists in common.js and NOWHERE else', ()
     });
 });
 
-test('the presence sweep only re-asks when the set of present players changes', () => {
-    // Re-running a game's advance logic every two seconds for nothing would be its own bug.
+test('the presence sweep re-asks unconditionally, and cannot be killed by a game', () => {
+    // It deliberately does NOT try to skip ticks where the player set looks unchanged. That
+    // optimisation was in the first version and was quietly wrong: the set can change before
+    // the game reaches the state where the answer matters, and then it never changes again.
     const src = SRC.slice(SRC.indexOf('function watchPresence'), SRC.indexOf('function stopPresenceWatch'));
-    assert.match(src, /if \(now === last\) return;/, 'it must skip ticks where nothing changed');
-    assert.match(src, /connectedPlayers\(\)\.map\(p => p\.id\)\.sort\(\)\.join/,
-        'compare the SET of ids, not just the count — a swap is a change too');
+    assert.doesNotMatch(src, /if \(now === last\) return;/,
+        'skipping unchanged ticks reintroduces the stall this exists to prevent');
     assert.match(src, /catch \(_\) \{\}/, "a game's advance logic must not be able to kill the sweep");
+    assert.match(src, /setInterval/);
     assert.match(SRC, /function stopPresenceWatch\(\)/);
 });
 
@@ -210,4 +212,106 @@ test('every game that waits for all players re-asks when one leaves', () => {
     });
     assert.deepStrictEqual(unwatched, [],
         'these games wait for every player but never re-ask when one leaves — they can stall for ever');
+});
+
+// ── the shared rekey ─────────────────────────────────────────────────────────
+const REKEY = new Function(grab('function rekeyPlayerId(H, oldId, newId, spec) {', '\n}') +
+    '\nreturn rekeyPlayerId;')();
+
+test('rekeyPlayerId moves a player id in every shape a game stores one', () => {
+    const H = {
+        turn: 'old',                                   // scalar
+        turnOrder: ['a', 'old', 'b'],                  // array of ids
+        eliminated: ['old'],
+        votes: { old: 'someone', other: 'old' },       // keyed BY id, and a value pointing AT them
+        card: { who: 'old', t: 'Sprint!' },            // {who: id}
+        moved: { id: 'old', to: 7 },                   // {id: id}
+        untouched: 'old',                              // not in the spec — must be left alone
+    };
+    REKEY(H, 'old', 'new', {
+        scalars: ['turn'], arrays: ['turnOrder', 'eliminated'],
+        maps: ['votes'], whoObjs: ['card'], idObjs: ['moved'],
+    });
+    assert.strictEqual(H.turn, 'new');
+    assert.deepStrictEqual(H.turnOrder, ['a', 'new', 'b']);
+    assert.deepStrictEqual(H.eliminated, ['new']);
+    assert.deepStrictEqual(H.votes, { new: 'someone', other: 'new' },
+        'a vote cast FOR the returning player has to follow them too');
+    assert.strictEqual(H.card.who, 'new');
+    assert.strictEqual(H.moved.id, 'new');
+    assert.strictEqual(H.untouched, 'old', 'it must only touch the fields it was given');
+});
+
+test('rekeyPlayerId is safe on missing, empty and nonsense state', () => {
+    assert.doesNotThrow(() => REKEY(null, 'a', 'b', { scalars: ['turn'] }));
+    assert.doesNotThrow(() => REKEY({}, 'a', 'b', { arrays: ['nope'], maps: ['nope'], whoObjs: ['nope'], idObjs: ['nope'] }));
+    assert.doesNotThrow(() => REKEY({ turn: 'a' }, 'a', 'b'));            // no spec at all
+    const H = { votes: null, turnOrder: 'not an array', card: null };
+    assert.doesNotThrow(() => REKEY(H, 'a', 'b', { maps: ['votes'], arrays: ['turnOrder'], whoObjs: ['card'] }));
+    assert.strictEqual(H.turnOrder, 'not an array', 'a field of the wrong type is left alone');
+    // a no-op rekey must not churn state
+    const same = { turn: 'a' };
+    REKEY(same, 'a', 'a', { scalars: ['turn'] });
+    assert.strictEqual(same.turn, 'a');
+});
+
+test('AUDIT: no game stores a player id somewhere its rekey does not cover', () => {
+    // This is the audit itself, as a test. It reads every game for state keyed by a player id
+    // and fails if that game either has no rekey at all or does not name the field. Three
+    // games were found this way (brokenpencil, buzzin, familytrivia) after the same bug had
+    // already been fixed by hand in three others.
+    const root = path.join(__dirname, '..');
+    const problems = [];
+    fs.readdirSync(root).filter(f => f.endsWith('.html')).forEach(file => {
+        const src = fs.readFileSync(path.join(root, file), 'utf8');
+        if (!src.includes('guestConns')) return;
+        const code = src.split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
+        const fields = new Set();
+        for (const m of code.matchAll(/H\.(\w+)\[\s*(?:player|p)\.id\s*\]/g)) fields.add(m[1]);
+        for (const m of code.matchAll(/H\.(\w+)\.push\(\s*(?:player|p|conn)\.(?:id|peer)\s*\)/g)) fields.add(m[1]);
+        for (const m of code.matchAll(/H\.(\w+)\s*=\s*H\.players\.map\(\s*p\s*=>\s*p\.id/g)) fields.add(m[1]);
+        fields.delete('players');                       // the array itself, not a key
+        if (!fields.size) return;
+        const rekeyAt = src.indexOf('function hostRekeyPlayer');
+        if (rekeyAt < 0) { problems.push(`${file}: keys state by player id (${[...fields]}) but has NO hostRekeyPlayer`); return; }
+        const rekey = src.slice(rekeyAt, src.indexOf('\n}', rekeyAt));
+        [...fields].forEach(f => {
+            if (!new RegExp(`H\\.${f}\\b|'${f}'`).test(rekey)) {
+                problems.push(`${file}: H.${f} is keyed by player id but the rekey never mentions it`);
+            }
+        });
+    });
+    assert.deepStrictEqual(problems, [], '\n  ' + problems.join('\n  '));
+});
+
+const PRESENT = new Function('Date', grab('const PRESENCE_MS', ';') + '\n' +
+    grab('function isPresent(player, conns) {', '\n}') + '\n' +
+    grab('function presentPlayers(players, conns, selfId, selfPlays) {', '\n}') +
+    '\nreturn presentPlayers;');
+
+test('presentPlayers: the host counts only when the host is playing', () => {
+    const now = 1000;
+    const fn = PRESENT({ now: () => now });
+    const players = [{ id: 'me' }, { id: 'a', seen: now }, { id: 'gone', seen: now - 60000 }];
+    const conns = { a: {}, gone: {} };                 // 'gone' still LOOKS connected
+    // a phone host is a player
+    assert.deepStrictEqual(fn(players, conns, 'me', true).map(p => p.id), ['me', 'a']);
+    // a TV host is not
+    assert.deepStrictEqual(fn(players, conns, 'me', false).map(p => p.id), ['a']);
+    // and the departed phone is excluded despite its live-looking connection — this is what
+    // lets a round close when the player everyone was waiting for has gone
+    assert.ok(!fn(players, conns, 'me', true).some(p => p.id === 'gone'));
+});
+
+test('AUDIT: no game keeps its own copy of "who is here"', () => {
+    const root = path.join(__dirname, '..');
+    const offenders = fs.readdirSync(root)
+        .filter(f => f.endsWith('.html'))
+        .filter(f => {
+            const src = fs.readFileSync(path.join(root, f), 'utf8');
+            if (!src.includes('function connectedPlayers')) return false;
+            return !src.includes('presentPlayers(H.players, guestConns, myId');
+        });
+    assert.deepStrictEqual(offenders, [],
+        'these games hand-roll "who is here" instead of using common.js presentPlayers');
 });
