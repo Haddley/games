@@ -384,9 +384,9 @@
             perspective: 60vmin; }
         .cube { position: relative; width: 11vmin; height: 11vmin; transform-style: preserve-3d;
             transform: rotateX(-22deg) rotateY(28deg); }
-        .cube.throwing { transition: transform 1.05s cubic-bezier(.18,.72,.24,1); }   /* duration set per throw */
-        .cube.landed { animation: dieLand .34s cubic-bezier(.2,1.7,.4,1); }
-        @keyframes dieLand { 0% { scale: 1; } 40% { scale: 1.14; } 100% { scale: 1; } }
+        /* The overshoot in this curve IS the landing: the cube rotates a few degrees
+           past the face and rocks back onto it. Dice don't grow, so nothing scales. */
+        .cube.throwing { transition: transform 1.05s cubic-bezier(.16,.78,.28,1.045); }   /* duration set per throw */
         .face { position: absolute; inset: 0; border-radius: 1.6vmin; display: grid; padding: 1.1vmin;
             grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
             background: linear-gradient(150deg, #fffdf6, #ffd98a); border: 1px solid rgba(120,80,0,.25);
@@ -402,7 +402,7 @@
         .f4 { transform: rotateY(-90deg) translateZ(5.5vmin); }
         .f2 { transform: rotateX(90deg) translateZ(5.5vmin); }
         .f5 { transform: rotateX(-90deg) translateZ(5.5vmin); }
-        @media (prefers-reduced-motion: reduce) { .cube.throwing { transition: none; } .cube.landed { animation: none; } }
+        @media (prefers-reduced-motion: reduce) { .cube.throwing { transition: none; } }
         .bigmsg { margin-top: 1.4vmin; font-weight: 900; font-size: 2vmin; color: var(--text); }
         .gcard, .fcard, .bcard { border-radius: 1.6vmin; padding: 14px 16px; text-align: center;
             background: linear-gradient(160deg, #fffaf0, #f3e6cf); color: #2a1c0c; box-shadow: 0 8px 26px rgba(0,0,0,.45); }
@@ -626,10 +626,11 @@ function sDiceRoll(ms) {
 }
 function sDiceLand() {
     if (!sfxOn || !AC) return;
-    duckMusic(0.45);
-    noiseHit(0.075, { vol: 0.26, hp: 1100 });                    // the clack of it settling
-    tone(98, 0.22, { type: 'sine', vol: 0.34, slide: 60 });      // the thud through the table
-    tone(330, 0.09, { type: 'triangle', vol: 0.13, when: 0.012, slide: 250 });
+    // one last wooden click, a shade louder than the rattle it came from — then the
+    // faintest knock. Anything longer or lower reads as a drum, not a die.
+    noiseHit(0.038, { vol: 0.2, hp: 2100 });
+    tone(210, 0.055, { type: 'triangle', vol: 0.14, slide: 165, lp: 1800 });
+    tone(150, 0.045, { type: 'triangle', vol: 0.07, when: 0.03, slide: 120, lp: 1200 });
 }
 // Case closed: swing bugle quoting the lobby motif, closing trill + crash
 function sWin() {
@@ -1824,7 +1825,7 @@ function spinDie(finalN) {
     // sets off (the host waits DIE_WAIT).
     const dur = 620 + Math.floor(Math.random() * 780);           // 0.62s – 1.4s
     const turns = 2 + Math.round(dur / 420);
-    cube.classList.remove('throwing', 'landed');
+    cube.classList.remove('throwing');
     cube.style.transform = `rotateX(${-40 + Math.random() * 80}deg) rotateY(${-40 + Math.random() * 80}deg)`;
     sDiceRoll(dur);
     requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -1835,7 +1836,6 @@ function spinDie(finalN) {
     _dieSpin = setTimeout(() => {
         const c = document.getElementById('v-cube');
         if (!c) return;
-        c.classList.add('landed');
         sDiceLand();
         try { navigator.vibrate && navigator.vibrate(35); } catch (e) {}
     }, dur + 20);
