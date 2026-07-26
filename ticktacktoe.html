@@ -1399,6 +1399,11 @@
                     // a TV host uses it to assign us a role (X or O) — or to give us back
                     // the one we had, if this device is walking back into a held seat.
                     this.connection.send({ type: 'join', name: this.playerName, cid: tttCid() });
+                    // Same heartbeat as every other game (common.js): the host cannot otherwise tell
+                    // a closed browser from a quiet one, which is how the lobby filled with ghosts.
+                    if (typeof startHeartbeat === 'function') startHeartbeat(() => {
+                        try { this.connection.send({ type: 'hb' }); } catch (e) {}
+                    });
                 }
             },
 

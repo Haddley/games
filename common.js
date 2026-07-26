@@ -534,6 +534,82 @@ function clientId() {
     } catch (_) { return null; }   // private mode / storage disabled → name matching
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PRESENCE: who is actually still there
+// ═══════════════════════════════════════════════════════════════════════════
+// The host's only built-in signal that a phone has gone is `conn.on('close')`, and it is
+// nowhere near good enough. MEASURED: a closed tab produced ZERO close events in 75 seconds
+// — the data channel simply goes quiet, there is no FIN. So `guestConns` cheerfully lists
+// devices that are switched off, and every "are they here?" question built on it gets the
+// wrong answer.
+//
+// Two visible bugs came from that, in different games:
+//   • a room sat waiting on a player who had left, every single round;
+//   • a lobby filled up with GHOSTS of one person — close the browser, reopen, and you were
+//     a new player each time, because the seat-reclaim rule only reclaims seats whose
+//     connection is "dead" and no connection ever looked dead.
+//
+// So phones say so out loud. Every game's phone sends a heartbeat; the host stamps
+// `player.seen` on ANY message from that player, and asks `isPresent()` rather than trusting
+// the connection map. This lives here because it must be the same in all 18 games — the rule
+// it replaces was copy-pasted into each of them and had already drifted in two.
+
+const HEARTBEAT_MS = 4000;      // phones speak up this often…
+const PRESENCE_MS = 13000;      // …and are presumed gone after this long in silence
+
+let _hbTimer = null;
+// Start on the phone once it is connected: `startHeartbeat(() => send(hostConn, {type:'hb'}))`.
+// Safe to call repeatedly — a reconnect just replaces the old timer.
+function startHeartbeat(sendFn, ms) {
+    stopHeartbeat();
+    if (typeof sendFn !== 'function') return;
+    try { sendFn(); } catch (_) {}                      // one immediately, so the host knows at once
+    _hbTimer = setInterval(() => { try { sendFn(); } catch (_) {} }, ms || HEARTBEAT_MS);
+}
+function stopHeartbeat() { if (_hbTimer) { clearInterval(_hbTimer); _hbTimer = null; } }
+
+// Host side. Call at the top of the message handler for EVERY message — a heartbeat is only
+// the guaranteed one; a roll or a vote is just as good a proof of life.
+function notePresence(player) {
+    if (player) player.seen = Date.now();
+    return player;
+}
+// Has this player been heard from recently? A player who has only just joined has no `seen`
+// yet, so an open connection stands in until their first heartbeat lands.
+function isPresent(player, conns) {
+    if (!player) return false;
+    const live = !conns || !!conns[player.id];
+    if (!player.seen) return live;
+    return live && (Date.now() - player.seen) < PRESENCE_MS;
+}
+
+// ── claiming a seat back ────────────────────────────────────────────────────
+// THE one rule for "is this returning join the same person as an existing player?", shared so
+// it cannot drift again. Two ways to match, and they are deliberately not equally trusting:
+//
+//   cid  — a device id. A device can only be in one place at a time, so a cid match ALWAYS
+//          takes the seat over, no matter what the connection map claims. This is what was
+//          missing: the old rule required the previous connection to look dead first, and it
+//          never does.
+//
+//   name — much weaker: two people really can both be called Ben. So a name only reclaims a
+//          seat that is NOT present — and "present" now means heard-from recently, not merely
+//          holding an open connection. That is what makes closing and reopening a browser
+//          work: sessionStorage is cleared, so the returning device has a NEW cid and only
+//          the name is left to go on.
+//
+// Returns the player whose seat is being taken over, or null for a genuinely new player.
+function claimSeat(players, msg, newId, conns) {
+    if (!Array.isArray(players)) return null;
+    const cid = msg && msg.cid;
+    const name = String((msg && msg.name) || '').slice(0, 16);
+    if (cid) {
+        const sameDevice = players.find(p => p.cid === cid && p.id !== newId);
+        if (sameDevice) return sameDevice;
+    }
+    return players.find(p => p.name === name && p.id !== newId && !isPresent(p, conns)) || null;
+}
+
 // ── remembering the room (survive a browser refresh) ────────────────────────
 // A phone that reloads the page — deliberately, or because iOS reaped the tab —
 // used to land back on the home screen and have to re-type the code. We remember

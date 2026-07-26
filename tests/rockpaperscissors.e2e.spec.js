@@ -143,3 +143,158 @@ test('phone-first: a host phone runs it without a TV at all', async ({ browser }
 
     for (const p of [neil, jess]) await p.close();
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DROPPED AND RETURNING PHONES
+// ═══════════════════════════════════════════════════════════════════════════════
+// RPS is the most stall-prone shape in the repo: the round only resolves early when EVERY
+// living player has thrown, so one phone that isn't answering drags every single round out
+// to the full timer — and then gets a random throw made for it, so a device nobody is
+// holding stays in the game and can win it.
+//
+// On top of that, a player IS their peer id and a refresh mints a new one. RPS stores ids in
+// `H.eliminated`, `H.result.loserIds` and `H.result.throws[].id`, none of which were being
+// rewritten when a returning phone took its seat back.
+
+async function rpsRoom(browser, names) {
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/rockpaperscissors.html');
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
+    const code = await tv.evaluate(() => roomCode);
+    const pages = {};
+    for (const n of names) pages[n] = await joinPhone(browser, code, n);
+    await expect.poll(() => tv.evaluate(() => H.players.length), { timeout: 30_000 }).toBe(names.length);
+    await pages[names[0]].getByRole('button', { name: /Start showdown/ }).click();
+    await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 15_000 }).toBe('throw');
+    return { tv, pages, code };
+}
+
+test('a player knocked out who then refreshes is still told they are out, and is named in the standings',
+    async ({ browser }) => {
+    // FOUR players: one clash has to leave the showdown still running, or Ben lands on the
+    // podium instead of the "you're out, spectating" screen this test is about.
+    const { tv, pages } = await rpsRoom(browser, ['Ava', 'Ben', 'Cal', 'Dee']);
+
+    // Ben and Cal lose to Ava and Dee
+    await throwAll(pages, { Ava: 'rock', Dee: 'rock', Ben: 'scissors', Cal: 'scissors' });
+    await expect.poll(() => tv.evaluate(() => alivePlayers().length), { timeout: 20_000 }).toBe(2);
+    const benOldId = await tv.evaluate(() => H.players.find(p => p.name === 'Ben').id);
+    expect(await tv.evaluate(o => H.eliminated.includes(o), benOldId)).toBe(true);
+    await expect(pages.Ben.getByText(/You're out/)).toBeVisible({ timeout: 15_000 });
+
+    // …and Ben's phone reloads
+    await pages.Ben.reload({ waitUntil: 'load' });
+    await expect.poll(() => tv.evaluate(() =>
+        H.players.filter(p => guestConns[p.id]).length), { timeout: 30_000 }).toBe(4);
+    const benNewId = await tv.evaluate(() => H.players.find(p => p.name === 'Ben').id);
+    expect(benNewId).not.toBe(benOldId);
+
+    // nothing may still be pointing at the peer that went away
+    const dangling = await tv.evaluate(o => {
+        const bad = [];
+        if ((H.eliminated || []).includes(o)) bad.push('H.eliminated');
+        if (H.result && (H.result.loserIds || []).includes(o)) bad.push('H.result.loserIds');
+        if (H.result && (H.result.throws || []).some(t => t.id === o)) bad.push('H.result.throws');
+        return bad;
+    }, benOldId);
+    expect(dangling, `stale ids: ${dangling.join(', ')}`).toEqual([]);
+
+    // the standings must NAME him — and exactly once. A stale id makes the lookup fail, so
+    // he appears as "?" AND again properly further down.
+    const names = await tv.evaluate(() => standings().map(s => s.name));
+    expect(names, `standings were ${JSON.stringify(names)}`).not.toContain('?');
+    expect(names.filter(n => n === 'Ben').length, 'Ben appears once, not twice').toBe(1);
+    expect(names.sort()).toEqual(['Ava', 'Ben', 'Cal', 'Dee']);
+    // …and being out is a property of the PLAYER, not of the reveal that just scrolled past:
+    // his phone must still show the spectator screen once the next round starts
+    expect(await tv.evaluate(() => {
+        const ben = H.players.find(p => p.name === 'Ben');
+        return { alive: ben.alive, out: ben.out };
+    }), 'Ben is still out after the refresh').toEqual({ alive: false, out: true });
+    await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 20_000 }).toBe('throw');
+    await expect(pages.Ben.getByText(/You're out/),
+        "Ben's phone must still know he is out").toBeVisible({ timeout: 20_000 });
+    await expect(pages.Ben.locator('.throw-btn'), 'and must not be able to throw').toHaveCount(0);
+
+    for (const p of Object.values(pages)) await p.close();
+    await tv.close();
+});
+
+test('a phone that leaves for good does not drag every round out to the full timer',
+    async ({ browser }) => {
+    const { tv, pages } = await rpsRoom(browser, ['Ava', 'Ben', 'Cal']);
+
+    // Cal walks away. The host cannot tell — closing a tab does not fire conn.on('close') —
+    // so without a rule for this the round waits the full THROW_SECS every single time.
+    await tv.evaluate(() => {
+        const cal = H.players.find(p => p.name === 'Cal');
+        delete guestConns[cal.id];
+        cal.away = true;
+    });
+
+    const t0 = Date.now();
+    await pages.Ava.locator('.throw-btn').nth(0).click();      // rock
+    await pages.Ben.locator('.throw-btn').nth(0).click();      // rock
+    // everyone who is actually here has thrown, so the round should resolve NOW
+    await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 6000 }).toBe('reveal');
+    const waited = Date.now() - t0;
+    expect(waited, `waited ${waited}ms for a player who is not there`).toBeLessThan(5000);
+
+    for (const p of Object.values(pages)) await p.close();
+    await tv.close();
+});
+
+test('a phone nobody is holding cannot win the showdown', async ({ browser }) => {
+    // The worst outcome: everyone present is eliminated and the trophy goes to a device
+    // sitting face-down on a sofa, because hostResolve throws at random on their behalf.
+    const { tv, pages } = await rpsRoom(browser, ['Ava', 'Ben', 'Cal']);
+    await tv.evaluate(() => {
+        const cal = H.players.find(p => p.name === 'Cal');
+        delete guestConns[cal.id];
+        cal.away = true;
+    });
+    // Ava and Ben knock each other out around the absent Cal
+    await tv.evaluate(() => {
+        H.players.filter(p => p.name !== 'Cal').forEach(p => { p.alive = false; p.out = true; H.eliminated.push(p.id); });
+        broadcastAll();
+    });
+    const midGame = await tv.evaluate(() => {
+        const c = champion();
+        return c ? { name: c.name, away: !!c.away } : null;
+    });
+    expect(midGame, 'mid-showdown, an absent phone is not the champion — better nobody')
+        .toBeNull();
+
+    // …but somebody who WON and then dropped keeps their trophy: they earned it present.
+    const kept = await tv.evaluate(() => {
+        H.players.forEach(p => { p.alive = false; p.out = false; p.away = false; });
+        const ava = H.players.find(p => p.name === 'Ava');
+        ava.alive = true;
+        H.phase = 'over';
+        ava.away = true; delete guestConns[ava.id];     // her phone dies at the podium
+        const c = champion();
+        return c ? c.name : null;
+    });
+    expect(kept, 'a fair winner keeps the trophy even if their phone drops').toBe('Ava');
+    for (const p of Object.values(pages)) await p.close();
+    await tv.close();
+});
+
+test('someone opening the room mid-game is told what is going on, not left on a spinner',
+    async ({ browser }) => {
+    // A guest scans the QR after the showdown has started. Before, hostAddPlayer was gated on
+    // the lobby phase, so no slot was made, no message was ever addressed to them, and their
+    // phone sat on "Joining the showdown…" forever.
+    const { tv, pages, code } = await rpsRoom(browser, ['Ava', 'Ben']);
+    const late = await joinPhone(browser, code, 'Dee');
+
+    await expect(late.locator('#app'), 'the latecomer must get a real screen')
+        .not.toContainText('Joining the showdown…', { timeout: 20_000 });
+    const seen = await late.evaluate(() => ({ ui, hasApp: document.getElementById('app').innerHTML.length }));
+    expect(seen.hasApp).toBeGreaterThan(200);
+    expect(seen.ui, 'and not be stuck on the connecting spinner').not.toBe('connecting');
+
+    for (const p of [...Object.values(pages), late]) await p.close();
+    await tv.close();
+});

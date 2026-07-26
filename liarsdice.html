@@ -1246,11 +1246,11 @@ function setupGuestConn(conn) {
                 // If a zombie entry exists for this name (prior connection that
                 // dropped before conn.on('close') fired on the host), evict it
                 // so the reconnecting player doesn't appear twice.
-                const zombie = H.players.find(
-                    p => msg.cid && p.cid === msg.cid && p.id !== conn.peer && guestConns[p.id] === undefined
-                ) || H.players.find(
-                    p => p.name === msg.name && p.id !== conn.peer && guestConns[p.id] === undefined
-                );
+                // Same device (cid) always reclaims its seat; a matching NAME only reclaims a seat
+                // nobody has been heard from lately. Shared, so all games agree — see common.js.
+                const zombie = typeof claimSeat === 'function'
+                    ? claimSeat(H.players, msg, conn.peer, guestConns)
+                    : H.players.find(p => msg.cid && p.cid === msg.cid && p.id !== conn.peer);
                 const nBefore = H.players.length;
                 if (zombie) {
                     zombie.id = conn.peer;   // re-use the existing slot
@@ -1258,6 +1258,7 @@ function setupGuestConn(conn) {
                     hostAddPlayer(conn.peer, msg.name);
                 }
                 const me2 = H.players.find(p => p.id === conn.peer);
+                if (typeof notePresence === 'function') notePresence(me2);
                 if (me2 && msg.cid) me2.cid = msg.cid;          // this device now owns the slot
                 broadcastLobby();
                 if (H.players.length > nBefore) sJoin();
@@ -1471,6 +1472,7 @@ function joinGame(code, name) {
             connected = true;
             rememberRoom(pid, 'player');
             send(hostConn, {type:'join', cid: clientId(), name: myName});
+            if (typeof startHeartbeat === 'function') startHeartbeat(() => { try { send(hostConn, {type:'hb'}); } catch (e) {} });
             ui = 'lobby_g';
             render();
         });

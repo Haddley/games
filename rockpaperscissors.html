@@ -291,6 +291,26 @@ function capSync(prevId) {
     if ((capPlayer()?.id || null) !== prevId) broadcastAll();
 }
 function alivePlayers() { return H.players.filter(p => p.alive); }
+// Alive AND actually here. This is the list the round is run against: a phone nobody is
+// holding must not be waited for, must not be thrown for, and must not win the trophy.
+function playingNow() { return H.players.filter(p => p.alive && !p.away); }
+function absentPlayers() { return H.players.filter(p => (!guestConns[p.id] && p.id !== myId) || p.away); }
+
+// A player IS their peer id, and a refresh mints a new one. Re-pointing their row in
+// H.players is not enough — RPS also keeps ids in the elimination order and in the result of
+// the round just played. Leave those stale and the final standings can't find the player, so
+// they show up as "?" AND again by name further down, and a phone that was knocked out comes
+// back thinking it is still in.
+function hostRekeyPlayer(player, newId) {
+    const old = player.id;
+    if (!old || old === newId) return;
+    player.id = newId;
+    H.eliminated = (H.eliminated || []).map(id => (id === old ? newId : id));
+    if (H.result) {
+        H.result.loserIds = (H.result.loserIds || []).map(id => (id === old ? newId : id));
+        (H.result.throws || []).forEach(t => { if (t.id === old) t.id = newId; });
+    }
+}
 function captainId() { return isTvHost ? (connectedPlayers()[0]?.id || H.players[0]?.id || null) : null; }
 function captainName() { const c = H.players.find(p => p.id === captainId()); return c ? c.name : null; }
 
@@ -336,9 +356,15 @@ function revealMsgFor(p) {
         myChoice: p ? p.choice : null, tvHost: isTvHost, captain: captainName(),
     };
 }
+function champion() {
+    // Mid-game the trophy can only belong to somebody who is actually here — otherwise a
+    // phone face-down on the sofa wins the showdown. Once the game is OVER the winner keeps
+    // it even if their phone then drops; they earned it while present.
+    return H.phase === 'over' ? (playingNow()[0] || alivePlayers()[0] || null) : (playingNow()[0] || null);
+}
 function standings() {
     // champion first, then reverse elimination order
-    const champ = alivePlayers()[0];
+    const champ = champion();
     const order = [];
     if (champ) order.push(champ.id);
     [...H.eliminated].reverse().forEach(id => { if (!order.includes(id)) order.push(id); });
@@ -346,7 +372,7 @@ function standings() {
     return order.map(id => { const p = H.players.find(q => q.id === id); return { name: p?.name || '?', avatar: p?.avatar || '❔' }; });
 }
 function overMsg() {
-    const champ = alivePlayers()[0];
+    const champ = champion();
     return { type: 'over', standings: standings(), champion: champ ? { name: champ.name, avatar: champ.avatar } : null, tvHost: isTvHost, captain: captainName() };
 }
 function phaseSnapshotFor(p) {
@@ -375,7 +401,7 @@ function broadcastAll() {
 function hostStartGame() {
     if (connectedPlayers().length < MIN_PLAYERS) { uiErr = 'Need at least ' + MIN_PLAYERS + ' players.'; if (ui === 'lobby_h') render(); return; }
     H.round = 0; H.eliminated = [];
-    H.players.forEach(p => { p.alive = true; p.out = false; p.choice = null; });
+    H.players.forEach(p => { p.alive = true; p.out = false; p.choice = null; p.away = false; p.late = false; });
     hostStartRound();
 }
 function hostStartRound() {
@@ -398,13 +424,23 @@ function hostChoose(player, sym) {
     if (!SYMS[sym]) return;
     player.choice = sym;
     broadcastAll();
-    if (alivePlayers().every(p => p.choice !== null)) hostResolve();
+    // everyone who is actually HERE has thrown — don't sit out the rest of the timer for a
+    // phone that isn't answering
+    if (playingNow().every(p => p.choice !== null)) hostResolve();
 }
 function hostResolve() {
     if (H.phase !== 'throw') return;
     clearTimers();
-    const alive = alivePlayers();
-    // auto-random for anyone who didn't lock
+    // The round belongs to the people holding phones. Anyone alive who never threw AND has
+    // no live connection has proved they're gone: mark them away and leave them out of it,
+    // so they aren't thrown for and can't be crowned. They're back in the moment they send
+    // anything (see the message handler) or on the next new game.
+    alivePlayers().forEach(p => {
+        if (p.choice === null && !guestConns[p.id] && p.id !== myId) p.away = true;
+    });
+    const alive = playingNow();
+    if (!alive.length) { H.phase = 'throw'; return; }        // nobody here — nothing to resolve
+    // auto-random for anyone who's here but didn't lock in time
     const keys = Object.keys(SYMS);
     alive.forEach(p => { if (p.choice === null) p.choice = keys[Math.floor(Math.random() * 3)]; });
     const throws = alive.map(p => ({ id: p.id, choice: p.choice }));
@@ -446,7 +482,7 @@ function hostGameOver() {
 function hostNewGame() {
     clearTimers();
     H.phase = 'lobby'; H.round = 0; H.eliminated = []; H.result = null;
-    H.players.forEach(p => { p.alive = true; p.out = false; p.choice = null; });
+    H.players.forEach(p => { p.alive = true; p.out = false; p.choice = null; p.away = false; p.late = false; });
     broadcastAll();
 }
 function clearTimers() { if (throwTimer) { clearInterval(throwTimer); throwTimer = null; } if (phaseTimer) { clearTimeout(phaseTimer); phaseTimer = null; } }
@@ -503,7 +539,7 @@ function joinGame(code, name) {
         isConnected: () => connected,
         onReady: (p, id, hc) => {
             peer = p; myId = id; isHost = false; hostConn = hc;
-            hostConn.on('open', () => { connected = true; rememberRoom(code.trim().toUpperCase(), 'player'); send(hostConn, { type: 'join', cid: clientId(), name: myName, avatar: myAvatar }); });
+            hostConn.on('open', () => { connected = true; if (typeof startHeartbeat === 'function') startHeartbeat(() => { try { send(hostConn, { type: 'hb' }); } catch (e) {} }); rememberRoom(code.trim().toUpperCase(), 'player'); send(hostConn, { type: 'join', cid: clientId(), name: myName, avatar: myAvatar }); });
             hostConn.on('data', msg => applyMsg(msg));
         },
         onLost: () => { connected = false; },   // → auto-rejoin behind the curtain
@@ -532,17 +568,36 @@ function setupGuestConn(conn) {
     conn.on('data', msg => {
         if (conn._role === null && msg.type === 'join_viewer') { conn._role = 'viewer'; viewerConns[conn.peer] = conn; send(conn, viewerSnapshot()); return; }
         if (conn._role === null) { conn._role = 'player'; guestConns[conn.peer] = conn; }
+        {   // any message at all is proof this phone is being held
+            const alive = H.players.find(p => p.id === conn.peer);
+            if (alive && alive.away) { alive.away = false; broadcastAll(); }
+        }
         const player = H.players.find(p => p.id === conn.peer);
+        // ANY message is proof of life — heartbeat, roll, vote, anything.
+        if (typeof notePresence === 'function') notePresence(player);
         switch (msg.type) {
             case 'join': {
                 const prevCap = capPlayer()?.id || null;
                 setTimeout(() => capSync(prevCap), 0);
                 const name = String(msg.name || 'Player').slice(0, 16);
-                const zombie = H.players.find(p => msg.cid && p.cid === msg.cid && p.id !== conn.peer && !guestConns[p.id])
-                    || H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
-                if (zombie) zombie.id = conn.peer;
+                // Same device (cid) always reclaims its seat; a matching NAME only reclaims a seat
+                // nobody has been heard from lately. Shared, so all games agree — see common.js.
+                const zombie = typeof claimSeat === 'function'
+                    ? claimSeat(H.players, msg, conn.peer, guestConns)
+                    : H.players.find(p => msg.cid && p.cid === msg.cid && p.id !== conn.peer);
+                if (zombie) hostRekeyPlayer(zombie, conn.peer);
                 else if (H.phase === 'lobby') hostAddPlayer(conn.peer, name, msg.avatar);
+                else {
+                    // Somebody scanning the QR mid-showdown. Refusing them leaves their phone
+                    // on the joining spinner for ever, with no message ever addressed to it.
+                    // Sit them down as a spectator instead: they watch this showdown out and
+                    // are in the room for the next one.
+                    hostAddPlayer(conn.peer, name, msg.avatar);
+                    const late = H.players.find(p => p.id === conn.peer);
+                    if (late) { late.alive = false; late.out = true; late.late = true; }
+                }
                 const me2 = H.players.find(p => p.id === conn.peer);
+                if (me2) me2.away = false;                      // whoever they are, they're here
                 if (me2 && msg.cid) me2.cid = msg.cid;          // this device now owns the slot
                 broadcastAll(); break;
             }
@@ -555,7 +610,7 @@ function setupGuestConn(conn) {
         setTimeout(() => capSync(prevCap), 0);
         delete guestConns[conn.peer]; delete viewerConns[conn.peer];
         if (H.phase === 'lobby') { const pi = H.players.findIndex(p => p.id === conn.peer); if (pi >= 0) { H.players.splice(pi, 1); broadcastAll(); } }
-        else if (H.phase === 'throw') { const p = H.players.find(x => x.id === conn.peer); if (p && p.alive && alivePlayers().every(q => q.choice !== null)) hostResolve(); }
+        else if (H.phase === 'throw') { const p = H.players.find(x => x.id === conn.peer); if (p) { p.away = true; if (playingNow().every(q => q.choice !== null)) hostResolve(); } }
     });
     conn.on('error', e => console.warn('conn err', e));
 }

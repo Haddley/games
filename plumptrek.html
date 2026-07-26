@@ -1406,6 +1406,8 @@ function setupGuestConn(conn) {
         }
         if (conn._role === null) { conn._role = 'player'; guestConns[conn.peer] = conn; }
         const player = H.players.find(p => p.id === conn.peer);
+        // ANY message is proof of life — heartbeat, roll, vote, anything.
+        if (typeof notePresence === 'function') notePresence(player);
         // Anything at all from this phone is proof it's alive, so it rejoins the rotation.
         if (player && player.away) { player.away = false; broadcastAll(); }
         switch (msg.type) {
@@ -1413,8 +1415,11 @@ function setupGuestConn(conn) {
                 const prevCap = capPlayer()?.id || null;
                 setTimeout(() => capSync(prevCap), 0);
                 const name = String(msg.name || 'Player').slice(0, 16);
-                const zombie = H.players.find(p => msg.cid && p.cid === msg.cid && p.id !== conn.peer && !guestConns[p.id])
-                    || H.players.find(p => p.name === name && p.id !== conn.peer && !guestConns[p.id]);
+                // Same device (cid) always reclaims its seat; a matching NAME only reclaims a seat
+                // nobody has been heard from lately. Shared, so all games agree — see common.js.
+                const zombie = typeof claimSeat === 'function'
+                    ? claimSeat(H.players, msg, conn.peer, guestConns)
+                    : H.players.find(p => msg.cid && p.cid === msg.cid && p.id !== conn.peer);
                 if (zombie) hostRekeyPlayer(zombie, conn.peer);
                 else hostAddPlayer(conn.peer, name, msg.seat);
                 const p2 = H.players.find(p => p.id === conn.peer);
@@ -1533,7 +1538,7 @@ function joinGame(code, name) {
         isConnected: () => connected,
         onReady: (p, id, hc) => {
             peer = p; myId = id; isHost = false; hostConn = hc;
-            hostConn.on('open', () => { connected = true; rememberRoom(code.trim().toUpperCase(), 'player'); send(hostConn, { type: 'join', cid: clientId(), name: myName, seat: mySeat }); });
+            hostConn.on('open', () => { connected = true; if (typeof startHeartbeat === 'function') startHeartbeat(() => { try { send(hostConn, { type: 'hb' }); } catch (e) {} }); rememberRoom(code.trim().toUpperCase(), 'player'); send(hostConn, { type: 'join', cid: clientId(), name: myName, seat: mySeat }); });
             hostConn.on('data', msg => applyMsg(msg));
         },
         onLost: () => { connected = false; },   // → auto-rejoin behind the curtain
