@@ -155,3 +155,27 @@ test('every game tells claimSeat whether it is in the lobby', () => {
         });
     assert.deepStrictEqual(bad, [], 'these games never pass the lobby flag, so restarts make ghosts');
 });
+
+test('the heartbeat and presence logic exists in common.js and NOWHERE else', () => {
+    // The whole point. This rule used to be copy-pasted into all 18 games — 16 identical, 2
+    // already drifted, plus a third variant in ticktacktoe — which is exactly how one game
+    // ends up behaving differently from the rest and nobody notices for months.
+    const root = path.join(__dirname, '..');
+    const defines = /function (startHeartbeat|stopHeartbeat|notePresence|isPresent|claimSeat)\s*\(/;
+    const offenders = fs.readdirSync(root)
+        .filter(f => (f.endsWith('.html') || f.endsWith('.js')) && f !== 'common.js')
+        .filter(f => defines.test(fs.readFileSync(path.join(root, f), 'utf8')));
+    assert.deepStrictEqual(offenders, [],
+        'these files define their own copy of shared presence logic — it belongs in common.js');
+
+    // …and every game reaches it the same way, through a guard, so a stale cached common.js
+    // degrades instead of throwing a ReferenceError and blanking the page.
+    const games = fs.readdirSync(root).filter(f => f.endsWith('.html') && f !== 'index.html');
+    const rooms = games.filter(f => fs.readFileSync(path.join(root, f), 'utf8').includes('startHeartbeat'));
+    assert.ok(rooms.length >= 18, `only ${rooms.length} games send a heartbeat`);
+    rooms.forEach(f => {
+        const src = fs.readFileSync(path.join(root, f), 'utf8');
+        assert.match(src, /typeof startHeartbeat === 'function'/,
+            `${f} calls startHeartbeat unguarded — a stale common.js would blank the page`);
+    });
+});
