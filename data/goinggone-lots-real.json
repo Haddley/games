@@ -74,6 +74,21 @@
         "https://onsitestorage.com/20ft-shipping-containers-for-sale-usa-cost-2026/",
         "https://www.mannscans.com/post/20ft-shipping-container-delivered"
       ]
+    },
+    {
+      "emoji": "🥤",
+      "name": "Combo Vending Machine (Snacks + Cold Drinks)",
+      "desc": "One cabinet, two temperatures, takes cards. The kind that eats your dollar and gives nothing back.",
+      "value": 4200,
+      "source": "several US vending suppliers, 2026 price guides",
+      "url": "https://www.vendsoft.com/how-much-does-vending-machine-cost/",
+      "capturedOn": "2026-07-27",
+      "confidence": "high",
+      "confidenceNote": "New combo machines cluster at $3,000–$5,500, with the wider snack/drink/combo market $3,000–$10,000 depending on refrigeration and card payment. $4,200 sits mid-range. Strong lot: everyone has used one, nobody has priced one.",
+      "corroboration": [
+        "https://vmfsusa.com/blogs/business/how-much-does-a-vending-machine-cost",
+        "https://vendingmachinedistributor.com/blogs/news/vending-machine-cost-guide"
+      ]
     }
   ],
   "researchLog": [
