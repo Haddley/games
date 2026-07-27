@@ -377,13 +377,13 @@ function champion() {
     return H.phase === 'over' ? (playingNow()[0] || alivePlayers()[0] || null) : (playingNow()[0] || null);
 }
 function standings() {
-    // champion first, then reverse elimination order
+    // champion first, then reverse elimination order — shared with the other elimination
+    // games (common.js rankByElimination), so they cannot drift apart again
     const champ = champion();
-    const order = [];
-    if (champ) order.push(champ.id);
-    [...H.eliminated].reverse().forEach(id => { if (!order.includes(id)) order.push(id); });
-    H.players.forEach(p => { if (!order.includes(p.id)) order.push(p.id); });
-    return order.map(id => { const p = H.players.find(q => q.id === id); return { name: p?.name || '?', avatar: p?.avatar || '❔' }; });
+    const ranked = typeof rankByElimination === 'function'
+        ? rankByElimination(H.players, H.eliminated, champ && champ.id)
+        : H.players;
+    return ranked.map(p => ({ name: p.name || '?', avatar: p.avatar || '❔' }));
 }
 function overMsg() {
     const champ = champion();

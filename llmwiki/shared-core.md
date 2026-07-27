@@ -18,6 +18,15 @@ Loaded by every P2P game (and `index.html`). Provides:
 
 1. **`ICE_CFG`** — the Metered STUN/TURN config passed to **every** `new Peer(...)`.
    Credential rotation is a one-file change. See CLAUDE.md "Connection transport".
+2b. **`rankByElimination(entries, eliminated, champion, keyOf)`** — the OTHER kind of
+   podium. `rankByScore` is for games where everyone finishes with a number; this is for
+   games where nobody does and people are knocked **out** instead, so the finishing order is
+   the elimination order read backwards. Used by RPS and Liar's Dice, which were doing it by
+   hand with the same algorithm and one difference that mattered: RPS appended players who
+   were never eliminated, Liar's Dice dropped them off the podium. `keyOf` exists because
+   Liar's Dice keys its elimination list by NAME rather than id. A unit-test audit fails if a
+   game with `H.eliminated` builds its own order.
+
 2. **`rankByScore(list, key='score')`** — competition ranking (1-2-2-4): reuse the
    previous rank unless the score drops. Fixes the **podium-tie bug** — see
    [podium-and-scoring.md](podium-and-scoring.md).

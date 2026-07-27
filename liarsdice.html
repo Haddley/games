@@ -1037,7 +1037,12 @@ function hostChallenge(fromId) {
 
     if (H.activePlayers.length === 1) {
         H.winner = H.players[H.activePlayers[0]].name;
-        H.rankings = [H.winner, ...[...H.eliminated].reverse()];
+        // Same podium rule as the other elimination games (common.js). Doing it by hand
+        // here used to drop anyone who was never eliminated — a late joiner, or a player
+        // still aboard when the game ended some other way — clean off the final board.
+        H.rankings = typeof rankByElimination === 'function'
+            ? rankByElimination(H.players, H.eliminated, H.winner, p => p.name).map(p => p.name)
+            : [H.winner, ...[...H.eliminated].reverse()];
     }
 
     H.phase = 'reveal';

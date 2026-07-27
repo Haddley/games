@@ -534,6 +534,41 @@ function clientId() {
     } catch (_) { return null; }   // private mode / storage disabled → name matching
 }
 
+// ── final standings for an ELIMINATION game ─────────────────────────────────
+// `rankByScore` ranks a game where everyone finishes with a number. This is the other kind:
+// nobody has a score, people are knocked OUT, and the finishing order is the elimination
+// order read backwards — last one standing first, first one out last.
+//
+// RPS and Liar's Dice were both doing this by hand, with the same algorithm and a difference
+// that mattered: RPS appended anyone who was never eliminated (a player who joined late, or
+// who was still alive when the game ended another way), Liar's Dice dropped them off the
+// podium entirely. That is exactly the drift that happens when two games implement the same
+// idea separately.
+//
+//   entries    the players (any shape)
+//   eliminated the keys of those knocked out, EARLIEST FIRST
+//   champion   the key of the winner, if there is one
+//   keyOf      how to read a key off an entry — id in most games, name in Liar's Dice
+//
+// Returns the entries themselves, in finishing order, with no duplicates and nobody lost.
+function rankByElimination(entries, eliminated, champion, keyOf) {
+    const list = entries || [];
+    const key = keyOf || function (e) { return e && e.id; };
+    const out = [];
+    const seen = [];
+    function take(k) {
+        if (k == null || seen.indexOf(k) >= 0) return;
+        for (let i = 0; i < list.length; i++) {
+            if (key(list[i]) === k) { seen.push(k); out.push(list[i]); return; }
+        }
+    }
+    take(champion);                                   // last one standing goes first
+    const gone = eliminated || [];
+    for (let i = gone.length - 1; i >= 0; i--) take(gone[i]);   // then reverse elimination order
+    list.forEach(function (e) { take(key(e)); });     // and nobody is left off the podium
+    return out;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // BUILD VERSION: are we all running the same code?
 // ═══════════════════════════════════════════════════════════════════════════
