@@ -1,8 +1,7 @@
 {
-  "note": "SEED, NOT A FINISHED LIST. Real purchasable items with verified prices for Going, Going, GONE! Every entry has a source URL and the date its price was read. Nothing here is invented — if a price could not be verified, the item is not in this file. See goinggoneplan-realitems.md for the brief.",
+  "note": "LIVE DATA — this file and goinggone-lots-catalogue.json are the source for the lots in goinggone.html. Real purchasable items with verified prices; every entry has a source URL and the date its price was read. Nothing here is invented — if a price could not be verified, the item is not in this file. AFTER EDITING, run `node scripts/build-goinggone-lots.js` to re-embed, or unit/goinggone.test.js will fail. This half is hand-researched, one search per item, with fuller confidence notes.",
   "startedOn": "2026-07-27",
   "sourcingNote": "Amazon was the original intent and is not usable: WebFetch on an Amazon product page returns HTTP 500 (Amazon blocks automated fetches) and site-restricted search returns category pages with no prices. The constraint was dropped in favour of any verifiable retailer. Re-test Amazon before assuming it is still blocked.",
-  "targetCount": 30,
   "band": {
     "min": 1,
     "max": 10000,
@@ -89,6 +88,415 @@
         "https://vmfsusa.com/blogs/business/how-much-does-a-vending-machine-cost",
         "https://vendingmachinedistributor.com/blogs/news/vending-machine-cost-guide"
       ]
+    },
+    {
+      "emoji": "🚧",
+      "name": "Orange Traffic Cone (28in, reflective)",
+      "desc": "One cone. The full-size road kind, not the toy. Costs less than a pizza.",
+      "value": 14.5,
+      "apparent": "high",
+      "source": "Traffic Safety Store retail listing",
+      "url": "https://www.trafficsafetystore.com/traffic-cones/28-inch-economy-cones",
+      "capturedOn": "2026-07-27",
+      "confidence": "high",
+      "confidenceNote": "Read directly off the retail page: $14.50 at qty 1-14, marked down from $18.40. Fills the empty $1-100 band. Good lot because official-looking road furniture reads as expensive and isn't.",
+      "imageUrl": "https://media.trafficsafetystore.com/image/upload/c_limit,dpr_3.0,f_auto,q_auto:best,w_600/i/economy-traffic-cones-28in-orange-two-collars-jbc-safety-cone-construction-cone.webp"
+    },
+    {
+      "emoji": "🎳",
+      "name": "One Regulation Bowling Pin",
+      "desc": "A single pin off a real lane. Sold by the case of ten, so this is a tenth of one.",
+      "value": 21,
+      "apparent": "low",
+      "source": "BowlersMart / Bowlingindex, case-of-10 retail pricing",
+      "url": "https://www.bowlersmart.com/product/real-bowling-pins-set-of-10/",
+      "capturedOn": "2026-07-27",
+      "confidence": "medium",
+      "confidenceNote": "Cases of 10 run $149.95-$229.95, so $15-23 a pin; $21 is the AMF Green figure. Priced per case, not per pin, so the single-pin figure is derived."
+    },
+    {
+      "emoji": "🛒",
+      "name": "Supermarket Shopping Trolley",
+      "desc": "The big metal one with the wonky wheel. Everyone has pushed one; nobody has bought one.",
+      "value": 150,
+      "apparent": "low",
+      "source": "several trolley manufacturers' 2026 price guides",
+      "url": "https://www.trolleymfg.com/how-much-does-a-shopping-cart-cost/",
+      "capturedOn": "2026-07-27",
+      "confidence": "medium",
+      "confidenceNote": "Consistent across independent guides: $75-$400 overall, standard metal carts $100-$250. $150 sits mid-range. Corroborated but not a single retail listing.",
+      "corroboration": [
+        "https://www.connectpos.com/how-much-does-a-grocery-store-shopping-cart-cost/",
+        "https://www.hedashelving.com/info/how-much-does-supermarket-shopping-cart-cost-102869934.html"
+      ]
+    },
+    {
+      "emoji": "🎪",
+      "name": "Mechanical Bull (Standard Package)",
+      "desc": "Bull, inflatable mattress, blower, three-year warranty. Shipping is another grand.",
+      "value": 7000,
+      "apparent": "high",
+      "source": "USA Mechanical Bulls, manufacturer's own pricing",
+      "url": "https://www.usamechanicalbulls.com/blogs/news/how-much-is-a-mechanical-bull",
+      "capturedOn": "2026-07-27",
+      "confidence": "high",
+      "confidenceNote": "Read off the manufacturer's page: Standard $7,000, Classic $8,500 (cowhide), Premium $9,500. Flat $1,000 US shipping on top. Fills the empty $5k-10k band."
+    },
+    {
+      "emoji": "🕹️",
+      "name": "Crane Claw Machine (commercial)",
+      "desc": "The one that never quite grips. Coin-op, tempered glass, card reader.",
+      "value": 3500,
+      "apparent": "low",
+      "source": "several arcade-machine suppliers, 2026 price guides",
+      "url": "https://fun-space.com/industry-information/claw-machine-prices-guide.html",
+      "capturedOn": "2026-07-27",
+      "confidence": "medium",
+      "confidenceNote": "Commercial units cluster $2,500-$5,000, premium multi-payment models past $7,000, used $1,000-$3,000. $3,500 sits mid-range.",
+      "corroboration": [
+        "https://bleegame.com/how-much-does-a-commercial-claw-machine-cost-price-guide-for-arcade-buyers/",
+        "https://www.ypfuns.com/blog/the-ultimate-guide-to-buying-a-crane-claw-machine-in-2026-and-beyond-maximize-your-fun-and-profit.html"
+      ]
+    },
+    {
+      "emoji": "🧖",
+      "name": "Two-Person Cedar Barrel Sauna",
+      "desc": "A barrel you sit inside until you feel virtuous. Foundation and wiring not included.",
+      "value": 4490,
+      "apparent": "high",
+      "source": "Solace 2-person cedar barrel sauna, retail listing price",
+      "url": "https://topture.com/blogs/home-saunas/how-much-does-an-outdoor-sauna-cost",
+      "capturedOn": "2026-07-27",
+      "confidence": "medium",
+      "confidenceNote": "2-person barrel saunas run $2,500-$4,000; the named Solace model with shingled roof and Harvia heater is $4,490. Installed cost is $3,500-$9,000+ once foundation and electrics are in."
+    },
+    {
+      "emoji": "🚒",
+      "name": "Fire Hydrant",
+      "desc": "The hydrant only. Getting it into the ground costs more than the hydrant does.",
+      "value": 3200,
+      "apparent": "low",
+      "source": "ZenTrades 2025 fire hydrant price guide",
+      "url": "https://zentrades.pro/zenfire/blog/guide-to-fire-hydrant-price",
+      "capturedOn": "2026-07-27",
+      "confidence": "medium",
+      "confidenceNote": "Unit price $1,500-$7,000; $3,200 is mid-range. Installation adds $2,500-$10,000 on top. Single-source range, not a retail listing — worth corroborating.",
+      "allInCostUsd": [
+        4000,
+        17000
+      ]
+    },
+    {
+      "emoji": "🍦",
+      "name": "Used Ice Cream Truck (1997 GMC 3500)",
+      "desc": "Chimes included. Soft serve machine of uncertain temperament.",
+      "value": 9000,
+      "apparent": "high",
+      "source": "UsedVending / Machinio used ice cream truck listings",
+      "url": "https://www.usedvending.com/used-mobile-food-trucks/ice-cream-truck/",
+      "capturedOn": "2026-07-27",
+      "confidence": "low",
+      "confidenceNote": "A single used-vehicle listing, and those move fast — the price is real today and may not exist next month. The wider market runs $9,000 (old step van) to $68,000 (soft-serve rig). Re-check or swap for a durable figure before shipping."
+    },
+    {
+      "emoji": "🦙",
+      "name": "An Alpaca",
+      "desc": "One alpaca. Pet quality, not show genetics. Comes with an opinion about you.",
+      "value": 500,
+      "apparent": "high",
+      "source": "AlpacaKeep 2026 pricing guide; Cotton Creek Farms",
+      "url": "https://www.alpacakeep.com/guides/how-much-does-an-alpaca-cost",
+      "capturedOn": "2026-07-27",
+      "confidence": "medium",
+      "confidenceNote": "Pet/fibre-quality animals $250-$2,000; breeding and show stock $3,000-$100,000+. $500 is a pet gelding. The surprise is how CHEAP the bottom of the market is — upkeep is $600-$850 a year, so the animal costs less than a year of owning it.",
+      "corroboration": [
+        "https://cottoncreekfarms.com/alpaca-cost-and-care/"
+      ]
+    },
+    {
+      "emoji": "🎰",
+      "name": "New Pinball Machine (Pokémon Premium)",
+      "desc": "A brand-new licensed table. Tax and freight are another thousand.",
+      "value": 9499,
+      "apparent": "high",
+      "source": "2026 pinball dealer price roundup",
+      "url": "https://www.coingamesmachine.com/how-much-does-a-pinball-machine-cost-2026-virtual-pinball-buying-guide/",
+      "capturedOn": "2026-07-27",
+      "confidence": "medium",
+      "confidenceNote": "New machines: Pokémon Premium $9,499, Medieval Madness Merlin $12,000, Harry Potter Collector's $15,000. Virtual pinball cabinets are a tenth of that ($1,000-$2,100), which is the interesting contrast. Dealer roundup, not a single verified checkout page."
+    },
+    {
+      "emoji": "🐄",
+      "name": "One Dairy Cow",
+      "desc": "A replacement milking cow, average US price. Record highs this year.",
+      "value": 3130,
+      "apparent": "low",
+      "source": "USDA-tracked replacement dairy cow average, April 2026",
+      "url": "https://www.agproud.com/articles/63418-replacement-dairy-cow-prices-hit-new-record-high",
+      "capturedOn": "2026-07-27",
+      "confidence": "high",
+      "confidenceNote": "$3,130/head average April 2026, up 9% on January — a genuine record. Top Holstein springers $3,500-$4,400. Unusually well-evidenced for a live animal because the USDA tracks it. Compare the alpaca at $500.",
+      "corroboration": [
+        "https://www.dairyherd.com/news/replacement-cow-prices-hit-records-heifer-and-beef-dairy-calf-values-stay-strong",
+        "https://www.farmkeep.com/farm-guides/livestock/how-much-does-a-cow-cost-beef-dairy-price-guide"
+      ]
+    },
+    {
+      "emoji": "🚑",
+      "name": "A Used Ambulance",
+      "desc": "Decommissioned, lights included. People buy these as campers.",
+      "value": 29500,
+      "apparent": "fair",
+      "source": "Commercial Truck Trader listing average",
+      "url": "https://www.commercialtrucktrader.com/Ambulance/trucks-for-sale?category=Ambulance%7C2000545",
+      "capturedOn": "2026-07-27",
+      "confidence": "medium",
+      "confidenceNote": "Listings span $629 to $186,710, average ~$29,500 — an enormous spread, so the average is doing a lot of work. A new fully-equipped ambulance is $520,000+, which is the more surprising number of the two.",
+      "overBand": true
+    },
+    {
+      "emoji": "🎼",
+      "name": "A Concert Pedal Harp",
+      "desc": "Forty-seven strings and seven pedals. The most expensive harp there is.",
+      "value": 18000,
+      "apparent": "fair",
+      "source": "harp dealer price guides (Lyon & Healy / Salvi market)",
+      "url": "https://www.harpconnection.com/harpstore/harp-ConcertPedal.html",
+      "capturedOn": "2026-07-27",
+      "confidence": "medium",
+      "confidenceNote": "New professional pedal harps $15,000-$40,000; entry-level new $12,000-$18,000; premium handmade $50,000+. Used $8,000-$25,000. $18,000 is entry-level new. Dear because of the pedal mechanism, not the size.",
+      "overBand": true,
+      "corroboration": [
+        "https://www.vermontviolins.com/pedal-harps-for-sale"
+      ]
+    },
+    {
+      "emoji": "⚰️",
+      "name": "A Metal Casket",
+      "desc": "The single most expensive thing most families buy for a funeral.",
+      "value": 2500,
+      "apparent": "fair",
+      "source": "2026 casket price guides",
+      "url": "https://blog.partingstone.com/average-price-for-a-casket-what-caskets-cost-by-material-in-2026/",
+      "capturedOn": "2026-07-27",
+      "confidence": "medium",
+      "confidenceNote": "Median metal casket ~$2,500; wood ~$3,000; most families pay $2,000-$5,000; mahogany/bronze/copper up to $10,000. Judgement call for the game: it is a real, guessable, surprisingly-priced object, but check the room — it may not be the lot you want between the candy floss machine and the alpaca.",
+      "corroboration": [
+        "https://casketemporium.com/how-much-does-a-funeral-casket-cost-in-2026-complete-price-guide/"
+      ]
+    },
+    {
+      "emoji": "🏡",
+      "name": "Home Battery System, 10kWh Installed",
+      "desc": "The wall-mounted battery that runs the house when the power cuts.",
+      "value": 9500,
+      "apparent": "fair",
+      "source": "2026 home storage price guides",
+      "url": "https://nuwattenergy.com/en/battery-storage-cost-2026",
+      "confidence": "medium",
+      "confidenceNote": "A 10kWh system runs $8,000-$11,000 before incentives in mid-2026; installed cost $500-$1,300 per kWh, clustering $800-$1,200. $9,500 is mid-range. Note the US federal Residential Clean Energy Credit expired at the end of 2025, so 2026 prices are the real out-of-pocket figure. Fills the $5k-10k band.",
+      "corroboration": [
+        "https://www.solar.com/learn/solar-battery-price/",
+        "https://nrgcleanpower.com/learning-center/solar-battery-cost/"
+      ],
+      "capturedOn": "2026-07-27"
+    },
+    {
+      "emoji": "🪵",
+      "name": "6ft Privacy Fence Panel, Installed",
+      "desc": "One panel of the fence, put in for you. The labour is most of it.",
+      "value": 225,
+      "apparent": "low",
+      "source": "Homewyse / fencing contractor 2026 rates",
+      "url": "https://www.homewyse.com/costs/cost_of_6_foot_privacy_fencing.html",
+      "confidence": "low",
+      "confidenceNote": "DERIVED, not read off a listing: installed wood privacy fence runs $25-$50 per linear foot in 2026, so a 6ft-wide panel is ~$150-$300 installed. $225 is mid. The panel ALONE (materials only) is much less. Re-check against a materials-only listing before shipping — the installed/materials distinction is exactly the kind of thing that makes a lot feel wrong.",
+      "corroboration": [
+        "https://callfantasticfence.com/how-much-does-a-6-foot-privacy-fence-cost-per-foot/"
+      ],
+      "capturedOn": "2026-07-27"
+    },
+    {
+      "emoji": "🧠",
+      "name": "NVIDIA DGX Spark (128GB unified memory)",
+      "desc": "An AI supercomputer smaller than a hardback book. One petaflop.",
+      "value": 4699,
+      "apparent": "low",
+      "source": "NVIDIA DGX Spark, 2026 street price",
+      "url": "https://www.nvidia.com/en-us/products/workstations/dgx-spark/",
+      "confidence": "medium",
+      "confidenceNote": "Launched at $3,999 (Oct 2025), now ~$4,699 after an 18% rise blamed on LPDDR5X memory shortages. OEM variants $4,000-$5,500. Superb lot — it is six inches square and two inches thick, and nothing about it looks like $4,699.",
+      "corroboration": [
+        "https://intuitionlabs.ai/articles/nvidia-dgx-spark-review",
+        "https://www.constellationr.com/insights/news/nvidia-dgx-spark-now-available-3999-real-impact-will-be-ai-edge"
+      ],
+      "capturedOn": "2026-07-27"
+    },
+    {
+      "emoji": "🖥️",
+      "name": "Mac Studio (M3 Ultra)",
+      "desc": "A small aluminium box that costs more than a secondhand car.",
+      "value": 5299,
+      "apparent": "fair",
+      "source": "Apple US pricing, 2026",
+      "url": "https://www.apple.com/shop/buy-mac/mac-studio",
+      "confidence": "medium",
+      "confidenceNote": "M3 Ultra starts at $5,299 — a $1,300 rise on its launch price. Apple REMOVED the 256GB and 512GB memory options in March and May 2026 as RAM prices climbed, so it now caps at 96GB. A maxed configuration was $14,099. Fills the $5k-10k band.",
+      "corroboration": [
+        "https://www.macrumors.com/roundup/mac-studio/"
+      ],
+      "capturedOn": "2026-07-27"
+    },
+    {
+      "emoji": "📦",
+      "name": "Mac mini (M4, 16GB)",
+      "desc": "The small square one. It went UP by two hundred dollars this June.",
+      "value": 799,
+      "apparent": "fair",
+      "source": "Apple US pricing, June 2026",
+      "url": "https://www.macrumors.com/roundup/mac-mini/",
+      "confidence": "medium",
+      "confidenceNote": "Started at $599, raised to $799 in June 2026 on RAM costs. A rare lot where the DATE genuinely changes the answer — exactly what capturedOn on the bidding card is for.",
+      "capturedOn": "2026-07-27"
+    },
+    {
+      "emoji": "⚙️",
+      "name": "Framework Desktop (128GB, Ryzen AI Max+ 395)",
+      "desc": "A repairable mini PC with 128GB shared between processor and graphics.",
+      "value": 1999,
+      "apparent": "fair",
+      "source": "Framework 2026 pricing",
+      "url": "https://modelfit.io/blog/amd-strix-halo-local-ai-128gb/",
+      "confidence": "medium",
+      "confidenceNote": "Starts $1,639 with 64GB; $1,999 for 128GB. Runs large local AI models because the memory is unified. Compare the DGX Spark at $4,699 for a similar memory figure.",
+      "capturedOn": "2026-07-27"
+    },
+    {
+      "emoji": "🔲",
+      "name": "GMKtec EVO-X2 Mini PC (128GB / 2TB)",
+      "desc": "A mini PC that runs big AI models locally. Two thousand two hundred dollars.",
+      "value": 2199,
+      "apparent": "low",
+      "source": "GMKtec direct pricing, 2026",
+      "url": "https://videocardz.com/newz/gmktec-evo-x2-with-ryzen-ai-max-395-strix-halo-mini-pc-launches-may-20-from-1399",
+      "confidence": "low",
+      "confidenceNote": "$2,199 direct; MicroCenter $2,299; street $1,800-$2,300; one 2026 source quotes up to $3,299. Volatile — the widest disagreement between sources of anything researched today.",
+      "corroboration": [
+        "https://datahardware.ai/blog/gmktec-evo-x2-review-2026"
+      ],
+      "capturedOn": "2026-07-27"
+    },
+    {
+      "emoji": "📱",
+      "name": "Flagship Phone (iPhone 17 Pro Max, 2TB)",
+      "desc": "The most expensive phone Apple sells, at the largest storage.",
+      "value": 1699,
+      "apparent": "fair",
+      "source": "Apple US pricing, July 2026",
+      "url": "https://www.apple.com/shop/buy-iphone/iphone-17-pro",
+      "confidence": "medium",
+      "confidenceNote": "Base 256GB $1,199, 512GB $1,399, 2TB $1,699. The PLAN warns against phones as too well known — but the 2TB tier is not, and it pairs with the $99 Android below. Kept for that pairing, not on its own merit.",
+      "corroboration": [
+        "https://swappa.com/prices/apple-iphone-17-pro-max"
+      ],
+      "capturedOn": "2026-07-27"
+    },
+    {
+      "emoji": "☎️",
+      "name": "Budget Android Phone (TCL Ion V)",
+      "desc": "A brand new unlocked smartphone. Ninety-nine dollars.",
+      "value": 99,
+      "apparent": "high",
+      "source": "US budget phone market, 2026",
+      "url": "https://www.androidcentral.com/best-android-phone-under-100",
+      "confidence": "medium",
+      "confidenceNote": "New unlocked Android phones at $99-$100 (TCL Ion V $99, NUU N10 ~$100, 6in screen, Android 14, 128GB). Almost nobody guesses this low. The genuinely good half of the phone idea — pair it with the $1,699 iPhone and the gap is 17x for objects that do the same job.",
+      "corroboration": [
+        "https://blucellphones.us/best-smartphone-under-100-dollars/"
+      ],
+      "capturedOn": "2026-07-27"
+    },
+    {
+      "emoji": "🌷",
+      "name": "One Hundred Tulip Bulbs",
+      "desc": "A hundred bulbs. Enough to make a front garden look deliberate.",
+      "value": 102.99,
+      "apparent": "high",
+      "source": "bulk/wholesale bulb suppliers, Fall 2026 pricing",
+      "url": "https://www.dutchbulbs.com/collections/landscaping-tulips",
+      "confidence": "medium",
+      "confidenceNote": "$102.99 per 100 ($1.03/bulb); 150 for $137.99 ($0.92/bulb); true wholesale goes to $0.25/bulb at volume. Tiered pricing, so the per-bulb figure depends entirely on order size.",
+      "corroboration": [
+        "https://www.colorblends.com/spring-flowering-bulbs/tulips/",
+        "https://www.edenbrothers.com/products/landscaper-mix-tulip-bulbs"
+      ],
+      "capturedOn": "2026-07-27"
+    },
+    {
+      "emoji": "🌱",
+      "name": "One Tulip Bulb",
+      "desc": "A single bulb. In 1637 this would have bought a house.",
+      "value": 1.03,
+      "apparent": "fair",
+      "source": "derived from per-100 bulk pricing",
+      "url": "https://www.dutchbulbs.com/collections/landscaping-tulips",
+      "confidence": "medium",
+      "confidenceNote": "DERIVED from the $102.99/100 figure above. Kept because tulip mania is the single best story in the history of things being worth what people say they are worth — which is what this whole game is.",
+      "capturedOn": "2026-07-27"
+    },
+    {
+      "emoji": "💩",
+      "name": "50lb Bag of Lawn Fertiliser",
+      "desc": "Enough to feed a large lawn. Smells of commitment.",
+      "value": 40,
+      "apparent": "fair",
+      "source": "2026 US fertiliser price guides",
+      "url": "https://wellbuiltflorida.com/fertilizer-prices-cost-u-s-buyers/",
+      "confidence": "medium",
+      "confidenceNote": "50lb bags run $22-$60 depending on blend and region ($0.75-$1.00 per lb); $40 is mid-range. Regional variation alone is $2-$10 a bag.",
+      "corroboration": [
+        "https://homeguide.com/costs/lawn-fertilizer-service-cost"
+      ],
+      "capturedOn": "2026-07-27"
+    },
+    {
+      "emoji": "🔧",
+      "name": "Benchtop Metal Lathe (7in x 14in)",
+      "desc": "A real metal-turning lathe that sits on a bench. Five hundred and fifty dollars.",
+      "value": 549.99,
+      "apparent": "high",
+      "source": "Erie Tools / BENTISM 2026 retail",
+      "url": "https://affordabletool.com/erie-tools-7-x-14-precision-bench-top-mini-metal-milling-lathe-variable-speed-2500-rpm-digital-readout-with-5-pc-cutter-kit/",
+      "confidence": "medium",
+      "confidenceNote": "Hobby 7x14 lathes cluster $500-$550 (Erie Tools $549.99, BENTISM $519.93). Excellent lot — \"metal lathe\" sounds like industrial money and the hobby ones are the price of a phone.",
+      "corroboration": [
+        "https://www.engimarket.com/my-9-favorite-small-metal-lathes-hobbyists/"
+      ],
+      "capturedOn": "2026-07-27"
+    },
+    {
+      "emoji": "🕳️",
+      "name": "Benchtop Drill Press (10in, laser)",
+      "desc": "Drills a straight hole, which is harder than it sounds.",
+      "value": 179,
+      "apparent": "fair",
+      "source": "SKIL DP9505-00 retail, 2026",
+      "url": "https://worldofwoodcraft.com/how-much-does-a-drill-press-cost/",
+      "confidence": "medium",
+      "confidenceNote": "Benchtop presses $179 (SKIL 10in) to $319.99 (VEVOR 12in variable speed).",
+      "capturedOn": "2026-07-27"
+    },
+    {
+      "emoji": "🪚",
+      "name": "Horizontal Metal-Cutting Bandsaw",
+      "desc": "Cuts through solid steel bar while you have a cup of tea.",
+      "value": 657.9,
+      "apparent": "fair",
+      "source": "KAKA Industrial BS-106G, 2026 retail",
+      "url": "https://www.trick-tools.com/Band_Saws_93?view_all=",
+      "confidence": "medium",
+      "confidenceNote": "From $657.90 for a 10in x 6.1in capacity horizontal saw. Metal bandsaws start well above woodworking ones.",
+      "capturedOn": "2026-07-27"
     }
   ],
   "researchLog": [
@@ -96,5 +504,7 @@
       "on": "2026-07-27",
       "learned": "Item-specific searches work; category searches do not. 'Surprisingly expensive everyday objects' returned inflation journalism with no purchasable items. Every good lot so far came from naming the THING and asking its price. Budget roughly one search per item and corroborate across dealers where a single retail listing does not exist."
     }
-  ]
+  ],
+  "pricingNote2026": "MEMORY PRICES ARE MOVING IN 2026 and several computing lots have already re-priced: Mac mini $599 -> $799 (June 2026), Mac Studio M3 Ultra +$1,300 with the 256GB/512GB options withdrawn entirely (March-May 2026), DGX Spark +18% on LPDDR5X shortages. Re-check every computing lot before a session; these are the fastest-rotting prices in the file, and the reason capturedOn is shown on the bidding card.",
+  "bandGap": "The $5,000-$10,000 band is the thin one: 13 lots across both files, against the 10 that a full 10-player table draws. Top it toward ~25 before heavy use. Every other band has 28-42."
 }

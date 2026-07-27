@@ -53,8 +53,8 @@ test('TV-first: bidding war, gavel, valuation, podium', async ({ browser }) => {
     await shot(tv, 'gavel-02-tv-lobby');
     await shot(karen, 'gavel-03-captain-lobby');
 
-    // Captain trims the sale to 6 lots
-    await karen.getByRole('button', { name: '6', exact: true }).click();
+    // Captain trims the sale to the Short setting (2 lots per player)
+    await karen.getByRole('button', { name: 'Short', exact: true }).click();
     await karen.waitForTimeout(400);
 
     // ── Start: lot presented, then bidding opens after the 3.5s intro ──
@@ -63,8 +63,13 @@ test('TV-first: bidding war, gavel, valuation, podium', async ({ browser }) => {
     await shot(tv, 'gavel-04-tv-lot-intro');
     await expect(karen.locator('#bid-btns .btn').first()).toBeEnabled({ timeout: 15_000 });
     const lot1Value = await tv.evaluate(() => LOTS[H.lotOrder[0]].value);
+    // Read the balance constants out of the page rather than hardcoding them, so a re-balance
+    // (START_COINS moved 1,000 -> 7,000 once already) doesn't silently break this spec.
+    const startCoins = await tv.evaluate(() => START_COINS);
+    const money = n => n.toLocaleString('en-US');
 
     // ── Bidding war through the real network path ──
+    // Raises scale with the price: [10,50,100] under $100, [50,250,500] under $1,000.
     await karen.getByRole('button', { name: '+50', exact: true }).click();
     await expect(karen.locator('text=You\'re winning this lot!')).toBeVisible({ timeout: 10_000 });
     await expect(karen.locator('#bid-btns .btn')).toHaveCount(0);   // can't outbid yourself
@@ -76,15 +81,16 @@ test('TV-first: bidding war, gavel, valuation, podium', async ({ browser }) => {
     await expect(tv.locator('#v-price')).toHaveText('150', { timeout: 10_000 });
     await expect(ben.locator('text=You\'re winning this lot!')).toBeVisible({ timeout: 10_000 });
 
-    await karen.getByRole('button', { name: '+10', exact: true }).click();
-    await expect(tv.locator('#v-price')).toHaveText('160', { timeout: 10_000 });
+    // price is now 150, so the ladder has moved up a rung — +10 no longer exists
+    await karen.getByRole('button', { name: '+50', exact: true }).click();
+    await expect(tv.locator('#v-price')).toHaveText('200', { timeout: 10_000 });
     await shot(tv, 'gavel-06-tv-bidding');
     await shot(ben, 'gavel-07-phone-outbid');
 
     // ── Going… going… GONE! (5s gavel) ──
     await expect(tv.locator('.tv-sold')).toBeVisible({ timeout: 12_000 });
     await expect(tv.locator('.tv-sold .who')).toContainText('Karen');
-    await expect(tv.locator('.tv-sold .who')).toContainText('160');
+    await expect(tv.locator('.tv-sold .who')).toContainText('200');
     await expect(karen.locator('text=YOU WON IT!')).toBeVisible({ timeout: 10_000 });
     await shot(tv, 'gavel-08-tv-sold');
     await shot(karen, 'gavel-09-phone-won');
@@ -99,13 +105,13 @@ test('TV-first: bidding war, gavel, valuation, podium', async ({ browser }) => {
     await expect(karen.locator('text=The valuer is in')).toBeVisible({ timeout: 10_000 });
 
     // ── Podium: net worth = coins + shelf ──
-    const karenNet = 1000 - 160 + lot1Value;
-    const expectedWinner = karenNet >= 1000 ? 'KAREN' : 'BEN';
+    const karenNet = startCoins - 200 + lot1Value;
+    const expectedWinner = karenNet >= startCoins ? 'KAREN' : 'BEN';
     await expect(tv.locator('.podium-wrap')).toBeVisible({ timeout: 20_000 });
     await tv.waitForTimeout(1500); // pods pop in staggered
     await shot(tv, 'gavel-11-tv-podium');
     await expect(karen.locator('.sold-card .st')).toContainText(`${expectedWinner} WINS!`, { timeout: 10_000 });
-    await expect(karen.locator('.standings')).toContainText(String(karenNet));
+    await expect(karen.locator('.standings')).toContainText(money(karenNet));
     await shot(karen, 'gavel-12-phone-podium');
 
     // ── Play again returns everyone to the lobby ──

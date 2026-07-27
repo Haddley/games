@@ -1,8 +1,15 @@
 # Going, Going, GONE! — real purchasable lots
 
 The brief and the decisions already made, written down so the next session starts with them
-rather than re-litigating them. **Not yet started** — the current 40 invented lots are still
-live and backed up in `data/goinggone-lots-original.json`.
+rather than re-litigating them.
+
+> **STATUS: BUILT (27 July 2026).** The game now runs on **137 real lots** with verified prices,
+> sources and capture dates, 93 of them with product photography. The 40 invented lots are
+> retired and backed up in `data/goinggone-lots-original.json`.
+>
+> `START_COINS` is **$7,000**, lots scale at **3 per player**, and over-band lots are **off by
+> default** behind a captain toggle. All three numbers come from the simulator running against
+> the real data — see "What the simulator says" below, and re-run it before changing any of them.
 
 ## Why change it
 
@@ -17,13 +24,15 @@ worthwhile.
 |---|---|
 | **Top end** | **$10,000** (confirmed) |
 | **Bottom end** | $1 |
-| **Starting cash** | $15,000 (up from `START_COINS = 1000`) |
-| **`capturedOn`** | **recorded per item**, and **shown on the lot card while bidding** — Amazon prices move weekly, so a wrong-looking price needs an explanation rather than looking like a bug. Bidding is when the argument happens, so that is where the date has to be |
-| **Value spread** | **even across the range** — roughly equal numbers in every price band, not a pile of cheap ones with a few monsters |
-| **Lots per game** | **~3 per player** — 2 players → 6 lots, 6 → 18, 10 → 30. Everyone wins roughly three things whatever the table size |
+| **Starting cash** | **$7,000** — `START_COINS`, set by the simulator. NOT the $15,000 originally guessed; see the sweep below for why higher is worse |
+| **`capturedOn`** | **recorded per item**, and **shown on the lot card while bidding** — real prices move weekly, so a wrong-looking price needs an explanation rather than looking like a bug. Bidding is when the argument happens, so that is where the date has to be. Shipped as "WebstaurantStore · Jul 2026" under every lot |
+| **Value spread** | **even across the range** — the draw deals round-robin across four bands ($1–100, $100–1k, $1k–5k, $5k–10k) so even a short auction spans the whole range |
+| **Lots per game** | **~3 per player** — 2 players → 6 lots, 6 → 18, 10 → 30. Captain can pick Short/Normal/Long (2/3/4 per player) |
 | **Unaffordable lot** | **passed in, unsold** — like a real auction with a reserve |
-| **Over-ceiling lots** | **allowed, at FULL value** — a lot genuinely worth $19,799 that sells for $8,000 is a $11,799 bargain and stands. See the note below: this is a deliberate acceptance of a game-deciding swing |
-| **Two sources** | one Amazon (US) list, one Temu list, kept separate |
+| **Over-band lots** | **OFF by default**, behind a captain toggle ("Big lot"), at FULL value when on. **This reverses the original decision** — see below |
+| **Mystery lots** | ~20% of the draw shows **the photograph and withholds the name**. Only lots with a photo qualify; the name is withheld by the *host*, never client-side |
+| **Bid raises** | **scale with the price** — +10/50/100 under $100, up to +500/2,500/5,000 past $5,000. A fixed ladder needed seventy taps to reach a serious bid |
+| **Rounding** | values are rounded to **whole dollars** at embed time; the game's coin arithmetic is integer |
 
 ## What makes a good lot
 
@@ -58,122 +67,129 @@ that needs explaining before the joke lands.
 `capturedOn` sits on each lot as well as the file, because a list will be topped up over time
 and the items in it will not all have been checked on the same day.
 
-## The rest of the job (not started)
+## The job — what shipped, and what is still open
 
-1. **Research** the two lists. Real listings, real prices — inventing plausible ones defeats
-   the point entirely.
-2. **Rebalance.** Values go from 0–700 to 1–10,000 and cash from 1,000 to 15,000. This is not
-   a find-and-replace: bid increments, auction pacing and the scoring all assume the current
-   spread.
+All of the following is **done** unless marked otherwise.
 
-   **An even spread is the harder of the two options and was chosen deliberately.** Every lot
-   becomes a real decision and nobody can coast through a cheap round.
+1. ✅ **Research.** 137 real lots with source URLs, capture dates and confidence ratings, across
+   `data/goinggone-lots-real.json` (hand-researched, one search per item) and
+   `data/goinggone-lots-catalogue.json` (bulk-harvested from retailer category pages).
+2. ✅ **Rebalance.** Cash `1,000 → 7,000`, values `0–700 → 1–98,027`, raises scale with the price,
+   lots scale with the table. The numbers came from the simulator, not from guessing.
 
-   **"Going broke" is not the problem I first assumed, and the correction matters.** The score
-   is `coins + shelf` (see `finishValuation`), so money spent is not lost — it is converted
-   into things that might win you the game. A player who has spent everything is fully
-   invested, not out. What they lose is the ability to bid on later lots, which is a smaller
-   problem than sitting on nothing, and is exactly what the lot count is for:
+   **"Going broke" was never the problem I first assumed, and the correction matters.** The score
+   is `coins + shelf` (see `finishValuation`), so money spent is not lost — it is converted into
+   things that might win you the game. A player who has spent everything is fully invested, not
+   out. The simulator bears this out: the *rich* settings are the exclusionary ones.
+3. ✅ **Over-band lots keep full value, and are off by default.** See the simulator section — this
+   is the one decision the arithmetic reversed. Capping their value is still the wrong lever and
+   we did not do it; the lever used was *how many*, which is what the original note recommended.
+4. ✅ **A lot nobody can afford is PASSED IN**, unsold, as at a real auction with a reserve. Worth
+   watching in play: at $7,000 the simulator sees this on only ~0.4% of lots, so it stays a rare
+   event rather than an anticlimax. If the last lots start going unsold, the answer is the lot
+   ORDER (dear items while people can still afford them), not a rule change.
+5. ✅ **Lot card shows the source and date while bidding** — "WebstaurantStore · Jul 2026".
+6. ✅ **TV reveal is much bigger**, sized in `vmin`, four cards instead of six, with the drama
+   scaled to the money: `mag-big` past $500 and `mag-huge` past $2,000 grow the figure, light the
+   card and enlarge the particle burst.
+7. ✅ **Synchronised phone reveal** — unchanged and still correct: driven off the host's
+   `revealStep` broadcast, never off phone-side timers, so no device sees the number a beat early.
 
-   **Lots scale with the player count, ~3 per player.** More players means fewer wins each,
-   so the same purse stretches further — the scaling is self-balancing rather than a rule
-   anyone has to think about. It also keeps "everyone goes home with about three things"
-   true at any table size, which is what makes the final valuation feel like a fair contest
-   rather than an accident of how many lots happened to fit.
+### Still open
 
-   Bid increments need to scale with the lot too: $1 steps on a $9,000 item would take all
-   evening.
-3. **Over-ceiling lots keep their full value, and the bargain stands.** The $10,000 figure is
-   the band the *ordinary* lots are spread across, not a hard cap on what can appear. An item
-   genuinely worth $19,799 can be bought for whatever somebody dares bid, and the profit is
-   real.
-
-   **This was chosen with the arithmetic in front of us, so do not "fix" it later by
-   accident.** A $19,799 lot won at $8,000 is +$11,799 — roughly 79% of a starting purse, and
-   very likely to decide the game on its own. That is the point: the best story of the evening
-   is somebody sinking half their money into one enormous gamble and being right. If
-   playtesting shows it flattens everything else, the lever to reach for is **how many** such
-   lots appear (one per game, ideally late), NOT capping their value — capping turns a real
-   price into a fake one, which is the thing this whole rework exists to get away from.
-
-   Note it also interacts with the pass-in rule: with a $15,000 purse somebody can always
-   reach a big bid, so these lots will rarely if ever pass in.
-
-4. **A lot nobody can afford is PASSED IN**, unsold, as at a real auction with a reserve.
-   Needs a "no sale" state in the reveal and the scoring — the lot simply does not enter
-   anyone's shelf. Worth watching in playtesting: passing in at the very end could be an
-   anticlimax at the moment the game should peak, so if the last lots keep going unsold, the
-   answer is the lot ORDER (dear items while people can still afford them), not a rule change.
-
-5. **Lot card shows the source and date while bidding** — "Amazon · Jul 2026" — so the price
-   is arguable from real information and a stale figure has a visible explanation.
-6. **TV reveal: much bigger.** The current result text is hard to read from a sofa. Size it
-   like the rest of the TV layouts (`vmin`), and scale the drama to the size of the profit or
-   loss — a $4,000 mistake should not look like a $12 one.
-7. **Synchronised phone reveal.** The interesting part, and the easy one to get subtly wrong.
-   It must be driven off the host's existing `revealStep` broadcast, **never** off phone-side
-   timers, or devices drift and somebody sees the number a beat early — which spoils it for
-   the room. The host already sequences the reveal; the phones should render whatever step
-   the latest broadcast says, and nothing else.
+- **The $5k–10k band is thin.** 13 lots against the 10 a full 10-player table draws — it passes
+  `unit/goinggone.test.js` with only three to spare. Top it toward ~25 before heavy use. Every
+  other band has 28–42.
+- **Photos are hotlinked** from retailer CDNs. Every `<img>` falls back to the lot's emoji via
+  `onerror`, so a blocked or rotted image degrades to the old card rather than breaking — but
+  they will rot, and nobody has eyeballed all 93 in a browser yet.
+- **Not play-tested with humans.** Three things the simulator cannot judge: whether the raise
+  ladder feels right at a $3,000 bid, whether the photo makes prices *too* guessable, and whether
+  a 5-second gavel is long enough when the numbers are this big.
 
 ## Files
 
-- `data/goinggone-lots-original.json` — the 40 invented lots, safe
-- `data/goinggone-lots-amazon.json` — to write
-- `data/goinggone-lots-temu.json` — to write
-- `goinggone.html` — `const LOTS`, `START_COINS`, `revealStep`, `finishValuation`
+- `data/goinggone-lots-real.json` — hand-researched lots, rich confidence notes
+- `data/goinggone-lots-catalogue.json` — bulk catalogue harvest, plus the list of which retailers
+  allow fetching and which block it
+- `data/goinggone-lots-original.json` — the 40 invented lots, retired but safe
+- `scripts/build-goinggone-lots.js` — regenerates the embedded `const LOTS` from the JSON. **Run
+  it after editing the data**; `unit/goinggone.test.js` fails if the embed goes stale
+- `goinggone.html` — `LOTS` (generated), `START_COINS`, `RAISE_LADDER`, `BANDS`, `buildLotOrder`,
+  `lotView`, `revealStep`, `finishValuation`
+- `unit/goinggone.test.js` · `tests/goinggone.e2e.spec.js` · `sim/goinggone.js`
 
 ## The simulator — `sim/goinggone.js`
 
 Built because we were guessing at the numbers, and they are arithmetic questions.
 
 ```sh
-node sim/goinggone.js                                  # the current settings
-node sim/goinggone.js --players 8 --cash 20000         # ask a question
-node sim/goinggone.js --compare --games 3000           # sweep cash × monster lots
-node sim/goinggone.js --monster-last true              # does saving it for last help?
+node sim/goinggone.js                                  # the shipped settings
+node sim/goinggone.js --players 8 --cash 12000         # ask a question
+node sim/goinggone.js --cash-sweep                     # what does the purse do?
+node sim/goinggone.js --big-sweep                      # what does the big lot do?
+node sim/goinggone.js --table-sweep                    # does it hold from 2 players to 10?
+node sim/goinggone.js --synthetic --max 700            # the old invented-lot world
 ```
 
-It plays thousands of auctions with bidders who misjudge every lot by a **factor** rather
-than a fixed amount (2× out is common, 10× rare) and differ in nerve. Every knob is a flag,
-so no one has to edit the file to ask something. It is deliberately **not** the game — it
-models only what decides balance. A bad verdict is a real finding; a good one still needs
-humans to play it.
+**It reads the real lots by default** and deals them across the same four bands as
+`buildLotOrder`, so its verdict describes the game people actually play. The bands are duplicated
+in both files — change them in one and you must change the other, or these numbers quietly become
+fiction.
 
-### What it has already told us (July 2026)
+It plays thousands of auctions with bidders who misjudge every lot by a **factor** rather than a
+fixed amount (2× out is common, 10× rare) and differ in nerve. Every knob is a flag, so no one has
+to edit the file to ask something. It is deliberately **not** the game — it models only what
+decides balance. A bad verdict is a real finding; a good one still needs humans to play it.
 
-**At the chosen settings — 6 players, $15,000, 18 lots, one lot worth $19,799 — whoever wins
-the monster lot wins the game 97% of the time.** The other seventeen lots are close to
-decorative.
+**Run it before touching `START_COINS`, the band edges or the big-lot default.** Guessing at those
+is exactly how the first attempt landed on a purse more than twice too large.
 
-The lever is **cash, not the lot**:
+### What the simulator says (July 2026, against the REAL lots)
 
-| purse | monster decides the game |
-|---|---|
-| $5,000 | 99.7% |
-| $10,000 | 99.9% |
-| $15,000 | 97.3% |
-| $25,000 | 73.3% |
+It now loads `data/goinggone-lots-*.json` and draws them exactly as `buildLotOrder` does, so its
+verdict describes the shipped game. `node sim/goinggone.js --cash-sweep`, 6 players, 18 lots:
 
-Even $25,000 leaves it deciding three games in four. **Saving the monster for last makes it
-worse** (99.6%) — everyone arrives with a full purse, so it becomes a shootout.
+| purse | margin/winner | won nothing | lots won | purse spent | locked out |
+|---|---|---|---|---|---|
+| $5,000 | 16.5% | 0.0% | 3 | 83.7% | 13.8% |
+| $6,000 | 13.2% | 0.9% | 3 | 78.7% | 9.1% |
+| **$7,000** | **9.9%** | **2.8%** | **3** | **73.0%** | **6.4%** |
+| $8,000 | 7.8% | 5.5% | 3 | 68.2% | 4.5% |
+| $10,000 | 7.9% | 9.9% | 3 | 58.9% | 1.9% |
 
-And raising cash creates a different problem: **"won nothing" climbs from 0.2% at $5k to
-17.8% at $25k**. A richer table lets the bold bidders take everything and quiet players go
-home empty-handed.
+**1. More cash makes games closer but leaves more players empty-handed.** This is the opposite of
+the intuition and it is the reason the purse is $7,000 rather than the $15,000 first guessed:
+scarcity is what spreads the lots around. With deep purses the boldest bidder simply takes
+everything and the quiet players go home with nothing. $7,000 is the knee — close games with
+almost nobody shut out.
 
-*Caveat:* "monster won the game" is measured as the winner holding at least the monster's
-value in stock, which could in principle be reached from other lots. At these settings that is
-unlikely, but it is a proxy, not a proof. Tighten it before relying on it for a close call.
+**2. One over-band lot decides the game by itself.** `--big-sweep`, same settings:
 
-### What this does NOT settle
+| big lot | margin/winner | won nothing | purse spent |
+|---|---|---|---|
+| no | 9.9% | 2.9% | 73.0% |
+| yes | 47.7% | 0.2% | 82.1% |
 
-The decision was to keep monster lots at full value **on purpose** — the best story of the
-evening is somebody sinking half their purse into one gamble and being right. The simulator
-says that story will be the *only* story. That is a judgement call about what kind of evening
-this is, not a bug: if a 97% swing is the intended drama, the numbers simply confirm it works.
-If it is not, the untested lever is **how many** monster lots appear and whether other lots can
-compete — not capping their value, which turns a real price into a fake one.
+The winner's lead over second goes from a tenth of their score to nearly half. **This reversed
+the original decision.** The plan argued these were "the best story of the evening" and warned
+against capping their value — and it was right that capping is the wrong lever. So we did not
+cap it: over-band lots keep their **full** value and the whole bargain stands. They are simply
+**off by default**, behind a captain toggle, because a six-fold swing cannot be the default
+experience. The lever reached for was *how many*, exactly as the plan said it should be.
+
+**3. Three lots per player holds at every table size.** `--table-sweep` gives a median of exactly
+3 lots won per player from 2 players up to 10, so "everyone goes home with about three things"
+needs no special case.
+
+#### The old metric was broken, and the corrected one confirms the finding
+
+"Monster won the game" used to be measured as *the winner holds at least the monster's value in
+stock* — which reads ~100% as soon as several big lots exist and told us nothing. It now measures
+**the winner's single best bargain against their margin over second place**: take that one lot
+away and do they still win? Read it next to `margin/winner`, never alone — in a close game a tiny
+margin is trivially easy to exceed, so the figure is naturally high (~98%) even in well-balanced
+settings. `margin/winner` is the honest headline.
 
 ## Research: what works
 

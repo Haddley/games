@@ -21,7 +21,7 @@ ones), plus **153 unit tests**. Since then: `phone-host-room` (18), `share-room`
 
 ## Open, in priority order
 
-1. **Going, Going, GONE! real items** — the live work. See below.
+1. **Going, Going, GONE! real items** — ✅ SHIPPED 27 Jul 2026. See below for what is left.
 2. **ticktacktoe is not on `bracket.js`.** Two implementations of the same draw exist. They use
    *different bye policies* (ticktacktoe shuffles then pairs top-vs-bottom so byes spread;
    `bracket.js` gives byes to top seeds as a block), so migrating is a design decision first,
@@ -31,46 +31,43 @@ ones), plus **153 unit tests**. Since then: `phone-host-room` (18), `share-room`
 4. **`share-room` is wired per game but only Plump Trek was eyeballed.** The test proves the
    block renders and the link works; nobody has looked at all 19 for layout.
 
-## Going, Going, GONE! — the live piece
+## Going, Going, GONE! — real items, SHIPPED
 
-**Nothing is applied to the game.** The current 40 invented lots still run.
+Built on 27 July 2026. The game now runs on **137 real lots** with verified prices, sources and
+capture dates, 93 of them with photographs. The 40 invented lots are retired to
+`data/goinggone-lots-original.json`.
 
-- `goinggoneplan-realitems.md` — every decision, and what the simulator found
-- `sim/goinggone.js` — the balance simulator. **Run it before touching `START_COINS` or the
-  value spread**; guessing at those is how we got the 97%.
-- `data/goinggone-lots-original.json` — the 40 invented lots, backed up
-- `data/goinggone-lots-real.json` — **6 of ~30 researched**, each with source, `capturedOn`
-  and a confidence rating
+Balance came from the simulator running against the real data, not from judgement:
 
-### Decisions taken
+| | |
+|---|---|
+| `START_COINS` | **$7,000** (was 1,000; the earlier guess of $15,000 was more than twice too big) |
+| Lots | **3 per player**, captain can pick 2/3/4 (Short/Normal/Long) |
+| Over-band lots (≥$10k) | **off by default**, captain toggle, full value when on |
+| Bid raises | **scale with the price**, +10/50/100 up to +500/2,500/5,000 |
+| Mystery lots | ~20% of the draw: **photo shown, name withheld** |
 
-$1–$10,000 band (not a hard cap) · $15,000 purse · even spread · ~3 lots per player ·
-`capturedOn` shown on the lot card while bidding · unaffordable lots pass in · over-band lots
-keep **full value** and the bargain stands.
+Verified: **162 unit tests** (9 new), the **2 goinggone e2e** specs, and the **23-test smoke**
+suite all pass.
 
-### What the simulator says
+### Two findings worth keeping
 
-At 6 players / $15,000 / 18 lots / one $19,799 lot, **the monster lot decides the game 97% of
-the time**. Cash is the lever, not the lot ($25,000 → 73%); saving it for last makes it worse.
-More lots fixes "won nothing" (10.7% → 0%) but makes games *less* close (margin $3.3k → $24k).
-**30 lots with 1 monster** looked best of everything tried.
+**More cash makes games closer but leaves more players empty-handed** — the opposite of the
+intuition, and the reason the purse came *down*. Scarcity is what spreads the lots around; with
+deep purses the boldest bidder takes everything.
 
-Neil's instruction: **find the items first, sort the mixture out later.**
+**The old "monster decides it" metric was broken** (it read the winner's stock against the
+monster's value, which hits ~100% as soon as several big lots exist). Corrected to "winner's best
+single bargain vs their margin over second", it confirms the finding rather than softening it —
+one over-band lot moves the margin from ~10% of the winner's score to ~48%. That reversed the
+plan's original "one per game at full value" decision, though *not* by capping value: they keep
+their full worth and are simply off by default.
 
-### Next research step
+### Next on this game
 
-Two bands are empty — **$1–100** and **$5k–10k** — and the seed script prints them on every
-run. Method that works, learned the hard way: name the *thing* and ask its price; category
-searches ("surprisingly expensive everyday objects") return inflation journalism with nothing
-purchasable in it. Budget one search per item. Corroborate across dealers where no single
-retail listing exists. **Amazon is unusable** — product pages return HTTP 500 and site-limited
-search gives category pages with no prices. Re-test before assuming.
-
-Neil also asked for a search on *surprisingly inexpensive* items that look expensive — not
-started.
-
-### One thing to fix in the simulator
-
-`monster won the game` is measured as "winner holds ≥ the monster's value in stock", which is
-meaningless once there are several monster lots (it reads 100%). It should compare the winner's
-single best bargain against their margin over second place.
+1. **The $5k–10k band is thin** — 13 lots against the 10 a full table draws. Top toward ~25.
+   Every other band has 28–42. `unit/goinggone.test.js` guards the floor.
+2. **Nobody has play-tested it with humans.** Does the raise ladder feel right at a $3,000 bid?
+   Does the photo make prices *too* guessable? Is a 5-second gavel long enough at these numbers?
+3. **Photos are hotlinked and will rot.** The `onerror` fallback to emoji is in place, but no one
+   has eyeballed all 93 in a browser.

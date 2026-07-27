@@ -37,12 +37,15 @@ ticktacktoe is the partial exception: it keeps its own class-based connection co
 
 ```sh
 npm install && npx playwright install chromium   # one-time setup
-npm run test:unit                                # fast unit tests, no browser (common.js, p2p.js, dice.js, plumptrek logic)
+npm run test:unit                                # fast unit tests, no browser (common.js, p2p.js, dice.js, plumptrek + goinggone data)
 npm run test:e2e                                 # all E2E tests (headless)
 npm run test:e2e:headed                          # watch the games play
 npx playwright test tests/smoke.e2e.spec.js      # broad smoke net (every game loads + scene + square QR)
 npx playwright test tests/familytrivia.e2e.spec.js   # one game's suite
 python3 -m http.server 8231                      # manual dev server (Playwright starts its own)
+
+node scripts/build-goinggone-lots.js             # re-embed Going, Going, GONE!'s lots after editing the JSON
+node sim/goinggone.js --cash-sweep               # its balance simulator, against the real lots
 ```
 
 `unit/` holds pure-JS unit tests (`node --test`, no deps) — including `presence.test.js`,
@@ -168,20 +171,38 @@ Cross-network play relies on a TURN relay from **Metered** (metered.ca — "Open
 - **Credentials**: a Metered username + credential, **hardcoded in cleartext** in `common.js`'s `ICE_CFG` (and, separately, ticktacktoe's inline `TTT_PEER_OPTS`). Current username: `35410ce7572a64d0dad7b813`. They're public (visible in page source) — acceptable for family games, but anyone can burn the quota. **To rotate** (new key from the Metered dashboard): change the username+credential in **`common.js`** — **one place, and only one**: ticktacktoe used to keep its own copy inside `TTT_PEER_OPTS` and no longer does (it composes `ICE_CFG` instead), and a unit test fails if the credentials ever reappear in a second file. Then verify (`common.js` parses; a game page loads it and `typeof ICE_CFG === 'object'`).
 - **No backend**: because the games are static HTML with no server, credentials are long-lived and embedded rather than minted per-session. A credential-vending endpoint would be the "correct" hardening but is overkill unless quota abuse actually happens.
 
-## Going, Going, GONE! — real items, in progress
+## Going, Going, GONE! — real items
 
-A rework from invented lots to real purchasable ones is **specified but not built**. The live
-game is untouched; everything needed is written down:
+The lots are **real purchasable objects with verified prices**, not invented ones — 137 of them,
+93 with product photography. The whole point is that you *could* buy the thing today, so being
+wrong about it is funny in a better way and worth arguing about. **Nothing in the data is
+invented**: if a price could not be verified from a live source, the item is not there.
 
-- `goinggoneplan-realitems.md` — the brief, every decision taken, and **what the simulator
-  found** (at the chosen settings, the one monster lot decides the game 97% of the time)
-- `sim/goinggone.js` — a balance simulator. `node sim/goinggone.js --compare` sweeps cash
-  against monster lots. Use it before changing `START_COINS` or the value spread; those are
-  arithmetic questions and guessing at them was how we got the 97%.
-- `data/goinggone-lots-original.json` — the current 40 invented lots, backed up
-- `data/goinggone-lots-real.json` — the researched replacements (5 of ~30), each with a source
-  URL, a `capturedOn` date and a confidence rating. **Nothing in it is invented** — if a price
-  could not be verified the item is not there, which is the whole point of the rework.
+- **The JSON is the source; `goinggone.html` holds a generated copy.** Edit
+  `data/goinggone-lots-real.json` (hand-researched) or `data/goinggone-lots-catalogue.json` (bulk
+  catalogue harvest), then run **`node scripts/build-goinggone-lots.js`**. Same arrangement as
+  `familytrivia-pack.json` → `FAMILY_PACK`. `unit/goinggone.test.js` fails if the embed goes
+  stale, so a forgotten run is caught by tests rather than by a wrong price mid-game.
+- **The balance numbers come from the simulator, not from judgement.** `START_COINS = 7000`,
+  3 lots per player, over-band lots off by default. **Run `node sim/goinggone.js` before touching
+  any of them** — it loads the real lots and deals them exactly as `buildLotOrder` does.
+  `--cash-sweep`, `--big-sweep`, `--table-sweep`.
+- **Two numbers are duplicated on purpose and must move together:** `BANDS`/`OVER_BAND` in
+  `goinggone.html` and in `sim/goinggone.js`. If they drift, the simulator stops describing the
+  shipped game.
+- **Raises scale with the price** (`RAISE_LADDER`/`raisesFor`) — a fixed +10/+50/+100 needed
+  seventy taps to reach a serious bid once lots ran to $10,000. The host validates the raise
+  against the ladder *at the current price*; never trust the phone's number.
+- **Mystery lots show the photo and withhold the name**, chosen from lots that have an image. The
+  withholding happens in `lotView` and `stateFor` on the **host** — including on the owner's own
+  shelf — because phones render whatever arrives.
+- **Over-band lots (≥$10k) keep their full value but are OFF by default.** The simulator is
+  unambiguous: one of them takes the winner's margin from ~10% of their score to ~48%. The lever
+  is *how many*, never capping the value — capping turns a real price into a fake one, which is
+  the thing this rework exists to get away from.
+- `data/goinggone-lots-original.json` — the 40 invented lots, retired but safe.
+- Photos are **hotlinked** from retailer CDNs and every `<img>` has an `onerror` fallback to the
+  lot's emoji. They will rot; that fallback is what stops a dead URL becoming a broken TV.
 
 ## Plump Trek specifics
 

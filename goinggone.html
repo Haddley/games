@@ -119,6 +119,8 @@
         .lot-card .lname { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 1.4rem; margin-top: 8px; }
         .lot-card .ldesc { color: var(--muted); font-weight: 700; font-size: .85rem; margin-top: 6px; font-style: italic; }
         .lot-kicker { font-size: .62rem; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold); margin-bottom: 6px; }
+        .lot-card .lphoto { width: 100%; max-width: 200px; height: 148px; object-fit: contain; border-radius: 12px; background: rgba(255,255,255,.07); padding: 7px; }
+        .lsrc { font-size: .56rem; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin-top: 9px; opacity: .7; }
         .price-big { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 3rem; color: var(--gold); text-shadow: 0 0 22px rgba(232,183,90,.35); font-variant-numeric: tabular-nums; }
         .lead-banner {
             border-radius: 13px; padding: 11px; font-weight: 900; text-align: center;
@@ -178,6 +180,8 @@
         .tv-lot .lname { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 4.2vmin; }
         .tv-lot .ldesc { color: var(--muted); font-weight: 700; font-size: 2.1vmin; font-style: italic; max-width: 60vmin; }
         .tv-lot .lkick { font-size: 1.7vmin; font-weight: 900; letter-spacing: .45vmin; text-transform: uppercase; color: var(--gold); }
+        .tv-lot .lphoto { width: 36vmin; height: 27vmin; object-fit: contain; border-radius: 1.6vmin; background: rgba(255,255,255,.07); padding: 1vmin; }
+        .tv-lot .lsrc { font-size: 1.45vmin; font-weight: 800; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); margin-top: 1.2vmin; opacity: .7; }
         .tv-price { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 7vmin; color: var(--gold); text-shadow: 0 0 30px rgba(232,183,90,.4); font-variant-numeric: tabular-nums; line-height: 1; }
         .tv-leader { font-size: 2.3vmin; font-weight: 900; }
         .tv-gavel-row { display: flex; align-items: center; gap: 2vmin; }
@@ -200,11 +204,20 @@
             padding: 2.2vmin 3vmin; display: flex; align-items: center; gap: 2.2vmin; animation: valIn .5s ease both;
         }
         @keyframes valIn { from { opacity: 0; transform: translateY(2vmin); } to { opacity: 1; transform: none; } }
-        .val-card .vemoji { font-size: 4.6vmin; }
-        .val-card .vname { font-weight: 900; font-size: 2.4vmin; font-family: 'Playfair Display', serif; }
-        .val-card .vpaid { color: var(--muted); font-weight: 800; font-size: 1.8vmin; }
-        .val-card .vworth { margin-left: auto; text-align: right; font-weight: 900; font-size: 2.6vmin; font-variant-numeric: tabular-nums; }
-        .val-card .vworth .profit { font-size: 1.9vmin; display: block; }
+        .val-card .vemoji { font-size: 5.4vmin; }
+        .val-card .lphoto { border-radius: 1.1vmin; background: rgba(255,255,255,.07); padding: .5vmin; object-fit: contain; }
+        .val-card .vname { font-weight: 900; font-size: 3.1vmin; font-family: 'Playfair Display', serif; }
+        .val-card .vpaid { color: var(--muted); font-weight: 800; font-size: 2.2vmin; }
+        .val-card .vsrc { color: var(--muted); font-weight: 800; font-size: 1.35vmin; letter-spacing: .25vmin; text-transform: uppercase; opacity: .6; margin-top: .3vmin; }
+        .val-card .vworth { margin-left: auto; text-align: right; font-weight: 900; font-size: 3.3vmin; font-variant-numeric: tabular-nums; }
+        .val-card .vworth .profit { font-size: 2.5vmin; display: block; }
+        /* the drama scales with the money: a $4,000 mistake should not look like a $12 one */
+        .val-card.mag-big .vworth .profit { font-size: 3.6vmin; }
+        .val-card.mag-huge .vworth .profit { font-size: 5vmin; }
+        .val-card.mag-big { border-color: rgba(232,183,90,.5); }
+        .val-card.mag-huge { border-color: var(--gold); box-shadow: 0 0 5vmin rgba(232,183,90,.3); }
+        .val-card.mag-huge .vworth .profit.plus { text-shadow: 0 0 2.5vmin rgba(74,222,128,.65); }
+        .val-card.mag-huge .vworth .profit.minus { text-shadow: 0 0 2.5vmin rgba(248,113,113,.65); }
         .val-card .vworth .profit.plus { color: var(--up); }
         .val-card .vworth .profit.minus { color: var(--down); }
         .val-list { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 1.2vmin; justify-content: flex-end; }
@@ -358,55 +371,165 @@ typeof mountScene === 'function' && mountScene('auction');   // themed ambient s
 // ═══════════════════════════════════════════
 const PFX = 'GAVEL-';
 const MAX_PLAYERS = 10, MIN_PLAYERS = 2;
-const START_COINS = 1000;
-const RAISES = [10, 50, 100];
+// $7,000 is the simulator's answer, not a guess: at 3 lots per player it gives games decided by
+// ~10% of the winner's score with almost nobody shut out. Raising it makes games CLOSER but
+// leaves more players with nothing — scarcity is what spreads the lots around. See
+// goinggoneplan-realitems.md for the sweep.
+const START_COINS = 7000;
+// Raises have to scale with the lot. Real prices run $1–$10,000, so a fixed +10/+50/+100 would
+// need seventy taps to reach a serious bid. Each rung is about a tenth, a half and a whole of the
+// current order of magnitude, so any lot is reachable in a handful of taps at any size.
+const RAISE_LADDER = [
+    { under: 100, raises: [10, 50, 100] },
+    { under: 1000, raises: [50, 250, 500] },
+    { under: 5000, raises: [250, 1000, 2500] },
+    { under: Infinity, raises: [500, 2500, 5000] },
+];
+const raisesFor = price => RAISE_LADDER.find(r => price < r.under).raises;
 const GAVEL_MS = 5000, INTRO_MS = 3500, SOLD_MS = 3200, PASSED_MS = 2500, REVEAL_MS = 2600;
 const PLAYER_COLORS = ['#e8b75a', '#22d3ee', '#f472b6', '#4ade80', '#b478e0', '#fb923c', '#f87171', '#38bdf8', '#a3e635', '#fcd34d'];
 
+// Real, purchasable items with verified prices — GENERATED, do not edit by hand.
+// Source: data/goinggone-lots-real.json + data/goinggone-lots-catalogue.json
+// Regenerate: node scripts/build-goinggone-lots.js
 const LOTS = [
-    // ── treasures (300–600) ──
-    { emoji: '🪿', name: 'The Slightly-Golden Goose', desc: 'Lays 9-carat eggs. She is trying her best.', value: 520 },
-    { emoji: '🗺️', name: 'Treasure Map (One Coffee Stain)', desc: 'The X is under the stain. Probably.', value: 430 },
-    { emoji: '🛋️', name: 'The Never-Lose-The-Remote Sofa', desc: 'Cushions legally required to surrender the remote.', value: 380 },
-    { emoji: '🕰️', name: 'Grandfather Clock', desc: 'Perfect time, six days a week. Hates Mondays.', value: 340 },
-    { emoji: '🐕', name: 'Robot Dog, Walks Itself', desc: 'Also walks you, if you look like you need it.', value: 560 },
-    { emoji: '🎻', name: 'Almost-Famous Violin', desc: 'Once played by someone famous\'s neighbour.', value: 310 },
-    { emoji: '🚀', name: 'Slightly Used Rocket', desc: 'One careful astronaut. Parking sensors fitted.', value: 600 },
-    { emoji: '🍯', name: 'Lifetime Supply of Artisan Honey', desc: 'Bees included. Bees non-negotiable.', value: 480 },
-    { emoji: '🖼️', name: 'Polite Haunted Painting', desc: 'Follows you with its eyes, but apologises.', value: 350 },
-    { emoji: '🏝️', name: 'Timeshare: Very Small Island', desc: 'Room for one deckchair. Sunset included.', value: 590 },
-    { emoji: '⛲', name: 'Wishing Well (Refurbished)', desc: '40% wish success rate — industry leading.', value: 540 },
-    { emoji: '🦜', name: 'Trilingual Parrot', desc: 'Fluent in three languages. All compliments.', value: 460 },
-    { emoji: '👑', name: 'Crown of a Very Minor Royal', desc: 'Fourteenth in line to a small duchy.', value: 410 },
-    { emoji: '🧥', name: 'Invisibility Cloak', desc: 'Visible on weekends and bank holidays.', value: 330 },
-    { emoji: '🚗', name: 'Vintage Car, Sings Opera', desc: 'The engine is a baritone. The horn is a soprano.', value: 500 },
-    { emoji: '📚', name: 'First Edition Nobody Finished', desc: 'Pristine after chapter three. Suspiciously pristine.', value: 300 },
-    { emoji: '🐄', name: 'The Pre-Whipped Cream Cow', desc: 'Moo-velous. Chills the bowl herself.', value: 570 },
-    // ── duds (10–80) ──
-    { emoji: '🍞', name: 'Haunted Toaster', desc: 'The ghost only does one side.', value: 40 },
-    { emoji: '☂️', name: 'Ventilated Umbrella', desc: 'For people who like to know it\'s raining.', value: 20 },
-    { emoji: '🧦', name: 'Sock. Singular. Left.', desc: 'A confident single sock with references.', value: 10 },
-    { emoji: '🪑', name: 'Five-Legged Chair', desc: 'The fifth leg does not help.', value: 30 },
-    { emoji: '🔮', name: 'Crystal Ball (Buffering)', desc: 'Your future is loading. 3%.', value: 60 },
-    { emoji: '🎺', name: 'Trumpet, One Previous Owner', desc: 'The previous owner was a toddler.', value: 25 },
-    { emoji: '🗿', name: 'Garden Gnome, Trust Issues', desc: 'Faces the wall. Won\'t say why.', value: 70 },
-    { emoji: '🖊️', name: 'The Apology Pen', desc: 'Only writes apologies. Deeply sincere ones.', value: 35 },
-    { emoji: '🧲', name: 'Reverse Fridge Magnet', desc: 'Repels fridges. Science can\'t explain it.', value: 15 },
-    { emoji: '🕯️', name: 'Scented Candle: “Wet Dog”', desc: 'Remarkably accurate.', value: 45 },
-    { emoji: '📻', name: 'Radio Between Two Stations', desc: 'Jazz AND the shipping forecast. Forever.', value: 50 },
-    { emoji: '🥄', name: 'Cursed Antique Spoon', desc: 'Allegedly cursed. Definitely bent.', value: 55 },
-    { emoji: '🧩', name: 'Jigsaw: 999 of 1000 Pieces', desc: 'The missing piece is sky.', value: 30 },
-    { emoji: '🚲', name: 'Exercise Bike / Coat Rack', desc: 'Excellent at one of these jobs.', value: 80 },
-    { emoji: '🐌', name: 'Retired Racing Snail', desc: 'Career best: second place. Field of two.', value: 20 },
-    { emoji: '🎩', name: 'Magician\'s Top Hat', desc: 'Rabbit not included. Hole included.', value: 65 },
-    { emoji: '🧯', name: 'Confetti Extinguisher', desc: 'Makes fires more festive.', value: 75 },
-    // ── mystery boxes (value 0–700, hint only) ──
-    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'It rattles when you shake it.', value: 700 },
-    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'Something inside is humming.', value: 60 },
-    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'Heavier than it looks.', value: 500 },
-    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'Smells faintly of victory.', value: 150 },
-    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'The previous owner winked.', value: 0 },
-    { emoji: '📦', name: 'Mystery Box', mystery: true, desc: 'Ticks. Probably a clock.', value: 300 },
+    { emoji: '🛶', name: 'Three-Piece Canoe', desc: 'A canoe that comes apart into three bits and bolts back together in the car park.', value: 159, src: 'Accio', on: '2026-07-27' },
+    { emoji: '🚣', name: 'Pedal Kayak', desc: 'You pedal it. Like a boat-shaped exercise bike that can drown you.', value: 108, src: 'Accio', on: '2026-07-27' },
+    { emoji: '🎣', name: 'Stackable 4.6m Fishing Boat', desc: 'A real boat, four and a half metres of it, that stacks like patio chairs.', value: 1700, src: 'Accio', on: '2026-07-27' },
+    { emoji: '🏠', name: 'Expandable Container House (16.5ft × 20ft)', desc: 'Arrives folded in a shipping container. Unfolds into a house in about an hour.', value: 19799, src: 'Storage & Canopy', on: '2026-07-27' },
+    { emoji: '📦', name: 'Used 20ft Shipping Container, Delivered', desc: 'Forty tons of steel box, dropped on your drive by a lorry with a crane on it.', value: 2800, src: 'Container Compass', on: '2026-07-27' },
+    { emoji: '🥤', name: 'Combo Vending Machine (Snacks + Cold Drinks)', desc: 'One cabinet, two temperatures, takes cards. The kind that eats your dollar and gives nothing back.', value: 4200, src: 'VendSoft', on: '2026-07-27' },
+    { emoji: '🚧', name: 'Orange Traffic Cone (28in, reflective)', desc: 'One cone. The full-size road kind, not the toy. Costs less than a pizza.', value: 15, img: 'https://media.trafficsafetystore.com/image/upload/c_limit,dpr_3.0,f_auto,q_auto:best,w_600/i/economy-traffic-cones-28in-orange-two-collars-jbc-safety-cone-construction-cone.webp', src: 'Traffic Safety Store', on: '2026-07-27' },
+    { emoji: '🎳', name: 'One Regulation Bowling Pin', desc: 'A single pin off a real lane. Sold by the case of ten, so this is a tenth of one.', value: 21, src: 'BowlersMart', on: '2026-07-27' },
+    { emoji: '🛒', name: 'Supermarket Shopping Trolley', desc: 'The big metal one with the wonky wheel. Everyone has pushed one; nobody has bought one.', value: 150, src: 'Trolley Mfg', on: '2026-07-27' },
+    { emoji: '🎪', name: 'Mechanical Bull (Standard Package)', desc: 'Bull, inflatable mattress, blower, three-year warranty. Shipping is another grand.', value: 7000, src: 'USA Mechanical Bulls', on: '2026-07-27' },
+    { emoji: '🕹️', name: 'Crane Claw Machine (commercial)', desc: 'The one that never quite grips. Coin-op, tempered glass, card reader.', value: 3500, src: 'Fun Space', on: '2026-07-27' },
+    { emoji: '🧖', name: 'Two-Person Cedar Barrel Sauna', desc: 'A barrel you sit inside until you feel virtuous. Foundation and wiring not included.', value: 4490, src: 'Topture', on: '2026-07-27' },
+    { emoji: '🚒', name: 'Fire Hydrant', desc: 'The hydrant only. Getting it into the ground costs more than the hydrant does.', value: 3200, src: 'ZenTrades', on: '2026-07-27' },
+    { emoji: '🍦', name: 'Used Ice Cream Truck (1997 GMC 3500)', desc: 'Chimes included. Soft serve machine of uncertain temperament.', value: 9000, src: 'UsedVending', on: '2026-07-27' },
+    { emoji: '🦙', name: 'An Alpaca', desc: 'One alpaca. Pet quality, not show genetics. Comes with an opinion about you.', value: 500, src: 'AlpacaKeep', on: '2026-07-27' },
+    { emoji: '🎰', name: 'New Pinball Machine (Pokémon Premium)', desc: 'A brand-new licensed table. Tax and freight are another thousand.', value: 9499, src: 'Coin Games Machine', on: '2026-07-27' },
+    { emoji: '🐄', name: 'One Dairy Cow', desc: 'A replacement milking cow, average US price. Record highs this year.', value: 3130, src: 'Ag Proud', on: '2026-07-27' },
+    { emoji: '🚑', name: 'A Used Ambulance', desc: 'Decommissioned, lights included. People buy these as campers.', value: 29500, src: 'Commercial Truck Trader', on: '2026-07-27' },
+    { emoji: '🎼', name: 'A Concert Pedal Harp', desc: 'Forty-seven strings and seven pedals. The most expensive harp there is.', value: 18000, src: 'Harp Connection', on: '2026-07-27' },
+    { emoji: '⚰️', name: 'A Metal Casket', desc: 'The single most expensive thing most families buy for a funeral.', value: 2500, src: 'Parting Stone', on: '2026-07-27' },
+    { emoji: '🏡', name: 'Home Battery System, 10kWh Installed', desc: 'The wall-mounted battery that runs the house when the power cuts.', value: 9500, src: 'NuWatt Energy', on: '2026-07-27' },
+    { emoji: '🪵', name: '6ft Privacy Fence Panel, Installed', desc: 'One panel of the fence, put in for you. The labour is most of it.', value: 225, src: 'Homewyse', on: '2026-07-27' },
+    { emoji: '🧠', name: 'NVIDIA DGX Spark (128GB unified memory)', desc: 'An AI supercomputer smaller than a hardback book. One petaflop.', value: 4699, src: 'NVIDIA', on: '2026-07-27' },
+    { emoji: '🖥️', name: 'Mac Studio (M3 Ultra)', desc: 'A small aluminium box that costs more than a secondhand car.', value: 5299, src: 'Apple', on: '2026-07-27' },
+    { emoji: '📦', name: 'Mac mini (M4, 16GB)', desc: 'The small square one. It went UP by two hundred dollars this June.', value: 799, src: 'MacRumors', on: '2026-07-27' },
+    { emoji: '⚙️', name: 'Framework Desktop (128GB, Ryzen AI Max+ 395)', desc: 'A repairable mini PC with 128GB shared between processor and graphics.', value: 1999, src: 'ModelFit', on: '2026-07-27' },
+    { emoji: '🔲', name: 'GMKtec EVO-X2 Mini PC (128GB / 2TB)', desc: 'A mini PC that runs big AI models locally. Two thousand two hundred dollars.', value: 2199, src: 'VideoCardz', on: '2026-07-27' },
+    { emoji: '📱', name: 'Flagship Phone (iPhone 17 Pro Max, 2TB)', desc: 'The most expensive phone Apple sells, at the largest storage.', value: 1699, src: 'Apple', on: '2026-07-27' },
+    { emoji: '☎️', name: 'Budget Android Phone (TCL Ion V)', desc: 'A brand new unlocked smartphone. Ninety-nine dollars.', value: 99, src: 'Android Central', on: '2026-07-27' },
+    { emoji: '🌷', name: 'One Hundred Tulip Bulbs', desc: 'A hundred bulbs. Enough to make a front garden look deliberate.', value: 103, src: 'Dutch Bulbs', on: '2026-07-27' },
+    { emoji: '🌱', name: 'One Tulip Bulb', desc: 'A single bulb. In 1637 this would have bought a house.', value: 1, src: 'Dutch Bulbs', on: '2026-07-27' },
+    { emoji: '💩', name: '50lb Bag of Lawn Fertiliser', desc: 'Enough to feed a large lawn. Smells of commitment.', value: 40, src: 'Well Built Florida', on: '2026-07-27' },
+    { emoji: '🔧', name: 'Benchtop Metal Lathe (7in x 14in)', desc: 'A real metal-turning lathe that sits on a bench. Five hundred and fifty dollars.', value: 550, src: 'Affordable Tool', on: '2026-07-27' },
+    { emoji: '🕳️', name: 'Benchtop Drill Press (10in, laser)', desc: 'Drills a straight hole, which is harder than it sounds.', value: 179, src: 'World of Woodcraft', on: '2026-07-27' },
+    { emoji: '🪚', name: 'Horizontal Metal-Cutting Bandsaw', desc: 'Cuts through solid steel bar while you have a cup of tea.', value: 658, src: 'Trick-Tools', on: '2026-07-27' },
+    { emoji: '🔩', name: 'Corner Bolt & Nut for a Square Sign Post', desc: 'One bolt. One nut. This is the whole lot.', value: 2, src: 'Traffic Safety Store', on: '2026-07-27' },
+    { emoji: '🛑', name: 'Official STOP Sign (R1-1, 30in aluminium)', desc: 'The real thing, federal spec, reflective. Cheaper than a pair of trainers.', value: 58, img: 'https://media.trafficsafetystore.com/image/upload/c_limit,dpr_3.0,f_auto,q_auto:best,w_600/i/stop-signs-r1-1-30in-by-solid-080-gauge-aluminum-roll-up-sign.webp', src: 'Traffic Safety Store', on: '2026-07-27' },
+    { emoji: '📏', name: '12ft Steel Sign Post, Highway Green', desc: 'The pole the sign goes on. Costs about the same as the sign.', value: 61, src: 'Traffic Safety Store', on: '2026-07-27' },
+    { emoji: '🔺', name: 'Square Sign Post Anchor (36in, 12 gauge)', desc: 'The bit underground that nobody ever sees. Fifty-one dollars of it.', value: 51, src: 'Traffic Safety Store', on: '2026-07-27' },
+    { emoji: '🔴', name: 'High-Intensity Red Reflector on Aluminium', desc: 'A small red circle that glows in headlights. Thirty-one dollars fifty-five.', value: 32, src: 'Traffic Safety Store', on: '2026-07-27' },
+    { emoji: '🍬', name: 'Half-Gallon of Cherry Candy Floss Sugar', desc: 'A carton of pink sugar. Makes an alarming quantity of candy floss.', value: 9, img: 'https://www.webstaurantstore.com/images/products/medium/80713/2977668.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🍭', name: 'Candy Floss Machine, Fairground Grade', desc: 'A Cretors Ringmaster with a 26in bowl. The one at the actual fair.', value: 2209, img: 'https://www.webstaurantstore.com/images/products/medium/625694/2222463.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🎡', name: 'Party Candy Floss Machine (21in bowl)', desc: 'Looks exactly like the fairground one. Is not.', value: 190, img: 'https://www.webstaurantstore.com/images/products/medium/394747/3061181.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🌭', name: 'Hot Dog Roller, 12 Dogs', desc: 'Rollers that turn sadly under a heat lamp. The small one.', value: 105, img: 'https://www.webstaurantstore.com/images/products/medium/624414/2491958.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🌭', name: 'Star Grill-Max 50-Dog Roller', desc: 'Fifty hot dogs at once, chrome rollers, stadium spec. Four grand.', value: 4085, img: 'https://www.webstaurantstore.com/images/products/medium/845082/2957636.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🔪', name: 'Countertop Meat Slicer', desc: 'The spinning blade behind every deli counter. Entry level.', value: 270, img: 'https://www.webstaurantstore.com/images/products/medium/483929/1894366.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🥩', name: 'Hobart HS9-1 Automatic Slicer', desc: 'A meat slicer that costs more than a car.', value: 13063, img: 'https://www.webstaurantstore.com/images/products/medium/57749/1434855.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🍫', name: 'Chocolate Fountain, 16in', desc: 'Three tiers of cascading chocolate. Wedding-buffet standard.', value: 114, img: 'https://www.webstaurantstore.com/images/products/medium/664399/2299641.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '⛲', name: 'Convertible 44in Chocolate Fountain', desc: 'Nearly four feet of chocolate, falling continuously. Heavy duty.', value: 3472, img: 'https://www.webstaurantstore.com/images/products/medium/664633/2296062.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🍦', name: 'Countertop Soft Serve Machine', desc: 'One flavour, gravity fed, sits on a counter. Six and a half grand.', value: 6443, img: 'https://www.webstaurantstore.com/images/products/medium/592412/3036384.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🍨', name: 'Coldelite Compacta Vario 12 Batch Freezer', desc: 'Makes proper gelato. Costs more than most people\'s cars.', value: 70886, img: 'https://www.webstaurantstore.com/images/products/medium/584913/2108764.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🥤', name: 'Frozen Drink Machine, 1 Gallon', desc: 'Self-serve slush. The kind that hypnotises children in petrol stations.', value: 2429, img: 'https://www.webstaurantstore.com/images/products/medium/484970/2491053.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🧊', name: 'Countertop Ice Maker (ADA compliant)', desc: 'Makes ice. Sits on a counter. Six thousand two hundred and fifty dollars.', value: 6250, img: 'https://www.webstaurantstore.com/images/products/medium/868534/3030955.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '❄️', name: 'Scotsman Flake Ice Machine, 42in', desc: 'Flake ice, the fishmonger kind, by the hundredweight.', value: 14817, img: 'https://www.webstaurantstore.com/images/products/medium/152380/2939646.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🚪', name: 'Walk-In Freezer, 6ft x 6ft', desc: 'A room that is a fridge. The smallest one they sell.', value: 12345, img: 'https://www.webstaurantstore.com/images/products/medium/59519/414217.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🍕', name: 'Gas Pizza Deck Oven, Single Deck 55in', desc: 'One deck, gas, restaurant spec. Just under ten grand.', value: 9985, img: 'https://www.webstaurantstore.com/images/products/medium/24201/3128970.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🔥', name: 'Il Forno Classico Double Deck Pizza Oven, 66in', desc: 'A brick-lined double-decker. Ninety-eight thousand dollars.', value: 98027, img: 'https://www.webstaurantstore.com/images/products/medium/15052/415228.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '⚙️', name: 'Steel Tension Bushing, 3/4in', desc: 'A small metal ring. Three dollars seventy-five.', value: 4, src: 'Surplus Center', on: '2026-07-27' },
+    { emoji: '🛠️', name: 'Double-Acting Hydraulic Cylinder, 1in x 10in', desc: 'The thing that makes a digger\'s arm move. One of them.', value: 130, src: 'Surplus Center', on: '2026-07-27' },
+    { emoji: '🧽', name: '18in Foam Floor Squeegee', desc: 'A squeegee on a stick. Six ninety-nine.', value: 7, img: 'https://www.webstaurantstore.com/images/products/medium/643205/2584979.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🧼', name: 'Walk-Behind Floor Scrubber, 20in Cordless', desc: 'The machine that polishes supermarket aisles at 6am. Karcher, battery.', value: 5375, img: 'https://www.webstaurantstore.com/images/products/medium/844896/2879345.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🌀', name: 'Orbital Floor Scrubber, 13in', desc: 'Corded, domestic-looking, six hundred and nineteen dollars.', value: 619, img: 'https://www.webstaurantstore.com/images/products/medium/643314/2247709.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🍽️', name: 'Undercounter Commercial Dishwasher', desc: 'Washes a rack in ninety seconds. Fits under a counter.', value: 2289, img: 'https://www.webstaurantstore.com/images/products/medium/685130/2464511.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🥂', name: 'Glass Polishing Machine', desc: 'Its entire job is drying wine glasses. Nine hundred and thirty-nine dollars.', value: 939, img: 'https://www.webstaurantstore.com/images/products/medium/464799/3058247.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🫧', name: 'Champion PP-36 Pot and Pan Washer', desc: 'A dishwasher. For pans. Seventy thousand dollars.', value: 70881, img: 'https://www.webstaurantstore.com/images/products/medium/611429/2184661.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '☕', name: 'Capsule Espresso Machine, Commercial', desc: 'It takes pods. It costs five hundred and eighty-nine dollars.', value: 589, img: 'https://www.webstaurantstore.com/images/products/medium/717779/2481020.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '☕', name: 'One-Group Volumetric Espresso Machine', desc: 'Proper cafe kit. One group head, chrome, five and a half grand.', value: 5450, img: 'https://www.webstaurantstore.com/images/products/medium/580680/2108536.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '⚫', name: 'Victoria Arduino Black Eagle Maverick, 3 Group', desc: 'The espresso machine world championships use these. Matte black.', value: 32600, img: 'https://www.webstaurantstore.com/images/products/medium/811945/2747406.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🌊', name: 'Ventless High-Temperature Dishwasher', desc: 'No hood needed, which is the expensive part. Hobart.', value: 23447, img: 'https://www.webstaurantstore.com/images/products/medium/622461/2369821.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🍿', name: 'Popcorn Machine, 4oz Cart Style', desc: 'Red and gold, glass sides, cinema lettering. A hundred and forty dollars.', value: 140, img: 'https://www.webstaurantstore.com/images/products/medium/92910/1932876.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🍿', name: 'Cretors Merchant 16oz Popcorn Popper', desc: 'The real cinema-foyer machine. Nearly five thousand dollars.', value: 4929, img: 'https://www.webstaurantstore.com/images/products/medium/625677/2231523.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🎬', name: 'Countertop Popcorn Machine, 32oz', desc: 'Thirty-two ounce kettle, countertop. Five and a half grand.', value: 5549, img: 'https://www.webstaurantstore.com/images/products/medium/858550/2973210.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '💰', name: 'Small Steel Cash Box', desc: 'Lockable steel box with a coin tray. Thirty-seven dollars.', value: 37, img: 'https://www.webstaurantstore.com/images/products/medium/582473/2108358.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🔐', name: 'Compact Security Safe', desc: 'An actual safe, with a keypad. Costs less than a pair of jeans.', value: 80, img: 'https://www.webstaurantstore.com/images/products/medium/582520/2108575.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🏦', name: 'Rotary Hopper Drop Safe', desc: 'The one bar staff post takings into. Fourteen hundred dollars.', value: 1429, img: 'https://www.webstaurantstore.com/images/products/medium/582541/2108272.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🖐️', name: 'Extra-Large Biometric Safe', desc: 'Opens to a fingerprint. A thousand and twenty-nine dollars.', value: 1029, img: 'https://www.webstaurantstore.com/images/products/medium/582467/2108286.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🛋️', name: 'Diner Booth, Single, Upholstered', desc: 'One side of a proper diner booth, 45in, yellow vinyl.', value: 338, img: 'https://www.webstaurantstore.com/images/products/medium/498278/1864403.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🌗', name: '96in Half-Circle Booth, Ebony', desc: 'The curved corner booth you ask for and never get. Nearly five grand.', value: 4899, img: 'https://www.webstaurantstore.com/images/products/medium/856048/2959883.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🚗', name: '6ft Rubber Speed Bump', desc: 'Municipal traffic calming, black and yellow, spikes included.', value: 102, img: 'https://media.trafficsafetystore.com/image/upload/c_limit,dpr_3.0,f_auto,q_auto:best,w_160/i/6-clearline-recycled-rubber-speed-bump-12in-galv-steel-spikes-asphalt-or-gravel-traffic-calming.webp', src: 'Traffic Safety Store', on: '2026-07-27' },
+    { emoji: '🔚', name: 'Speed Bump End Cap', desc: 'The little sloped bit on the end. Sixteen dollars fifty.', value: 17, img: 'https://media.trafficsafetystore.com/image/upload/c_limit,dpr_3.0,f_auto,q_auto:best,w_160/i/9-1-2in-end-cap-rubber-speed-bumps-12in-galv-steel-spikes-asphalt-or-gravel-traffic-calming.webp', src: 'Traffic Safety Store', on: '2026-07-27' },
+    { emoji: '🧳', name: 'Portable Speed Bump with Carrying Case', desc: 'Nine and a half feet of speed bump, in a bag, for travelling.', value: 336, img: 'https://media.trafficsafetystore.com/image/upload/c_limit,dpr_3.0,f_auto,q_auto:best,w_160/i/9-1-2-ft-portable-yellow-speed-bump-traffic-calming.webp', src: 'Traffic Safety Store', on: '2026-07-27' },
+    { emoji: '🏋️', name: 'Olympic Change Plate', desc: 'A very small weight. Fifteen dollars.', value: 15, src: 'Rogue Fitness', on: '2026-07-27' },
+    { emoji: '🫖', name: 'Cast Iron Kettlebell', desc: 'A lump of iron with a handle. Thirty-eight dollars.', value: 38, img: 'https://assets.roguefitness.com/f_auto,q_auto,c_fill,g_center,w_361,h_361,b_rgb:f8f8f8/catalog/Conditioning/Strength%20Equipment/Kettlebells/IP0670/IP0670-TH_knx30m.png', src: 'Rogue Fitness', on: '2026-07-27' },
+    { emoji: '🪢', name: 'Bearing Speed Rope', desc: 'A skipping rope with bearings in the handles. Thirty-five dollars.', value: 35, img: 'https://assets.roguefitness.com/f_auto,q_auto,c_fill,g_center,w_50,h_50,b_rgb:f8f8f8/catalog/Conditioning/Jump%20Ropes%20/SR%20Series/SR-1/AD0061-XX/CART%20-%20TH%20-%20AD0061/AD0061-Red-TH_fanzlh.png', src: 'Rogue Fitness', on: '2026-07-27' },
+    { emoji: '🥇', name: 'The Ohio Bar (Olympic barbell, black zinc)', desc: 'Seven feet of knurled steel. The bar itself, no weights.', value: 305, img: 'https://assets.roguefitness.com/f_auto,q_auto,c_fill,g_center,w_50,h_50,b_rgb:f8f8f8/catalog/Weightlifting%20Bars%20and%20Plates/Barbells/Mens%2020KG%20Barbells/RA0539-BLBR/RA0539-BLBR-TH_rylohr.png', src: 'Rogue Fitness', on: '2026-07-27' },
+    { emoji: '🤸', name: 'Kabuki Transformer Bar', desc: 'A barbell that bends in the middle on purpose. Nearly eight hundred dollars.', value: 795, src: 'Rogue Fitness', on: '2026-07-27' },
+    { emoji: '🎽', name: 'Weighted Training Vest', desc: 'A vest that makes everything worse. A hundred and forty-five dollars.', value: 145, img: 'https://assets.roguefitness.com/f_auto,q_auto,c_fill,g_center,w_361,h_361,b_rgb:f8f8f8/catalog/Bodyweight%20and%20Gymnastics/Bodyweight%20/Weighted%20Vests/IP1306/IP1306-Black-TH_dk76pj.png', src: 'Rogue Fitness', on: '2026-07-27' },
+    { emoji: '🛷', name: 'Weighted Push Sled', desc: 'A metal sled you shove up a car park until you\'re sick.', value: 335, img: 'https://assets.roguefitness.com/f_auto,q_auto,c_fill,g_center,w_361,h_361,b_rgb:f8f8f8/catalog/Strength%20Equipment/Strength%20Training/Sleds/XX2044/XX2044-TH_ho33zy.png', src: 'Rogue Fitness', on: '2026-07-27' },
+    { emoji: '🚲', name: 'Air Assault Bike', desc: 'The fan bike everyone dreads. Nine hundred and forty-five dollars.', value: 945, img: 'https://assets.roguefitness.com/f_auto,q_auto,c_fill,g_center,w_361,h_361,b_rgb:f8f8f8/catalog/Conditioning/Endurance%20/Bikes/ECHOBIKE/ECHOBIKE-TH_ih5rzy.png', src: 'Rogue Fitness', on: '2026-07-27' },
+    { emoji: '🏃', name: 'Curved Manual Treadmill', desc: 'No motor at all — you drive the belt yourself. Three and a half grand.', value: 3495, src: 'Rogue Fitness', on: '2026-07-27' },
+    { emoji: '🏅', name: 'Woodway Vive Treadmill', desc: 'A treadmill costing eleven thousand three hundred and ninety-five dollars.', value: 11395, src: 'Rogue Fitness', on: '2026-07-27' },
+    { emoji: '🪖', name: 'Original Military Shelter Half', desc: 'Half a tent. You need to find a soldier with the other half.', value: 30, img: 'https://cdn11.bigcommerce.com/s-vkefyy7j0b/images/stencil/500x659/products/7137/14719/Photoroom_20260710_103837__04347.1783702852.JPG?c=2', src: 'Army Surplus Warehouse', on: '2026-07-27' },
+    { emoji: '🎒', name: 'GI Used ALICE Pack, Medium (no straps)', desc: 'Army issue, genuinely used, straps not included. Forty-five dollars.', value: 45, img: 'https://cdn11.bigcommerce.com/s-vkefyy7j0b/images/stencil/500x659/products/7010/14033/Photoroom_20260206_114916__52395.1770404724.JPG?c=2', src: 'Army Surplus Warehouse', on: '2026-07-27' },
+    { emoji: '👕', name: 'GI Issue Desert Camo Shirt, Used', desc: 'Three-colour desert BDU, previously worn by someone in a desert.', value: 15, img: 'https://cdn11.bigcommerce.com/s-vkefyy7j0b/images/stencil/500x659/products/7113/14626/Photoroom_20260611_124225__84328.1781203836.JPG?c=2', src: 'Army Surplus Warehouse', on: '2026-07-27' },
+    { emoji: '🦺', name: 'Multicam Recon Chest Rig', desc: 'Tactical webbing, many pouches. Sixty-five dollars.', value: 65, img: 'https://cdn11.bigcommerce.com/s-vkefyy7j0b/images/stencil/500x659/products/7029/14130/MCR5_008F_2012_1715x.progressive.png.jpg__89708.1771530546.jpg?c=2', src: 'Army Surplus Warehouse', on: '2026-07-27' },
+    { emoji: '🪓', name: 'Bushcraft Hatchet', desc: 'A small serious axe. Seventy dollars.', value: 70, img: 'https://cdn11.bigcommerce.com/s-vkefyy7j0b/images/stencil/500x659/products/7012/14041/Resource_GerberAmericas_31-003782__00218.1770751887.jpg?c=2', src: 'Army Surplus Warehouse', on: '2026-07-27' },
+    { emoji: '🍶', name: 'Jet Fuel JP-4 Hip Flask, 25oz', desc: 'A flask labelled as jet fuel. Not jet fuel. Twenty-two dollars.', value: 22, img: 'https://cdn11.bigcommerce.com/s-vkefyy7j0b/images/stencil/500x659/products/7062/14448/96de9402922166ca073c3fbf7920b5d7343b235b312011ef43c720920e45771f.jpeg__24538.1778531427.jpg?c=2', src: 'Army Surplus Warehouse', on: '2026-07-27' },
+    { emoji: '🔥', name: 'Emergency Fire Blanket', desc: 'For putting yourself out. Twenty-five dollars.', value: 25, img: 'https://cdn11.bigcommerce.com/s-vkefyy7j0b/images/stencil/500x659/products/7120/14649/Screenshot_2026-06-15_at_2.03.56PM__51129.1781554334.png?c=2', src: 'Army Surplus Warehouse', on: '2026-07-27' },
+    { emoji: '🍳', name: 'Cast Iron Camp Deep Fryer', desc: 'Lodge cast iron. Will outlive everyone at this table.', value: 70, img: 'https://www.webstaurantstore.com/images/products/medium/154798/1326841.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🍟', name: 'Countertop Electric Deep Fryer', desc: 'Chip shop in a box. A hundred and five dollars.', value: 105, img: 'https://www.webstaurantstore.com/images/products/medium/102244/3072265.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🍤', name: 'Perfect Fry PFA730 Ventless Fryer', desc: 'A fryer that needs no extraction hood. Fifteen thousand seven hundred and seventy-eight dollars.', value: 15778, img: 'https://www.webstaurantstore.com/images/products/medium/787943/3036697.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🔥', name: 'Floor-Standing Gas Fryer', desc: 'Restaurant spec, gas, on legs. Three thousand six hundred dollars.', value: 3600, img: 'https://www.webstaurantstore.com/images/products/medium/30908/3142998.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🐷', name: '72in Charcoal Pig Roaster', desc: 'Six feet of trailer-mounted pig roaster. For roasting a pig.', value: 2705, img: 'https://www.webstaurantstore.com/images/products/medium/709027/2445046.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🪵', name: 'Offset Barrel Smoker', desc: 'The black steel barrel with the chimney. Nine hundred dollars.', value: 900, img: 'https://www.webstaurantstore.com/images/products/medium/693166/2387134.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🍖', name: 'Undercounter Cook-and-Hold Smoker Oven', desc: 'Smokes brisket overnight, fits under a counter. Seven grand.', value: 7092, img: 'https://www.webstaurantstore.com/images/products/medium/30739/3039742.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🥓', name: 'Stainless Hand-Load BBQ Roaster', desc: 'Commercial smokehouse, stainless, eight thousand eight hundred dollars.', value: 8819, img: 'https://www.webstaurantstore.com/images/products/medium/699312/2393591.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🏭', name: 'J&R Oyler 1300 Wood-Fired Smoker', desc: 'A room-sized wood-burning smoker. Forty-five thousand nine hundred dollars.', value: 45900, img: 'https://www.webstaurantstore.com/images/products/medium/808550/2732692.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '📌', name: 'Feather Male Header Set (12-pin + 16-pin)', desc: 'Two strips of pins. Fifty cents. The cheapest lot in the auction.', value: 1, img: 'https://cdn-shop.adafruit.com/310x233/3002-00.jpg', src: 'Adafruit', on: '2026-07-27' },
+    { emoji: '🔌', name: '9V Battery Clip with Barrel Plug', desc: 'A battery clip. Two dollars ninety-five.', value: 3, img: 'https://cdn-shop.adafruit.com/310x233/80-03.jpg', src: 'Adafruit', on: '2026-07-27' },
+    { emoji: '🍞', name: 'Half-Size Solderless Breadboard', desc: 'Four hundred tie points. Where every electronics project begins.', value: 5, img: 'https://cdn-shop.adafruit.com/310x233/64-06.jpg', src: 'Adafruit', on: '2026-07-27' },
+    { emoji: '⚙️', name: 'Motor / Stepper / Servo Shield Kit', desc: 'Drives four motors from one small board. Twenty dollars.', value: 20, img: 'https://cdn-shop.adafruit.com/310x233/1438-00.jpg', src: 'Adafruit', on: '2026-07-27' },
+    { emoji: '🌡️', name: 'Infrared Thermal Camera Module', desc: 'A real thermal camera, the size of a stamp. Forty-five dollars.', value: 45, img: 'https://cdn-shop.adafruit.com/310x233/3622-03.jpg', src: 'Adafruit', on: '2026-07-27' },
+    { emoji: '💡', name: 'Single Addressable LED Breakout', desc: 'One programmable LED on a tiny board. A dollar fifty.', value: 2, img: 'https://cdn-shop.adafruit.com/product-videos/320x240/5975-04.jpg', src: 'Adafruit', on: '2026-07-27' },
+    { emoji: '💍', name: 'NeoPixel Ring, 16 RGB LEDs', desc: 'A ring of sixteen colour-changing LEDs. Ten dollars.', value: 10, img: 'https://cdn-shop.adafruit.com/310x233/1463-00.jpg', src: 'Adafruit', on: '2026-07-27' },
+    { emoji: '🟦', name: 'Flexible 16x16 LED Matrix', desc: 'Two hundred and fifty-six LEDs on a bendy sheet.', value: 85, img: 'https://cdn-shop.adafruit.com/product-videos/320x240/2547-00.jpg', src: 'Adafruit', on: '2026-07-27' },
+    { emoji: '🕸️', name: 'Outdoor LED Netting, 20 x 20', desc: 'Four hundred addressable LEDs in a net. For the garden, apparently.', value: 95, img: 'https://cdn-shop.adafruit.com/product-videos/320x240/6159-05.jpg', src: 'Adafruit', on: '2026-07-27' },
+    { emoji: '🎛️', name: 'Simon Says Soldering Kit', desc: 'You solder it together, then it plays Simon at you.', value: 30, img: 'https://www.sparkfun.com/media/catalog/product/cache/df4360b598d6f0c75fa659693b376bad/S/p/SparkFun_Simon_Says_-_Through-Hole_Soldering_Kit-03.jpg', src: 'SparkFun', on: '2026-07-27' },
+    { emoji: '🧰', name: 'Electronics Inventor\'s Kit', desc: 'Board, breadboard, sensors, and a book telling you what to do with them.', value: 100, img: 'https://www.sparkfun.com/media/catalog/product/cache/df4360b598d6f0c75fa659693b376bad/1/5/15267-SparkFun_Inventor_s_Kit_-_v4.1-01a_1.jpg', src: 'SparkFun', on: '2026-07-27' },
+    { emoji: '🤖', name: 'Robotics Platform Kit (XRP)', desc: 'A small programmable robot you build yourself.', value: 120, img: 'https://www.sparkfun.com/media/catalog/product/cache/df4360b598d6f0c75fa659693b376bad/2/7/27644-xrp-assembled-product-feature-left.jpg', src: 'SparkFun', on: '2026-07-27' },
+    { emoji: '🛰️', name: 'Centimetre-Accurate GPS Kit (RTK)', desc: 'GPS accurate to a centimetre. Three hundred and sixteen dollars.', value: 316, img: 'https://www.sparkfun.com/media/catalog/product/cache/df4360b598d6f0c75fa659693b376bad/1/8/18292-GPS-RTK-SMA-Kit2.jpg', src: 'SparkFun', on: '2026-07-27' },
+    { emoji: '🌦️', name: 'Weather Meter Kit', desc: 'Spinning cups, a wind vane and a rain bucket. Eighty dollars.', value: 80, img: 'https://www.sparkfun.com/media/catalog/product/cache/df4360b598d6f0c75fa659693b376bad/1/5/15901-Weather_Meter-02.jpg', src: 'SparkFun', on: '2026-07-27' },
+    { emoji: '🔥', name: 'Portable Soldering Iron Kit', desc: 'A soldering iron the size of a pen. A hundred and twenty dollars.', value: 120, img: 'https://www.sparkfun.com/media/catalog/product/cache/df4360b598d6f0c75fa659693b376bad/K/I/KIT-24063-PINECIL-Soldering-Iron-Kit-Feature.jpg', src: 'SparkFun', on: '2026-07-27' },
+    { emoji: '🏫', name: 'Inventor\'s Kit Lab Pack (classroom)', desc: 'Ten of the kits above, in one box, for a whole class.', value: 990, img: 'https://www.sparkfun.com/media/catalog/product/cache/df4360b598d6f0c75fa659693b376bad/s/i/sik-4_1_2-lab-pack.jpg', src: 'SparkFun', on: '2026-07-27' },
+    { emoji: '🖨️', name: 'Original Prusa MINI+ 3D Printer', desc: 'A real 3D printer, semi-assembled. Five hundred dollars.', value: 508, img: 'https://assets.prusa3d.com/cdn-cgi/image/width=298,format=auto,quality=85/content/images/product/d2a9452b-e8c5-4805-9ca0-bbc1b889a874.jpg', src: 'Prusa', on: '2026-07-27' },
+    { emoji: '🧱', name: 'Original Prusa MK4S Kit (self-build)', desc: 'The same printer, in pieces. You assemble it. Cheaper that way.', value: 657, img: 'https://assets.prusa3d.com/cdn-cgi/image/width=298,format=auto,quality=85/content/images/product/4dc11a44-bbf5-4fc5-8754-c00b3a71a35a.jpg', src: 'Prusa', on: '2026-07-27' },
+    { emoji: '📦', name: 'Prusa CORE One+ 3D Printer', desc: 'Enclosed, assembled, twelve hundred dollars.', value: 1203, img: 'https://assets.prusa3d.com/cdn-cgi/image/width=298,format=auto,quality=85/content/images/product/d9b07dc7-3af8-4394-b818-635472e6de3b.jpg', src: 'Prusa', on: '2026-07-27' },
+    { emoji: '🗿', name: 'Original Prusa XL 3D Printer', desc: 'The big one. Two thousand one hundred and twenty-nine dollars.', value: 2129, img: 'https://assets.prusa3d.com/cdn-cgi/image/width=298,format=auto,quality=85/content/images/product/1f2cf3cd-f443-453f-ac9c-e84c956aa458.jpg', src: 'Prusa', on: '2026-07-27' },
+    { emoji: '💧', name: 'Resin 3D Printer + Wash & Cure Bundle', desc: 'Prints in liquid resin. Smells industrial. Twenty-six hundred dollars.', value: 2599, img: 'https://assets.prusa3d.com/cdn-cgi/image/width=298,format=auto,quality=85/content/images/product/41865df7-7612-4bf1-87bb-ce68d517eaf8.jpg', src: 'Prusa', on: '2026-07-27' },
+    { emoji: '☀️', name: 'One-Watt Solar Panel', desc: 'A solar panel. One watt. It would take a fortnight to charge a phone.', value: 29, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/692/1824/bsp-1-12-1-watt-12-volt-solar-panel-module__64306.1759942295.jpg?c=2', src: 'Mr Solar', on: '2026-07-27' },
+    { emoji: '🔆', name: '100W Solar Panel', desc: 'The size that goes on a campervan roof. A hundred and fifteen dollars.', value: 115, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/1393/2104/rs-m100__41694.1649813948.jpg?c=2', src: 'Mr Solar', on: '2026-07-27' },
+    { emoji: '🌞', name: '50W Solar Panel (industrial brand)', desc: 'Half the power of the one above, and more than twice the price.', value: 252, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/88/277/Ameresco_50j__65582.1747772056.jpg?c=2', src: 'Mr Solar', on: '2026-07-27' },
+    { emoji: '🏘️', name: '410W Rooftop Solar Panel', desc: 'A full-size roof panel, the sort installers fit by the dozen.', value: 315, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/1414/2138/download__42484.1675440983.jpg?c=2', src: 'Mr Solar', on: '2026-07-27' },
+    { emoji: '🔌', name: '300W Pure Sine Wave Inverter', desc: 'Turns battery DC into mains AC. A hundred and seventy dollars.', value: 172, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/874/1180/GP_SW300__16075.1429729868.jpg?c=2', src: 'Mr Solar', on: '2026-07-27' },
+    { emoji: '⚡', name: '3000W Inverter', desc: 'Ten times the power of the one above, for three times the price.', value: 528, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/873/1699/GP-3000HD__58395.1549473440.jpg?c=2', src: 'Mr Solar', on: '2026-07-27' },
+    { emoji: '🏭', name: '4000W Off-Grid Inverter/Charger', desc: 'The one that runs a whole off-grid house. Two thousand two hundred dollars.', value: 2199, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/459/1093/MS_AE_web_26014_zoom__66858.1559875924.JPG?c=2', src: 'Mr Solar', on: '2026-07-27' },
+    { emoji: '🔋', name: '12V 35Ah AGM Battery', desc: 'A sealed lead-acid brick. Eighty-two dollars.', value: 82, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/190/532/upgi-universal-batteries__44767.1410571318.jpg', src: 'Mr Solar', on: '2026-07-27' },
+    { emoji: '🔋', name: '12V 110Ah Deep-Cycle Battery', desc: 'The big leisure battery. Two hundred and thirty-nine dollars.', value: 239, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/187/529/upgi-universal-batteries__06057.1410571316.jpg', src: 'Mr Solar', on: '2026-07-27' },
 ];
 
 // ═══════════════════════════════════════════
@@ -417,6 +540,28 @@ function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
+
+// Real prices run to five figures, so every number on screen needs separators — "4200" and
+// "$4,200" are the same figure but only one of them is readable from a sofa.
+const num = n => Number(n || 0).toLocaleString('en-US');
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// "Jul 2026". Shown while bidding on purpose: these are real prices that move, so a figure that
+// looks wrong needs a visible explanation rather than looking like a bug. Bidding is when the
+// argument happens, so that is where the date has to be.
+function priceDate(iso) {
+    const [y, m] = String(iso || '').split('-');
+    return (MONTHS[+m - 1] || '') + ' ' + (y || '');
+}
+// The lot's picture, falling back to its emoji. These images are hotlinked from retailer CDNs:
+// some block cross-origin referrers and all of them rot eventually, so a failed load must degrade
+// to the emoji card rather than leaving a broken frame on the telly.
+function lotArtHTML(l, imgStyle, emojiStyle) {
+    const emoji = extra => `<div class="lemoji" style="${emojiStyle || ''}${extra}">${l.emoji}</div>`;
+    if (!l.img) return emoji('');
+    return `<img class="lphoto" style="${imgStyle || ''}" src="${esc(l.img)}" alt="" referrerpolicy="no-referrer"
+        onerror="this.style.display='none';this.nextElementSibling.style.display='';">` + emoji(';display:none');
+}
 const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function qrSVG(url) {
@@ -784,7 +929,8 @@ let _localGavelEnd = 0, _gavelTickClient = null;
 let H = {
     phase: 'lobby',              // lobby|lot_intro|bidding|sold|valuation|podium
     players: [],                 // [{id,name,color,coins,lots:[{lotIdx,paid}]}]
-    settings: { lotCount: 8 },
+    settings: { lotsPer: 3, bigLot: false },
+    mysteryLots: null,           // Set of lotIdx hidden behind their photo this game
     lotOrder: [], lotIndex: -1,
     bid: null,                   // {price, leaderId, endsAt}
     soldInfo: null,              // {lotIdx, winner, color, price} | {passed:true, lotIdx}
@@ -850,7 +996,7 @@ function lobbyMsg() {
     return {
         type: 'lobby', roomCode,
         players: H.players.map(p => ({ name: p.name, color: p.color })),
-        settings: { ...H.settings },
+        settings: { ...H.settings, lotCount: plannedLotCount() },
         tvHost: isTvHost, captain: capName(),
     };
 }
@@ -860,20 +1006,31 @@ function broadcastLobby() {
     hostSyncSelf(lobbyMsg());
 }
 
-function curLot() { return H.lotIndex >= 0 ? LOTS[H.lotOrder[H.lotIndex]] : null; }
-function lotView(lot) {
+// Takes an INDEX, not a lot, because whether a lot is a mystery is a fact about this game's draw
+// rather than about the item.
+function lotView(lotIdx) {
+    const lot = LOTS[lotIdx];
     if (!lot) return null;
-    return { emoji: lot.emoji, name: lot.name, desc: lot.desc, mystery: !!lot.mystery };
+    const mystery = !!(H.mysteryLots && H.mysteryLots.has(lotIdx));
+    // A mystery lot shows its PHOTOGRAPH and withholds the words — you bid on what you can see.
+    // The withholding has to happen here on the host: phones render whatever arrives, so sending
+    // the name and hiding it client-side would leak it to anyone with a console open.
+    if (mystery) return { emoji: '📦', name: null, desc: null, img: lot.img || null, src: lot.src, on: lot.on, mystery: true };
+    return { emoji: lot.emoji, name: lot.name, desc: lot.desc, img: lot.img || null, src: lot.src, on: lot.on, mystery: false };
 }
 
 function stateFor(p) {
-    const lot = curLot();
+    const curIdx = H.lotIndex >= 0 ? H.lotOrder[H.lotIndex] : -1;
+    // A mystery lot stays hidden on its OWNER's shelf too, right up to the valuation — otherwise
+    // whoever won it learns what it was while everyone else is still guessing.
+    const shown = H.phase === 'valuation' || H.phase === 'podium';
+    const hidden = l => !shown && H.mysteryLots && H.mysteryLots.has(l.lotIdx);
     const leader = H.bid && H.bid.leaderId ? H.players.find(q => q.id === H.bid.leaderId) : null;
     return {
         type: 'state',
         phase: H.phase, roomCode,
         lotNum: H.lotIndex + 1, lotTotal: H.lotOrder.length,
-        lot: lotView(lot),
+        lot: lotView(curIdx),
         bid: H.bid ? {
             price: H.bid.price,
             leader: leader ? leader.name : null,
@@ -882,8 +1039,12 @@ function stateFor(p) {
             endsIn: Math.max(0, H.bid.endsAt - Date.now()),
         } : null,
         myCoins: p ? p.coins : 0,
-        myLots: p ? p.lots.map(l => ({ name: LOTS[l.lotIdx].name, emoji: LOTS[l.lotIdx].emoji, paid: l.paid, lotIdx: l.lotIdx })) : [],
-        soldInfo: H.soldInfo ? { ...H.soldInfo, lot: lotView(LOTS[H.soldInfo.lotIdx]) } : null,
+        myLots: p ? p.lots.map(l => ({
+            name: hidden(l) ? 'Mystery Lot' : LOTS[l.lotIdx].name,
+            emoji: hidden(l) ? '📦' : LOTS[l.lotIdx].emoji,
+            paid: l.paid, lotIdx: l.lotIdx,
+        })) : [],
+        soldInfo: H.soldInfo ? { ...H.soldInfo, lot: lotView(H.soldInfo.lotIdx) } : null,
         reveals: H.phase === 'valuation' || H.phase === 'podium' ? H.reveals : null,
         revealIndex: H.revealIndex,
         standings: H.standings, awards: H.awards, winner: H.winner,
@@ -968,7 +1129,8 @@ function hostCtl(action, msg) {
     if (action === 'start' && H.phase === 'lobby') hostStartAuction();
     else if (action === 'again' && H.phase === 'podium') hostNewGame();
     else if (action === 'set' && H.phase === 'lobby') {
-        if ([6, 8, 10].includes(msg.lotCount)) H.settings.lotCount = msg.lotCount;
+        if ([2, 3, 4].includes(msg.lotsPer)) H.settings.lotsPer = msg.lotsPer;
+        if (typeof msg.bigLot === 'boolean') H.settings.bigLot = msg.bigLot;
         broadcastLobby();
     }
 }
@@ -1064,20 +1226,47 @@ function hostSyncSelf(msg) {
 // ═══════════════════════════════════════════
 // HOST AUCTION FLOW
 // ═══════════════════════════════════════════
+// Lots are dealt EVENLY across four price bands, so even a short auction spans $1 to $10,000
+// instead of clumping. sim/goinggone.js models exactly this — change the bands here and you must
+// change them there, or the balance figures stop describing the game people actually play.
+const BANDS = [[1, 100], [100, 1000], [1000, 5000], [5000, 10000]];
+const OVER_BAND = 10000;      // "big lot" territory
+const MYSTERY_SHARE = 0.2;    // roughly a fifth of the draw is photo-only
+
 function buildLotOrder(count) {
     const idx = LOTS.map((_, i) => i);
-    const treasures = shuffle(idx.filter(i => !LOTS[i].mystery && LOTS[i].value >= 300));
-    const duds = shuffle(idx.filter(i => !LOTS[i].mystery && LOTS[i].value < 300));
-    const mysteries = shuffle(idx.filter(i => LOTS[i].mystery));
-    const nT = Math.round(count * 0.4), nD = Math.round(count * 0.35);
-    const nM = Math.max(1, count - nT - nD);
-    return shuffle([...treasures.slice(0, nT), ...duds.slice(0, nD), ...mysteries.slice(0, nM)]).slice(0, count);
+    const pools = BANDS.map(([lo, hi]) => shuffle(idx.filter(i => LOTS[i].value >= lo && LOTS[i].value < hi)));
+    const big = shuffle(idx.filter(i => LOTS[i].value >= OVER_BAND));
+    // ONE over-band lot, and only if the captain asked. The simulator is unambiguous: a single
+    // lot worth more than the whole ordinary band takes the margin over second place from ~8% of
+    // the winner's score to ~48%, i.e. it decides the game by itself. That is a fine evening if
+    // you chose it, and a bad default.
+    const wantBig = (H.settings.bigLot && big.length) ? 1 : 0;
+    const picked = [];
+    for (let n = 0; picked.length < count - wantBig; n++) {
+        const pool = pools[n % pools.length];
+        if (pool.length) picked.push(pool.pop());
+        else if (pools.every(p => !p.length)) break;      // pool exhausted; take what we have
+    }
+    if (wantBig) picked.push(big.pop());
+    const order = shuffle(picked);
+    // Mystery lots show the photo and withhold the name, so only lots WITH a photo can be one.
+    const eligible = shuffle(order.filter(i => LOTS[i].img));
+    H.mysteryLots = new Set(eligible.slice(0, Math.round(order.length * MYSTERY_SHARE)));
+    return order;
+}
+
+// ~3 lots per player, so everyone goes home with about three things whatever the table size —
+// the simulator shows that median holding from 2 players up to 10.
+function plannedLotCount() {
+    const n = Math.max(MIN_PLAYERS, connectedPlayers().length);
+    return Math.min(H.settings.lotsPer * n, LOTS.length);
 }
 
 function hostStartAuction() {
     if (connectedPlayers().length < MIN_PLAYERS) { uiErr = 'Need at least ' + MIN_PLAYERS + ' bidders.'; if (ui === 'lobby_h') render(); return; }
     clearHostTimers();
-    H.lotOrder = buildLotOrder(H.settings.lotCount);
+    H.lotOrder = buildLotOrder(plannedLotCount());
     H.lotIndex = -1;
     H.players.forEach(p => { p.coins = START_COINS; p.lots = []; });
     H.reveals = []; H.revealIndex = -1;
@@ -1105,7 +1294,9 @@ function startBidding() {
 }
 
 function hostBid(player, raise) {
-    if (H.phase !== 'bidding' || !H.bid || !RAISES.includes(raise)) return;
+    // The legal raises depend on the CURRENT price, so validate against the ladder here rather
+    // than trusting whatever the phone sent.
+    if (H.phase !== 'bidding' || !H.bid || !raisesFor(H.bid.price).includes(raise)) return;
     if (H.bid.leaderId === player.id) return;               // can't outbid yourself
     const newPrice = H.bid.price + raise;
     if (player.coins < newPrice) return;                     // must be able to pay
@@ -1144,7 +1335,10 @@ function startValuation() {
         const lot = LOTS[lotIdx];
         H.reveals.push({
             player: owner.name, color: owner.color,
-            lotName: lot.name, emoji: lot.emoji, mystery: !!lot.mystery,
+            // The valuation is where a mystery lot finally gets its name — send the real one.
+            lotName: lot.name, emoji: lot.emoji, img: lot.img || null,
+            wasMystery: !!(H.mysteryLots && H.mysteryLots.has(lotIdx)),
+            src: lot.src, on: lot.on,
             paid: entry.paid, value: lot.value, profit: lot.value - entry.paid,
         });
     });
@@ -1183,7 +1377,7 @@ function finishValuation() {
     if (eagle) awards.push({ emoji: '🦅', title: 'Eagle Eye', name: eagle.player, detail: `+${eagle.profit} on ${eagle.lotName}` });
     if (mug) awards.push({ emoji: '🫠', title: 'Mug of the Match', name: mug.player, detail: `${mug.profit} on ${mug.lotName}` });
     const scrooge = H.players.slice().sort((a, b) => b.coins - a.coins)[0];
-    if (scrooge) awards.push({ emoji: '🪙', title: 'Scrooge', name: scrooge.name, detail: `${scrooge.coins} coins unspent` });
+    if (scrooge) awards.push({ emoji: '🪙', title: 'Scrooge', name: scrooge.name, detail: `${num(scrooge.coins)} coins unspent` });
     H.awards = awards;
     H.phase = 'podium';
     broadcastState();
@@ -1192,7 +1386,7 @@ function finishValuation() {
 function hostNewGame() {
     clearHostTimers();
     H.phase = 'lobby';
-    H.lotOrder = []; H.lotIndex = -1; H.bid = null; H.soldInfo = null;
+    H.lotOrder = []; H.lotIndex = -1; H.bid = null; H.soldInfo = null; H.mysteryLots = null;
     H.reveals = []; H.revealIndex = -1; H.standings = null; H.awards = null; H.winner = null;
     H.players.forEach(p => { p.coins = START_COINS; p.lots = []; });
     H.players = H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
@@ -1250,7 +1444,7 @@ function applyMsg(msg) {
                     const priceUp = !!(msg.bid && msg.bid.price !== _lastPrice);
                     const diff = priceUp ? msg.bid.price - Math.max(0, _lastPrice) : 0;
                     const wasLeading = !!(prev && prev.phase === 'bidding' && prev.bid && prev.bid.youLead);
-                    const couldBefore = !(prev && prev.phase === 'bidding' && prev.bid) || prev.myCoins >= prev.bid.price + RAISES[0];
+                    const couldBefore = !(prev && prev.phase === 'bidding' && prev.bid) || prev.myCoins >= prev.bid.price + raisesFor(prev.bid.price)[0];
                     if (priceUp) _lastPrice = msg.bid.price;
                     patchBidding(msg);
                     startClientGavel(msg);
@@ -1267,10 +1461,10 @@ function applyMsg(msg) {
                         const pe = $id('p-price');
                         if (pe) {
                             pe.classList.remove('bump'); void pe.offsetWidth; pe.classList.add('bump');
-                            if (diff > 0) { const r = pe.getBoundingClientRect(); popText(r.left + r.width / 2, r.top + 6, '+' + diff, 'gold'); }
+                            if (diff > 0) { const r = pe.getBoundingClientRect(); popText(r.left + r.width / 2, r.top + 6, '+' + num(diff), 'gold'); }
                         }
                         // priced out of this lot just now? womp.
-                        if (!msg.bid.youLead && couldBefore && msg.myCoins < msg.bid.price + RAISES[0]) sBroke();
+                        if (!msg.bid.youLead && couldBefore && msg.myCoins < msg.bid.price + raisesFor(msg.bid.price)[0]) sBroke();
                     }
                 }
                 break;
@@ -1346,13 +1540,13 @@ function sendBid(raise) {
 
 function patchBidding(msg) {
     const price = $id('p-price');
-    if (price) price.textContent = msg.bid.price;
+    if (price) price.textContent = num(msg.bid.price);
     const lb = $id('lead-banner');
     if (lb) lb.innerHTML = leadBannerHTML(msg);
     const bb = $id('bid-btns');
     if (bb) bb.innerHTML = bidBtnsHTML(msg);
     const mc = $id('my-coins');
-    if (mc) mc.textContent = msg.myCoins;
+    if (mc) mc.textContent = num(msg.myCoins);
 }
 
 // ═══════════════════════════════════════════
@@ -1428,7 +1622,8 @@ function applyViewerMsg(msg) {
             if (el) {
                 const rc = el.getBoundingClientRect();
                 popText(rc.right - 70, rc.top + 8, (r.profit >= 0 ? '+' : '') + r.profit, r.profit >= 0 ? 'good' : 'bad');
-                if (r.profit >= 200) burst(rc.right - 70, rc.top + rc.height / 2, ['#4ade80', '#e8b75a', '#f6eefb'], 14);
+                // thresholds are in real dollars now, and the burst grows with the bargain
+                if (r.profit >= 500) burst(rc.right - 70, rc.top + rc.height / 2, ['#4ade80', '#e8b75a', '#f6eefb'], r.profit >= 2000 ? 34 : 16);
             }
         }
         return;
@@ -1486,9 +1681,13 @@ function isCaptain() { return !!(D && D.tvHost && D.captain && D.captain === myN
 function canDrive() { return (isHost && !isTvHost) || isCaptain(); }
 
 function settingsSegsHTML(settings, expr) {
+    const lens = [[2, 'Short'], [3, 'Normal'], [4, 'Long']];
     return `
-        <div class="fg"><label>Lots under the hammer</label><div class="seg-row">${[6, 8, 10].map(v =>
-            `<button class="btn btn-sm ${settings.lotCount === v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{lotCount:${v}}`)}">${v}</button>`).join('')}</div></div>`;
+        <div class="fg"><label>Auction length — ${settings.lotCount} lots for this table</label><div class="seg-row">${lens.map(([v, label]) =>
+        `<button class="btn btn-sm ${settings.lotsPer === v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{lotsPer:${v}}`)}">${label}</button>`).join('')}</div></div>
+        <div class="fg"><label>Big lot — one item worth far more than the rest</label><div class="seg-row">${[[false, 'Off'], [true, 'On']].map(([v, label]) =>
+            `<button class="btn btn-sm ${settings.bigLot === v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{bigLot:${v}}`)}">${label}</button>`).join('')}</div>
+            <div style="font-size:.6rem;color:var(--muted);margin-top:4px">Whoever wins it usually wins the game.</div></div>`;
 }
 
 function leadBannerHTML(msg) {
@@ -1500,7 +1699,7 @@ function leadBannerHTML(msg) {
 
 function bidBtnsHTML(msg) {
     if (!msg.bid || msg.bid.youLead) return '';
-    return RAISES.map(r => {
+    return raisesFor(msg.bid.price).map(r => {
         const afford = msg.myCoins >= msg.bid.price + r;
         return `<button class="btn btn-p" ${afford ? '' : 'disabled'} onclick="sendBid(${r})">+${r}</button>`;
     }).join('');
@@ -1515,8 +1714,8 @@ function shelfHTML(msg) {
     };
     return `<div class="shelf">${msg.myLots.map(l => {
         const r = revealedVal(l);
-        return `<span class="sh-item">${l.emoji} ${esc(l.name)} · paid ${l.paid}${
-            r ? ` → worth ${r.value} <span class="val ${r.profit >= 0 ? 'plus' : 'minus'}">(${r.profit >= 0 ? '+' : ''}${r.profit})</span>` : ''}</span>`;
+        return `<span class="sh-item">${l.emoji} ${esc(l.name)} · paid ${num(l.paid)}${
+            r ? ` → worth ${num(r.value)} <span class="val ${r.profit >= 0 ? 'plus' : 'minus'}">(${r.profit >= 0 ? '+' : ''}${num(r.profit)})</span>` : ''}</span>`;
     }).join('')}</div>`;
 }
 
@@ -1526,7 +1725,7 @@ function railRowsHTML(msg) {
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
             <span class="rname">${esc(p.name)}</span>
             <span class="rlots">${p.lotCount} lot${p.lotCount === 1 ? '' : 's'}</span>
-            <span class="rcoins">🪙${p.coins}</span>
+            <span class="rcoins">🪙${num(p.coins)}</span>
         </div>`).join('');
 }
 
@@ -1536,9 +1735,10 @@ function lotHeaderHTML(msg, small) {
     return `
     <div class="card lot-card" ${small ? 'style="padding:14px 12px"' : ''}>
         <div class="lot-kicker">Lot ${msg.lotNum} of ${msg.lotTotal}${l.mystery ? ' · ❓ mystery' : ''}</div>
-        <div class="lemoji" ${small ? 'style="font-size:2.1rem"' : ''}>${l.emoji}</div>
-        <div class="lname" ${small ? 'style="font-size:1.05rem"' : ''}>${esc(l.name)}</div>
-        <div class="ldesc">“${esc(l.desc)}”</div>
+        ${lotArtHTML(l, small ? 'height:96px' : '', small ? 'font-size:2.1rem' : '')}
+        <div class="lname" ${small ? 'style="font-size:1.05rem"' : ''}>${l.mystery ? 'Mystery Lot' : esc(l.name)}</div>
+        <div class="ldesc">${l.mystery ? 'No name, no description. Bid on what you can see.' : '“' + esc(l.desc) + '”'}</div>
+        <div class="lsrc">${esc(l.src)} · ${priceDate(l.on)}</div>
     </div>`;
 }
 
@@ -1611,7 +1811,7 @@ function renderHome() {
             ${GAVEL} Host on this phone
         </button>
         <div style="font-size:.66rem;color:var(--muted);text-align:center;margin-top:8px">
-            2–10 bidders · 1,000 coins each · values revealed at the end
+            2–10 bidders · ${START_COINS.toLocaleString()} coins each · real items, real prices
         </div>
     </div>`;
     const tvCard = `
@@ -1697,7 +1897,7 @@ function renderLobbyG() {
     : `
     <div class="card">
         <div class="slbl">Settings</div>
-        <div style="font-weight:800;font-size:.85rem">${GAVEL} ${s.lotCount} lots · 🪙 1,000 coins each</div>
+        <div style="font-weight:800;font-size:.85rem">${GAVEL} ${s.lotCount} lots · 🪙 ${START_COINS.toLocaleString()} coins each</div>
         <div style="color:var(--muted);font-size:.72rem;font-weight:700;margin-top:8px">
             Waiting for ${D.tvHost ? `👑 ${esc(D.captain || 'the captain')}` : 'the host'} to start…
         </div>
@@ -1710,7 +1910,7 @@ function renderLotIntro() {
     ${lotHeaderHTML(D)}
     <div class="card" style="text-align:center">
         <div style="font-weight:900;color:var(--gold)">Bidding opens in a moment…</div>
-        <div style="margin-top:8px"><span class="coins-chip">🪙 <span id="my-coins">${D.myCoins}</span> coins</span></div>
+        <div style="margin-top:8px"><span class="coins-chip">🪙 <span id="my-coins">${num(D.myCoins)}</span> coins</span></div>
     </div>
     <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>`;
 }
@@ -1720,28 +1920,30 @@ function renderBidding() {
     ${lotHeaderHTML(D, true)}
     <div class="card" style="text-align:center">
         <div class="lot-kicker">Current price</div>
-        <div class="price-big" id="p-price">${D.bid.price}</div>
+        <div class="price-big" id="p-price">${num(D.bid.price)}</div>
         <div class="gavel-wrap" style="margin:10px 0 4px"><div class="gavel-bar" id="gavel-bar" style="width:100%"></div></div>
         <div id="going-lbl" style="min-height:1.2em;font-weight:900;color:var(--down)"></div>
     </div>
     <div id="lead-banner">${leadBannerHTML(D)}</div>
     <div class="bid-btns" id="bid-btns">${bidBtnsHTML(D)}</div>
-    <div style="text-align:center"><span class="coins-chip">🪙 <span id="my-coins">${D.myCoins}</span> coins left</span></div>
+    <div style="text-align:center"><span class="coins-chip">🪙 <span id="my-coins">${num(D.myCoins)}</span> coins left</span></div>
     <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>`;
 }
 
 function renderSold() {
     const s = D.soldInfo || {};
     const mine = s.winner === myName;
+    // A mystery lot keeps its name back until the valuation, here too.
+    const title = s.lot ? (s.lot.mystery ? '📦 the mystery lot' : s.lot.emoji + ' ' + s.lot.name) : '';
     const inner = s.passed
         ? `<div class="gavel">🪶</div><div class="st">PASSED</div>
-           <div style="color:var(--muted);font-weight:700;margin-top:6px">Not a single bid for ${esc(s.lot ? s.lot.name : '')}. Brutal.</div>`
+           <div style="color:var(--muted);font-weight:700;margin-top:6px">Not a single bid for ${esc(title)}. Brutal.</div>`
         : `<div class="gavel">${GAVEL}</div><div class="st">${mine ? 'YOU WON IT!' : 'SOLD!'}</div>
-           <div style="font-weight:800;color:var(--gold);margin-top:6px">${esc(s.lot ? s.lot.emoji + ' ' + s.lot.name : '')}</div>
-           <div style="font-weight:900;font-size:1.3rem;margin-top:4px">${mine ? `You paid ${s.price}` : `${esc(s.winner)} pays ${s.price}`}</div>`;
+           <div style="font-weight:800;color:var(--gold);margin-top:6px">${esc(title)}</div>
+           <div style="font-weight:900;font-size:1.3rem;margin-top:4px">${mine ? `You paid ${num(s.price)}` : `${esc(s.winner)} pays ${num(s.price)}`}</div>`;
     return `
     <div class="card sold-card${mine ? ' highlight' : ''}">${inner}</div>
-    <div style="text-align:center"><span class="coins-chip">🪙 ${D.myCoins} coins left</span></div>
+    <div style="text-align:center"><span class="coins-chip">🪙 ${num(D.myCoins)} coins left</span></div>
     <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>`;
 }
 
@@ -1754,7 +1956,7 @@ function renderValuation() {
         <div style="color:var(--muted);font-weight:700;font-size:.78rem;margin-top:6px">True values revealed one lot at a time…</div>
     </div>
     <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>
-    <div style="text-align:center"><span class="coins-chip">🪙 ${D.myCoins} coins left</span></div>`;
+    <div style="text-align:center"><span class="coins-chip">🪙 ${num(D.myCoins)} coins left</span></div>`;
 }
 
 function renderPodium() {
@@ -1778,7 +1980,7 @@ function renderPodium() {
             <span style="width:22px;text-align:center">${medals[ranks[i]] || (ranks[i] + 1)}</span>
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
             <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--gold)">(you)</span>' : ''}</div>
-            <div class="sc">${p.net} <span style="color:var(--muted);font-size:.7rem">(🪙${p.coins} + 🖼️${p.shelf})</span></div>
+            <div class="sc">${num(p.net)} <span style="color:var(--muted);font-size:.7rem">(🪙${num(p.coins)} + 🖼️${num(p.shelf)})</span></div>
         </div>`).join(''); })()}
     </div>
     ${driveBtn}`;
@@ -1814,7 +2016,7 @@ function renderViewerLobby() {
     return tvLobby({
         title: 'GOING, GOING, GONE!', accent: '#e8b75a',
         roomCode: vD.roomCode, isTvHost: vD.tvHost, captainName: vD.captain,
-        settings: `${s.lotCount} lots · 🪙 1,000 coins each`,
+        settings: `${s.lotCount} lots · 🪙 ${START_COINS.toLocaleString()} coins each`,
         players: players.map(p => ({ name: p.name, color: p.color, captain: p.name === vD.captain })),
     });
 }
@@ -1823,10 +2025,11 @@ function tvLotCardHTML(msg, compact) {
     const l = msg.lot;
     return `
     <div class="tv-lot" ${compact ? 'style="flex:0 0 auto;padding:2vmin 3vmin"' : ''}>
-        <div class="lkick">Lot ${msg.lotNum} of ${msg.lotTotal}${l.mystery ? ' · ❓ mystery box' : ''}</div>
-        <div class="lemoji" ${compact ? 'style="font-size:5.5vmin"' : ''}>${l.emoji}</div>
-        <div class="lname" ${compact ? 'style="font-size:3vmin"' : ''}>${esc(l.name)}</div>
-        <div class="ldesc">“${esc(l.desc)}”</div>
+        <div class="lkick">Lot ${msg.lotNum} of ${msg.lotTotal}${l.mystery ? ' · ❓ mystery lot' : ''}</div>
+        ${lotArtHTML(l, compact ? 'width:22vmin;height:16vmin' : '', compact ? 'font-size:5.5vmin' : '')}
+        <div class="lname" ${compact ? 'style="font-size:3vmin"' : ''}>${l.mystery ? 'Mystery Lot' : esc(l.name)}</div>
+        <div class="ldesc">${l.mystery ? 'No name, no description. Bid on what you can see.' : '“' + esc(l.desc) + '”'}</div>
+        <div class="lsrc">${esc(l.src)} · ${priceDate(l.on)}</div>
         ${compact ? '' : '<div class="tv-waiting" style="margin-top:1.4vmin">bidding opens in a moment…</div>'}
     </div>`;
 }
@@ -1846,7 +2049,7 @@ function renderViewerBidding() {
             ${tvLotCardHTML(vD, true)}
             <div class="tv-lot" style="flex:1;gap:1.6vmin">
                 <div class="lkick">Current price</div>
-                <div class="tv-price" id="v-price">${vD.bid.price === 0 ? 'Any bids?' : vD.bid.price}</div>
+                <div class="tv-price" id="v-price">${vD.bid.price === 0 ? 'Any bids?' : num(vD.bid.price)}</div>
                 <div class="tv-leader" id="v-leader">${vD.bid.leader
                     ? `<span style="color:${vD.bid.leaderColor}">${esc(vD.bid.leader)}</span> holds the bid`
                     : 'Opening bid, anyone?'}</div>
@@ -1862,13 +2065,15 @@ function renderViewerBidding() {
 
 function renderViewerSold() {
     const s = vD.soldInfo || {};
+    // A mystery lot has no name to show — it keeps its secret until the valuation.
+    const title = s.lot ? (s.lot.mystery ? '📦 the mystery lot' : s.lot.emoji + ' ' + s.lot.name) : '';
     const inner = s.passed
         ? `<div class="gavel">🪶</div>
            <div class="who">PASSED</div>
-           <div class="sub2">Not one bid for ${esc(s.lot ? s.lot.name : '')}. The auctioneer is hurt.</div>`
+           <div class="sub2">Not one bid for ${esc(title)}. The auctioneer is hurt.</div>`
         : `<div class="gavel">${GAVEL}</div>
-           <div class="who">SOLD to <span style="color:${s.color}">${esc(s.winner)}</span> for ${s.price}!</div>
-           <div class="sub2">${esc(s.lot ? s.lot.emoji + ' ' + s.lot.name : '')} — worth… well, we'll find out.</div>`;
+           <div class="who">SOLD to <span style="color:${s.color}">${esc(s.winner)}</span> for ${num(s.price)}!</div>
+           <div class="sub2">${esc(title)} — worth… well, we'll find out.</div>`;
     return tvShell(`<div class="tv-sold">${inner}</div>`, `Lot ${vD.lotNum} of ${vD.lotTotal}`);
 }
 
@@ -1884,23 +2089,31 @@ function netWorthRows(msg) {
         <div class="rail-row">
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
             <span class="rname">${esc(p.name)}</span>
-            <span class="rcoins">${p.net}</span>
+            <span class="rcoins">${num(p.net)}</span>
         </div>`).join('');
 }
 
 function renderViewerValuation() {
-    const shown = (vD.reveals || []).slice(0, Math.max(0, vD.revealIndex + 1)).slice(-6);
-    const cards = shown.map((r, i) => `
-    <div class="val-card" ${i === shown.length - 1 ? '' : 'style="animation:none;opacity:.65"'}>
-        <div class="vemoji">${r.emoji}</div>
-        <div>
-            <div class="vname">${esc(r.lotName)}</div>
-            <div class="vpaid"><span style="color:${r.color}">${esc(r.player)}</span> paid ${r.paid}</div>
+    // Only four at a time now — each card is much bigger, because the old ones were unreadable
+    // from a sofa and the reveal is the moment the whole game pays off.
+    const shown = (vD.reveals || []).slice(0, Math.max(0, vD.revealIndex + 1)).slice(-4);
+    const cards = shown.map((r, i) => {
+        const live = i === shown.length - 1;
+        // Scale the drama to the size of the money. A $4,000 mistake should not look like a $12 one.
+        const mag = Math.abs(r.profit) >= 2000 ? 'mag-huge' : Math.abs(r.profit) >= 500 ? 'mag-big' : '';
+        return `
+    <div class="val-card ${live ? mag : ''}" ${live ? '' : 'style="animation:none;opacity:.55"'}>
+        ${lotArtHTML(r, 'width:11vmin;height:9vmin;flex:0 0 auto', 'font-size:5.4vmin')}
+        <div style="min-width:0">
+            <div class="vname">${r.wasMystery ? '❓ ' : ''}${esc(r.lotName)}</div>
+            <div class="vpaid"><span style="color:${r.color}">${esc(r.player)}</span> paid ${num(r.paid)}</div>
+            <div class="vsrc">${esc(r.src || '')} · ${priceDate(r.on)}</div>
         </div>
-        <div class="vworth">worth ${r.value}
-            <span class="profit ${r.profit >= 0 ? 'plus' : 'minus'}">${r.profit >= 0 ? '+' : ''}${r.profit}</span>
+        <div class="vworth">worth ${num(r.value)}
+            <span class="profit ${r.profit >= 0 ? 'plus' : 'minus'}">${r.profit >= 0 ? '+' : ''}${num(r.profit)}</span>
         </div>
-    </div>`).join('');
+    </div>`;
+    }).join('');
     return tvShell(`
     <div class="tv-main">
         <div class="tv-stage">
@@ -1923,7 +2136,7 @@ function renderViewerPodium() {
     const pods = podOrder.map((p, i) => `
         <div class="pod ${cls[i]} mrank-${Math.min(p.mr, 2)}" style="animation-delay:${i * 0.18}s">
             <div class="pname"><span class="pdot" style="background:${p.color};color:${p.color};display:inline-block;vertical-align:middle;margin-right:.6vmin"></span>${esc(p.name)}</div>
-            <div class="pscore">${p.net} net</div>
+            <div class="pscore">${num(p.net)} net</div>
             <div class="block">${p.medal}</div>
         </div>`).join('');
     const awards = (vD.awards || []).map((a, i) =>
@@ -1956,7 +2169,7 @@ function startSimulation(nPlayers, mode) {
     simMode = mode === 'player' ? 'player' : 'tv';
     simActive = true;
     roomCode = 'DEMO';
-    H.settings.lotCount = 5;                          // shorter auctions for the demo loop
+    H.settings.lotsPer = 2;                           // shorter auctions for the demo loop
     H.players = []; guestConns = {}; viewerConns = {};
     const n = Math.max(MIN_PLAYERS, Math.min(nPlayers || 4, MAX_PLAYERS));
     if (simMode === 'tv') {
@@ -1990,10 +2203,11 @@ function simBidStep() {
     if (key !== simLotKey) { simLotKey = key; simBidsLeft = 2 + Math.floor(Math.random() * 4); }
     if (simBidsLeft <= 0 || Math.random() < 0.28) return;   // let the gavel fall
     const price = H.bid.price;
-    const cands = H.players.filter(p => p.id !== H.bid.leaderId && p.coins >= price + RAISES[0]);
+    const rungs = raisesFor(price);
+    const cands = H.players.filter(p => p.id !== H.bid.leaderId && p.coins >= price + rungs[0]);
     if (!cands.length) { simBidsLeft = 0; return; }
     const bidder = cands[Math.floor(Math.random() * cands.length)];
-    const affordable = RAISES.filter(r => bidder.coins >= price + r);
+    const affordable = rungs.filter(r => bidder.coins >= price + r);
     const raise = affordable[Math.floor(Math.random() * affordable.length)];
     if (simMode === 'player' && bidder.id === myId) {
         // drive You through the real phone bid button so the lead/outbid FX fire

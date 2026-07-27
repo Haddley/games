@@ -19,7 +19,7 @@ screen into a shared scoreboard.
 | 🎯 Best Guess | [bestguess.html](https://haddley.github.io/games/bestguess.html) | 2–12 — guess a number, then bet on the family's best guess |
 | ✏️ Broken Pencil | [brokenpencil.html](https://haddley.github.io/games/brokenpencil.html) | 3–10 — write → draw → describe telephone chains, replayed on the TV |
 | 🌙 Moonlight Village | [moonlightvillage.html](https://haddley.github.io/games/moonlightvillage.html) | 4–12 — werewolf with the TV as narrator and secret roles on phones |
-| 🔨 Going, Going, GONE! | [goinggone.html](https://haddley.github.io/games/goinggone.html) | 2–10 — live auction of ridiculous lots with hidden values |
+| 🔨 Going, Going, GONE! | [goinggone.html](https://haddley.github.io/games/goinggone.html) | 2–10 — live auction of REAL items at their real prices, nobody told what they cost |
 | 🎫 Full House Bingo | [bingo.html](https://haddley.github.io/games/bingo.html) | 2–12 — the TV calls, you daub; line and full house |
 | 🔔 Corner the Market | [cornerthemarket.html](https://haddley.github.io/games/cornerthemarket.html) | 2–8 — shout-trade commodity bundles, corner the market, ring the bell |
 | 🎲 Liar's Dice | [liarsdice.html](https://haddley.github.io/games/liarsdice.html) | 2+ — bid, bluff, call liar |
