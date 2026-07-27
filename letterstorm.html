@@ -1607,6 +1607,9 @@ function setupGuestConn(conn) {
         if (typeof notePresence === 'function') notePresence(player);
         switch (msg.type) {
             case 'join': {
+                // Different code on the two ends looks like a game bug. Say so instead — this is
+                // the FIRST thing the join case does, so it runs on every join, not just some.
+                if (typeof warnIfStale === 'function') warnIfStale(conn, msg, send);
                 const prevCap = capPlayer()?.id || null;
                 setTimeout(() => capSync(prevCap), 0);
                 // Same device (cid) always reclaims its seat; a matching NAME only reclaims a seat
@@ -1702,8 +1705,10 @@ function joinGame(code, name) {
         isConnected: () => connected,
         onReady: (p, id, hc) => {
             peer = p; myId = id; isHost = false; hostConn = hc;
-            hostConn.on('open', () => { connected = true; send(hostConn, { type: 'join', cid: clientId(), name: myName }); if (typeof startHeartbeat === 'function') startHeartbeat(() => { try { send(hostConn, { type: 'hb' }); } catch (e) {} }); });
+            hostConn.on('open', () => { connected = true; send(hostConn, { type: 'join', cid: clientId(), build: typeof BUILD !== 'undefined' ? BUILD : null, name: myName }); if (typeof startHeartbeat === 'function') startHeartbeat(() => { try { send(hostConn, { type: 'hb' }); } catch (e) {} }); });
             hostConn.on('data', msg => {
+                // the host is on a newer build than this page — offer the one-tap fix
+                if (msg && msg.type === 'version') { if (typeof showStaleBuild === 'function') showStaleBuild(msg.host); return; }
                 switch (msg.type) {
                     case 'lobby':
                         D = { ...msg, phase: 'lobby' };
@@ -1771,6 +1776,8 @@ function joinAsViewer(code) {
             peer = p; myId = id; hostConn = hc;
             hostConn.on('open', () => { connected = true; send(hostConn, { type: 'join_viewer' }); });
             hostConn.on('data', msg => {
+                // the host is on a newer build than this page — offer the one-tap fix
+                if (msg && msg.type === 'version') { if (typeof showStaleBuild === 'function') showStaleBuild(msg.host); return; }
             if (msg.type === 'viewer_lobby') {
                 vD = { ...msg, phase: 'lobby' };
                 ui = 'viewer';

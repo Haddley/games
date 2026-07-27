@@ -348,3 +348,53 @@ test('every page cache-busts the shared scripts', () => {
     });
     assert.strictEqual(tokens.size, 1, `pages disagree on the common.js version: ${[...tokens]}`);
 });
+
+// ── the build handshake ──────────────────────────────────────────────────────
+const WARN = new Function('BUILD', grab('function warnIfStale(conn, msg, sendFn) {', '\n}') +
+    '\nreturn warnIfStale;');
+
+test('a stale phone is told, and a matching one is left alone', () => {
+    const sent = [];
+    const send = (c, m) => sent.push(m);
+    const warn = WARN('new-build');
+    assert.strictEqual(warn({}, { build: 'new-build' }, send), false, 'same build: nothing to say');
+    assert.strictEqual(warn({}, { build: 'old-build' }, send), true, 'different build: tell them');
+    assert.deepStrictEqual(sent, [{ type: 'version', host: 'new-build', yours: 'old-build' }]);
+});
+
+test('nobody is nagged while developing, or by a page too old to declare a build', () => {
+    const sent = [];
+    const send = (c, m) => sent.push(m);
+    // a host running from the filesystem has no ?v= token, so it must never warn anyone
+    assert.strictEqual(WARN('dev')({}, { build: 'anything' }, send), false);
+    // …and a phone that predates the handshake sends no build at all
+    assert.strictEqual(WARN('new')({}, {}, send), false);
+    assert.strictEqual(WARN('new')({}, { build: 'dev' }, send), false);
+    assert.strictEqual(WARN('new')(null, null, send), false, 'and junk must not throw');
+    assert.deepStrictEqual(sent, [], 'none of those may produce a warning');
+});
+
+test('a send that throws cannot break a join', () => {
+    // warnIfStale runs inside the join handler; a dead connection must not take the room down
+    const boom = () => { throw new Error('connection gone'); };
+    assert.doesNotThrow(() => WARN('new')({}, { build: 'old' }, boom));
+});
+
+test('the build is read off common.js\'s own URL, so it cannot drift from the ?v= token', () => {
+    const src = grab('const BUILD = (function () {', '})();');
+    assert.ok(src.includes('common'), 'it finds its own script tag');
+    assert.ok(src.includes('v=('), 'and reads the v= token from it');
+    assert.match(src, /'dev'/, 'falling back to dev, which never warns');
+    // every game declares it when joining, and listens for the answer
+    const root = path.join(__dirname, '..');
+    const games = fs.readdirSync(root).filter(f => f.endsWith('.html') && f !== 'index.html');
+    const gaps = [];
+    games.forEach(f => {
+        const s = fs.readFileSync(path.join(root, f), 'utf8');
+        if (!s.includes('guestConns') && !s.includes('tvAddPlayer')) return;   // not a P2P game
+        if (!/build: typeof BUILD/.test(s)) gaps.push(`${f}: joins without declaring its build`);
+        if (!s.includes('warnIfStale')) gaps.push(`${f}: host never tells a stale phone`);
+        if (!s.includes('showStaleBuild')) gaps.push(`${f}: phone never acts on being told`);
+    });
+    assert.deepStrictEqual(gaps, [], '\n  ' + gaps.join('\n  '));
+});

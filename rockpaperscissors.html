@@ -566,7 +566,7 @@ function joinGame(code, name) {
         isConnected: () => connected,
         onReady: (p, id, hc) => {
             peer = p; myId = id; isHost = false; hostConn = hc;
-            hostConn.on('open', () => { connected = true; rememberRoom(code.trim().toUpperCase(), 'player'); send(hostConn, { type: 'join', cid: clientId(), name: myName, avatar: myAvatar }); if (typeof startHeartbeat === 'function') startHeartbeat(() => { try { send(hostConn, { type: 'hb' }); } catch (e) {} }); });
+            hostConn.on('open', () => { connected = true; rememberRoom(code.trim().toUpperCase(), 'player'); send(hostConn, { type: 'join', cid: clientId(), build: typeof BUILD !== 'undefined' ? BUILD : null, name: myName, avatar: myAvatar }); if (typeof startHeartbeat === 'function') startHeartbeat(() => { try { send(hostConn, { type: 'hb' }); } catch (e) {} }); });
             hostConn.on('data', msg => applyMsg(msg));
         },
         onLost: () => { connected = false; },   // → auto-rejoin behind the curtain
@@ -604,6 +604,9 @@ function setupGuestConn(conn) {
         if (typeof notePresence === 'function') notePresence(player);
         switch (msg.type) {
             case 'join': {
+                // Different code on the two ends looks like a game bug. Say so instead — this is
+                // the FIRST thing the join case does, so it runs on every join, not just some.
+                if (typeof warnIfStale === 'function') warnIfStale(conn, msg, send);
                 const prevCap = capPlayer()?.id || null;
                 setTimeout(() => capSync(prevCap), 0);
                 const name = String(msg.name || 'Player').slice(0, 16);
@@ -648,6 +651,8 @@ function setupGuestConn(conn) {
 function applyMsg(msg) {
     D = msg;
     switch (msg.type) {
+        // the host is on a newer build than this page — offer the one-tap fix
+        case 'version': if (typeof showStaleBuild === 'function') showStaleBuild(msg.host); return;
         // A phone HOST must land on its own lobby (which carries the Start button);
         // sending it to the guest lobby left the host with no way to start the game at
         // all once somebody joined — the guest lobby's start is captain-only, and a

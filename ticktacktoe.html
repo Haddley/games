@@ -1398,7 +1398,8 @@
                     // Announce ourselves. A phone-host ignores this (it drives via 'start');
                     // a TV host uses it to assign us a role (X or O) — or to give us back
                     // the one we had, if this device is walking back into a held seat.
-                    this.connection.send({ type: 'join', name: this.playerName, cid: tttCid() });
+                    this.connection.send({ type: 'join', name: this.playerName, cid: tttCid(),
+                        build: typeof BUILD !== 'undefined' ? BUILD : null });
                     // Same heartbeat as every other game (common.js): the host cannot otherwise tell
                     // a closed browser from a quiet one, which is how the lobby filled with ghosts.
                     if (typeof startHeartbeat === 'function') startHeartbeat(() => {
@@ -1429,6 +1430,10 @@
                         break;
                     case 'leave':
                         this.handleOpponentLeft();
+                        break;
+                    // the TV is on a newer build than this page — offer the one-tap fix
+                    case 'version':
+                        if (typeof showStaleBuild === 'function') showStaleBuild(data.host);
                         break;
                     // ── TV knockout tournament ──
                     case 'tlobby':
@@ -2122,7 +2127,8 @@
                         decided = true;
                         if (msg && msg.type === 'spectate') { this.tvAddViewer(conn); return; }
                         const md = conn.metadata || {};
-                        this.tvAddPlayer(conn, (msg && msg.name) || md.name, (msg && msg.cid) || md.cid);
+                        this.tvAddPlayer(conn, (msg && msg.name) || md.name, (msg && msg.cid) || md.cid,
+                            (msg && msg.build) || md.build);
                         return;   // the 'join' itself carries no further action
                     }
                     // Any message is proof of life. The TV keeps seats, not players, so it
@@ -2168,8 +2174,12 @@
                 return sib.w === i || ((sib.a === i || sib.b === i) && sib.w == null);
             },
 
-            tvAddPlayer(conn, name, cid) {
+            tvAddPlayer(conn, name, cid, build) {
                 tttWatchRelay(conn);
+                // Different code on the two ends looks like a game bug. Say so instead.
+                if (typeof warnIfStale === 'function') {
+                    warnIfStale(conn, { build }, (c, m) => tttSend(c, m));
+                }
                 const T = this.tour || (this.tvNewTournament(), this.tour);
                 conn._cid = cid || null;
                 conn._name = (name && name.trim()) || ('Player ' + (T.seats.length + 1));

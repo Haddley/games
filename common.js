@@ -535,6 +535,60 @@ function clientId() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// BUILD VERSION: are we all running the same code?
+// ═══════════════════════════════════════════════════════════════════════════
+// The host and every phone must agree about the protocol. They can quietly disagree — a tab
+// left open for an hour, a page iOS kept in its back-forward cache, a phone that rejoined
+// from history — and when they do, the symptoms look like game bugs. Several hours were
+// spent this week on duplicate lobby rows that may simply have been one device running
+// yesterday's rules.
+//
+// Cache tokens reduce the odds; they cannot detect it when it happens anyway. This does.
+//
+// The version is not a constant to keep in sync: it is READ OFF THIS SCRIPT'S OWN URL, which
+// every page loads as `common.js?v=<date>-<sha>`. Bump the token and the build changes with
+// it, automatically. No token (a local file open, an old page) reports 'dev', which never
+// warns — nobody needs a scary banner while hacking on their laptop.
+const BUILD = (function () {
+    try {
+        const el = document.currentScript ||
+            [].slice.call(document.scripts).filter(function (x) { return /common\.js/.test(x.src); }).pop();
+        const m = el && /[?&]v=([^&"]+)/.exec(el.src);
+        return m ? m[1] : 'dev';
+    } catch (_) { return 'dev'; }
+})();
+
+// HOST: called with each join. Returns true (and tells the phone) if that phone is stale.
+function warnIfStale(conn, msg, sendFn) {
+    const theirs = msg && msg.build;
+    if (!theirs || theirs === 'dev' || BUILD === 'dev' || theirs === BUILD) return false;
+    try { sendFn(conn, { type: 'version', host: BUILD, yours: theirs }); } catch (_) {}
+    return true;
+}
+
+// PHONE: the host says we're out of date. Say so plainly and offer the one-tap fix, rather
+// than letting a version mismatch masquerade as a game that behaves oddly.
+function showStaleBuild(hostBuild) {
+    if (typeof document === 'undefined' || document.getElementById('stale-build')) return;
+    const d = document.createElement('div');
+    d.id = 'stale-build';
+    d.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;' +
+        'justify-content:center;background:rgba(8,4,18,.94);backdrop-filter:blur(6px);' +
+        'font-family:inherit;color:#fff;text-align:center;padding:24px';
+    d.innerHTML = '<div style="max-width:22rem">' +
+        '<div style="font-size:2.6rem;margin-bottom:12px">🔄</div>' +
+        '<div style="font-weight:900;font-size:1.15rem;margin-bottom:10px">This page is out of date</div>' +
+        '<div style="opacity:.75;font-size:.85rem;line-height:1.5;margin-bottom:18px">' +
+        'Your phone is running an older copy of the game than the room is. ' +
+        'Reload and you\'ll go straight back to your seat.</div>' +
+        '<button id="stale-reload" style="font:inherit;font-weight:800;font-size:1rem;padding:14px 26px;' +
+        'border-radius:14px;border:0;background:#ffd23f;color:#2b1a00">Reload</button></div>';
+    document.body.appendChild(d);
+    const b = document.getElementById('stale-reload');
+    if (b) b.onclick = function () { location.reload(); };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // PRESENCE: who is actually still there
 // ═══════════════════════════════════════════════════════════════════════════
 // The host's only built-in signal that a phone has gone is `conn.on('close')`, and it is

@@ -178,3 +178,64 @@ for (const spec of GAMES) {
         await tv.close();
     });
 }
+
+// ── the build handshake ──────────────────────────────────────────────────────
+// A host and a phone can quietly run different code — a tab left open for an hour, a page
+// iOS kept in its back-forward cache, a phone that rejoined from history. When they do, the
+// symptoms look like game bugs, and hours went into chasing duplicate lobby rows that may
+// simply have been one device running yesterday's rules. This makes the mismatch VISIBLE.
+for (const spec of GAMES.slice(0, 4).concat(GAMES.filter(g => g.g === 'ticktacktoe'))) {
+    test(`${spec.g}: a phone on an older build is told, not left to misbehave`, async ({ browser }) => {
+        const { tv, code } = await openRoom(browser, spec);
+
+        // A genuinely stale phone. BUILD is a `const` read off common.js's own URL, so it
+        // cannot be poked from outside — and that is the point of reading it that way. The
+        // faithful simulation is to serve this page an OLDER-tokened script tag, exactly as a
+        // cache would, and let it report what it finds.
+        const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+        const page = await ctx.newPage();
+        await page.route(`**/${spec.g}.html*`, async route => {
+            const res = await route.fetch();
+            const html = (await res.text()).replace(/common\.js\?v=[^"]*/g, 'common.js?v=yesterdays-build');
+            await route.fulfill({ response: res, body: html });
+        });
+        await page.goto(`/${spec.g}.html?${spec.param || 'room'}=${code}`);
+        expect(await page.evaluate(() => (typeof BUILD !== 'undefined' ? BUILD : null)),
+            `${spec.g}: the stale page must actually report the old build`).toBe('yesterdays-build');
+        if (spec.codeSel) await page.locator(spec.codeSel).fill(code);
+        await page.locator(spec.nameSel || spec.name || 'input[placeholder="Enter name"]').first().fill('Ava');
+        if (spec.joinSel) await page.locator(spec.joinSel).click();
+        else await page.getByRole('button', { name: spec.join }).first().click();
+
+        // the host notices and says so, in plain words with a one-tap fix
+        await expect(page.locator('#stale-build'),
+            `${spec.g}: a stale phone must be TOLD, not left to play a different protocol`)
+            .toBeVisible({ timeout: 30_000 });
+        await expect(page.locator('#stale-build')).toContainText('out of date');
+        await expect(page.locator('#stale-reload')).toBeVisible();
+
+        await ctx.close();
+        await tv.close();
+    });
+}
+
+test('a phone on the SAME build is never nagged', async ({ browser }) => {
+    // The banner must be rare and meaningful. If it can fire on a matching build it will be
+    // ignored, and then it is worse than not having it.
+    const spec = GAMES.find(x => x.g === 'herdmind');
+    const { tv, code } = await openRoom(browser, spec);
+    const j = await joinFresh(browser, spec, code, 'Ava');
+    await expect.poll(() => seatNames(tv, spec), { timeout: 30_000 }).toEqual(['Ava']);
+    await j.page.waitForTimeout(1500);
+    await expect(j.page.locator('#stale-build')).toHaveCount(0);
+    // and the two really did agree on a build, rather than both reporting nothing
+    const builds = await Promise.all([
+        tv.evaluate(() => (typeof BUILD !== 'undefined' ? BUILD : null)),
+        j.page.evaluate(() => (typeof BUILD !== 'undefined' ? BUILD : null)),
+    ]);
+    expect(builds[0], 'the page must know its own build').toBeTruthy();
+    expect(builds[0]).toBe(builds[1]);
+    expect(builds[0], 'and it must come from the ?v= token, not the dev fallback').not.toBe('dev');
+    await j.ctx.close();
+    await tv.close();
+});
