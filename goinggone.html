@@ -254,20 +254,24 @@
         @keyframes popIn { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
         .tv-waiting { color: var(--muted); font-weight: 800; font-size: 1.9vmin; }
 
-        /* podium */
-        .podium-wrap { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2.4vmin; padding-bottom: 1vmin; }
+        /* podium — the finale gets the valuation treatment: BIG, and revealed in podium order
+           (bronze → silver → gold, delays set inline per medal rank), with the fanfare and
+           confetti timed to the gold pod landing (PODIUM_GOLD_MS in the script). */
+        .podium-wrap { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 3vmin; padding-bottom: 1vmin; }
         .pod { text-align: center; font-weight: 900; }
-        .pod .pname { font-size: 2.4vmin; margin-bottom: .8vmin; }
-        .pod .pscore { font-size: 2vmin; color: var(--gold); margin-bottom: .8vmin; font-family: 'Playfair Display', serif; }
-        .pod .block { border-radius: 1.5vmin 1.5vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.3vmin; font-size: 3.2vmin; width: 17vmin; }
-        .pod.p1 .block { height: 21vmin; }
-        .pod.p2 .block { height: 14vmin; }
-        .pod.p3 .block { height: 9.5vmin; }
-        .pod.mrank-0 .block { background: linear-gradient(180deg, var(--gold2), #8a6220); }
+        .pod .pname { font-size: 3.4vmin; margin-bottom: .8vmin; }
+        .pod .pscore { font-size: 3vmin; color: var(--gold); margin-bottom: .8vmin; font-family: 'Playfair Display', serif; }
+        .pod .block { border-radius: 1.5vmin 1.5vmin 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.3vmin; font-size: 5vmin; width: 22vmin; }
+        .pod.p1 .block { height: 26vmin; }
+        .pod.p2 .block { height: 17vmin; }
+        .pod.p3 .block { height: 11vmin; }
+        .pod.mrank-0 .pname { font-size: 4.2vmin; }
+        .pod.mrank-0 .pscore { font-size: 3.8vmin; }
+        .pod.mrank-0 .block { background: linear-gradient(180deg, var(--gold2), #8a6220); box-shadow: 0 0 6vmin rgba(232,183,90,.4); }
         .pod.mrank-1 .block { background: linear-gradient(180deg, #d7d7e0, #8f8fa3); }
         .pod.mrank-2 .block { background: linear-gradient(180deg, #e8a06a, #9c5a33); }
         .awards-row { display: flex; gap: 1.5vmin; justify-content: center; flex-wrap: wrap; padding-bottom: 2vmin; }
-        .award { background: var(--panel); border: 1px solid var(--border); border-radius: 1.5vmin; padding: 1.3vmin 2vmin; font-weight: 800; font-size: 1.8vmin; text-align: center; }
+        .award { background: var(--panel); border: 1px solid var(--border); border-radius: 1.5vmin; padding: 1.3vmin 2vmin; font-weight: 800; font-size: 2.2vmin; text-align: center; }
         .award .aw-t { color: var(--gold); font-weight: 900; }
 
         #confetti-cv { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
@@ -316,8 +320,10 @@
         @keyframes tvIn { from { opacity: 0; transform: translateY(2.4vmin); } to { opacity: 1; transform: none; } }
         #app.fresh .tv-lot, #app.fresh .qr-side, #app.fresh .tv-sold, #app.fresh .tv-val { animation: tvIn .4s cubic-bezier(.2,.8,.3,1) both; }
         #app.fresh .tv-pcard { animation: popIn .35s ease both; animation-delay: calc(var(--i, 0) * 50ms); }
-        #app.fresh .pod { animation: popIn .5s ease both; }
+        #app.fresh .pod { animation: popIn .6s cubic-bezier(.2, 1.2, .3, 1) both; }
         #app.fresh .award { animation: valIn .5s ease both; animation-delay: calc(.9s + var(--i, 0) * .15s); }
+        /* on the TV the awards wait for the gold pod to land (phones keep the quick reveal) */
+        body.viewer-mode #app.fresh .award { animation-delay: calc(4.2s + var(--i, 0) * .25s); }
 
         /* bidding feedback */
         @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
@@ -406,6 +412,7 @@ const raisesFor = price => RAISE_LADDER.find(r => price < r.under).raises;
 // stamp at STAMP_MS) and needs air after the stamp for the number to sink in from a sofa.
 const GAVEL_MS = 5000, INTRO_MS = 3500, SOLD_MS = 3200, PASSED_MS = 2500, REVEAL_MS = 5200;
 const STAMP_MS = 2800;   // when the profit stamps in — must match the .val-card.live .profit CSS delay
+const PODIUM_GOLD_MS = 3000;   // when the gold pod lands — fanfare + confetti wait for it
 const PLAYER_COLORS = ['#e8b75a', '#22d3ee', '#f472b6', '#4ade80', '#b478e0', '#fb923c', '#f87171', '#38bdf8', '#a3e635', '#fcd34d'];
 
 // Real, purchasable items with verified prices — GENERATED, do not edit by hand.
@@ -1657,7 +1664,14 @@ function applyViewerMsg(msg) {
     if (msg.phase === 'podium') {
         stopViewerTick();
         setMusic('over');
-        if (_vLotKey !== 'podium') { _vLotKey = 'podium'; render(); sWin(); startConfetti(5200); }
+        if (_vLotKey !== 'podium') {
+            _vLotKey = 'podium'; render();
+            // The fanfare belongs to the WINNER, so it waits for the gold pod to land (bronze
+            // and silver land quietly on the outro music). Reduced motion shows all pods at
+            // once, so the fanfare fires straight away there.
+            const wait = (typeof REDUCED !== 'undefined' && REDUCED) ? 0 : PODIUM_GOLD_MS + 300;
+            setTimeout(() => { if (_vLotKey === 'podium') { sWin(); startConfetti(5200); } }, wait);
+        }
         else render();
         return;
     }
@@ -2160,8 +2174,12 @@ function renderViewerPodium() {
     const wm = st.map((p, i) => ({ ...p, medal: medals[ranks[i]] || '', mr: ranks[i] }));
     const podOrder = [wm[1], wm[0], wm[2]].filter(Boolean);
     const cls = st.length >= 3 ? ['p2', 'p1', 'p3'] : (st.length === 2 ? ['p2', 'p1'] : ['p1']);
+    // Reveal in podium order — bronze, silver, then gold last — not visual (left-to-right)
+    // order. Joint places land together, which is its own kind of drama. The gold delay is
+    // PODIUM_GOLD_MS; the fanfare and confetti in applyViewerMsg are timed to it.
+    const RANK_DELAY = [PODIUM_GOLD_MS / 1000, 1.6, 0.4];
     const pods = podOrder.map((p, i) => `
-        <div class="pod ${cls[i]} mrank-${Math.min(p.mr, 2)}" style="animation-delay:${i * 0.18}s">
+        <div class="pod ${cls[i]} mrank-${Math.min(p.mr, 2)}" style="animation-delay:${RANK_DELAY[Math.min(p.mr, 2)]}s">
             <div class="pname"><span class="pdot" style="background:${p.color};color:${p.color};display:inline-block;vertical-align:middle;margin-right:.6vmin"></span>${esc(p.name)}</div>
             <div class="pscore">${num(p.net)} net</div>
             <div class="block">${p.medal}</div>
@@ -2219,7 +2237,8 @@ function startSimulation(nPlayers, mode) {
 // run on their own; the loop just injects a few bot bids per lot and restarts.
 function simLoop() {
     if (!simActive) return;
-    if (H.phase === 'podium') { simTimer = setTimeout(simRestart, 6500); return; }
+    // long enough for the staged podium (gold at 3s, awards from ~4.2s) to play out
+    if (H.phase === 'podium') { simTimer = setTimeout(simRestart, 9500); return; }
     if (H.phase === 'bidding') simBidStep();
     simTimer = setTimeout(simLoop, 650 + Math.random() * 450);
 }

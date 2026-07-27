@@ -108,7 +108,7 @@ test('TV-first: bidding war, gavel, valuation, podium', async ({ browser }) => {
     const karenNet = startCoins - 200 + lot1Value;
     const expectedWinner = karenNet >= startCoins ? 'KAREN' : 'BEN';
     await expect(tv.locator('.podium-wrap')).toBeVisible({ timeout: 20_000 });
-    await tv.waitForTimeout(1500); // pods pop in staggered
+    await tv.waitForTimeout(4600); // pods land bronze → silver → gold (PODIUM_GOLD_MS = 3s), awards follow
     await shot(tv, 'gavel-11-tv-podium');
     await expect(karen.locator('.sold-card .st')).toContainText(`${expectedWinner} WINS!`, { timeout: 10_000 });
     await expect(karen.locator('.standings')).toContainText(money(karenNet));
