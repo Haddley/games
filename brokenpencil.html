@@ -2032,7 +2032,8 @@ function renderLobbyG() {
         <div style="color:var(--muted);font-size:.78rem;font-weight:800">
             ${D.tvHost ? `👑 ${esc(D.captain || 'The captain')} starts the game` : 'The host starts the game'}… pace: ${esc(D.settings?.pace || 'brisk')}
         </div>
-    </div>`}`;
+    </div>`}
+    ${typeof shareRoomHTML === 'function' ? shareRoomHTML(D && D.roomCode ? D.roomCode : roomCode, typeof joinURL === 'function' ? joinURL() : null) : ''}`;
 }
 
 function toolbarHTML() {

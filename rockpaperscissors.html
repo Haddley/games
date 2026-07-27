@@ -855,7 +855,8 @@ function renderLobbyG() {
         <div class="slbl">Room ${esc(D?.roomCode || '')}</div>
         <div class="chips">${chips}</div>
     </div>
-    ${foot}`;
+    ${foot}
+    ${typeof shareRoomHTML === 'function' ? shareRoomHTML(D && D.roomCode ? D.roomCode : roomCode, typeof joinURL === 'function' ? joinURL() : null) : ''}`;
 }
 
 function renderThrow() {

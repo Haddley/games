@@ -547,7 +547,12 @@ function clientId() {
 function shareRoomHTML(code, joinUrl) {
     const c = String(code || '').toUpperCase();
     if (!/^[A-Z]{4}$/.test(c)) return '';
-    const url = joinUrl || (location.origin + location.pathname + '?room=' + c);
+    // Build the link from the CODE, and only accept a caller's URL if it actually carries
+    // that code. Several games' joinURL() is written for the host and reads a `roomCode`
+    // global that is empty on a guest's phone — which produced a Copy link button that
+    // copied ".../herdmind.html?room=" and would have sent a remote player nowhere.
+    const own = location.origin + location.pathname + '?room=' + c;
+    const url = (joinUrl && String(joinUrl).indexOf(c) >= 0) ? joinUrl : own;
     const j = JSON.stringify(url), t = JSON.stringify('Join my game — room ' + c);
     return `<div class="share-room">
         <div class="share-room-code">Room <b>${c}</b></div>

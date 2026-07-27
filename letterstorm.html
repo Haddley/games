@@ -2461,7 +2461,8 @@ function renderLobbyG() {
         <div style="font-size:.7rem;color:var(--muted)">
             ${D?.n === 5 ? '5×5 BIG board' : '4×4 board'} · ${D?.duration || 90}s rounds · ${D?.roundsTarget || 3} round${(D?.roundsTarget || 3) > 1 ? 's' : ''}
         </div>
-    </div>`;
+    </div>
+    ${typeof shareRoomHTML === 'function' ? shareRoomHTML(D && D.roomCode ? D.roomCode : roomCode, typeof joinURL === 'function' ? joinURL() : null) : ''}`;
 }
 
 // ── Game screen (phone) ──

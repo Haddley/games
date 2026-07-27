@@ -1722,7 +1722,8 @@ function renderLobbyG() {
         <div style="color:var(--muted);font-size:.75rem;font-weight:800">
             ${D.tvHost ? `👑 ${esc(D.captain || 'The captain')}` : 'The host'} deals the roles when everyone's in…
         </div>
-    </div>`}`;
+    </div>`}
+    ${typeof shareRoomHTML === 'function' ? shareRoomHTML(D && D.roomCode ? D.roomCode : roomCode, typeof joinURL === 'function' ? joinURL() : null) : ''}`;
 }
 
 function renderDeal() {

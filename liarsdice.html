@@ -2279,6 +2279,7 @@ function screenLobbyGuest() {
         <div><div class="tog-label">Aces Wild</div><div class="tog-desc">1s count as any face</div></div>
         <label class="tog"><input type="checkbox" ${D?.wildOnes?'checked':''} onchange="setWild(this.checked)"><span class="tog-track"></span></label>
       </div>` : (D?.wildOnes ? `<div style="text-align:center;color:var(--muted);font-size:.72rem;margin-top:8px">☠️ Aces are wild this game</div>` : '')}
+      ${typeof shareRoomHTML === 'function' ? shareRoomHTML(code, (location.origin + location.pathname + '?join=' + code)) : ''}
       ${startBtn}
     </div>`;
 }

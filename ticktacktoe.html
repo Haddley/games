@@ -1507,6 +1507,19 @@
                 this.elements.tourStartBtn.style.display = o.start ? '' : 'none';
                 this.elements.tourStartBtn.textContent = o.startLabel || '🏆 Start the tournament';
                 this.elements.tourList.innerHTML = o.list || '';
+                // Everyone in the bracket can pass the room on — the TV's QR is no use to a
+                // player who isn't in the room. Injected rather than templated because this
+                // screen is built by setting properties on existing nodes.
+                if (typeof shareRoomHTML === 'function' && this.roomCode) {
+                    let box = document.getElementById('ttt-share-room');
+                    if (!box) {
+                        box = document.createElement('div');
+                        box.id = 'ttt-share-room';
+                        this.elements.tourList.parentNode.insertBefore(box, this.elements.tourList.nextSibling);
+                    }
+                    box.innerHTML = shareRoomHTML(this.roomCode,
+                        location.origin + location.pathname + '?room=' + this.roomCode);
+                }
                 this.elements.joinGameBtn.disabled = false;
                 this.elements.joinGameBtn.textContent = 'Join';
                 this.showScreen('waiting');

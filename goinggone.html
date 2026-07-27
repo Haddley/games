@@ -1701,7 +1701,8 @@ function renderLobbyG() {
         <div style="color:var(--muted);font-size:.72rem;font-weight:700;margin-top:8px">
             Waiting for ${D.tvHost ? `👑 ${esc(D.captain || 'the captain')}` : 'the host'} to start…
         </div>
-    </div>`}`;
+    </div>`}
+    ${typeof shareRoomHTML === 'function' ? shareRoomHTML(D && D.roomCode ? D.roomCode : roomCode, typeof joinURL === 'function' ? joinURL() : null) : ''}`;
 }
 
 function renderLotIntro() {
