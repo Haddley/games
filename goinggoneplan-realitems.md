@@ -22,6 +22,7 @@ worthwhile.
 | **Value spread** | **even across the range** — roughly equal numbers in every price band, not a pile of cheap ones with a few monsters |
 | **Lots per game** | **~3 per player** — 2 players → 6 lots, 6 → 18, 10 → 30. Everyone wins roughly three things whatever the table size |
 | **Unaffordable lot** | **passed in, unsold** — like a real auction with a reserve |
+| **Over-ceiling lots** | **allowed, at FULL value** — a lot genuinely worth $19,799 that sells for $8,000 is a $11,799 bargain and stands. See the note below: this is a deliberate acceptance of a game-deciding swing |
 | **Two sources** | one Amazon (US) list, one Temu list, kept separate |
 
 ## What makes a good lot
@@ -82,18 +83,34 @@ and the items in it will not all have been checked on the same day.
 
    Bid increments need to scale with the lot too: $1 steps on a $9,000 item would take all
    evening.
-3. **A lot nobody can afford is PASSED IN**, unsold, as at a real auction with a reserve.
+3. **Over-ceiling lots keep their full value, and the bargain stands.** The $10,000 figure is
+   the band the *ordinary* lots are spread across, not a hard cap on what can appear. An item
+   genuinely worth $19,799 can be bought for whatever somebody dares bid, and the profit is
+   real.
+
+   **This was chosen with the arithmetic in front of us, so do not "fix" it later by
+   accident.** A $19,799 lot won at $8,000 is +$11,799 — roughly 79% of a starting purse, and
+   very likely to decide the game on its own. That is the point: the best story of the evening
+   is somebody sinking half their money into one enormous gamble and being right. If
+   playtesting shows it flattens everything else, the lever to reach for is **how many** such
+   lots appear (one per game, ideally late), NOT capping their value — capping turns a real
+   price into a fake one, which is the thing this whole rework exists to get away from.
+
+   Note it also interacts with the pass-in rule: with a $15,000 purse somebody can always
+   reach a big bid, so these lots will rarely if ever pass in.
+
+4. **A lot nobody can afford is PASSED IN**, unsold, as at a real auction with a reserve.
    Needs a "no sale" state in the reveal and the scoring — the lot simply does not enter
    anyone's shelf. Worth watching in playtesting: passing in at the very end could be an
    anticlimax at the moment the game should peak, so if the last lots keep going unsold, the
    answer is the lot ORDER (dear items while people can still afford them), not a rule change.
 
-4. **Lot card shows the source and date while bidding** — "Amazon · Jul 2026" — so the price
+5. **Lot card shows the source and date while bidding** — "Amazon · Jul 2026" — so the price
    is arguable from real information and a stale figure has a visible explanation.
-5. **TV reveal: much bigger.** The current result text is hard to read from a sofa. Size it
+6. **TV reveal: much bigger.** The current result text is hard to read from a sofa. Size it
    like the rest of the TV layouts (`vmin`), and scale the drama to the size of the profit or
    loss — a $4,000 mistake should not look like a $12 one.
-6. **Synchronised phone reveal.** The interesting part, and the easy one to get subtly wrong.
+7. **Synchronised phone reveal.** The interesting part, and the easy one to get subtly wrong.
    It must be driven off the host's existing `revealStep` broadcast, **never** off phone-side
    timers, or devices drift and somebody sees the number a beat early — which spoils it for
    the room. The host already sequences the reveal; the phones should render whatever step

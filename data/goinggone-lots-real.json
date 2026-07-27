@@ -3,7 +3,12 @@
   "startedOn": "2026-07-27",
   "sourcingNote": "Amazon was the original intent and is not usable: WebFetch on an Amazon product page returns HTTP 500 (Amazon blocks automated fetches) and site-restricted search returns category pages with no prices. The constraint was dropped in favour of any verifiable retailer. Re-test Amazon before assuming it is still blocked.",
   "targetCount": 30,
-  "band": { "min": 1, "max": 10000, "spread": "even across the range" },
+  "band": {
+    "min": 1,
+    "max": 10000,
+    "spread": "even across the range",
+    "note": "$1–$10,000 is the band the ORDINARY lots are spread across, not a hard cap. Items genuinely worth more are allowed and keep their full value — the bargain stands. See goinggoneplan-realitems.md for why, and why capping is the wrong lever."
+  },
   "lots": [
     {
       "emoji": "🛶",
@@ -47,9 +52,13 @@
       "url": "https://storageandcanopy.com/product/prefab-house-expandable-16-5ft-x-20ft-2/",
       "capturedOn": "2026-07-27",
       "confidence": "high",
-      "confidenceNote": "OVER THE $10,000 CEILING. Kept because it is the strongest 'impossible to guess' item found so far — decide whether the ceiling moves or this is cut. Note also that the all-in landed cost (freight, tariffs, crane, foundation) is $55,000–$75,000, which is itself a better question than the sticker price.",
-      "allInCostUsd": [55000, 75000],
-      "allInSource": "https://biohousetech.com/2026/03/12/expandable-container-house-cost-the-real-2026-pricing-guide/"
+      "confidenceNote": "Over the $1–$10,000 ordinary band and KEPT AT FULL VALUE by decision: a lot worth $19,799 bought for ~$8,000 is a real $11,799 bargain and the best story of the night. Note the all-in landed cost ($55,000–$75,000 with freight, tariffs, crane and foundation) is arguably a better question than the sticker price.",
+      "allInCostUsd": [
+        55000,
+        75000
+      ],
+      "allInSource": "https://biohousetech.com/2026/03/12/expandable-container-house-cost-the-real-2026-pricing-guide/",
+      "overBand": true
     }
   ]
 }
