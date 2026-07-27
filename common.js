@@ -474,7 +474,10 @@ function _mkCtrlBtn(id, title, glyph, handler) {
 function mountControls() {
     if (typeof document === 'undefined' || document.getElementById('game-controls')) return;
     if (!document.getElementById('game-controls-style')) {
-        const st = document.createElement('style'); st.id = 'game-controls-style'; st.textContent = CONTROLS_CSS;
+        const st = document.createElement('style'); st.id = 'game-controls-style';
+        // the share-room block rides along with the control strip's stylesheet: every game
+        // mounts that, so the styling is there wherever shareRoomHTML is used
+        st.textContent = CONTROLS_CSS + '\n' + SHARE_ROOM_CSS;
         document.head.appendChild(st);
     }
     // Reuse the game's audio-toggle container so #tog-music/#tog-sfx stay live; else make a bare strip.
@@ -533,6 +536,50 @@ function clientId() {
         return id;
     } catch (_) { return null; }   // private mode / storage disabled → name matching
 }
+
+// ── sharing the room from a PHONE ───────────────────────────────────────────
+// The TV shows a QR code, which is perfect for the people in the room and useless for the
+// ones who aren't. Somebody on the sofa can't forward a television to a phone in another
+// house — so every player who is already in gets the code and a link they can send on.
+//
+// Rendered in the guest lobby for EVERYONE, not just the captain: the person with the group
+// chat open is rarely the person who joined first.
+function shareRoomHTML(code, joinUrl) {
+    const c = String(code || '').toUpperCase();
+    if (!/^[A-Z]{4}$/.test(c)) return '';
+    const url = joinUrl || (location.origin + location.pathname + '?room=' + c);
+    const j = JSON.stringify(url), t = JSON.stringify('Join my game — room ' + c);
+    return `<div class="share-room">
+        <div class="share-room-code">Room <b>${c}</b></div>
+        <div class="share-room-btns">
+            <button class="btn btn-g btn-sm" onclick='copyRoomLink(${j}, this)'>🔗 Copy link</button>
+            <button class="btn btn-g btn-sm" onclick='shareRoomLink(${j}, ${t})'>📤 Share</button>
+        </div>
+        <div class="share-room-hint">Send this to anyone who can't see the TV</div>
+    </div>`;
+}
+function copyRoomLink(url, btn) {
+    const done = () => { if (!btn) return; const was = btn.textContent; btn.textContent = '✅ Copied!';
+        setTimeout(() => { btn.textContent = was; }, 1600); };
+    try {
+        if (navigator.clipboard) { navigator.clipboard.writeText(url).then(done, () => {}); return; }
+    } catch (_) {}
+    // clipboard API needs https or a user gesture it did not get — fall back to a prompt so
+    // the link is at least selectable rather than unreachable
+    try { window.prompt('Copy this link', url); } catch (_) {}
+}
+function shareRoomLink(url, text) {
+    try {
+        if (navigator.share) { navigator.share({ title: 'Game night', text, url }).catch(() => {}); return; }
+    } catch (_) {}
+    copyRoomLink(url, null);
+}
+const SHARE_ROOM_CSS = `.share-room{margin-top:12px;padding:10px 12px;border:1px dashed var(--border2,rgba(255,255,255,.18));
+border-radius:12px;text-align:center}
+.share-room-code{font-size:.78rem;opacity:.8;margin-bottom:8px;letter-spacing:.5px}
+.share-room-code b{letter-spacing:3px;font-size:1rem}
+.share-room-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.share-room-hint{font-size:.62rem;opacity:.55;margin-top:7px;line-height:1.4}`;
 
 // ── final standings for an ELIMINATION game ─────────────────────────────────
 // `rankByScore` ranks a game where everyone finishes with a number. This is the other kind:

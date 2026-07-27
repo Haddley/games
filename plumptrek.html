@@ -3110,6 +3110,7 @@ function renderLobbyG() {
         ${pList}
     </div>
     <div class="card">${avatarPickerHTML({ taken: D.taken || [], mine: mySeatNow(D) })}</div>
+    <div class="card">${typeof shareRoomHTML === 'function' ? shareRoomHTML(D.roomCode || roomCode, joinURL()) : ''}</div>
     ${cap ? `
     <div class="card highlight">
         <div class="slbl">👑 Captain's Settings</div>
