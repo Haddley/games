@@ -1,0 +1,248 @@
+{
+  "note": "The original hand-written Going, Going, GONE! lot list, kept before the switch to real purchasable items. Values are against a START_COINS of 1000. Restore by pasting `lots` back into the const LOTS array in goinggone.html.",
+  "backedUpOn": "2026-07-27",
+  "startCoins": 1000,
+  "count": 40,
+  "lots": [
+    {
+      "emoji": "🪿",
+      "name": "The Slightly-Golden Goose",
+      "desc": "Lays 9-carat eggs. She is trying her best.",
+      "value": 520
+    },
+    {
+      "emoji": "🗺️",
+      "name": "Treasure Map (One Coffee Stain)",
+      "desc": "The X is under the stain. Probably.",
+      "value": 430
+    },
+    {
+      "emoji": "🛋️",
+      "name": "The Never-Lose-The-Remote Sofa",
+      "desc": "Cushions legally required to surrender the remote.",
+      "value": 380
+    },
+    {
+      "emoji": "🕰️",
+      "name": "Grandfather Clock",
+      "desc": "Perfect time, six days a week. Hates Mondays.",
+      "value": 340
+    },
+    {
+      "emoji": "🐕",
+      "name": "Robot Dog, Walks Itself",
+      "desc": "Also walks you, if you look like you need it.",
+      "value": 560
+    },
+    {
+      "emoji": "🎻",
+      "name": "Almost-Famous Violin",
+      "desc": "Once played by someone famous's neighbour.",
+      "value": 310
+    },
+    {
+      "emoji": "🚀",
+      "name": "Slightly Used Rocket",
+      "desc": "One careful astronaut. Parking sensors fitted.",
+      "value": 600
+    },
+    {
+      "emoji": "🍯",
+      "name": "Lifetime Supply of Artisan Honey",
+      "desc": "Bees included. Bees non-negotiable.",
+      "value": 480
+    },
+    {
+      "emoji": "🖼️",
+      "name": "Polite Haunted Painting",
+      "desc": "Follows you with its eyes, but apologises.",
+      "value": 350
+    },
+    {
+      "emoji": "🏝️",
+      "name": "Timeshare: Very Small Island",
+      "desc": "Room for one deckchair. Sunset included.",
+      "value": 590
+    },
+    {
+      "emoji": "⛲",
+      "name": "Wishing Well (Refurbished)",
+      "desc": "40% wish success rate — industry leading.",
+      "value": 540
+    },
+    {
+      "emoji": "🦜",
+      "name": "Trilingual Parrot",
+      "desc": "Fluent in three languages. All compliments.",
+      "value": 460
+    },
+    {
+      "emoji": "👑",
+      "name": "Crown of a Very Minor Royal",
+      "desc": "Fourteenth in line to a small duchy.",
+      "value": 410
+    },
+    {
+      "emoji": "🧥",
+      "name": "Invisibility Cloak",
+      "desc": "Visible on weekends and bank holidays.",
+      "value": 330
+    },
+    {
+      "emoji": "🚗",
+      "name": "Vintage Car, Sings Opera",
+      "desc": "The engine is a baritone. The horn is a soprano.",
+      "value": 500
+    },
+    {
+      "emoji": "📚",
+      "name": "First Edition Nobody Finished",
+      "desc": "Pristine after chapter three. Suspiciously pristine.",
+      "value": 300
+    },
+    {
+      "emoji": "🐄",
+      "name": "The Pre-Whipped Cream Cow",
+      "desc": "Moo-velous. Chills the bowl herself.",
+      "value": 570
+    },
+    {
+      "emoji": "🍞",
+      "name": "Haunted Toaster",
+      "desc": "The ghost only does one side.",
+      "value": 40
+    },
+    {
+      "emoji": "☂️",
+      "name": "Ventilated Umbrella",
+      "desc": "For people who like to know it's raining.",
+      "value": 20
+    },
+    {
+      "emoji": "🧦",
+      "name": "Sock. Singular. Left.",
+      "desc": "A confident single sock with references.",
+      "value": 10
+    },
+    {
+      "emoji": "🪑",
+      "name": "Five-Legged Chair",
+      "desc": "The fifth leg does not help.",
+      "value": 30
+    },
+    {
+      "emoji": "🔮",
+      "name": "Crystal Ball (Buffering)",
+      "desc": "Your future is loading. 3%.",
+      "value": 60
+    },
+    {
+      "emoji": "🎺",
+      "name": "Trumpet, One Previous Owner",
+      "desc": "The previous owner was a toddler.",
+      "value": 25
+    },
+    {
+      "emoji": "🗿",
+      "name": "Garden Gnome, Trust Issues",
+      "desc": "Faces the wall. Won't say why.",
+      "value": 70
+    },
+    {
+      "emoji": "🖊️",
+      "name": "The Apology Pen",
+      "desc": "Only writes apologies. Deeply sincere ones.",
+      "value": 35
+    },
+    {
+      "emoji": "🧲",
+      "name": "Reverse Fridge Magnet",
+      "desc": "Repels fridges. Science can't explain it.",
+      "value": 15
+    },
+    {
+      "emoji": "🕯️",
+      "name": "Scented Candle: “Wet Dog”",
+      "desc": "Remarkably accurate.",
+      "value": 45
+    },
+    {
+      "emoji": "📻",
+      "name": "Radio Between Two Stations",
+      "desc": "Jazz AND the shipping forecast. Forever.",
+      "value": 50
+    },
+    {
+      "emoji": "🥄",
+      "name": "Cursed Antique Spoon",
+      "desc": "Allegedly cursed. Definitely bent.",
+      "value": 55
+    },
+    {
+      "emoji": "🧩",
+      "name": "Jigsaw: 999 of 1000 Pieces",
+      "desc": "The missing piece is sky.",
+      "value": 30
+    },
+    {
+      "emoji": "🚲",
+      "name": "Exercise Bike / Coat Rack",
+      "desc": "Excellent at one of these jobs.",
+      "value": 80
+    },
+    {
+      "emoji": "🐌",
+      "name": "Retired Racing Snail",
+      "desc": "Career best: second place. Field of two.",
+      "value": 20
+    },
+    {
+      "emoji": "🎩",
+      "name": "Magician's Top Hat",
+      "desc": "Rabbit not included. Hole included.",
+      "value": 65
+    },
+    {
+      "emoji": "🧯",
+      "name": "Confetti Extinguisher",
+      "desc": "Makes fires more festive.",
+      "value": 75
+    },
+    {
+      "emoji": "📦",
+      "name": "Mystery Box",
+      "desc": "It rattles when you shake it.",
+      "value": 700
+    },
+    {
+      "emoji": "📦",
+      "name": "Mystery Box",
+      "desc": "Something inside is humming.",
+      "value": 60
+    },
+    {
+      "emoji": "📦",
+      "name": "Mystery Box",
+      "desc": "Heavier than it looks.",
+      "value": 500
+    },
+    {
+      "emoji": "📦",
+      "name": "Mystery Box",
+      "desc": "Smells faintly of victory.",
+      "value": 150
+    },
+    {
+      "emoji": "📦",
+      "name": "Mystery Box",
+      "desc": "The previous owner winked.",
+      "value": 0
+    },
+    {
+      "emoji": "📦",
+      "name": "Mystery Box",
+      "desc": "Ticks. Probably a clock.",
+      "value": 300
+    }
+  ]
+}
