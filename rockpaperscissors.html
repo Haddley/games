@@ -1028,12 +1028,27 @@ function startSimulation(nPlayers, mode) {
         isTvHost = false;
         myName = 'You'; myAvatar = AVATARS[0]; myId = '__you__';
         hostAddPlayer(myId, myName, myAvatar);
-        for (let i = 1; i < n; i++) {
-            const id = '__bot_' + i;
+        broadcastAll();
+
+        // The phone demo starts in the LOBBY and fills up, because that is the part a new
+        // player meets first — and because the captain's lobby is where the choice that
+        // matters lives: battle royale or knockout. Watching a game already under way skips
+        // the only screen that explains there are two ways to play. Bots arrive on a beat,
+        // as real phones do.
+        let joined = 1;
+        const arrive = setInterval(() => {
+            if (joined >= n) {
+                clearInterval(arrive);
+                setTimeout(simTick, 2000);          // a beat to read the full lobby, then off
+                return;
+            }
+            const id = '__bot_' + joined;
             guestConns[id] = { send() {}, _sim: true };
-            hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length], AVATARS[(i + 1) % AVATARS.length]);
-        }
-        broadcastAll();   // updates the host-player's own phone view (D)
+            hostAddPlayer(id, SIM_NAMES[joined % SIM_NAMES.length], AVATARS[(joined + 1) % AVATARS.length]);
+            joined++;
+            broadcastAll();
+        }, 1100);
+        return;
     } else {
         // Big-screen / TV view: all bots, nobody at the phone.
         isTvHost = true; myId = '__sim_host__';

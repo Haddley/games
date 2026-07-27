@@ -3149,13 +3149,38 @@ function startSimulation(nPlayers, mode) {
     myId = 'sim-host';
     if (isTvHost) document.body.classList.add('viewer-mode');
     H.players = [];
-    for (let i = 0; i < Math.max(2, Math.min(nPlayers || 4, MAX_PLAYERS)); i++) {
+    H.settings.length = 'short';
+    const want = Math.max(2, Math.min(nPlayers || 4, MAX_PLAYERS));
+    const addBot = i => {
         hostAddPlayer('sim-' + i, SIM_NAMES[i % SIM_NAMES.length], i);
         guestConns['sim-' + i] = { peer: 'sim-' + i, send() {} };   // stub: bots count as present
+    };
+
+    // ── the phone demo starts in the LOBBY, as the captain ──────────────────
+    // Watching a game already in progress skips the part a new player actually meets first:
+    // typing a name, picking a piece, and watching the room fill up. And the captain's lobby
+    // is the one with the controls on it — the piece picker, the settings, the Start button —
+    // so it is the view worth demonstrating. Bots arrive one at a time, on a beat, exactly
+    // as real phones do.
+    if (!isTvHost) {
+        myId = 'sim-0';
+        addBot(0);
+        applyMsg(lobbyMsg());
+        let joined = 1;
+        simTimer = setInterval(() => {
+            if (joined < want) { addBot(joined++); applyMsg(lobbyMsg()); return; }
+            clearInterval(simTimer);
+            simTimer = setTimeout(() => {          // a beat to read the full lobby, then off
+                hostStartGame();
+                applyMsg(stateFor(H.players[0]));
+                simTimer = setInterval(simDrive, 900);
+            }, 1800);
+        }, 1100);
+        return;
     }
-    H.settings.length = 'short';
+
+    for (let i = 0; i < want; i++) addBot(i);
     hostStartGame();
-    if (!isTvHost) { myId = 'sim-0'; applyMsg(stateFor(H.players[0])); }
     simTimer = setInterval(simDrive, 900);
 }
 // The bots only ever do the thing the game is waiting for — which makes this a decent
