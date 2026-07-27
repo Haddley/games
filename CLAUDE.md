@@ -168,6 +168,21 @@ Cross-network play relies on a TURN relay from **Metered** (metered.ca — "Open
 - **Credentials**: a Metered username + credential, **hardcoded in cleartext** in `common.js`'s `ICE_CFG` (and, separately, ticktacktoe's inline `TTT_PEER_OPTS`). Current username: `35410ce7572a64d0dad7b813`. They're public (visible in page source) — acceptable for family games, but anyone can burn the quota. **To rotate** (new key from the Metered dashboard): change the username+credential in **`common.js`** — **one place, and only one**: ticktacktoe used to keep its own copy inside `TTT_PEER_OPTS` and no longer does (it composes `ICE_CFG` instead), and a unit test fails if the credentials ever reappear in a second file. Then verify (`common.js` parses; a game page loads it and `typeof ICE_CFG === 'object'`).
 - **No backend**: because the games are static HTML with no server, credentials are long-lived and embedded rather than minted per-session. A credential-vending endpoint would be the "correct" hardening but is overkill unless quota abuse actually happens.
 
+## Going, Going, GONE! — real items, in progress
+
+A rework from invented lots to real purchasable ones is **specified but not built**. The live
+game is untouched; everything needed is written down:
+
+- `goinggoneplan-realitems.md` — the brief, every decision taken, and **what the simulator
+  found** (at the chosen settings, the one monster lot decides the game 97% of the time)
+- `sim/goinggone.js` — a balance simulator. `node sim/goinggone.js --compare` sweeps cash
+  against monster lots. Use it before changing `START_COINS` or the value spread; those are
+  arithmetic questions and guessing at them was how we got the 97%.
+- `data/goinggone-lots-original.json` — the current 40 invented lots, backed up
+- `data/goinggone-lots-real.json` — the researched replacements (5 of ~30), each with a source
+  URL, a `capturedOn` date and a confidence rating. **Nothing in it is invented** — if a price
+  could not be verified the item is not there, which is the whole point of the rework.
+
 ## Plump Trek specifics
 
 `plumptrek.html` is the only board game: a generated path of nodes with explicit links

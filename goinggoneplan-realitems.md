@@ -122,3 +122,69 @@ and the items in it will not all have been checked on the same day.
 - `data/goinggone-lots-amazon.json` — to write
 - `data/goinggone-lots-temu.json` — to write
 - `goinggone.html` — `const LOTS`, `START_COINS`, `revealStep`, `finishValuation`
+
+## The simulator — `sim/goinggone.js`
+
+Built because we were guessing at the numbers, and they are arithmetic questions.
+
+```sh
+node sim/goinggone.js                                  # the current settings
+node sim/goinggone.js --players 8 --cash 20000         # ask a question
+node sim/goinggone.js --compare --games 3000           # sweep cash × monster lots
+node sim/goinggone.js --monster-last true              # does saving it for last help?
+```
+
+It plays thousands of auctions with bidders who misjudge every lot by a **factor** rather
+than a fixed amount (2× out is common, 10× rare) and differ in nerve. Every knob is a flag,
+so no one has to edit the file to ask something. It is deliberately **not** the game — it
+models only what decides balance. A bad verdict is a real finding; a good one still needs
+humans to play it.
+
+### What it has already told us (July 2026)
+
+**At the chosen settings — 6 players, $15,000, 18 lots, one lot worth $19,799 — whoever wins
+the monster lot wins the game 97% of the time.** The other seventeen lots are close to
+decorative.
+
+The lever is **cash, not the lot**:
+
+| purse | monster decides the game |
+|---|---|
+| $5,000 | 99.7% |
+| $10,000 | 99.9% |
+| $15,000 | 97.3% |
+| $25,000 | 73.3% |
+
+Even $25,000 leaves it deciding three games in four. **Saving the monster for last makes it
+worse** (99.6%) — everyone arrives with a full purse, so it becomes a shootout.
+
+And raising cash creates a different problem: **"won nothing" climbs from 0.2% at $5k to
+17.8% at $25k**. A richer table lets the bold bidders take everything and quiet players go
+home empty-handed.
+
+*Caveat:* "monster won the game" is measured as the winner holding at least the monster's
+value in stock, which could in principle be reached from other lots. At these settings that is
+unlikely, but it is a proxy, not a proof. Tighten it before relying on it for a close call.
+
+### What this does NOT settle
+
+The decision was to keep monster lots at full value **on purpose** — the best story of the
+evening is somebody sinking half their purse into one gamble and being right. The simulator
+says that story will be the *only* story. That is a judgement call about what kind of evening
+this is, not a bug: if a 97% swing is the intended drama, the numbers simply confirm it works.
+If it is not, the untested lever is **how many** monster lots appear and whether other lots can
+compete — not capping their value, which turns a real price into a fake one.
+
+## Research: what works
+
+Recorded in `data/goinggone-lots-real.json` under `researchLog`, and worth repeating here:
+
+- **Item-specific searches work. Category searches do not.** "Surprisingly expensive everyday
+  objects" returns inflation journalism with nothing purchasable in it. Every good lot so far
+  came from naming the *thing* and asking what it costs.
+- **Budget roughly one search per item**, and corroborate across dealers where no single
+  retail listing exists (the shipping container is priced from three).
+- **Amazon is unusable** with these tools — product pages return HTTP 500 and site-restricted
+  search returns category pages with no prices. Re-test before assuming it still is.
+- The seed script **prints the empty price bands** so the next session can aim at them. An
+  even spread has to be hunted deliberately, not taken as it turns up.
