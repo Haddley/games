@@ -68,6 +68,33 @@ test('every lot carries the provenance shown while bidding', () => {
     }
 });
 
+// ── no lot may reveal its own price ─────────────────────────────────────────
+// The whole game is guessing what the thing costs. The catalogue harvest wrote the price into
+// the flavour text ("A lump of iron with a handle. Thirty-eight dollars.") — 57 lots leaked
+// their own answer onto the bidding screen before this test existed. Checks the JSON sources,
+// not the embed, so the failure names the file to fix.
+const NUM_WORD = '(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|' +
+    'fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|' +
+    'seventy|eighty|ninety|hundred|thousand|million)';
+const PRICE_LEAKS = [
+    /\$\s*\d/,                                      // "$799"
+    /\b(?:dollars?|bucks|quid)\b/i,                 // "…dollars." spelled out or not
+    new RegExp('\\b(?:' + NUM_WORD + '|\\d+)[\\s-]*grand\\b', 'i'),  // "four grand", "10 grand"
+];
+test('no lot name or description states its own price', () => {
+    const leaks = [];
+    for (const f of SOURCES) {
+        for (const l of JSON.parse(fs.readFileSync(path.join(ROOT, f), 'utf8')).lots) {
+            for (const field of ['name', 'desc']) {
+                const hit = PRICE_LEAKS.find(re => re.test(l[field] || ''));
+                if (hit) leaks.push(`${f}: "${l.name}" ${field} leaks the price (${hit}): ${l[field]}`);
+            }
+        }
+    }
+    assert.deepEqual(leaks, [],
+        `${leaks.length} lot(s) reveal their price on the bidding screen:\n  ` + leaks.join('\n  '));
+});
+
 // ── band depth: a research check, not a code check ──────────────────────────
 test('every price band can fill the largest possible auction without repeating', () => {
     const { BANDS } = makeDraw({ lotsPer: 3, bigLot: false });

@@ -1,5 +1,5 @@
 {
-  "note": "LIVE DATA — this file and goinggone-lots-catalogue.json are the source for the lots in goinggone.html. Real purchasable items with verified prices; every entry has a source URL and the date its price was read. Nothing here is invented — if a price could not be verified, the item is not in this file. AFTER EDITING, run `node scripts/build-goinggone-lots.js` to re-embed, or unit/goinggone.test.js will fail. This half is hand-researched, one search per item, with fuller confidence notes.",
+  "note": "LIVE DATA — this file and goinggone-lots-catalogue.json are the source for the lots in goinggone.html. Real purchasable items with verified prices; every entry has a source URL and the date its price was read. Nothing here is invented — if a price could not be verified, the item is not in this file. AFTER EDITING, run `node scripts/build-goinggone-lots.js` to re-embed, or unit/goinggone.test.js will fail. This half is hand-researched, one search per item, with fuller confidence notes. RULE: a lot's name and desc must NEVER state or hint at the price — the whole game is guessing it. No dollar amounts, no spelled-out prices, no 'four grand'; unit/goinggone.test.js fails on any of them.",
   "startedOn": "2026-07-27",
   "sourcingNote": "Amazon was the original intent and is not usable: WebFetch on an Amazon product page returns HTTP 500 (Amazon blocks automated fetches) and site-restricted search returns category pages with no prices. The constraint was dropped in favour of any verifiable retailer. Re-test Amazon before assuming it is still blocked.",
   "band": {
@@ -77,7 +77,7 @@
     {
       "emoji": "🥤",
       "name": "Combo Vending Machine (Snacks + Cold Drinks)",
-      "desc": "One cabinet, two temperatures, takes cards. The kind that eats your dollar and gives nothing back.",
+      "desc": "One cabinet, two temperatures, takes cards. The kind that eats your coins and gives nothing back.",
       "value": 4200,
       "source": "several US vending suppliers, 2026 price guides",
       "url": "https://www.vendsoft.com/how-much-does-vending-machine-cost/",
@@ -350,7 +350,7 @@
     {
       "emoji": "📦",
       "name": "Mac mini (M4, 16GB)",
-      "desc": "The small square one. It went UP by two hundred dollars this June.",
+      "desc": "The small square one.",
       "value": 799,
       "apparent": "fair",
       "source": "Apple US pricing, June 2026",
@@ -374,7 +374,7 @@
     {
       "emoji": "🔲",
       "name": "GMKtec EVO-X2 Mini PC (128GB / 2TB)",
-      "desc": "A mini PC that runs big AI models locally. Two thousand two hundred dollars.",
+      "desc": "A mini PC that runs big AI models locally.",
       "value": 2199,
       "apparent": "low",
       "source": "GMKtec direct pricing, 2026",
@@ -404,7 +404,7 @@
     {
       "emoji": "☎️",
       "name": "Budget Android Phone (TCL Ion V)",
-      "desc": "A brand new unlocked smartphone. Ninety-nine dollars.",
+      "desc": "A brand new unlocked smartphone.",
       "value": 99,
       "apparent": "high",
       "source": "US budget phone market, 2026",
@@ -462,7 +462,7 @@
     {
       "emoji": "🔧",
       "name": "Benchtop Metal Lathe (7in x 14in)",
-      "desc": "A real metal-turning lathe that sits on a bench. Five hundred and fifty dollars.",
+      "desc": "A real metal-turning lathe that sits on a bench.",
       "value": 549.99,
       "apparent": "high",
       "source": "Erie Tools / BENTISM 2026 retail",

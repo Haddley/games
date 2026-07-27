@@ -1,5 +1,5 @@
 {
-  "note": "LIVE DATA — bulk companion to goinggone-lots-real.json; together they are the source for the lots in goinggone.html. Same rule: nothing invented. Every price was read off a live retailer's category page on the date given. Harvested in bulk (one fetch yields 12-15 priced products) rather than one item at a time, so the notes are thinner — but the prices are read from the page rather than summarised from a guide, which makes most of them BETTER evidenced than the hand-researched half. AFTER EDITING, run `node scripts/build-goinggone-lots.js` to re-embed.",
+  "note": "LIVE DATA — bulk companion to goinggone-lots-real.json; together they are the source for the lots in goinggone.html. Same rule: nothing invented. Every price was read off a live retailer's category page on the date given. Harvested in bulk (one fetch yields 12-15 priced products) rather than one item at a time, so the notes are thinner — but the prices are read from the page rather than summarised from a guide, which makes most of them BETTER evidenced than the hand-researched half. AFTER EDITING, run `node scripts/build-goinggone-lots.js` to re-embed. RULE: a lot's name and desc must NEVER state or hint at the price — the whole game is guessing it. No dollar amounts, no spelled-out prices, no 'four grand'; unit/goinggone.test.js fails on any of them.",
   "startedOn": "2026-07-27",
   "method": "Fetch a retailer category or search page, ask for the products spanning the widest price range, keep the ones whose price a person could not guess from the shape of the object. Discard size variants of the same item — twelve pizza ovens differing only in deck count are one lot, not twelve.",
   "apparentField": {
@@ -79,7 +79,7 @@
     {
       "emoji": "🔺",
       "name": "Square Sign Post Anchor (36in, 12 gauge)",
-      "desc": "The bit underground that nobody ever sees. Fifty-one dollars of it.",
+      "desc": "The bit underground that nobody ever sees.",
       "value": 50.95,
       "apparent": "fair",
       "url": "https://www.trafficsafetystore.com/traffic-signs/stop-signs",
@@ -89,7 +89,7 @@
     {
       "emoji": "🔴",
       "name": "High-Intensity Red Reflector on Aluminium",
-      "desc": "A small red circle that glows in headlights. Thirty-one dollars fifty-five.",
+      "desc": "A small red circle that glows in headlights.",
       "value": 31.55,
       "apparent": "high",
       "url": "https://www.trafficsafetystore.com/traffic-signs/stop-signs",
@@ -144,7 +144,7 @@
     {
       "emoji": "🌭",
       "name": "Star Grill-Max 50-Dog Roller",
-      "desc": "Fifty hot dogs at once, chrome rollers, stadium spec. Four grand.",
+      "desc": "Fifty hot dogs at once, chrome rollers, stadium spec.",
       "value": 4084.85,
       "apparent": "low",
       "url": "https://www.webstaurantstore.com/search/hot-dog-roller.html",
@@ -237,7 +237,7 @@
     {
       "emoji": "🧊",
       "name": "Countertop Ice Maker (ADA compliant)",
-      "desc": "Makes ice. Sits on a counter. Six thousand two hundred and fifty dollars.",
+      "desc": "Makes ice. Sits on a counter.",
       "value": 6250,
       "apparent": "low",
       "url": "https://www.webstaurantstore.com/search/commercial-ice-machine.html",
@@ -273,7 +273,7 @@
     {
       "emoji": "🍕",
       "name": "Gas Pizza Deck Oven, Single Deck 55in",
-      "desc": "One deck, gas, restaurant spec. Just under ten grand.",
+      "desc": "One deck, gas, restaurant spec.",
       "value": 9985,
       "apparent": "fair",
       "url": "https://www.webstaurantstore.com/14189/pizza-deck-ovens.html",
@@ -285,7 +285,7 @@
     {
       "emoji": "🔥",
       "name": "Il Forno Classico Double Deck Pizza Oven, 66in",
-      "desc": "A brick-lined double-decker. Ninety-eight thousand dollars.",
+      "desc": "A brick-lined double-decker.",
       "value": 98026.5,
       "apparent": "low",
       "url": "https://www.webstaurantstore.com/14189/pizza-deck-ovens.html",
@@ -298,7 +298,7 @@
     {
       "emoji": "⚙️",
       "name": "Steel Tension Bushing, 3/4in",
-      "desc": "A small metal ring. Three dollars seventy-five.",
+      "desc": "A small metal ring.",
       "value": 3.75,
       "apparent": "fair",
       "url": "https://www.surpluscenter.com/Hydraulics/Hydraulic-Cylinders/",
@@ -341,7 +341,7 @@
     {
       "emoji": "🌀",
       "name": "Orbital Floor Scrubber, 13in",
-      "desc": "Corded, domestic-looking, six hundred and nineteen dollars.",
+      "desc": "Corded and domestic-looking.",
       "value": 619,
       "apparent": "low",
       "url": "https://www.webstaurantstore.com/search/floor-scrubber.html",
@@ -363,7 +363,7 @@
     {
       "emoji": "🥂",
       "name": "Glass Polishing Machine",
-      "desc": "Its entire job is drying wine glasses. Nine hundred and thirty-nine dollars.",
+      "desc": "Its entire job is drying wine glasses.",
       "value": 939,
       "apparent": "low",
       "url": "https://www.webstaurantstore.com/search/commercial-dishwasher.html",
@@ -374,7 +374,7 @@
     {
       "emoji": "🫧",
       "name": "Champion PP-36 Pot and Pan Washer",
-      "desc": "A dishwasher. For pans. Seventy thousand dollars.",
+      "desc": "A dishwasher. For pans.",
       "value": 70880.91,
       "apparent": "low",
       "url": "https://www.webstaurantstore.com/search/commercial-dishwasher.html",
@@ -386,7 +386,7 @@
     {
       "emoji": "☕",
       "name": "Capsule Espresso Machine, Commercial",
-      "desc": "It takes pods. It costs five hundred and eighty-nine dollars.",
+      "desc": "It takes pods.",
       "value": 589,
       "apparent": "low",
       "url": "https://www.webstaurantstore.com/search/espresso-machine.html",
@@ -433,7 +433,7 @@
     {
       "emoji": "🍿",
       "name": "Popcorn Machine, 4oz Cart Style",
-      "desc": "Red and gold, glass sides, cinema lettering. A hundred and forty dollars.",
+      "desc": "Red and gold, glass sides, cinema lettering.",
       "value": 139.99,
       "apparent": "high",
       "url": "https://www.webstaurantstore.com/search/popcorn-machine.html",
@@ -444,7 +444,7 @@
     {
       "emoji": "🍿",
       "name": "Cretors Merchant 16oz Popcorn Popper",
-      "desc": "The real cinema-foyer machine. Nearly five thousand dollars.",
+      "desc": "The real cinema-foyer machine.",
       "value": 4929,
       "apparent": "low",
       "url": "https://www.webstaurantstore.com/search/popcorn-machine.html",
@@ -468,7 +468,7 @@
     {
       "emoji": "💰",
       "name": "Small Steel Cash Box",
-      "desc": "Lockable steel box with a coin tray. Thirty-seven dollars.",
+      "desc": "Lockable steel box with a coin tray.",
       "value": 36.99,
       "apparent": "fair",
       "url": "https://www.webstaurantstore.com/search/safe.html",
@@ -491,7 +491,7 @@
     {
       "emoji": "🏦",
       "name": "Rotary Hopper Drop Safe",
-      "desc": "The one bar staff post takings into. Fourteen hundred dollars.",
+      "desc": "The one bar staff post takings into.",
       "value": 1429,
       "apparent": "fair",
       "url": "https://www.webstaurantstore.com/search/safe.html",
@@ -502,7 +502,7 @@
     {
       "emoji": "🖐️",
       "name": "Extra-Large Biometric Safe",
-      "desc": "Opens to a fingerprint. A thousand and twenty-nine dollars.",
+      "desc": "Opens to a fingerprint.",
       "value": 1029,
       "apparent": "fair",
       "url": "https://www.webstaurantstore.com/search/safe.html",
@@ -524,7 +524,7 @@
     {
       "emoji": "🌗",
       "name": "96in Half-Circle Booth, Ebony",
-      "desc": "The curved corner booth you ask for and never get. Nearly five grand.",
+      "desc": "The curved corner booth you ask for and never get.",
       "value": 4899,
       "apparent": "low",
       "url": "https://www.webstaurantstore.com/search/restaurant-booth.html",
@@ -547,7 +547,7 @@
     {
       "emoji": "🔚",
       "name": "Speed Bump End Cap",
-      "desc": "The little sloped bit on the end. Sixteen dollars fifty.",
+      "desc": "The little sloped bit on the end.",
       "value": 16.5,
       "apparent": "fair",
       "url": "https://www.trafficsafetystore.com/speed-bumps",
@@ -569,7 +569,7 @@
     {
       "emoji": "🏋️",
       "name": "Olympic Change Plate",
-      "desc": "A very small weight. Fifteen dollars.",
+      "desc": "A very small weight.",
       "value": 15,
       "apparent": "fair",
       "url": "https://www.roguefitness.com/weightlifting-bars-plates",
@@ -579,7 +579,7 @@
     {
       "emoji": "🫖",
       "name": "Cast Iron Kettlebell",
-      "desc": "A lump of iron with a handle. Thirty-eight dollars.",
+      "desc": "A lump of iron with a handle.",
       "value": 38,
       "apparent": "fair",
       "url": "https://www.roguefitness.com/conditioning",
@@ -590,7 +590,7 @@
     {
       "emoji": "🪢",
       "name": "Bearing Speed Rope",
-      "desc": "A skipping rope with bearings in the handles. Thirty-five dollars.",
+      "desc": "A skipping rope with bearings in the handles.",
       "value": 35,
       "apparent": "high",
       "url": "https://www.roguefitness.com/conditioning",
@@ -612,7 +612,7 @@
     {
       "emoji": "🤸",
       "name": "Kabuki Transformer Bar",
-      "desc": "A barbell that bends in the middle on purpose. Nearly eight hundred dollars.",
+      "desc": "A barbell that bends in the middle on purpose.",
       "value": 795,
       "apparent": "low",
       "url": "https://www.roguefitness.com/weightlifting-bars-plates",
@@ -622,7 +622,7 @@
     {
       "emoji": "🎽",
       "name": "Weighted Training Vest",
-      "desc": "A vest that makes everything worse. A hundred and forty-five dollars.",
+      "desc": "A vest that makes everything worse.",
       "value": 145,
       "apparent": "fair",
       "url": "https://www.roguefitness.com/conditioning",
@@ -644,7 +644,7 @@
     {
       "emoji": "🚲",
       "name": "Air Assault Bike",
-      "desc": "The fan bike everyone dreads. Nine hundred and forty-five dollars.",
+      "desc": "The fan bike everyone dreads.",
       "value": 945,
       "apparent": "fair",
       "url": "https://www.roguefitness.com/conditioning",
@@ -666,7 +666,7 @@
     {
       "emoji": "🏅",
       "name": "Woodway Vive Treadmill",
-      "desc": "A treadmill costing eleven thousand three hundred and ninety-five dollars.",
+      "desc": "The treadmill that outlasts the gym it lives in.",
       "value": 11395,
       "apparent": "low",
       "url": "https://www.roguefitness.com/conditioning",
@@ -689,7 +689,7 @@
     {
       "emoji": "🎒",
       "name": "GI Used ALICE Pack, Medium (no straps)",
-      "desc": "Army issue, genuinely used, straps not included. Forty-five dollars.",
+      "desc": "Army issue, genuinely used, straps not included.",
       "value": 44.95,
       "apparent": "fair",
       "url": "https://www.armysurpluswarehouse.com/",
@@ -711,7 +711,7 @@
     {
       "emoji": "🦺",
       "name": "Multicam Recon Chest Rig",
-      "desc": "Tactical webbing, many pouches. Sixty-five dollars.",
+      "desc": "Tactical webbing, many pouches.",
       "value": 64.99,
       "apparent": "high",
       "url": "https://www.armysurpluswarehouse.com/",
@@ -722,7 +722,7 @@
     {
       "emoji": "🪓",
       "name": "Bushcraft Hatchet",
-      "desc": "A small serious axe. Seventy dollars.",
+      "desc": "A small serious axe.",
       "value": 69.99,
       "apparent": "fair",
       "url": "https://www.armysurpluswarehouse.com/",
@@ -733,7 +733,7 @@
     {
       "emoji": "🍶",
       "name": "Jet Fuel JP-4 Hip Flask, 25oz",
-      "desc": "A flask labelled as jet fuel. Not jet fuel. Twenty-two dollars.",
+      "desc": "A flask labelled as jet fuel. Not jet fuel.",
       "value": 21.99,
       "apparent": "fair",
       "url": "https://www.armysurpluswarehouse.com/",
@@ -744,7 +744,7 @@
     {
       "emoji": "🔥",
       "name": "Emergency Fire Blanket",
-      "desc": "For putting yourself out. Twenty-five dollars.",
+      "desc": "For putting yourself out.",
       "value": 24.99,
       "apparent": "fair",
       "url": "https://www.armysurpluswarehouse.com/",
@@ -766,7 +766,7 @@
     {
       "emoji": "🍟",
       "name": "Countertop Electric Deep Fryer",
-      "desc": "Chip shop in a box. A hundred and five dollars.",
+      "desc": "Chip shop in a box.",
       "value": 104.99,
       "apparent": "fair",
       "url": "https://www.webstaurantstore.com/search/deep-fryer.html",
@@ -777,7 +777,7 @@
     {
       "emoji": "🍤",
       "name": "Perfect Fry PFA730 Ventless Fryer",
-      "desc": "A fryer that needs no extraction hood. Fifteen thousand seven hundred and seventy-eight dollars.",
+      "desc": "A fryer that needs no extraction hood.",
       "value": 15778,
       "apparent": "low",
       "url": "https://www.webstaurantstore.com/search/deep-fryer.html",
@@ -790,7 +790,7 @@
     {
       "emoji": "🔥",
       "name": "Floor-Standing Gas Fryer",
-      "desc": "Restaurant spec, gas, on legs. Three thousand six hundred dollars.",
+      "desc": "Restaurant spec, gas, on legs.",
       "value": 3600,
       "apparent": "fair",
       "url": "https://www.webstaurantstore.com/search/deep-fryer.html",
@@ -812,7 +812,7 @@
     {
       "emoji": "🪵",
       "name": "Offset Barrel Smoker",
-      "desc": "The black steel barrel with the chimney. Nine hundred dollars.",
+      "desc": "The black steel barrel with the chimney.",
       "value": 899.99,
       "apparent": "fair",
       "url": "https://www.webstaurantstore.com/search/commercial-smoker.html",
@@ -823,7 +823,7 @@
     {
       "emoji": "🍖",
       "name": "Undercounter Cook-and-Hold Smoker Oven",
-      "desc": "Smokes brisket overnight, fits under a counter. Seven grand.",
+      "desc": "Smokes brisket overnight, fits under a counter.",
       "value": 7091.7,
       "apparent": "low",
       "url": "https://www.webstaurantstore.com/search/commercial-smoker.html",
@@ -835,7 +835,7 @@
     {
       "emoji": "🥓",
       "name": "Stainless Hand-Load BBQ Roaster",
-      "desc": "Commercial smokehouse, stainless, eight thousand eight hundred dollars.",
+      "desc": "Commercial smokehouse, stainless.",
       "value": 8819,
       "apparent": "fair",
       "url": "https://www.webstaurantstore.com/search/commercial-smoker.html",
@@ -847,7 +847,7 @@
     {
       "emoji": "🏭",
       "name": "J&R Oyler 1300 Wood-Fired Smoker",
-      "desc": "A room-sized wood-burning smoker. Forty-five thousand nine hundred dollars.",
+      "desc": "A room-sized wood-burning smoker.",
       "value": 45900,
       "apparent": "fair",
       "url": "https://www.webstaurantstore.com/search/commercial-smoker.html",
@@ -870,7 +870,7 @@
     {
       "emoji": "🔌",
       "name": "9V Battery Clip with Barrel Plug",
-      "desc": "A battery clip. Two dollars ninety-five.",
+      "desc": "A battery clip.",
       "value": 2.95,
       "apparent": "fair",
       "url": "https://www.adafruit.com/category/17",
@@ -892,7 +892,7 @@
     {
       "emoji": "⚙️",
       "name": "Motor / Stepper / Servo Shield Kit",
-      "desc": "Drives four motors from one small board. Twenty dollars.",
+      "desc": "Drives four motors from one small board.",
       "value": 19.95,
       "apparent": "fair",
       "url": "https://www.adafruit.com/category/17",
@@ -903,7 +903,7 @@
     {
       "emoji": "🌡️",
       "name": "Infrared Thermal Camera Module",
-      "desc": "A real thermal camera, the size of a stamp. Forty-five dollars.",
+      "desc": "A real thermal camera, the size of a stamp.",
       "value": 44.95,
       "apparent": "high",
       "url": "https://www.adafruit.com/category/17",
@@ -915,7 +915,7 @@
     {
       "emoji": "💡",
       "name": "Single Addressable LED Breakout",
-      "desc": "One programmable LED on a tiny board. A dollar fifty.",
+      "desc": "One programmable LED on a tiny board.",
       "value": 1.5,
       "apparent": "fair",
       "url": "https://www.adafruit.com/category/168",
@@ -926,7 +926,7 @@
     {
       "emoji": "💍",
       "name": "NeoPixel Ring, 16 RGB LEDs",
-      "desc": "A ring of sixteen colour-changing LEDs. Ten dollars.",
+      "desc": "A ring of sixteen colour-changing LEDs.",
       "value": 9.95,
       "apparent": "fair",
       "url": "https://www.adafruit.com/category/168",
@@ -992,7 +992,7 @@
     {
       "emoji": "🛰️",
       "name": "Centimetre-Accurate GPS Kit (RTK)",
-      "desc": "GPS accurate to a centimetre. Three hundred and sixteen dollars.",
+      "desc": "GPS accurate to a centimetre.",
       "value": 315.95,
       "apparent": "low",
       "url": "https://www.sparkfun.com/kits",
@@ -1003,7 +1003,7 @@
     {
       "emoji": "🌦️",
       "name": "Weather Meter Kit",
-      "desc": "Spinning cups, a wind vane and a rain bucket. Eighty dollars.",
+      "desc": "Spinning cups, a wind vane and a rain bucket.",
       "value": 79.95,
       "apparent": "fair",
       "url": "https://www.sparkfun.com/kits",
@@ -1014,7 +1014,7 @@
     {
       "emoji": "🔥",
       "name": "Portable Soldering Iron Kit",
-      "desc": "A soldering iron the size of a pen. A hundred and twenty dollars.",
+      "desc": "A soldering iron the size of a pen.",
       "value": 119.95,
       "apparent": "low",
       "url": "https://www.sparkfun.com/kits",
@@ -1036,7 +1036,7 @@
     {
       "emoji": "🖨️",
       "name": "Original Prusa MINI+ 3D Printer",
-      "desc": "A real 3D printer, semi-assembled. Five hundred dollars.",
+      "desc": "A real 3D printer, semi-assembled.",
       "value": 508.33,
       "apparent": "high",
       "url": "https://www.prusa3d.com/category/3d-printers/",
@@ -1060,7 +1060,7 @@
     {
       "emoji": "📦",
       "name": "Prusa CORE One+ 3D Printer",
-      "desc": "Enclosed, assembled, twelve hundred dollars.",
+      "desc": "Enclosed and assembled.",
       "value": 1202.78,
       "apparent": "fair",
       "url": "https://www.prusa3d.com/category/3d-printers/",
@@ -1071,7 +1071,7 @@
     {
       "emoji": "🗿",
       "name": "Original Prusa XL 3D Printer",
-      "desc": "The big one. Two thousand one hundred and twenty-nine dollars.",
+      "desc": "The big one.",
       "value": 2128.7,
       "apparent": "fair",
       "url": "https://www.prusa3d.com/category/3d-printers/",
@@ -1082,7 +1082,7 @@
     {
       "emoji": "💧",
       "name": "Resin 3D Printer + Wash & Cure Bundle",
-      "desc": "Prints in liquid resin. Smells industrial. Twenty-six hundred dollars.",
+      "desc": "Prints in liquid resin. Smells industrial.",
       "value": 2599,
       "apparent": "fair",
       "url": "https://www.prusa3d.com/category/3d-printers/",
@@ -1105,7 +1105,7 @@
     {
       "emoji": "🔆",
       "name": "100W Solar Panel",
-      "desc": "The size that goes on a campervan roof. A hundred and fifteen dollars.",
+      "desc": "The size that goes on a campervan roof.",
       "value": 115,
       "apparent": "high",
       "url": "https://www.mrsolar.com/solar-panels/",
@@ -1139,7 +1139,7 @@
     {
       "emoji": "🔌",
       "name": "300W Pure Sine Wave Inverter",
-      "desc": "Turns battery DC into mains AC. A hundred and seventy dollars.",
+      "desc": "Turns battery DC into mains AC.",
       "value": 171.99,
       "apparent": "fair",
       "url": "https://www.mrsolar.com/inverters/",
@@ -1161,7 +1161,7 @@
     {
       "emoji": "🏭",
       "name": "4000W Off-Grid Inverter/Charger",
-      "desc": "The one that runs a whole off-grid house. Two thousand two hundred dollars.",
+      "desc": "The one that runs a whole off-grid house.",
       "value": 2199.2,
       "apparent": "fair",
       "url": "https://www.mrsolar.com/inverters/",
@@ -1172,7 +1172,7 @@
     {
       "emoji": "🔋",
       "name": "12V 35Ah AGM Battery",
-      "desc": "A sealed lead-acid brick. Eighty-two dollars.",
+      "desc": "A sealed lead-acid brick.",
       "value": 82,
       "apparent": "fair",
       "url": "https://www.mrsolar.com/batteries/",
@@ -1183,7 +1183,7 @@
     {
       "emoji": "🔋",
       "name": "12V 110Ah Deep-Cycle Battery",
-      "desc": "The big leisure battery. Two hundred and thirty-nine dollars.",
+      "desc": "The big leisure battery.",
       "value": 239,
       "apparent": "fair",
       "url": "https://www.mrsolar.com/batteries/",
