@@ -59,6 +59,27 @@
       ],
       "allInSource": "https://biohousetech.com/2026/03/12/expandable-container-house-cost-the-real-2026-pricing-guide/",
       "overBand": true
+    },
+    {
+      "emoji": "📦",
+      "name": "Used 20ft Shipping Container, Delivered",
+      "desc": "Forty tons of steel box, dropped on your drive by a lorry with a crane on it.",
+      "value": 2800,
+      "source": "several US container dealers, 2026 price guides (typical out-the-door figure)",
+      "url": "https://containercompass.com/shipping-container-cost/",
+      "capturedOn": "2026-07-27",
+      "confidence": "high",
+      "confidenceNote": "Consistent across independent dealers: $1,800–$3,800 delivered depending on grade and distance from a depot. $2,800 sits mid-range. A good lot because everyone thinks they know this one and almost nobody does — and the delivery is a third of it.",
+      "corroboration": [
+        "https://onsitestorage.com/20ft-shipping-containers-for-sale-usa-cost-2026/",
+        "https://www.mannscans.com/post/20ft-shipping-container-delivered"
+      ]
+    }
+  ],
+  "researchLog": [
+    {
+      "on": "2026-07-27",
+      "learned": "Item-specific searches work; category searches do not. 'Surprisingly expensive everyday objects' returned inflation journalism with no purchasable items. Every good lot so far came from naming the THING and asking its price. Budget roughly one search per item and corroborate across dealers where a single retail listing does not exist."
     }
   ]
 }
