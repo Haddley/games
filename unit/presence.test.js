@@ -319,3 +319,32 @@ test('AUDIT: no game keeps its own copy of "who is here"', () => {
     assert.deepStrictEqual(offenders, [],
         'these games hand-roll "who is here" instead of using common.js presentPlayers');
 });
+
+test('every page cache-busts the shared scripts', () => {
+    // The rules that decide rejoining live in common.js, and GitHub Pages caches it. A phone
+    // holding yesterday's copy runs yesterday's rules while the game's inline code is new —
+    // which looks exactly like "the fix didn't work". Duplicate lobby rows kept being reported
+    // after each fix was live, and a stale common.js is the most likely reason.
+    //
+    // Bump the token whenever a shared script changes:
+    //   V=$(date +%Y%m%d)-$(git rev-parse --short HEAD)
+    //   … rewrite src="common.js?v=$V" in every page (see the commit that added this)
+    const root = path.join(__dirname, '..');
+    const shared = ['common.js', 'p2p.js', 'fx.js', 'audio.js', 'ambient.js', 'dice.js'];
+    const bad = [];
+    fs.readdirSync(root).filter(f => f.endsWith('.html')).forEach(file => {
+        const src = fs.readFileSync(path.join(root, file), 'utf8');
+        shared.forEach(js => {
+            const plain = new RegExp('src="' + js.replace('.', '\\.') + '"');
+            if (plain.test(src)) bad.push(`${file} loads ${js} with no ?v= token`);
+        });
+    });
+    assert.deepStrictEqual(bad, [], '\n  ' + bad.join('\n  '));
+    // and every page that loads common.js uses the SAME token, or they disagree about the rules
+    const tokens = new Set();
+    fs.readdirSync(root).filter(f => f.endsWith('.html')).forEach(file => {
+        const m = /src="common\.js\?v=([^"]+)"/.exec(fs.readFileSync(path.join(root, file), 'utf8'));
+        if (m) tokens.add(m[1]);
+    });
+    assert.strictEqual(tokens.size, 1, `pages disagree on the common.js version: ${[...tokens]}`);
+});
