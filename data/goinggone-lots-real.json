@@ -1,0 +1,55 @@
+{
+  "note": "SEED, NOT A FINISHED LIST. Real purchasable items with verified prices for Going, Going, GONE! Every entry has a source URL and the date its price was read. Nothing here is invented — if a price could not be verified, the item is not in this file. See goinggoneplan-realitems.md for the brief.",
+  "startedOn": "2026-07-27",
+  "sourcingNote": "Amazon was the original intent and is not usable: WebFetch on an Amazon product page returns HTTP 500 (Amazon blocks automated fetches) and site-restricted search returns category pages with no prices. The constraint was dropped in favour of any verifiable retailer. Re-test Amazon before assuming it is still blocked.",
+  "targetCount": 30,
+  "band": { "min": 1, "max": 10000, "spread": "even across the range" },
+  "lots": [
+    {
+      "emoji": "🛶",
+      "name": "Three-Piece Canoe",
+      "desc": "A canoe that comes apart into three bits and bolts back together in the car park.",
+      "value": 159,
+      "source": "Cixi Luosaifei (via Accio marketplace listing)",
+      "url": "https://www.accio.com/plp/sectional-boat",
+      "capturedOn": "2026-07-27",
+      "confidence": "medium",
+      "confidenceNote": "wholesale/marketplace aggregator price, not a consumer retail listing — re-check against a retail seller before shipping"
+    },
+    {
+      "emoji": "🚣",
+      "name": "Pedal Kayak",
+      "desc": "You pedal it. Like a boat-shaped exercise bike that can drown you.",
+      "value": 108,
+      "source": "Ningbo Yinzhou (via Accio marketplace listing)",
+      "url": "https://www.accio.com/plp/sectional-boat",
+      "capturedOn": "2026-07-27",
+      "confidence": "medium",
+      "confidenceNote": "as above — aggregator price"
+    },
+    {
+      "emoji": "🎣",
+      "name": "Stackable 4.6m Fishing Boat",
+      "desc": "A real boat, four and a half metres of it, that stacks like patio chairs.",
+      "value": 1700,
+      "source": "Shenzhen Carride (via Accio marketplace listing)",
+      "url": "https://www.accio.com/plp/sectional-boats",
+      "capturedOn": "2026-07-27",
+      "confidence": "medium",
+      "confidenceNote": "as above — aggregator price"
+    },
+    {
+      "emoji": "🏠",
+      "name": "Expandable Container House (16.5ft × 20ft)",
+      "desc": "Arrives folded in a shipping container. Unfolds into a house in about an hour.",
+      "value": 19799,
+      "source": "storageandcanopy.com retail listing",
+      "url": "https://storageandcanopy.com/product/prefab-house-expandable-16-5ft-x-20ft-2/",
+      "capturedOn": "2026-07-27",
+      "confidence": "high",
+      "confidenceNote": "OVER THE $10,000 CEILING. Kept because it is the strongest 'impossible to guess' item found so far — decide whether the ceiling moves or this is cut. Note also that the all-in landed cost (freight, tariffs, crane, foundation) is $55,000–$75,000, which is itself a better question than the sticker price.",
+      "allInCostUsd": [55000, 75000],
+      "allInSource": "https://biohousetech.com/2026/03/12/expandable-container-house-cost-the-real-2026-pricing-guide/"
+    }
+  ]
+}
