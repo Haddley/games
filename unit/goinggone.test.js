@@ -78,8 +78,12 @@ const NUM_WORD = '(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twe
     'seventy|eighty|ninety|hundred|thousand|million)';
 const PRICE_LEAKS = [
     /\$\s*\d/,                                      // "$799"
-    /\b(?:dollars?|bucks|quid)\b/i,                 // "…dollars." spelled out or not
+    /\b(?:dollars?|cents?|bucks|quid)\b/i,          // "…dollars." / "Fifty cents." spelled out or not
     new RegExp('\\b(?:' + NUM_WORD + '|\\d+)[\\s-]*grand\\b', 'i'),  // "four grand", "10 grand"
+    // Comparative hints are banned too — "costs more than a car", "the most expensive harp
+    // there is", "twice the price". Fuzzier than a number, but still the auctioneer whispering
+    // the answer. Any price-adjacent word fails; reword the joke around it.
+    /\b(?:price[sdy]?|priciest|cost(?:s|ing|ly)?|cheap(?:er|est)?|expensive|afford(?:able)?|bargain|fortune|worth)\b/i,
 ];
 test('no lot name or description states its own price', () => {
     const leaks = [];

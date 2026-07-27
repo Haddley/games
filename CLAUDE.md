@@ -196,8 +196,9 @@ invented**: if a price could not be verified from a live source, the item is not
 - **A lot's name/desc must never state or hint at its price** — the game IS guessing the price.
   The first catalogue harvest wrote the price into the flavour text ("A lump of iron with a
   handle. Thirty-eight dollars.") and 59 lots leaked their own answer onto the bidding screen.
-  `unit/goinggone.test.js` now fails on `$`-amounts, "dollars"/"bucks"/"quid", or "*n* grand"
-  in either field of the source JSON.
+  `unit/goinggone.test.js` now fails on `$`-amounts, "dollars"/"cents"/"bucks"/"quid",
+  "*n* grand", or any comparative hint ("costs more than a car", "cheapest", "expensive",
+  "worth") in either field of the source JSON.
 - **Mystery lots show the photo and withhold the name**, chosen from lots that have an image. The
   withholding happens in `lotView` and `stateFor` on the **host** — including on the owner's own
   shelf — because phones render whatever arrives.

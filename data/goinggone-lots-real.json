@@ -1,5 +1,5 @@
 {
-  "note": "LIVE DATA — this file and goinggone-lots-catalogue.json are the source for the lots in goinggone.html. Real purchasable items with verified prices; every entry has a source URL and the date its price was read. Nothing here is invented — if a price could not be verified, the item is not in this file. AFTER EDITING, run `node scripts/build-goinggone-lots.js` to re-embed, or unit/goinggone.test.js will fail. This half is hand-researched, one search per item, with fuller confidence notes. RULE: a lot's name and desc must NEVER state or hint at the price — the whole game is guessing it. No dollar amounts, no spelled-out prices, no 'four grand'; unit/goinggone.test.js fails on any of them.",
+  "note": "LIVE DATA — this file and goinggone-lots-catalogue.json are the source for the lots in goinggone.html. Real purchasable items with verified prices; every entry has a source URL and the date its price was read. Nothing here is invented — if a price could not be verified, the item is not in this file. AFTER EDITING, run `node scripts/build-goinggone-lots.js` to re-embed, or unit/goinggone.test.js will fail. This half is hand-researched, one search per item, with fuller confidence notes. RULE: a lot's name and desc must NEVER state or hint at the price — the whole game is guessing it. No dollar amounts, no spelled-out prices, no 'four grand', and no comparisons either ('costs more than a car', 'the cheapest lot here'); unit/goinggone.test.js fails on any of them.",
   "startedOn": "2026-07-27",
   "sourcingNote": "Amazon was the original intent and is not usable: WebFetch on an Amazon product page returns HTTP 500 (Amazon blocks automated fetches) and site-restricted search returns category pages with no prices. The constraint was dropped in favour of any verifiable retailer. Re-test Amazon before assuming it is still blocked.",
   "band": {
@@ -92,7 +92,7 @@
     {
       "emoji": "🚧",
       "name": "Orange Traffic Cone (28in, reflective)",
-      "desc": "One cone. The full-size road kind, not the toy. Costs less than a pizza.",
+      "desc": "One cone. The full-size road kind, not the toy.",
       "value": 14.5,
       "apparent": "high",
       "source": "Traffic Safety Store retail listing",
@@ -173,7 +173,7 @@
     {
       "emoji": "🚒",
       "name": "Fire Hydrant",
-      "desc": "The hydrant only. Getting it into the ground costs more than the hydrant does.",
+      "desc": "The hydrant only. Getting it into the ground is not included.",
       "value": 3200,
       "apparent": "low",
       "source": "ZenTrades 2025 fire hydrant price guide",
@@ -228,7 +228,7 @@
     {
       "emoji": "🐄",
       "name": "One Dairy Cow",
-      "desc": "A replacement milking cow, average US price. Record highs this year.",
+      "desc": "A replacement milking cow, US average. She is having a record year.",
       "value": 3130,
       "apparent": "low",
       "source": "USDA-tracked replacement dairy cow average, April 2026",
@@ -257,7 +257,7 @@
     {
       "emoji": "🎼",
       "name": "A Concert Pedal Harp",
-      "desc": "Forty-seven strings and seven pedals. The most expensive harp there is.",
+      "desc": "Forty-seven strings and seven pedals. The one orchestras use.",
       "value": 18000,
       "apparent": "fair",
       "source": "harp dealer price guides (Lyon & Healy / Salvi market)",
@@ -273,7 +273,7 @@
     {
       "emoji": "⚰️",
       "name": "A Metal Casket",
-      "desc": "The single most expensive thing most families buy for a funeral.",
+      "desc": "Steel, with handles. The centrepiece of every funeral.",
       "value": 2500,
       "apparent": "fair",
       "source": "2026 casket price guides",
@@ -335,7 +335,7 @@
     {
       "emoji": "🖥️",
       "name": "Mac Studio (M3 Ultra)",
-      "desc": "A small aluminium box that costs more than a secondhand car.",
+      "desc": "A small aluminium box with a frightening amount of computer inside.",
       "value": 5299,
       "apparent": "fair",
       "source": "Apple US pricing, 2026",
@@ -389,7 +389,7 @@
     {
       "emoji": "📱",
       "name": "Flagship Phone (iPhone 17 Pro Max, 2TB)",
-      "desc": "The most expensive phone Apple sells, at the largest storage.",
+      "desc": "The biggest phone Apple sells, at the largest storage.",
       "value": 1699,
       "apparent": "fair",
       "source": "Apple US pricing, July 2026",

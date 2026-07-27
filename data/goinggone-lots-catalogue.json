@@ -1,5 +1,5 @@
 {
-  "note": "LIVE DATA — bulk companion to goinggone-lots-real.json; together they are the source for the lots in goinggone.html. Same rule: nothing invented. Every price was read off a live retailer's category page on the date given. Harvested in bulk (one fetch yields 12-15 priced products) rather than one item at a time, so the notes are thinner — but the prices are read from the page rather than summarised from a guide, which makes most of them BETTER evidenced than the hand-researched half. AFTER EDITING, run `node scripts/build-goinggone-lots.js` to re-embed. RULE: a lot's name and desc must NEVER state or hint at the price — the whole game is guessing it. No dollar amounts, no spelled-out prices, no 'four grand'; unit/goinggone.test.js fails on any of them.",
+  "note": "LIVE DATA — bulk companion to goinggone-lots-real.json; together they are the source for the lots in goinggone.html. Same rule: nothing invented. Every price was read off a live retailer's category page on the date given. Harvested in bulk (one fetch yields 12-15 priced products) rather than one item at a time, so the notes are thinner — but the prices are read from the page rather than summarised from a guide, which makes most of them BETTER evidenced than the hand-researched half. AFTER EDITING, run `node scripts/build-goinggone-lots.js` to re-embed. RULE: a lot's name and desc must NEVER state or hint at the price — the whole game is guessing it. No dollar amounts, no spelled-out prices, no 'four grand', and no comparisons either ('costs more than a car', 'the cheapest lot here'); unit/goinggone.test.js fails on any of them.",
   "startedOn": "2026-07-27",
   "method": "Fetch a retailer category or search page, ask for the products spanning the widest price range, keep the ones whose price a person could not guess from the shape of the object. Discard size variants of the same item — twelve pizza ovens differing only in deck count are one lot, not twelve.",
   "apparentField": {
@@ -58,7 +58,7 @@
     {
       "emoji": "🛑",
       "name": "Official STOP Sign (R1-1, 30in aluminium)",
-      "desc": "The real thing, federal spec, reflective. Cheaper than a pair of trainers.",
+      "desc": "The real thing, federal spec, reflective.",
       "value": 57.95,
       "apparent": "high",
       "url": "https://www.trafficsafetystore.com/traffic-signs/stop-signs",
@@ -69,7 +69,7 @@
     {
       "emoji": "📏",
       "name": "12ft Steel Sign Post, Highway Green",
-      "desc": "The pole the sign goes on. Costs about the same as the sign.",
+      "desc": "The pole the sign goes on. Sign not included.",
       "value": 61.15,
       "apparent": "fair",
       "url": "https://www.trafficsafetystore.com/traffic-signs/stop-signs",
@@ -167,7 +167,7 @@
     {
       "emoji": "🥩",
       "name": "Hobart HS9-1 Automatic Slicer",
-      "desc": "A meat slicer that costs more than a car.",
+      "desc": "The slicer behind every serious deli counter.",
       "value": 13063.4,
       "apparent": "low",
       "url": "https://www.webstaurantstore.com/search/meat-slicer.html",
@@ -213,7 +213,7 @@
     {
       "emoji": "🍨",
       "name": "Coldelite Compacta Vario 12 Batch Freezer",
-      "desc": "Makes proper gelato. Costs more than most people's cars.",
+      "desc": "Makes proper gelato, batch after batch.",
       "value": 70886,
       "apparent": "low",
       "url": "https://www.webstaurantstore.com/search/soft-serve-machine.html",
@@ -421,7 +421,7 @@
     {
       "emoji": "🌊",
       "name": "Ventless High-Temperature Dishwasher",
-      "desc": "No hood needed, which is the expensive part. Hobart.",
+      "desc": "No extraction hood needed. Hobart.",
       "value": 23446.5,
       "apparent": "fair",
       "url": "https://www.webstaurantstore.com/search/commercial-dishwasher.html",
@@ -479,7 +479,7 @@
     {
       "emoji": "🔐",
       "name": "Compact Security Safe",
-      "desc": "An actual safe, with a keypad. Costs less than a pair of jeans.",
+      "desc": "An actual safe, with a keypad.",
       "value": 79.99,
       "apparent": "high",
       "url": "https://www.webstaurantstore.com/search/safe.html",
@@ -859,7 +859,7 @@
     {
       "emoji": "📌",
       "name": "Feather Male Header Set (12-pin + 16-pin)",
-      "desc": "Two strips of pins. Fifty cents. The cheapest lot in the auction.",
+      "desc": "Two strips of pins. That is it. That is the lot.",
       "value": 0.5,
       "apparent": "fair",
       "url": "https://www.adafruit.com/category/17",
@@ -1048,7 +1048,7 @@
     {
       "emoji": "🧱",
       "name": "Original Prusa MK4S Kit (self-build)",
-      "desc": "The same printer, in pieces. You assemble it. Cheaper that way.",
+      "desc": "The same printer, in pieces. You assemble it.",
       "value": 657.4,
       "apparent": "fair",
       "url": "https://www.prusa3d.com/category/3d-printers/",
@@ -1116,7 +1116,7 @@
     {
       "emoji": "🌞",
       "name": "50W Solar Panel (industrial brand)",
-      "desc": "Half the power of the one above, and more than twice the price.",
+      "desc": "The industrial brand, in the shed-roof size.",
       "value": 252,
       "apparent": "low",
       "url": "https://www.mrsolar.com/solar-panels/",
@@ -1150,7 +1150,7 @@
     {
       "emoji": "⚡",
       "name": "3000W Inverter",
-      "desc": "Ten times the power of the one above, for three times the price.",
+      "desc": "Enough to run power tools off a battery bank.",
       "value": 527.99,
       "apparent": "high",
       "url": "https://www.mrsolar.com/inverters/",

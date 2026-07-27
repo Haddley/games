@@ -200,27 +200,40 @@
         /* valuation */
         .tv-val { flex: 1; display: flex; flex-direction: column; gap: 1.6vmin; min-height: 0; }
         .val-card {
-            background: var(--panel); border: 1px solid var(--border); border-radius: 2vmin;
-            padding: 2.2vmin 3vmin; display: flex; align-items: center; gap: 2.2vmin; animation: valIn .5s ease both;
+            background: var(--panel); border: 1px solid var(--border); border-radius: 2.2vmin;
+            padding: 3vmin 3.6vmin; display: flex; align-items: center; gap: 2.6vmin;
+            animation: valIn .7s cubic-bezier(.2, .9, .3, 1.15) both;
         }
-        @keyframes valIn { from { opacity: 0; transform: translateY(2vmin); } to { opacity: 1; transform: none; } }
-        .val-card .vemoji { font-size: 5.4vmin; }
+        @keyframes valIn { from { opacity: 0; transform: translateY(4vmin) scale(.96); } to { opacity: 1; transform: none; } }
+        .val-card .vemoji { font-size: 7.5vmin; }
         .val-card .lphoto { border-radius: 1.1vmin; background: rgba(255,255,255,.07); padding: .5vmin; object-fit: contain; }
-        .val-card .vname { font-weight: 900; font-size: 3.1vmin; font-family: 'Playfair Display', serif; }
-        .val-card .vpaid { color: var(--muted); font-weight: 800; font-size: 2.2vmin; }
-        .val-card .vsrc { color: var(--muted); font-weight: 800; font-size: 1.35vmin; letter-spacing: .25vmin; text-transform: uppercase; opacity: .6; margin-top: .3vmin; }
-        .val-card .vworth { margin-left: auto; text-align: right; font-weight: 900; font-size: 3.3vmin; font-variant-numeric: tabular-nums; }
-        .val-card .vworth .profit { font-size: 2.5vmin; display: block; }
+        .val-card .vname { font-weight: 900; font-size: 4.2vmin; font-family: 'Playfair Display', serif; }
+        .val-card .vpaid { color: var(--muted); font-weight: 800; font-size: 2.9vmin; }
+        .val-card .vsrc { color: var(--muted); font-weight: 800; font-size: 1.6vmin; letter-spacing: .25vmin; text-transform: uppercase; opacity: .6; margin-top: .3vmin; }
+        .val-card .vworth { margin-left: auto; text-align: right; font-weight: 900; font-size: 4.6vmin; font-variant-numeric: tabular-nums; }
+        .val-card .vworth .profit { font-size: 3.4vmin; display: block; }
+        /* The live card reveals in three beats: the lot slides in, the true value lands, then the
+           profit STAMPS. The stamp delay must match STAMP_MS in the script — the stinger, pop and
+           burst are all timed to hit on it. Older cards re-render with animation:none, so only
+           the newest reveal ever plays the sequence. */
+        .val-card.live .vworth { animation: worthIn .5s ease 1.1s both; }
+        .val-card.live .vworth .profit { animation: stampIn .45s cubic-bezier(.2, 1.6, .35, 1) 2s both; }
+        @keyframes worthIn { from { opacity: 0; transform: translateX(3vmin); } to { opacity: 1; transform: none; } }
+        @keyframes stampIn { from { opacity: 0; transform: scale(2.6) rotate(-8deg); } to { opacity: 1; transform: none; } }
         /* the drama scales with the money: a $4,000 mistake should not look like a $12 one */
-        .val-card.mag-big .vworth .profit { font-size: 3.6vmin; }
-        .val-card.mag-huge .vworth .profit { font-size: 5vmin; }
+        .val-card.mag-big .vworth .profit { font-size: 5vmin; }
+        .val-card.mag-huge .vworth .profit { font-size: 7vmin; }
         .val-card.mag-big { border-color: rgba(232,183,90,.5); }
         .val-card.mag-huge { border-color: var(--gold); box-shadow: 0 0 5vmin rgba(232,183,90,.3); }
+        .val-card.live.mag-huge { animation: valIn .7s cubic-bezier(.2, .9, .3, 1.15) both, hugeGlow 1.1s ease 2s 2; }
+        @keyframes hugeGlow { 50% { box-shadow: 0 0 9vmin rgba(232,183,90,.6); transform: scale(1.02); } }
         .val-card.mag-huge .vworth .profit.plus { text-shadow: 0 0 2.5vmin rgba(74,222,128,.65); }
         .val-card.mag-huge .vworth .profit.minus { text-shadow: 0 0 2.5vmin rgba(248,113,113,.65); }
         .val-card .vworth .profit.plus { color: var(--up); }
         .val-card .vworth .profit.minus { color: var(--down); }
-        .val-list { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 1.2vmin; justify-content: flex-end; }
+        /* centred, not bottom-anchored: one or two big cards mid-screen read as a stage moment,
+           not a ticker huddled at the foot of an empty TV */
+        .val-list { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 1.6vmin; justify-content: center; }
 
         /* TV lobby */
         .tv-lobby { flex: 1; display: flex; gap: 4vmin; align-items: center; min-height: 0; }
@@ -386,7 +399,10 @@ const RAISE_LADDER = [
     { under: Infinity, raises: [500, 2500, 5000] },
 ];
 const raisesFor = price => RAISE_LADDER.find(r => price < r.under).raises;
-const GAVEL_MS = 5000, INTRO_MS = 3500, SOLD_MS = 3200, PASSED_MS = 2500, REVEAL_MS = 2600;
+// REVEAL_MS paces the valuation: each card plays a staged reveal (card → true value → profit
+// stamp at STAMP_MS) and needs air after the stamp for the number to sink in from a sofa.
+const GAVEL_MS = 5000, INTRO_MS = 3500, SOLD_MS = 3200, PASSED_MS = 2500, REVEAL_MS = 4600;
+const STAMP_MS = 2000;   // when the profit stamps in — must match the .val-card.live .profit CSS delay
 const PLAYER_COLORS = ['#e8b75a', '#22d3ee', '#f472b6', '#4ade80', '#b478e0', '#fb923c', '#f87171', '#38bdf8', '#a3e635', '#fcd34d'];
 
 // Real, purchasable items with verified prices — GENERATED, do not edit by hand.
@@ -399,28 +415,28 @@ const LOTS = [
     { emoji: '🏠', name: 'Expandable Container House (16.5ft × 20ft)', desc: 'Arrives folded in a shipping container. Unfolds into a house in about an hour.', value: 19799, src: 'Storage & Canopy', on: '2026-07-27' },
     { emoji: '📦', name: 'Used 20ft Shipping Container, Delivered', desc: 'Forty tons of steel box, dropped on your drive by a lorry with a crane on it.', value: 2800, src: 'Container Compass', on: '2026-07-27' },
     { emoji: '🥤', name: 'Combo Vending Machine (Snacks + Cold Drinks)', desc: 'One cabinet, two temperatures, takes cards. The kind that eats your coins and gives nothing back.', value: 4200, src: 'VendSoft', on: '2026-07-27' },
-    { emoji: '🚧', name: 'Orange Traffic Cone (28in, reflective)', desc: 'One cone. The full-size road kind, not the toy. Costs less than a pizza.', value: 15, img: 'https://media.trafficsafetystore.com/image/upload/c_limit,dpr_3.0,f_auto,q_auto:best,w_600/i/economy-traffic-cones-28in-orange-two-collars-jbc-safety-cone-construction-cone.webp', src: 'Traffic Safety Store', on: '2026-07-27' },
+    { emoji: '🚧', name: 'Orange Traffic Cone (28in, reflective)', desc: 'One cone. The full-size road kind, not the toy.', value: 15, img: 'https://media.trafficsafetystore.com/image/upload/c_limit,dpr_3.0,f_auto,q_auto:best,w_600/i/economy-traffic-cones-28in-orange-two-collars-jbc-safety-cone-construction-cone.webp', src: 'Traffic Safety Store', on: '2026-07-27' },
     { emoji: '🎳', name: 'One Regulation Bowling Pin', desc: 'A single pin off a real lane. Sold by the case of ten, so this is a tenth of one.', value: 21, src: 'BowlersMart', on: '2026-07-27' },
     { emoji: '🛒', name: 'Supermarket Shopping Trolley', desc: 'The big metal one with the wonky wheel. Everyone has pushed one; nobody has bought one.', value: 150, src: 'Trolley Mfg', on: '2026-07-27' },
     { emoji: '🎪', name: 'Mechanical Bull (Standard Package)', desc: 'Bull, inflatable mattress, blower, three-year warranty. Shipping is another grand.', value: 7000, src: 'USA Mechanical Bulls', on: '2026-07-27' },
     { emoji: '🕹️', name: 'Crane Claw Machine (commercial)', desc: 'The one that never quite grips. Coin-op, tempered glass, card reader.', value: 3500, src: 'Fun Space', on: '2026-07-27' },
     { emoji: '🧖', name: 'Two-Person Cedar Barrel Sauna', desc: 'A barrel you sit inside until you feel virtuous. Foundation and wiring not included.', value: 4490, src: 'Topture', on: '2026-07-27' },
-    { emoji: '🚒', name: 'Fire Hydrant', desc: 'The hydrant only. Getting it into the ground costs more than the hydrant does.', value: 3200, src: 'ZenTrades', on: '2026-07-27' },
+    { emoji: '🚒', name: 'Fire Hydrant', desc: 'The hydrant only. Getting it into the ground is not included.', value: 3200, src: 'ZenTrades', on: '2026-07-27' },
     { emoji: '🍦', name: 'Used Ice Cream Truck (1997 GMC 3500)', desc: 'Chimes included. Soft serve machine of uncertain temperament.', value: 9000, src: 'UsedVending', on: '2026-07-27' },
     { emoji: '🦙', name: 'An Alpaca', desc: 'One alpaca. Pet quality, not show genetics. Comes with an opinion about you.', value: 500, src: 'AlpacaKeep', on: '2026-07-27' },
     { emoji: '🎰', name: 'New Pinball Machine (Pokémon Premium)', desc: 'A brand-new licensed table. Tax and freight are another thousand.', value: 9499, src: 'Coin Games Machine', on: '2026-07-27' },
-    { emoji: '🐄', name: 'One Dairy Cow', desc: 'A replacement milking cow, average US price. Record highs this year.', value: 3130, src: 'Ag Proud', on: '2026-07-27' },
+    { emoji: '🐄', name: 'One Dairy Cow', desc: 'A replacement milking cow, US average. She is having a record year.', value: 3130, src: 'Ag Proud', on: '2026-07-27' },
     { emoji: '🚑', name: 'A Used Ambulance', desc: 'Decommissioned, lights included. People buy these as campers.', value: 29500, src: 'Commercial Truck Trader', on: '2026-07-27' },
-    { emoji: '🎼', name: 'A Concert Pedal Harp', desc: 'Forty-seven strings and seven pedals. The most expensive harp there is.', value: 18000, src: 'Harp Connection', on: '2026-07-27' },
-    { emoji: '⚰️', name: 'A Metal Casket', desc: 'The single most expensive thing most families buy for a funeral.', value: 2500, src: 'Parting Stone', on: '2026-07-27' },
+    { emoji: '🎼', name: 'A Concert Pedal Harp', desc: 'Forty-seven strings and seven pedals. The one orchestras use.', value: 18000, src: 'Harp Connection', on: '2026-07-27' },
+    { emoji: '⚰️', name: 'A Metal Casket', desc: 'Steel, with handles. The centrepiece of every funeral.', value: 2500, src: 'Parting Stone', on: '2026-07-27' },
     { emoji: '🏡', name: 'Home Battery System, 10kWh Installed', desc: 'The wall-mounted battery that runs the house when the power cuts.', value: 9500, src: 'NuWatt Energy', on: '2026-07-27' },
     { emoji: '🪵', name: '6ft Privacy Fence Panel, Installed', desc: 'One panel of the fence, put in for you. The labour is most of it.', value: 225, src: 'Homewyse', on: '2026-07-27' },
     { emoji: '🧠', name: 'NVIDIA DGX Spark (128GB unified memory)', desc: 'An AI supercomputer smaller than a hardback book. One petaflop.', value: 4699, src: 'NVIDIA', on: '2026-07-27' },
-    { emoji: '🖥️', name: 'Mac Studio (M3 Ultra)', desc: 'A small aluminium box that costs more than a secondhand car.', value: 5299, src: 'Apple', on: '2026-07-27' },
+    { emoji: '🖥️', name: 'Mac Studio (M3 Ultra)', desc: 'A small aluminium box with a frightening amount of computer inside.', value: 5299, src: 'Apple', on: '2026-07-27' },
     { emoji: '📦', name: 'Mac mini (M4, 16GB)', desc: 'The small square one.', value: 799, src: 'MacRumors', on: '2026-07-27' },
     { emoji: '⚙️', name: 'Framework Desktop (128GB, Ryzen AI Max+ 395)', desc: 'A repairable mini PC with 128GB shared between processor and graphics.', value: 1999, src: 'ModelFit', on: '2026-07-27' },
     { emoji: '🔲', name: 'GMKtec EVO-X2 Mini PC (128GB / 2TB)', desc: 'A mini PC that runs big AI models locally.', value: 2199, src: 'VideoCardz', on: '2026-07-27' },
-    { emoji: '📱', name: 'Flagship Phone (iPhone 17 Pro Max, 2TB)', desc: 'The most expensive phone Apple sells, at the largest storage.', value: 1699, src: 'Apple', on: '2026-07-27' },
+    { emoji: '📱', name: 'Flagship Phone (iPhone 17 Pro Max, 2TB)', desc: 'The biggest phone Apple sells, at the largest storage.', value: 1699, src: 'Apple', on: '2026-07-27' },
     { emoji: '☎️', name: 'Budget Android Phone (TCL Ion V)', desc: 'A brand new unlocked smartphone.', value: 99, src: 'Android Central', on: '2026-07-27' },
     { emoji: '🌷', name: 'One Hundred Tulip Bulbs', desc: 'A hundred bulbs. Enough to make a front garden look deliberate.', value: 103, src: 'Dutch Bulbs', on: '2026-07-27' },
     { emoji: '🌱', name: 'One Tulip Bulb', desc: 'A single bulb. In 1637 this would have bought a house.', value: 1, src: 'Dutch Bulbs', on: '2026-07-27' },
@@ -429,8 +445,8 @@ const LOTS = [
     { emoji: '🕳️', name: 'Benchtop Drill Press (10in, laser)', desc: 'Drills a straight hole, which is harder than it sounds.', value: 179, src: 'World of Woodcraft', on: '2026-07-27' },
     { emoji: '🪚', name: 'Horizontal Metal-Cutting Bandsaw', desc: 'Cuts through solid steel bar while you have a cup of tea.', value: 658, src: 'Trick-Tools', on: '2026-07-27' },
     { emoji: '🔩', name: 'Corner Bolt & Nut for a Square Sign Post', desc: 'One bolt. One nut. This is the whole lot.', value: 2, src: 'Traffic Safety Store', on: '2026-07-27' },
-    { emoji: '🛑', name: 'Official STOP Sign (R1-1, 30in aluminium)', desc: 'The real thing, federal spec, reflective. Cheaper than a pair of trainers.', value: 58, img: 'https://media.trafficsafetystore.com/image/upload/c_limit,dpr_3.0,f_auto,q_auto:best,w_600/i/stop-signs-r1-1-30in-by-solid-080-gauge-aluminum-roll-up-sign.webp', src: 'Traffic Safety Store', on: '2026-07-27' },
-    { emoji: '📏', name: '12ft Steel Sign Post, Highway Green', desc: 'The pole the sign goes on. Costs about the same as the sign.', value: 61, src: 'Traffic Safety Store', on: '2026-07-27' },
+    { emoji: '🛑', name: 'Official STOP Sign (R1-1, 30in aluminium)', desc: 'The real thing, federal spec, reflective.', value: 58, img: 'https://media.trafficsafetystore.com/image/upload/c_limit,dpr_3.0,f_auto,q_auto:best,w_600/i/stop-signs-r1-1-30in-by-solid-080-gauge-aluminum-roll-up-sign.webp', src: 'Traffic Safety Store', on: '2026-07-27' },
+    { emoji: '📏', name: '12ft Steel Sign Post, Highway Green', desc: 'The pole the sign goes on. Sign not included.', value: 61, src: 'Traffic Safety Store', on: '2026-07-27' },
     { emoji: '🔺', name: 'Square Sign Post Anchor (36in, 12 gauge)', desc: 'The bit underground that nobody ever sees.', value: 51, src: 'Traffic Safety Store', on: '2026-07-27' },
     { emoji: '🔴', name: 'High-Intensity Red Reflector on Aluminium', desc: 'A small red circle that glows in headlights.', value: 32, src: 'Traffic Safety Store', on: '2026-07-27' },
     { emoji: '🍬', name: 'Half-Gallon of Cherry Candy Floss Sugar', desc: 'A carton of pink sugar. Makes an alarming quantity of candy floss.', value: 9, img: 'https://www.webstaurantstore.com/images/products/medium/80713/2977668.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
@@ -439,11 +455,11 @@ const LOTS = [
     { emoji: '🌭', name: 'Hot Dog Roller, 12 Dogs', desc: 'Rollers that turn sadly under a heat lamp. The small one.', value: 105, img: 'https://www.webstaurantstore.com/images/products/medium/624414/2491958.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '🌭', name: 'Star Grill-Max 50-Dog Roller', desc: 'Fifty hot dogs at once, chrome rollers, stadium spec.', value: 4085, img: 'https://www.webstaurantstore.com/images/products/medium/845082/2957636.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '🔪', name: 'Countertop Meat Slicer', desc: 'The spinning blade behind every deli counter. Entry level.', value: 270, img: 'https://www.webstaurantstore.com/images/products/medium/483929/1894366.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
-    { emoji: '🥩', name: 'Hobart HS9-1 Automatic Slicer', desc: 'A meat slicer that costs more than a car.', value: 13063, img: 'https://www.webstaurantstore.com/images/products/medium/57749/1434855.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🥩', name: 'Hobart HS9-1 Automatic Slicer', desc: 'The slicer behind every serious deli counter.', value: 13063, img: 'https://www.webstaurantstore.com/images/products/medium/57749/1434855.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '🍫', name: 'Chocolate Fountain, 16in', desc: 'Three tiers of cascading chocolate. Wedding-buffet standard.', value: 114, img: 'https://www.webstaurantstore.com/images/products/medium/664399/2299641.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '⛲', name: 'Convertible 44in Chocolate Fountain', desc: 'Nearly four feet of chocolate, falling continuously. Heavy duty.', value: 3472, img: 'https://www.webstaurantstore.com/images/products/medium/664633/2296062.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '🍦', name: 'Countertop Soft Serve Machine', desc: 'One flavour, gravity fed, sits on a counter. Six and a half grand.', value: 6443, img: 'https://www.webstaurantstore.com/images/products/medium/592412/3036384.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
-    { emoji: '🍨', name: 'Coldelite Compacta Vario 12 Batch Freezer', desc: 'Makes proper gelato. Costs more than most people\'s cars.', value: 70886, img: 'https://www.webstaurantstore.com/images/products/medium/584913/2108764.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🍨', name: 'Coldelite Compacta Vario 12 Batch Freezer', desc: 'Makes proper gelato, batch after batch.', value: 70886, img: 'https://www.webstaurantstore.com/images/products/medium/584913/2108764.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '🥤', name: 'Frozen Drink Machine, 1 Gallon', desc: 'Self-serve slush. The kind that hypnotises children in petrol stations.', value: 2429, img: 'https://www.webstaurantstore.com/images/products/medium/484970/2491053.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '🧊', name: 'Countertop Ice Maker (ADA compliant)', desc: 'Makes ice. Sits on a counter.', value: 6250, img: 'https://www.webstaurantstore.com/images/products/medium/868534/3030955.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '❄️', name: 'Scotsman Flake Ice Machine, 42in', desc: 'Flake ice, the fishmonger kind, by the hundredweight.', value: 14817, img: 'https://www.webstaurantstore.com/images/products/medium/152380/2939646.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
@@ -461,12 +477,12 @@ const LOTS = [
     { emoji: '☕', name: 'Capsule Espresso Machine, Commercial', desc: 'It takes pods.', value: 589, img: 'https://www.webstaurantstore.com/images/products/medium/717779/2481020.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '☕', name: 'One-Group Volumetric Espresso Machine', desc: 'Proper cafe kit. One group head, chrome, five and a half grand.', value: 5450, img: 'https://www.webstaurantstore.com/images/products/medium/580680/2108536.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '⚫', name: 'Victoria Arduino Black Eagle Maverick, 3 Group', desc: 'The espresso machine world championships use these. Matte black.', value: 32600, img: 'https://www.webstaurantstore.com/images/products/medium/811945/2747406.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
-    { emoji: '🌊', name: 'Ventless High-Temperature Dishwasher', desc: 'No hood needed, which is the expensive part. Hobart.', value: 23447, img: 'https://www.webstaurantstore.com/images/products/medium/622461/2369821.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🌊', name: 'Ventless High-Temperature Dishwasher', desc: 'No extraction hood needed. Hobart.', value: 23447, img: 'https://www.webstaurantstore.com/images/products/medium/622461/2369821.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '🍿', name: 'Popcorn Machine, 4oz Cart Style', desc: 'Red and gold, glass sides, cinema lettering.', value: 140, img: 'https://www.webstaurantstore.com/images/products/medium/92910/1932876.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '🍿', name: 'Cretors Merchant 16oz Popcorn Popper', desc: 'The real cinema-foyer machine.', value: 4929, img: 'https://www.webstaurantstore.com/images/products/medium/625677/2231523.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '🎬', name: 'Countertop Popcorn Machine, 32oz', desc: 'Thirty-two ounce kettle, countertop. Five and a half grand.', value: 5549, img: 'https://www.webstaurantstore.com/images/products/medium/858550/2973210.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '💰', name: 'Small Steel Cash Box', desc: 'Lockable steel box with a coin tray.', value: 37, img: 'https://www.webstaurantstore.com/images/products/medium/582473/2108358.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
-    { emoji: '🔐', name: 'Compact Security Safe', desc: 'An actual safe, with a keypad. Costs less than a pair of jeans.', value: 80, img: 'https://www.webstaurantstore.com/images/products/medium/582520/2108575.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
+    { emoji: '🔐', name: 'Compact Security Safe', desc: 'An actual safe, with a keypad.', value: 80, img: 'https://www.webstaurantstore.com/images/products/medium/582520/2108575.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '🏦', name: 'Rotary Hopper Drop Safe', desc: 'The one bar staff post takings into.', value: 1429, img: 'https://www.webstaurantstore.com/images/products/medium/582541/2108272.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '🖐️', name: 'Extra-Large Biometric Safe', desc: 'Opens to a fingerprint.', value: 1029, img: 'https://www.webstaurantstore.com/images/products/medium/582467/2108286.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '🛋️', name: 'Diner Booth, Single, Upholstered', desc: 'One side of a proper diner booth, 45in, yellow vinyl.', value: 338, img: 'https://www.webstaurantstore.com/images/products/medium/498278/1864403.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
@@ -500,7 +516,7 @@ const LOTS = [
     { emoji: '🍖', name: 'Undercounter Cook-and-Hold Smoker Oven', desc: 'Smokes brisket overnight, fits under a counter.', value: 7092, img: 'https://www.webstaurantstore.com/images/products/medium/30739/3039742.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '🥓', name: 'Stainless Hand-Load BBQ Roaster', desc: 'Commercial smokehouse, stainless.', value: 8819, img: 'https://www.webstaurantstore.com/images/products/medium/699312/2393591.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
     { emoji: '🏭', name: 'J&R Oyler 1300 Wood-Fired Smoker', desc: 'A room-sized wood-burning smoker.', value: 45900, img: 'https://www.webstaurantstore.com/images/products/medium/808550/2732692.jpg', src: 'WebstaurantStore', on: '2026-07-27' },
-    { emoji: '📌', name: 'Feather Male Header Set (12-pin + 16-pin)', desc: 'Two strips of pins. Fifty cents. The cheapest lot in the auction.', value: 1, img: 'https://cdn-shop.adafruit.com/310x233/3002-00.jpg', src: 'Adafruit', on: '2026-07-27' },
+    { emoji: '📌', name: 'Feather Male Header Set (12-pin + 16-pin)', desc: 'Two strips of pins. That is it. That is the lot.', value: 1, img: 'https://cdn-shop.adafruit.com/310x233/3002-00.jpg', src: 'Adafruit', on: '2026-07-27' },
     { emoji: '🔌', name: '9V Battery Clip with Barrel Plug', desc: 'A battery clip.', value: 3, img: 'https://cdn-shop.adafruit.com/310x233/80-03.jpg', src: 'Adafruit', on: '2026-07-27' },
     { emoji: '🍞', name: 'Half-Size Solderless Breadboard', desc: 'Four hundred tie points. Where every electronics project begins.', value: 5, img: 'https://cdn-shop.adafruit.com/310x233/64-06.jpg', src: 'Adafruit', on: '2026-07-27' },
     { emoji: '⚙️', name: 'Motor / Stepper / Servo Shield Kit', desc: 'Drives four motors from one small board.', value: 20, img: 'https://cdn-shop.adafruit.com/310x233/1438-00.jpg', src: 'Adafruit', on: '2026-07-27' },
@@ -517,16 +533,16 @@ const LOTS = [
     { emoji: '🔥', name: 'Portable Soldering Iron Kit', desc: 'A soldering iron the size of a pen.', value: 120, img: 'https://www.sparkfun.com/media/catalog/product/cache/df4360b598d6f0c75fa659693b376bad/K/I/KIT-24063-PINECIL-Soldering-Iron-Kit-Feature.jpg', src: 'SparkFun', on: '2026-07-27' },
     { emoji: '🏫', name: 'Inventor\'s Kit Lab Pack (classroom)', desc: 'Ten of the kits above, in one box, for a whole class.', value: 990, img: 'https://www.sparkfun.com/media/catalog/product/cache/df4360b598d6f0c75fa659693b376bad/s/i/sik-4_1_2-lab-pack.jpg', src: 'SparkFun', on: '2026-07-27' },
     { emoji: '🖨️', name: 'Original Prusa MINI+ 3D Printer', desc: 'A real 3D printer, semi-assembled.', value: 508, img: 'https://assets.prusa3d.com/cdn-cgi/image/width=298,format=auto,quality=85/content/images/product/d2a9452b-e8c5-4805-9ca0-bbc1b889a874.jpg', src: 'Prusa', on: '2026-07-27' },
-    { emoji: '🧱', name: 'Original Prusa MK4S Kit (self-build)', desc: 'The same printer, in pieces. You assemble it. Cheaper that way.', value: 657, img: 'https://assets.prusa3d.com/cdn-cgi/image/width=298,format=auto,quality=85/content/images/product/4dc11a44-bbf5-4fc5-8754-c00b3a71a35a.jpg', src: 'Prusa', on: '2026-07-27' },
+    { emoji: '🧱', name: 'Original Prusa MK4S Kit (self-build)', desc: 'The same printer, in pieces. You assemble it.', value: 657, img: 'https://assets.prusa3d.com/cdn-cgi/image/width=298,format=auto,quality=85/content/images/product/4dc11a44-bbf5-4fc5-8754-c00b3a71a35a.jpg', src: 'Prusa', on: '2026-07-27' },
     { emoji: '📦', name: 'Prusa CORE One+ 3D Printer', desc: 'Enclosed and assembled.', value: 1203, img: 'https://assets.prusa3d.com/cdn-cgi/image/width=298,format=auto,quality=85/content/images/product/d9b07dc7-3af8-4394-b818-635472e6de3b.jpg', src: 'Prusa', on: '2026-07-27' },
     { emoji: '🗿', name: 'Original Prusa XL 3D Printer', desc: 'The big one.', value: 2129, img: 'https://assets.prusa3d.com/cdn-cgi/image/width=298,format=auto,quality=85/content/images/product/1f2cf3cd-f443-453f-ac9c-e84c956aa458.jpg', src: 'Prusa', on: '2026-07-27' },
     { emoji: '💧', name: 'Resin 3D Printer + Wash & Cure Bundle', desc: 'Prints in liquid resin. Smells industrial.', value: 2599, img: 'https://assets.prusa3d.com/cdn-cgi/image/width=298,format=auto,quality=85/content/images/product/41865df7-7612-4bf1-87bb-ce68d517eaf8.jpg', src: 'Prusa', on: '2026-07-27' },
     { emoji: '☀️', name: 'One-Watt Solar Panel', desc: 'A solar panel. One watt. It would take a fortnight to charge a phone.', value: 29, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/692/1824/bsp-1-12-1-watt-12-volt-solar-panel-module__64306.1759942295.jpg?c=2', src: 'Mr Solar', on: '2026-07-27' },
     { emoji: '🔆', name: '100W Solar Panel', desc: 'The size that goes on a campervan roof.', value: 115, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/1393/2104/rs-m100__41694.1649813948.jpg?c=2', src: 'Mr Solar', on: '2026-07-27' },
-    { emoji: '🌞', name: '50W Solar Panel (industrial brand)', desc: 'Half the power of the one above, and more than twice the price.', value: 252, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/88/277/Ameresco_50j__65582.1747772056.jpg?c=2', src: 'Mr Solar', on: '2026-07-27' },
+    { emoji: '🌞', name: '50W Solar Panel (industrial brand)', desc: 'The industrial brand, in the shed-roof size.', value: 252, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/88/277/Ameresco_50j__65582.1747772056.jpg?c=2', src: 'Mr Solar', on: '2026-07-27' },
     { emoji: '🏘️', name: '410W Rooftop Solar Panel', desc: 'A full-size roof panel, the sort installers fit by the dozen.', value: 315, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/1414/2138/download__42484.1675440983.jpg?c=2', src: 'Mr Solar', on: '2026-07-27' },
     { emoji: '🔌', name: '300W Pure Sine Wave Inverter', desc: 'Turns battery DC into mains AC.', value: 172, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/874/1180/GP_SW300__16075.1429729868.jpg?c=2', src: 'Mr Solar', on: '2026-07-27' },
-    { emoji: '⚡', name: '3000W Inverter', desc: 'Ten times the power of the one above, for three times the price.', value: 528, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/873/1699/GP-3000HD__58395.1549473440.jpg?c=2', src: 'Mr Solar', on: '2026-07-27' },
+    { emoji: '⚡', name: '3000W Inverter', desc: 'Enough to run power tools off a battery bank.', value: 528, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/873/1699/GP-3000HD__58395.1549473440.jpg?c=2', src: 'Mr Solar', on: '2026-07-27' },
     { emoji: '🏭', name: '4000W Off-Grid Inverter/Charger', desc: 'The one that runs a whole off-grid house.', value: 2199, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/459/1093/MS_AE_web_26014_zoom__66858.1559875924.JPG?c=2', src: 'Mr Solar', on: '2026-07-27' },
     { emoji: '🔋', name: '12V 35Ah AGM Battery', desc: 'A sealed lead-acid brick.', value: 82, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/190/532/upgi-universal-batteries__44767.1410571318.jpg', src: 'Mr Solar', on: '2026-07-27' },
     { emoji: '🔋', name: '12V 110Ah Deep-Cycle Battery', desc: 'The big leisure battery.', value: 239, img: 'https://cdn11.bigcommerce.com/s-z25w13u/images/stencil/590x590/products/187/529/upgi-universal-batteries__06057.1410571316.jpg', src: 'Mr Solar', on: '2026-07-27' },
@@ -1346,13 +1362,13 @@ function startValuation() {
     if (!H.reveals.length) { finishValuation(); return; }
     H.phase = 'valuation';
     broadcastState();
-    _revealTimer = setTimeout(revealStep, 1400);
+    _revealTimer = setTimeout(revealStep, 1800);
 }
 
 function revealStep() {
     H.revealIndex += 1;
     if (H.revealIndex >= H.reveals.length) {
-        _revealTimer = setTimeout(finishValuation, 1600);
+        _revealTimer = setTimeout(finishValuation, 2600);
         broadcastState();
         return;
     }
@@ -1617,14 +1633,21 @@ function applyViewerMsg(msg) {
         if (msg.revealIndex !== _vRevealIdx && msg.revealIndex >= 0 && msg.revealIndex < (msg.reveals || []).length) {
             _vRevealIdx = msg.revealIndex;
             const r = msg.reveals[msg.revealIndex];
-            if (r.profit >= 0) sProfit(r.profit); else sLoss(r.profit);
-            const el = document.querySelector('.val-list .val-card:last-child');
-            if (el) {
-                const rc = el.getBoundingClientRect();
-                popText(rc.right - 70, rc.top + 8, (r.profit >= 0 ? '+' : '') + r.profit, r.profit >= 0 ? 'good' : 'bad');
-                // thresholds are in real dollars now, and the burst grows with the bargain
-                if (r.profit >= 500) burst(rc.right - 70, rc.top + rc.height / 2, ['#4ade80', '#e8b75a', '#f6eefb'], r.profit >= 2000 ? 34 : 16);
-            }
+            // The payoff lands when the profit STAMPS onto the card, not when the card slides in
+            // — sound, pop and burst all wait for that beat. Under reduced motion the staged CSS
+            // never runs, so everything fires immediately instead of 2s after a static card.
+            const wait = (typeof REDUCED !== 'undefined' && REDUCED) ? 0 : STAMP_MS;
+            setTimeout(() => {
+                if (ui !== 'viewer' || _vRevealIdx !== msg.revealIndex) return;   // scene moved on
+                if (r.profit >= 0) sProfit(r.profit); else sLoss(r.profit);
+                const el = document.querySelector('.val-list .val-card.live');
+                if (el) {
+                    const rc = el.getBoundingClientRect();
+                    popText(rc.right - 70, rc.top + 8, (r.profit >= 0 ? '+' : '') + r.profit, r.profit >= 0 ? 'good' : 'bad');
+                    // thresholds are in real dollars now, and the burst grows with the bargain
+                    if (r.profit >= 500) burst(rc.right - 70, rc.top + rc.height / 2, ['#4ade80', '#e8b75a', '#f6eefb'], r.profit >= 2000 ? 34 : 16);
+                }
+            }, wait);
         }
         return;
     }
@@ -2094,16 +2117,17 @@ function netWorthRows(msg) {
 }
 
 function renderViewerValuation() {
-    // Only four at a time now — each card is much bigger, because the old ones were unreadable
-    // from a sofa and the reveal is the moment the whole game pays off.
-    const shown = (vD.reveals || []).slice(0, Math.max(0, vD.revealIndex + 1)).slice(-4);
+    // Only three at a time — each card is BIG, because this is watched from a sofa and the
+    // reveal is the moment the whole game pays off. The live card plays the staged reveal
+    // (see the .val-card.live CSS); the older two dim and hold still.
+    const shown = (vD.reveals || []).slice(0, Math.max(0, vD.revealIndex + 1)).slice(-3);
     const cards = shown.map((r, i) => {
         const live = i === shown.length - 1;
         // Scale the drama to the size of the money. A $4,000 mistake should not look like a $12 one.
         const mag = Math.abs(r.profit) >= 2000 ? 'mag-huge' : Math.abs(r.profit) >= 500 ? 'mag-big' : '';
         return `
-    <div class="val-card ${live ? mag : ''}" ${live ? '' : 'style="animation:none;opacity:.55"'}>
-        ${lotArtHTML(r, 'width:11vmin;height:9vmin;flex:0 0 auto', 'font-size:5.4vmin')}
+    <div class="val-card ${live ? 'live ' + mag : ''}" ${live ? '' : 'style="animation:none;opacity:.5"'}>
+        ${lotArtHTML(r, 'width:15vmin;height:12vmin;flex:0 0 auto', 'font-size:7.5vmin')}
         <div style="min-width:0">
             <div class="vname">${r.wasMystery ? '❓ ' : ''}${esc(r.lotName)}</div>
             <div class="vpaid"><span style="color:${r.color}">${esc(r.player)}</span> paid ${num(r.paid)}</div>
