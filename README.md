@@ -25,7 +25,7 @@ screen into a shared scoreboard.
 | 🎲 Liar's Dice | [liarsdice.html](https://haddley.github.io/games/liarsdice.html) | 2+ — bid, bluff, call liar |
 | ⭕ Tic Tac Toe | [ticktacktoe.html](https://haddley.github.io/games/ticktacktoe.html) | 2–8 — knockout tournament on the TV, or head-to-head on two phones |
 | 🐇 Plump Trek | [plumptrek.html](https://haddley.github.io/games/plumptrek.html) | 2–12 — roll-and-move chaos; pick one of 30 trekkers, Gimmick cards, a Build rule, and a Finale that decides how you win |
-| ✊ Rock Paper Scissors | [rockpaperscissors.html](https://haddley.github.io/games/rockpaperscissors.html) | 2–12 — battle-royale, last hand standing |
+| ✊ Rock Paper Scissors | [rockpaperscissors.html](https://haddley.github.io/games/rockpaperscissors.html) | 2–12 — the captain picks: battle royale (everyone throws at once) or a knockout bracket (two at a time, first to two) |
 
 ## Connections
 

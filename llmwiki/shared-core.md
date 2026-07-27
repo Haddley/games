@@ -111,6 +111,18 @@ Every P2P game routes its `new Peer` calls through these — always with `ICE_CF
 The full story, including browser quirks and the symptom→cause table, is in
 [connection-and-reconnect.md](connection-and-reconnect.md).
 
+## `bracket.js` — a single-elimination knockout draw
+
+Pure logic, no DOM: `makeBracket(seats)`, `nextMatch(b)`, `reportWinner(b, seat)`,
+`roundName(b, r)`, `stillIn(b)`, `knockedOut(b)`. Byes go to the top seeds, in round one
+only — the reason this is shared rather than written twice, since player counts are rarely a
+power of two. Round names count back from the final. `knockedOut()` returns losers
+earliest-first, which is exactly what `rankByElimination` wants.
+
+**Used by RPS's knockout mode.** Tic Tac Toe's tournament predates it and still has its own
+copy — see [elimination-modes.md](elimination-modes.md) for why that migration is a job in
+itself, and what it costs until it happens.
+
 ## `dice.js` — a rollable 3D die
 
 `diceHTML({id, value, sides, cls})` → markup; `throwDie(id, value, {onTick, onLand})` →
