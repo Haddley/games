@@ -193,9 +193,23 @@
             flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: 1.6vmin; text-align: center;
         }
-        .tv-sold .gavel { font-size: 13vmin; animation: bang .8s ease; }
-        .tv-sold .who { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 5.4vmin; color: var(--gold); }
-        .tv-sold .sub2 { font-size: 2.4vmin; font-weight: 800; color: var(--muted); }
+        /* The sold screen plays in auction order: the gavel BANGS, then the auctioneer's call
+           ("SOLD to Karen for 200!") STAMPS at .7s — the burst is timed to it (SOLD_STAMP_MS)
+           — then the wry aside lands. Gated on #app.fresh so a mid-pause re-render (a join)
+           shows it settled instead of replaying the bang. A passed lot gets no bang: the
+           feather drifts down, which is the correct amount of ceremony for zero bids. */
+        .tv-sold .gavel { font-size: 16vmin; }
+        .tv-sold .who { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 7vmin; color: var(--gold); }
+        .tv-sold .sub2 { font-size: 3vmin; font-weight: 800; color: var(--muted); }
+        #app.fresh .tv-sold .gavel { animation: bang .8s ease; }
+        #app.fresh .tv-sold.passed .gavel { animation: featherIn 1.6s cubic-bezier(.3, .6, .4, 1) both; }
+        #app.fresh .tv-sold .who { animation: stampIn .45s cubic-bezier(.2, 1.6, .35, 1) .7s both; }
+        #app.fresh .tv-sold .sub2 { animation: paidIn .5s ease 1.7s both; }
+        @keyframes featherIn {
+            0% { opacity: 0; transform: translateY(-9vmin) rotate(-24deg); }
+            55% { transform: translateY(-2.5vmin) rotate(14deg); }
+            100% { opacity: 1; transform: none; }
+        }
 
         /* valuation */
         .tv-val { flex: 1; display: flex; flex-direction: column; gap: 1.6vmin; min-height: 0; }
@@ -410,7 +424,8 @@ const RAISE_LADDER = [
 const raisesFor = price => RAISE_LADDER.find(r => price < r.under).raises;
 // REVEAL_MS paces the valuation: each card plays a staged reveal (card → true value → profit
 // stamp at STAMP_MS) and needs air after the stamp for the number to sink in from a sofa.
-const GAVEL_MS = 5000, INTRO_MS = 3500, SOLD_MS = 3200, PASSED_MS = 2500, REVEAL_MS = 5200;
+const GAVEL_MS = 5000, INTRO_MS = 3500, SOLD_MS = 4500, PASSED_MS = 3500, REVEAL_MS = 5200;
+const SOLD_STAMP_MS = 700;     // when "SOLD to…" stamps in — must match the .tv-sold .who CSS delay
 const STAMP_MS = 2800;   // when the profit stamps in — must match the .val-card.live .profit CSS delay
 const PODIUM_GOLD_MS = 3000;   // when the gold pod lands — fanfare + confetti wait for it
 const PLAYER_COLORS = ['#e8b75a', '#22d3ee', '#f472b6', '#4ade80', '#b478e0', '#fb923c', '#f87171', '#38bdf8', '#a3e635', '#fcd34d'];
@@ -1632,7 +1647,14 @@ function applyViewerMsg(msg) {
             _vLotKey = lotKey; render();
             const si = msg.soldInfo || {};
             if (si.passed) sPassed();
-            else { sGavel(); burst(innerWidth / 2, innerHeight * 0.34, ['#e8b75a', '#f5d38a', '#f6eefb', '#b478e0'], 26); }
+            else {
+                sGavel();
+                // the burst belongs to the auctioneer's call, which stamps in at SOLD_STAMP_MS
+                const wait = (typeof REDUCED !== 'undefined' && REDUCED) ? 0 : SOLD_STAMP_MS;
+                setTimeout(() => {
+                    if (_vLotKey === lotKey) burst(innerWidth / 2, innerHeight * 0.34, ['#e8b75a', '#f5d38a', '#f6eefb', '#b478e0'], 26);
+                }, wait);
+            }
         }
         return;
     }
@@ -2114,7 +2136,7 @@ function renderViewerSold() {
         : `<div class="gavel">${GAVEL}</div>
            <div class="who">SOLD to <span style="color:${s.color}">${esc(s.winner)}</span> for ${num(s.price)}!</div>
            <div class="sub2">${esc(title)} — worth… well, we'll find out.</div>`;
-    return tvShell(`<div class="tv-sold">${inner}</div>`, `Lot ${vD.lotNum} of ${vD.lotTotal}`);
+    return tvShell(`<div class="tv-sold${s.passed ? ' passed' : ''}">${inner}</div>`, `Lot ${vD.lotNum} of ${vD.lotTotal}`);
 }
 
 function netWorthRows(msg) {
