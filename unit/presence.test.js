@@ -398,3 +398,24 @@ test('the build is read off common.js\'s own URL, so it cannot drift from the ?v
     });
     assert.deepStrictEqual(gaps, [], '\n  ' + gaps.join('\n  '));
 });
+
+test('the TURN credentials exist in exactly one file', () => {
+    // ticktacktoe used to carry its own copy inside TTT_PEER_OPTS, so rotating the Metered
+    // key was a two-place change — and forgetting the second place breaks remote play in one
+    // game only, silently. CLAUDE.md documented that hazard; now there is nothing to forget.
+    const root = path.join(__dirname, '..');
+    const files = fs.readdirSync(root).filter(f => f.endsWith('.html') || f.endsWith('.js'));
+    const holders = files.filter(f => /metered\.ca/.test(fs.readFileSync(path.join(root, f), 'utf8')));
+    assert.deepStrictEqual(holders, ['common.js'],
+        `TURN config should live only in common.js, but also appears in: ${holders.filter(h => h !== 'common.js')}`);
+    // A game may create peers two ways, and only one of them needs to say ICE_CFG:
+    //   hostPeer()/joinPeer()  — p2p.js passes ICE_CFG itself; the game needs no knowledge
+    //   new Peer()             — raw, so it MUST pass ICE_CFG or remote players silently fail
+    const raw = files.filter(f => f.endsWith('.html'))
+        .filter(f => {
+            const src = fs.readFileSync(path.join(root, f), 'utf8');
+            return /new Peer\(/.test(src) && !/ICE_CFG/.test(src);
+        });
+    assert.deepStrictEqual(raw, [],
+        'these games call new Peer() without the shared ICE config — remote players would fail');
+});

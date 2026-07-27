@@ -1060,18 +1060,15 @@
         }
 
         // ── Shared PeerJS options (public broker + Metered STUN/TURN) ──
-        const TTT_PEER_OPTS = {
-            debug: 0, host: '0.peerjs.com', port: 443, path: '/', secure: true,
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.relay.metered.ca:80' },
-                    { urls: 'turn:standard.relay.metered.ca:80', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
-                    { urls: 'turn:standard.relay.metered.ca:80?transport=tcp', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
-                    { urls: 'turn:standard.relay.metered.ca:443', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' },
-                    { urls: 'turns:standard.relay.metered.ca:443?transport=tcp', username: '35410ce7572a64d0dad7b813', credential: 'Tmwfl6WHxuBNXj2G' }
-                ]
-            }
-        };
+        // The connection options. The ICE/TURN half is NOT duplicated here: it comes from
+        // common.js's ICE_CFG, so rotating the Metered credentials stays a one-file change.
+        // (This file used to carry its own copy of the credentials — two places to remember,
+        // and a silent way for remote play to break in one game only.) The broker settings
+        // stay local because this game talks to the PeerJS broker with its own options.
+        const TTT_PEER_OPTS = Object.assign(
+            { debug: 0, host: '0.peerjs.com', port: 443, path: '/', secure: true },
+            (typeof ICE_CFG === 'object' && ICE_CFG) ? ICE_CFG : {}
+        );
         function roomURL(code) { return location.origin + location.pathname + '?room=' + code; }
         function tttSend(conn, msg) { try { if (conn && conn.open) conn.send(msg); } catch (e) {} }
         // How long a dropped player's seat (and the board) is held for them. Long
