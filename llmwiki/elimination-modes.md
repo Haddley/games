@@ -82,6 +82,26 @@ lobby-only: switching mid-game would leave a half-run bracket or a half-eliminat
 Tic Tac Toe has no such choice — head-to-head noughts and crosses *is* a two-player match, so
 a bracket is the only sensible way to run more than two people.
 
+## What the tests hold to account
+
+`unit/bracket.test.js` — the draw itself, and the reason it can be tested this hard is that
+it has no DOM. **Every field size from 2 to 12** is played out and checked for: exactly one
+champion, nobody lost, nobody knocked out twice, nobody playing themselves, nobody appearing
+twice in a round, and a stale or duplicate result ignored rather than corrupting the draw.
+Byes are asserted to land on the top seeds and only in round one.
+
+`tests/rockpaperscissors.e2e.spec.js` — the mode, over real rooms:
+
+- *"the captain picks it, and a bracket decides the champion"* — four players, so two
+  semi-finals then a final; only two are live at a time; the tournament runs to a champion,
+  three are knocked out, and everyone appears exactly once on the final board.
+- *"one unlucky throw does not end your tournament"* — losing a single throw must not knock
+  you out, because a match is first to two.
+
+A note for anyone extending these: **a reveal lasts `REVEAL_MS` (3.6s)**, so a four-player
+knockout is six throws and takes the best part of half a minute. The first draft of these
+tests waited 1.2s and failed on timing rather than behaviour. `test.setTimeout(120_000)`.
+
 ## ⚠️ Open: Tic Tac Toe still has its own bracket
 
 `bracket.js` was written **from** ticktacktoe's tournament logic, but ticktacktoe has **not

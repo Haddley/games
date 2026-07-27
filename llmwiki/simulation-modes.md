@@ -47,3 +47,31 @@ Boot routing parses `?mode=` **before** the normal `?room` handling and calls
   animation-polish pass.
 
 Verified: 30 headless runs (15 games × 2 modes) advance past the lobby with zero pageerrors.
+
+## The phone demo starts in the LOBBY (plumptrek, rockpaperscissors)
+
+`?mode=playersimulation` used to add every bot at once and start the game immediately, so the
+demo skipped the part a new player actually meets first — the room filling up, and the
+captain's controls on it. In RPS that mattered: the attract mode never showed the only screen
+that explains there are **two ways to play**.
+
+Those two games now add bots one at a time on a ~1.1s beat, hold the full lobby for a couple
+of seconds, then play on. Roughly:
+
+```js
+if (!isTvHost) {
+    myId = 'sim-0'; addBot(0); applyMsg(lobbyMsg());
+    let joined = 1;
+    simTimer = setInterval(() => {
+        if (joined < want) { addBot(joined++); applyMsg(lobbyMsg()); return; }
+        clearInterval(simTimer);
+        simTimer = setTimeout(() => { hostStartGame(); /* …then the usual driver */ }, 1800);
+    }, 1100);
+    return;
+}
+```
+
+**The other sixteen games still jump straight in.** Their `startSimulation` functions vary
+too much in shape for a safe scripted edit — several have no `hostStartGame()` to anchor to —
+and a blind pass across all of them is how half-wired changes get in. Apply the pattern per
+game as each lobby earns it.

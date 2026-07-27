@@ -102,6 +102,7 @@ The largest body of tests in the repo, because this is where the real bugs were.
 | file | what it holds to account |
 |---|---|
 | `tests/connection-battery.e2e.spec.js` | **the same five questions asked of every one of the nineteen games**, over real rooms: join · restart the browser · go silent · come back · no ghosts. This is the middle layer — the unit audits prove a game uses the right code, the per-game specs go deep on one game, this proves all nineteen actually behave |
+| `unit/bracket.test.js` | the shared knockout draw, played out for **every field size from 2 to 12**: one champion, nobody lost or knocked out twice, byes on the top seeds in round one only, and a stale result ignored rather than corrupting the draw |
 | `tests/games.js` | the one table of how to reach each game's lobby, shared by both connection specs. Generated from the real markup after a first version built from card *headings* silently hung |
 | `unit/presence.test.js` | the shared rules (`isPresent`, `claimSeat`, `rekeyPlayerId`, `watchPresence`, `presentPlayers`) **and four AUDIT tests** that read every game and fail if one hand-rolls any of it, stores a player id in a field its rekey doesn't name, waits for every player without re-asking when one leaves, or calls a shared helper unguarded |
 | `tests/lobby-rejoin.e2e.spec.js` | the same person rejoining: a restarted browser must take its seat back, not a second one — driven against six games plus a mid-game repeat-rejoin and the herdmind stall |
