@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-    <script src="common.js?v=20260726-939098d"></script><script src="ambient.js?v=20260726-939098d"></script>
+    <script src="common.js?v=20260726-939098d"></script><script src="bracket.js?v=20260726-939098d"></script><script src="ambient.js?v=20260726-939098d"></script>
     <script src="p2p.js?v=20260726-939098d"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -267,6 +267,9 @@ try { fName = (typeof savedName === 'function' ? savedName() : ''); } catch (_) 
 
 let H = {
     phase: 'lobby',           // lobby | throw | reveal | over
+    mode: 'royale',           // royale (everyone at once) | knockout (a bracket, two at a time)
+    bracket: null,            // the draw, when mode is knockout (bracket.js)
+    matchRound: '',           // "Semi-final" etc, for the TV
     round: 0,
     players: [],              // {id,name,avatar,alive,choice,out}
     eliminated: [],           // ids in elimination order (earliest out first)
@@ -342,7 +345,8 @@ function playersPublic() {
     return H.players.map(p => ({ name: p.name, avatar: p.avatar, alive: p.alive, locked: p.choice !== null }));
 }
 function lobbyMsg() {
-    return { type: 'lobby', roomCode, players: H.players.map(p => ({ name: p.name, avatar: p.avatar })), tvHost: isTvHost, captain: captainName() };
+    return { type: 'lobby', roomCode, players: H.players.map(p => ({ name: p.name, avatar: p.avatar })),
+             mode: H.mode || 'royale', modes: MODES, tvHost: isTvHost, captain: captainName() };
 }
 function throwMsgFor(p) {
     return {
@@ -412,11 +416,85 @@ function broadcastAll() {
 // ═══════════════════════════════════════════
 // HOST GAME FLOW
 // ═══════════════════════════════════════════
+// TWO WAYS TO PLAY, chosen by the captain before the start.
+//
+//   royale    the original: everyone throws at once and everyone on the losing symbol goes
+//             out. Fast and chaotic; good with eight people and a short attention span.
+//   knockout  two at a time, everyone else watching one screen, a bracket filling in. A
+//             different evening entirely — and the reason bracket.js exists as a shared
+//             file rather than staying buried in ticktacktoe.
+//
+// A single RPS throw is pure luck, so a knockout MATCH is first to two. Losing a bracket
+// match to one unlucky throw would feel arbitrary in a way a battle royale does not.
+const MODES = { royale: 'Battle royale', knockout: 'Knockout' };
+const WINS_PER_MATCH = 2;
+
+// Two words each and a line saying what you're choosing between, because a mode picked in a
+// lobby is picked in about three seconds by somebody the room is waiting for.
+function modePickerHTML(mode, isHostSide) {
+    const pick = m => isHostSide ? `hostSetMode('${m}')` : `guestCtl('mode','${m}')`;
+    const btn = (m, label, sub) => `<button class="btn ${mode === m ? 'btn-p' : 'btn-g'}"
+        style="flex:1;padding:11px 8px;line-height:1.25" onclick="${pick(m)}">
+        <div style="font-weight:900">${label}</div>
+        <div style="font-size:.62rem;opacity:.75;font-weight:600">${sub}</div></button>`;
+    return `<div class="fg"><label>How do we play?</label>
+        <div style="display:flex;gap:8px">
+            ${btn('royale', 'Battle royale', 'everyone at once')}
+            ${btn('knockout', 'Knockout', 'two at a time')}
+        </div></div>`;
+}
+function hostSetMode(mode) {
+    if (H.phase !== 'lobby' || !MODES[mode]) return;
+    H.mode = mode;
+    broadcastAll();
+    if (ui === 'lobby_h') render();
+}
 function hostStartGame() {
     if (connectedPlayers().length < MIN_PLAYERS) { uiErr = 'Need at least ' + MIN_PLAYERS + ' players.'; if (ui === 'lobby_h') render(); return; }
     H.round = 0; H.eliminated = [];
-    H.players.forEach(p => { p.alive = true; p.out = false; p.choice = null; p.away = false; p.late = false; });
+    H.players.forEach(p => { p.alive = true; p.out = false; p.choice = null; p.away = false; p.late = false; p.wins = 0; });
+    H.bracket = null;
+    if (H.mode === 'knockout' && typeof makeBracket === 'function') {
+        // seed on join order, and only people who are actually here
+        H.bracket = makeBracket(connectedPlayers().map(p => p.id));
+        H.players.forEach(p => { if (!H.bracket.seats.includes(p.id)) { p.alive = false; p.out = true; } });
+        hostNextMatch();
+        return;
+    }
     hostStartRound();
+}
+
+// ── knockout: run the draw one match at a time ───────────────────────────────
+function bracketPair() {
+    const m = typeof nextMatch === 'function' ? nextMatch(H.bracket) : null;
+    return m ? [m.a, m.b] : null;
+}
+function hostNextMatch() {
+    const pair = bracketPair();
+    if (!pair) { hostEndGame(); return; }
+    // only the two in this match are live; everybody else is watching
+    H.players.forEach(p => { p.wins = 0; p.choice = null; p.alive = pair.includes(p.id) && !p.out; });
+    H.matchRound = typeof roundName === 'function' ? roundName(H.bracket, H.bracket.rounds.length - 1) : '';
+    hostStartRound();
+}
+// One throw of a knockout match is resolved: award the win, and either play on or advance.
+function hostMatchThrow(winnerId) {
+    const w = H.players.find(p => p.id === winnerId);
+    if (!w) { hostStartRound(); return; }                     // a draw — throw again
+    w.wins = (w.wins || 0) + 1;
+    if (w.wins < WINS_PER_MATCH) { hostStartRound(); return; }
+    const pair = bracketPair() || [];
+    const loserId = pair.find(id => id !== winnerId);
+    const loser = H.players.find(p => p.id === loserId);
+    if (loser) { loser.alive = false; loser.out = true; H.eliminated.push(loser.id); }
+    const champ = typeof reportWinner === 'function' ? reportWinner(H.bracket, winnerId) : null;
+    if (champ) { H.players.forEach(p => { p.alive = p.id === champ; }); hostEndGame(); return; }
+    setTimeout(() => { if (H.phase === 'reveal') hostNextMatch(); }, REVEAL_MS);
+}
+function hostEndGame() {
+    clearTimers();
+    H.phase = 'over';
+    broadcastAll();
 }
 function hostStartRound() {
     clearTimers();
@@ -485,6 +563,17 @@ function hostResolve() {
     H.result = { throws, distinct, stalemate, winSym, loseSym, loserIds };
     H.phase = 'reveal';
 
+    // A KNOCKOUT throw wins a point in the match, not the tournament. Nobody is eliminated
+    // until somebody reaches WINS_PER_MATCH — a bracket place lost to one unlucky throw
+    // would feel arbitrary in a way a battle royale does not.
+    if (H.mode === 'knockout' && H.bracket) {
+        const winnerId = stalemate ? null : (alive.find(p => p.choice === winSym) || {}).id;
+        if (!stalemate) sReveal(); else sStale();
+        broadcastAll();
+        phaseTimer = setTimeout(() => hostMatchThrow(winnerId), stalemate ? STALE_MS : REVEAL_MS);
+        return;
+    }
+
     if (!stalemate) {
         loserIds.forEach(id => { const p = H.players.find(q => q.id === id); if (p) { p.alive = false; p.out = true; H.eliminated.push(id); } });
         sReveal(); setTimeout(() => { if (!isViewer || isTvHost) sElim(); }, 500);
@@ -514,13 +603,14 @@ function hostNewGame() {
 }
 function clearTimers() { if (throwTimer) { clearInterval(throwTimer); throwTimer = null; } if (phaseTimer) { clearTimeout(phaseTimer); phaseTimer = null; } }
 
-function hostCtl(action) {
+function hostCtl(action, value) {
     if (action === 'start' && H.phase === 'lobby') hostStartGame();
+    else if (action === 'mode') hostSetMode(value);
     else if (action === 'again' && H.phase === 'over') hostNewGame();
 }
-function guestCtl(action) {
-    if (isHost && !isTvHost) { hostCtl(action); return; }
-    if (hostConn) send(hostConn, { type: 'ctl', action });
+function guestCtl(action, value) {
+    if (isHost && !isTvHost) { hostCtl(action, value); return; }
+    if (hostConn) send(hostConn, { type: 'ctl', action, value });
 }
 function myThrow(sym) {
     sClick();
@@ -632,7 +722,7 @@ function setupGuestConn(conn) {
                 broadcastAll(); break;
             }
             case 'choose': if (player) hostChoose(player, msg.sym); break;
-            case 'ctl': if (isTvHost && player && player.id === captainId()) hostCtl(msg.action); break;
+            case 'ctl': if (isTvHost && player && player.id === captainId()) hostCtl(msg.action, msg.value); break;
         }
     });
     conn.on('close', () => {
@@ -745,6 +835,7 @@ function renderLobbyH() {
         <div class="slbl">Players (${H.players.length}/${MAX_PLAYERS})</div>
         <div class="chips">${chips}</div>
     </div>
+    ${modePickerHTML(H.mode || 'royale', true)}
     <button class="btn btn-p btn-full" ${H.players.length < MIN_PLAYERS ? 'disabled' : ''} onclick="hostStartGame()">✊✋✌️ Start showdown</button>
     ${H.players.length < MIN_PLAYERS ? `<div class="hint">Waiting for at least ${MIN_PLAYERS} players…</div>` : ''}`;
 }
@@ -755,9 +846,10 @@ function renderLobbyG() {
     const iAmCaptain = !!(D && D.tvHost && D.captain && D.captain === myName);
     const enough = players.length >= MIN_PLAYERS;
     const foot = iAmCaptain
-        ? `<button class="btn btn-p btn-full" ${enough ? '' : 'disabled'} onclick="guestCtl('start')">✊✋✌️ Start showdown</button>` +
+        ? modePickerHTML((D && D.mode) || 'royale', false) +
+          `<button class="btn btn-p btn-full" ${enough ? '' : 'disabled'} onclick="guestCtl('start')">✊✋✌️ Start showdown</button>` +
           (enough ? `<div class="hint">👑 You're the captain</div>` : `<div class="hint">👑 You're the captain — waiting for at least ${MIN_PLAYERS} players…</div>`)
-        : `<div class="hint">${D?.tvHost ? (D.captain ? `👑 ${esc(D.captain)} starts the game` : 'First player is the captain') : 'Waiting for the host to start…'}</div>`;
+        : `<div class="hint">${(D && D.modes && D.modes[D.mode]) ? esc(D.modes[D.mode]) + ' · ' : ''}${D?.tvHost ? (D.captain ? `👑 ${esc(D.captain)} starts the game` : 'First player is the captain') : 'Waiting for the host to start…'}</div>`;
     return `${hdrHTML('you\'re in!')}
     <div class="card" style="text-align:center">
         <div class="slbl">Room ${esc(D?.roomCode || '')}</div>

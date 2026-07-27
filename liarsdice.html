@@ -828,7 +828,10 @@ let uiErr = '';
 let fName  = (typeof savedName === 'function' ? savedName() : '');
 let fCode  = '';
 let fVCode = '';   // viewer room-code input
-let fWild  = true;
+// Wild ones are OFF by default: they are the variant, not the base game, and a crew
+// meeting Liar's Dice for the first time should learn 'a 3 is a 3' before 'a 1 is a 3'.
+// The captain turns them on in the lobby.
+let fWild  = false;
 
 // ── Viewer client state ──
 let isViewer = false;
@@ -871,7 +874,7 @@ let H = {
     bidderIdx: 0,
     currentBid: null,  // {qty,face,bidderName,bidderId}
     bidHistory: [],
-    wildOnes: true,
+    wildOnes: false,
     challengeResult: null,
     winner: null,
     eliminated: [],    // names, in order of elimination
@@ -898,6 +901,22 @@ const PIP_MAP = {
 
 // Weathered BONE dice: ivory body, dark-brown pips, brass-gold glow when
 // highlighted (matches at the reveal), faded grey when dimmed.
+// The skull, in the die's own 88×88 space so it inherits every colour treatment.
+function aceMarkHTML(ink, socket) {
+    socket = socket || '#e9dcbe';   // the die's own body colour, so the sockets read as holes
+    // Bones FIRST and wider than the skull, so they read as crossed behind it rather than
+    // disappearing under it — which is what happened on the first attempt.
+    return `<g fill="${ink}">
+        <path d="M24 70 L64 52 M64 70 L24 52" stroke="${ink}" stroke-width="6" stroke-linecap="round"/>
+        <circle cx="23" cy="52" r="5"/><circle cx="65" cy="52" r="5"/>
+        <circle cx="23" cy="70" r="5"/><circle cx="65" cy="70" r="5"/>
+        <path d="M44 14c-12 0-21 9-21 20 0 7 3 12 8 15v7c0 2 2 4 4 4h18c2 0 4-2 4-4v-7c5-3 8-8 8-15 0-11-9-20-21-20z"/>
+    </g>
+    <circle cx="36" cy="33" r="5.4" fill="${socket}"/>
+    <circle cx="52" cy="33" r="5.4" fill="${socket}"/>
+    <rect x="41.5" y="41" width="5" height="6" rx="2" fill="${socket}"/>`;
+}
+
 function dieSVG(face, {size=64, hi=false, dim=false, anim=false}={}) {
     const r     = size <= 48 ? 4 : 6;
     const body  = hi ? '#f2c451' : (dim ? '#565b4e' : '#e9dcbe');
@@ -907,7 +926,15 @@ function dieSVG(face, {size=64, hi=false, dim=false, anim=false}={}) {
     const sw    = hi ? 3 : 2.4;
     const cls   = anim ? ' class="die-svg roll"' : ' class="die-svg"';
     const glow  = hi ? '<rect x="1.5" y="1.5" width="85" height="85" rx="18" fill="none" stroke="#ffe08a" stroke-width="1.4" opacity=".75"/>' : '';
-    const pips  = PIP_MAP[face].map(k => `<circle cx="${PIP_POS[k][0]}" cy="${PIP_POS[k][1]}" r="${r}" fill="${pip}"/>`).join('');
+    // THE ACE. A single centred dot is the dullest face on the die and, in this game, the
+    // most important one — it is the wild face when the captain turns wild ones on, and the
+    // face every bluff is built around. So the 1 is a skull and crossbones instead.
+    // Drawn rather than an emoji: it has to sit at 28px inside a 40-dice reveal and take the
+    // same hi/dim treatment as every other face (see the note in CLAUDE.md about why this
+    // game keeps its own flat SVG dice).
+    const pips = face === 1
+        ? aceMarkHTML(pip, body)
+        : PIP_MAP[face].map(k => `<circle cx="${PIP_POS[k][0]}" cy="${PIP_POS[k][1]}" r="${r}" fill="${pip}"/>`).join('');
     return `<svg${cls} width="${size}" height="${size}" viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg">
       <rect x="3" y="3" width="82" height="82" rx="16" fill="${body}" stroke="${edge}" stroke-width="${sw}"/>
       <rect x="3" y="48" width="82" height="37" rx="16" fill="${shade}" opacity=".5"/>
@@ -1047,6 +1074,23 @@ function hostChallenge(fromId) {
 
     H.phase = 'reveal';
     hostBroadcast(false);
+}
+
+// The captain's one pre-game setting. Lobby only — changing the rules mid-round would make
+// a standing bid mean something different from when it was made.
+// Called from either lobby. A phone host sets it directly; the captain of a TV room asks
+// the host to, which is the same shape as every other captain control in the repo.
+function setWild(on) {
+    if (isHost) { hostSetWild(myId, on); return; }
+    if (hostConn) send(hostConn, { type: 'wild', on: !!on });
+}
+function hostSetWild(fromId, on) {
+    if (H.phase !== 'lobby') return;
+    if (capPlayer()?.id !== fromId) return;
+    fWild = !!on;
+    H.wildOnes = fWild;
+    broadcastLobby();
+    if (isHost && !isTvHost) render();
 }
 
 function hostContinue(fromId) {
@@ -1297,6 +1341,9 @@ function setupGuestConn(conn) {
             case 'challenge': hostChallenge(conn.peer); break;
             case 'continue':  hostContinue(conn.peer); break;
             case 'restart':   hostRestart(conn.peer); break;
+            case 'wild':      // the captain's pre-game rule toggle
+                hostSetWild(conn.peer, msg.on);
+                break;
             case 'start':     // TV-host: only the captain (first player) may start
                 if (isTvHost && H.phase === 'lobby' && capPlayer()?.id === conn.peer) hostStartGame();
                 break;
@@ -2197,7 +2244,7 @@ function screenLobbyHost() {
       <div class="player-list">${names}</div>
       <div class="tog-row" style="margin:10px 0 14px">
         <div><div class="tog-label">Aces Wild</div><div class="tog-desc">1s count as any face</div></div>
-        <label class="tog"><input type="checkbox" ${fWild?'checked':''} onchange="fWild=this.checked;H.wildOnes=this.checked"><span class="tog-track"></span></label>
+        <label class="tog"><input type="checkbox" ${fWild?'checked':''} onchange="setWild(this.checked)"><span class="tog-track"></span></label>
       </div>
       <button class="btn btn-p btn-full" onclick="if(H.players.length>=2){ui='game';hostStartGame()}else{alert('Need at least 2 pirates')}"
         ${count>=2?'':'disabled'}>
@@ -2228,6 +2275,10 @@ function screenLobbyGuest() {
           </div>`
         ).join('')}
       </div>
+      ${isCaptain ? `<div class="tog-row" style="margin:10px 0 4px">
+        <div><div class="tog-label">Aces Wild</div><div class="tog-desc">1s count as any face</div></div>
+        <label class="tog"><input type="checkbox" ${D?.wildOnes?'checked':''} onchange="setWild(this.checked)"><span class="tog-track"></span></label>
+      </div>` : (D?.wildOnes ? `<div style="text-align:center;color:var(--muted);font-size:.72rem;margin-top:8px">☠️ Aces are wild this game</div>` : '')}
       ${startBtn}
     </div>`;
 }

@@ -298,3 +298,101 @@ test('someone opening the room mid-game is told what is going on, not left on a 
     for (const p of [...Object.values(pages), late]) await p.close();
     await tv.close();
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// KNOCKOUT MODE
+// ═══════════════════════════════════════════════════════════════════════════════
+// The captain's alternative to the battle royale: two players at a time, everyone else
+// watching one screen, a bracket filling in. It runs on the shared bracket.js — the same
+// draw ticktacktoe's tournament uses — which is why that logic is a shared file now rather
+// than buried in one game.
+//
+// A match is first to two throws, because a bracket place lost to one unlucky throw would
+// feel arbitrary in a way a battle royale does not.
+test('knockout: the captain picks it, and a bracket decides the champion', async ({ browser }) => {
+    test.setTimeout(120_000);   // six throws, each with a 3.6s reveal
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/rockpaperscissors.html');
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
+    const code = await tv.evaluate(() => roomCode);
+
+    const pages = {};
+    for (const n of ['Ava', 'Ben', 'Cal', 'Dee']) pages[n] = await joinPhone(browser, code, n);
+    await expect.poll(() => tv.evaluate(() => H.players.length), { timeout: 30_000 }).toBe(4);
+
+    // the captain — and only the captain — gets the choice
+    await expect(pages.Ava.getByRole('button', { name: /Knockout/ })).toBeVisible({ timeout: 15_000 });
+    await expect(pages.Ben.getByRole('button', { name: /Knockout/ })).toHaveCount(0);
+    await pages.Ava.getByRole('button', { name: /Knockout/ }).click();
+    await expect.poll(() => tv.evaluate(() => H.mode), { timeout: 15_000 }).toBe('knockout');
+    // everyone else is told which game they're about to play
+    await expect(pages.Ben.locator('.hint')).toContainText('Knockout', { timeout: 10_000 });
+
+    await pages.Ava.getByRole('button', { name: /Start showdown/ }).click();
+    await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 20_000 }).toBe('throw');
+
+    // FOUR players → two semi-finals, then a final. Only two are live at a time.
+    expect(await tv.evaluate(() => H.bracket.rounds[0].length), 'two first-round matches').toBe(2);
+    expect(await tv.evaluate(() => alivePlayers().length), 'only the two in this match are live').toBe(2);
+    expect(await tv.evaluate(() => H.matchRound)).toBe('Semi-final');
+
+    // play the whole tournament from the host, letting the FIRST seat of each match win
+    const champ = await tv.evaluate(async () => {
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        for (let guard = 0; guard < 200 && H.phase !== 'over'; guard++) {
+            if (H.phase === 'throw') {
+                const live = alivePlayers();
+                if (live.length === 2) {
+                    // first seat throws rock, second throws scissors → first wins the throw
+                    hostChoose(live[0], 'rock');
+                    hostChoose(live[1], 'scissors');
+                }
+            }
+            await sleep(300);
+        }
+        const c = H.players.find(p => p.alive);
+        return { name: c && c.name, phase: H.phase, eliminated: H.eliminated.length,
+                 standings: standings().map(s => s.name) };
+    });
+
+    expect(champ.phase, 'the tournament finished').toBe('over');
+    expect(champ.name, 'somebody won it').toBeTruthy();
+    expect(champ.eliminated, 'four players, three knocked out').toBe(3);
+    expect(champ.standings.length, 'and everyone is on the final board').toBe(4);
+    expect(champ.standings[0], 'the champion tops it').toBe(champ.name);
+    expect(new Set(champ.standings).size, 'nobody appears twice').toBe(4);
+
+    for (const p of Object.values(pages)) await p.close();
+    await tv.close();
+});
+
+test('knockout: one unlucky throw does not end your tournament', async ({ browser }) => {
+    // A match is first to TWO. Losing a bracket place to a single throw would be arbitrary.
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/rockpaperscissors.html');
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
+    const code = await tv.evaluate(() => roomCode);
+    const pages = { Ava: await joinPhone(browser, code, 'Ava'), Ben: await joinPhone(browser, code, 'Ben') };
+    await expect.poll(() => tv.evaluate(() => H.players.length), { timeout: 30_000 }).toBe(2);
+    await pages.Ava.getByRole('button', { name: /Knockout/ }).click();
+    await pages.Ava.getByRole('button', { name: /Start showdown/ }).click();
+    await expect.poll(() => tv.evaluate(() => H.phase), { timeout: 20_000 }).toBe('throw');
+
+    // Ava wins the first throw — and Ben is still in it
+    const afterOne = await tv.evaluate(async () => {
+        const live = alivePlayers();
+        hostChoose(live.find(p => p.name === 'Ava'), 'rock');
+        hostChoose(live.find(p => p.name === 'Ben'), 'scissors');
+        await new Promise(r => setTimeout(r, 4200));   // a reveal lasts REVEAL_MS (3.6s)
+        return { phase: H.phase, out: H.players.filter(p => p.out).map(p => p.name),
+                 wins: H.players.map(p => [p.name, p.wins || 0]) };
+    });
+    expect(afterOne.out, 'losing one throw must not knock you out').toEqual([]);
+    expect(afterOne.phase, 'the match continues').not.toBe('over');
+    expect(afterOne.wins.find(w => w[0] === 'Ava')[1], 'Ava is one up').toBe(1);
+
+    for (const p of Object.values(pages)) await p.close();
+    await tv.close();
+});
