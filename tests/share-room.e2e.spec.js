@@ -12,7 +12,9 @@
 // Run:  npx playwright test tests/share-room.e2e.spec.js
 
 const { test, expect } = require('@playwright/test');
-const { GAMES, PHONE, TV, openRoom, joinFresh } = require('./games');
+const { GAMES, PHONE, TV, openRoom, joinFresh, seatNames } = require('./games');
+
+const nameSel = spec => spec.nameSel || spec.name || 'input[placeholder="Enter name"]';
 
 test.describe.configure({ retries: 1 });
 test.setTimeout(90_000);
@@ -50,6 +52,24 @@ for (const spec of GAMES) {
         expect(url, `${spec.g}: the link does not carry the room code`).toContain(code);
         expect(url, `${spec.g}: the link points at a different game`).toContain(`${spec.g}.html`);
 
+        // …and the only test that really matters: somebody who was NOT in the room follows
+        // that link, cold, and gets in. A Copy link button that produces a plausible-looking
+        // URL nobody can actually use is worse than no button — and one round of this did
+        // exactly that (".../herdmind.html?room=" with no code), rendering perfectly.
+        const remoteCtx = await browser.newContext({ viewport: PHONE });
+        const remote = await remoteCtx.newPage();
+        await remote.goto(url);
+        const prefilled = await remote.evaluate(() =>
+            [...document.querySelectorAll('input')].map(i => i.value).filter(v => /^[A-Z]{4}$/.test(v)));
+        expect(prefilled, `${spec.g}: following the link did not fill the code in`).toContain(code);
+        await remote.locator(nameSel(spec)).first().fill('Remote');
+        if (spec.joinSel) await remote.locator(spec.joinSel).click();
+        else await remote.getByRole('button', { name: spec.join }).first().click();
+        await expect.poll(() => seatNames(tv, spec),
+            { timeout: 30_000, message: `${spec.g}: a remote player followed the shared link and never arrived` })
+            .toContain('Remote');
+
+        await remoteCtx.close();
         await cap.ctx.close(); await other.ctx.close(); await tv.close();
     });
 }
