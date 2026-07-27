@@ -1023,7 +1023,7 @@ function joinGame(code, name) {
         isConnected: () => connected,
         onReady: (p, id, hc) => {
             peer = p; myId = id; isHost = false; hostConn = hc;
-            hostConn.on('open', () => { connected = true; if (typeof startHeartbeat === 'function') startHeartbeat(() => { try { send(hostConn, { type: 'hb' }); } catch (e) {} }); rememberRoom(code.trim().toUpperCase(), 'player'); send(hostConn, { type: 'join', cid: clientId(), name: myName }); });
+            hostConn.on('open', () => { connected = true; rememberRoom(code.trim().toUpperCase(), 'player'); send(hostConn, { type: 'join', cid: clientId(), name: myName }); if (typeof startHeartbeat === 'function') startHeartbeat(() => { try { send(hostConn, { type: 'hb' }); } catch (e) {} }); });
             hostConn.on('data', msg => applyMsg(msg));
         },
         onLost: () => { connected = false; },   // → auto-rejoin behind the curtain

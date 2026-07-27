@@ -109,6 +109,16 @@ for (const spec of GAMES) {
     });
 }
 
+// ⚠️  KNOWN GAP — READ BEFORE TRUSTING THIS BLOCK.
+// These cases PASS against the old rule as well as the new one, so they do NOT currently
+// prove the fix. The reported bug (a mid-game reconnect minting a second scoreboard row) has
+// not been reproduced in a harness. What has been ruled out:
+//   • the room really does leave the lobby first (asserted below — an earlier version did not)
+//   • the game really does add players mid-game (buzzin's hostAddPlayer has no phase guard)
+//   • `git stash push common.js` does NOT revert an already-committed file, which made two
+//     earlier "fails on the old code" checks meaningless — use `git show HEAD~1:common.js`
+// Only the unit tests currently prove the rule changed. Finish this before believing it.
+//
 // From a Buzzin' final scoreboard: "Neil (you)" on 1 point, and "Neil (you)" again on 0.
 // The duplicate was made MID-GAME — the lobby rule had been relaxed but the mid-game one
 // still insisted the old seat go quiet first, and a phone that reconnects is back well inside

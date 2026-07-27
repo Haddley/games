@@ -1702,7 +1702,7 @@ function joinGame(code, name) {
         isConnected: () => connected,
         onReady: (p, id, hc) => {
             peer = p; myId = id; isHost = false; hostConn = hc;
-            hostConn.on('open', () => { connected = true; if (typeof startHeartbeat === 'function') startHeartbeat(() => { try { send(hostConn, { type: 'hb' }); } catch (e) {} }); send(hostConn, { type: 'join', cid: clientId(), name: myName }); });
+            hostConn.on('open', () => { connected = true; send(hostConn, { type: 'join', cid: clientId(), name: myName }); if (typeof startHeartbeat === 'function') startHeartbeat(() => { try { send(hostConn, { type: 'hb' }); } catch (e) {} }); });
             hostConn.on('data', msg => {
                 switch (msg.type) {
                     case 'lobby':
