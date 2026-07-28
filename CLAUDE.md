@@ -244,7 +244,9 @@ invented**: if a price could not be verified from a live source, the item is not
   layout; the e2e asserts that no laid-out element overlaps him. Size is one number, `--ah`.
 - **The auctioneer's VOICE is spoken, TV only.** `say()` drives Web Speech from the phrase banks
   (`P_OPEN`/`P_DROP_*`/`P_BID`/`P_GOING`/`P_SOLD`/`P_PASSED`), assembled from the trade's real
-  filler words rather than stored whole, with `words()` turning 4800 into "forty-eight hundred".
+  filler words rather than stored whole, with `words()` turning 3100 into "three thousand one
+  hundred" — never "thirty-one hundred", which was reported by ear twice: counting in hundreds is
+  an American rostrum idiom, and it disagrees with the figure on the screen beside it.
   It speaks only under `isViewer || isTvHost` — ten phones chanting over each other is bedlam —
   cancels rather than queues (a chant lagging the screen is worse than silence), and has its own
   🗣️ toggle. Recorded clips were considered and rejected: the numbers come out of a live auction,
