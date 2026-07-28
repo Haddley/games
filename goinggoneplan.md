@@ -1,5 +1,25 @@
 # goinggone.html — Implementation Plan
 
+> ## ⚠️ SUPERSEDED IN PART — read `goinggoneplan-realitems.md` first
+>
+> This is the ORIGINAL design, kept because the architecture, the message protocol and the
+> rendering notes below are all still accurate and still worth reading. The **game** has moved on
+> a long way since. What is stale here:
+>
+> | This document says | It actually is |
+> |---|---|
+> | ~40 invented lots, values 0–700 | **983 real items** with verified prices and sources |
+> | 1,000 coins each | **7,000** (`START_COINS`, set by the simulator) |
+> | 6 / 8 / 10 lots a game | **2/3/4 lots per player, per ROUND** |
+> | one sale, then the podium | **1–3 rounds** (default 3); shelves sell back at true value between them and the podium waits for the last |
+> | bidding opens at 0, +10/+50/+100 | the **auctioneer asks** for an opening bid and comes down until somebody bites; raises scale with the price and he **splits the increment** as the gavel falls |
+> | no bids → "passed" | never makes its hidden reserve → **passed in**, with its true value revealed |
+> | everyone's coins on the TV | a **band** (flush/comfortable/short/skint) while a lot is live; real figures only at the reveals |
+> | — | paddle numbers, a drawn auctioneer with a speech bubble, spoken patter, round commentary |
+>
+> Balance numbers come from `sim/goinggone.js`. Do not change them from judgement.
+
+
 **Going, Going, GONE!** — the auction house. Quirky lots hit the block, everyone bids live from
 their phone with a secret budget, the TV runs the theatre (gavel countdown, SOLD! banners), and
 nobody knows what anything is worth until the valuation finale. Overpaying for a haunted toaster

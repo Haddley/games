@@ -12,10 +12,19 @@ screenshots every screen so you can eyeball the UI.
 | `relay.e2e.spec.js` | the connection path against the **real** TURN server: forced `iceTransportPolicy:'relay'` must light 📡 on both ends; a normal link reports 🏠/🌐; `?net=0` hides the badge |
 | `shared.e2e.spec.js` | what common.js promises EVERY game: the control strip on all of them, day/night and your name carrying between games, `setHTML` keeping focus + caret, every `?mode=tvsimulation` attract mode playing itself cleanly, every launcher card resolving |
 | `dice.e2e.spec.js` | the shared die on its own: every value lands on its face, throws vary in length, no scale pop, `settleDie` snaps mid-throw, `onTick`/`onLand` fire in order |
+| `goinggone.e2e.spec.js` | the auction end to end, and the rules that are easy to break silently: the auctioneer's **descending ask** and a lot **passed in** when it never makes its reserve; **rounds** banking net worth back into cash with the podium waiting for the last one; **paddles** (unique, two-digit, drawn, raised when you hold the bid) and the sale called to the number; **splitting the increment** as the gavel falls, tested on the phone's clock and the host's clock separately because skewing them is the one thing the feature must not tolerate; the **purse bands** — asserting what crosses the WIRE, not what the TV draws; the valuation's totals staying shut until the last lot is valued; the auctioneer's **speech bubble**, which must fill even where the device cannot speak; and the iOS rule that speech is granted only from inside a tap |
+| `connection-battery.e2e.spec.js` | the same five questions of every game over real rooms — join · restart · go silent · come back · no ghosts — plus a mid-game reconnect. It asks each game for its own minimum players and tries every spelling of "start", because seven games spell it differently or refuse to start with two and the block was silently never leaving the lobby |
 | `plumptrek.e2e.spec.js` | the board game end to end: Build card → a real phone roll → each Gimmick flavour (a movement card, a dare with its Done button, a kept card) → a rigged Finale → podium; plus the fork and the self-playing demo. Then the two big areas that grew afterwards: **the sprite pieces** (sheet loads at the size the CSS assumes, whole-frame animation, walking between squares, reactions, mood, the 30-piece picker and its collision rule, reduced motion) and **staying on board** (refresh mid-turn, a phone that never returns, the captain's tidy-up controls and their minimum-players guard) |
 
 `unit/` alongside holds the fast, browser-free tests (`npm run test:unit`): the shared
-files' pure helpers, and Plump Trek's board maths and deck integrity.
+files' pure helpers, Plump Trek's board maths and deck integrity, and — for Going, Going, GONE! —
+the lot data against its JSON source, the draw and its climbing bands, the ask ladder and reserve,
+the increment splitting, the purse bands, the number-to-words for the spoken patter, and an audit
+that the phone and the TV speak the same beats.
+
+`unit/common-names.test.js` is the one to run before adding ANY top-level name to a shared file:
+common.js and a game's inline script share one global scope, so a duplicate `const` is a
+SyntaxError that blanks the whole game. It has caught exactly that once already.
 
 The peer-heavy specs allow **one retry** — several rooms opened back-to-back sometimes get
 throttled by the public PeerJS broker and a join never lands. That's the external service;

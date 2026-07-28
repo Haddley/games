@@ -37,7 +37,8 @@ ticktacktoe is the partial exception: it keeps its own class-based connection co
 
 ```sh
 npm install && npx playwright install chromium   # one-time setup
-npm run test:unit                                # fast unit tests, no browser (common.js, p2p.js, dice.js, plumptrek + goinggone data)
+npm run test:unit                                # fast unit tests, no browser (common.js, p2p.js, dice.js,
+                                                 #   plumptrek, goinggone data/draw/ask/purse/voice, name collisions)
 npm run test:e2e                                 # all E2E tests (headless)
 npm run test:e2e:headed                          # watch the games play
 npx playwright test tests/smoke.e2e.spec.js      # broad smoke net (every game loads + scene + square QR)
@@ -46,11 +47,15 @@ python3 -m http.server 8231                      # manual dev server (Playwright
 
 node scripts/build-goinggone-lots.js             # re-embed Going, Going, GONE!'s lots after editing the JSON
 node sim/goinggone.js --cash-sweep               # its balance simulator, against the real lots
+node sim/goinggone.js --by-round                 #   …round by round: do the bands outrun the money?
 ```
 
 `unit/` holds pure-JS unit tests (`node --test`, no deps) — including `presence.test.js`,
 whose **audit tests read every game** and fail if one drifts from the shared connection
-rules; that is what found three games' worth of stranded-id bugs. Also: `common.js` helpers and its
+rules; that is what found three games' worth of stranded-id bugs. `common-names.test.js`
+is the other audit to know about: common.js and a game's inline script share ONE global
+lexical scope, so a duplicate top-level `const` is a SyntaxError that blanks the whole
+game — **run it before adding any top-level name to a shared file.** Also: `common.js` helpers and its
 storage/badge state, `p2p.js`'s room codes + error classes + ICE-candidate mapping,
 `dice.js`'s pips and orientations, and Plump Trek's board maths. Browser scripts are
 tested by evaluating the file with `new Function` and pulling out the names — pass
