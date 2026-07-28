@@ -270,6 +270,35 @@ away and do they still win? Read it next to `margin/winner`, never alone — in 
 margin is trivially easy to exceed, so the figure is naturally high (~98%) even in well-balanced
 settings. `margin/winner` is the honest headline.
 
+## The auctioneer's voice on a device that has none — TRIED AND ABANDONED (28 July 2026)
+
+Amazon Silk on a Fire TV plays the music and the stingers perfectly and never speaks. A **clip
+bank** was built to get round that: a vocabulary of number words plus the fixed fragments between
+the number-shaped holes in the patter templates, concatenated at runtime, which reproduces any
+line including prices that do not exist until somebody bids them. The pipeline worked — 160 clips,
+1.2 MB, every test line tokenising with no gaps. **It was abandoned on the sound.**
+
+Do not rebuild it without new information. What was actually tried:
+
+| Engine | Verdict |
+|---|---|
+| **espeak-ng** | Formant synthesis, so no recorded samples and no licence question at all — and completely unusable. 1985 robot. |
+| **Piper `en_GB-alan`** | Easily the best of them, and **cannot ship**: its LICENSE reads "Copyright 2022 Mycroft AI / All Rights Reserved", no grant, no clarification anywhere, and Mycroft AI folded in 2023 so there is nobody to ask. |
+| **Piper `norman` / `john` / `bryce` / `joe`** | Public domain or CC0, so shippable, but not good enough to change the verdict. |
+| **Piper `aru`** | CC BY 4.0 — a credit line only. Same verdict. |
+| **Piper `northern_english_male`** | CC BY-SA 4.0. Workable (`voice/` could be carved out of the BSL like `sprites/` is) but share-alike for no gain. |
+
+The deeper problem is not the engine. **Concatenated single words do not sound like a person
+speaking a sentence**, and the better the voice, the more the joins stand out. A whole-line render
+is fine and a stitched line is not, and the numbers cannot be rendered whole in advance.
+
+**So Silk gets no auctioneer, and that is fine.** Every line he speaks is also on the screen —
+the ask, the patter under the price, the going label, SOLD, PASSED IN, the round commentary — so
+the game loses flavour there and nothing else. `voiceHint()` says which of the three reasons
+applies rather than leaving it a mystery. If this is ever revisited, the only thing that would
+change the answer is a licence-clean voice good enough that a WHOLE line can be pre-rendered —
+which the live prices rule out — or Silk gaining a TTS engine.
+
 ## Research: what works
 
 Recorded in `data/goinggone-lots-real.json` under `researchLog`, and worth repeating here:

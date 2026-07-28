@@ -70,6 +70,16 @@ const PURSE_SRC = (() => {
 })();
 const PURSE = new Function(PURSE_SRC + '\nreturn { purseBand, PURSE_BANDS, PURSE_HIDDEN };')();
 
+// Which voice calls the auction.
+const VOICE_SRC = (() => {
+    const a = HTML.indexOf('const VOICE_PREF = [');
+    const b = HTML.indexOf('function shutUp', a);
+    assert.ok(a >= 0 && b > a, 'could not slice the voice-ranking block out of goinggone.html');
+    return HTML.slice(a, b);
+})();
+const VOICE = new Function(VOICE_SRC + '\nreturn { voiceScore, VOICE_PREF };')();
+const best = list => list.slice().sort((x, y) => VOICE.voiceScore(y) - VOICE.voiceScore(x))[0].name;
+
 // The auctioneer speaks his numbers, so they have to be built into words rather than left to a
 // speech engine to spell out digit by digit.
 const SPEAK_SRC = (() => {
@@ -393,6 +403,56 @@ test('the phone is offered his ask plus the bigger jumps, in order', () => {
             offer.forEach((r, i) => { if (i) assert.ok(r > offer[i - 1], `price ${p}: ${offer} not ascending`); });
         }
     }
+});
+
+// ── which voice calls the auction ───────────────────────────────────────────
+test('the best available voice wins, not the first one recognised', () => {
+    // The old code took the first NAME it knew from a fixed list, so a machine holding both
+    // Daniel and Google UK English Male got Daniel — the worse of the two — which is exactly
+    // what was happening on Neil's laptop.
+    assert.equal(best([
+        { name: 'Daniel', lang: 'en-GB' },
+        { name: 'Google UK English Male', lang: 'en-GB' },
+        { name: 'Fred', lang: 'en-US' },
+    ]), 'Google UK English Male');
+});
+
+test('a downloaded Premium or Enhanced voice is preferred automatically', () => {
+    // Nobody should have to hard-code the name of whatever somebody installs through System
+    // Settings — the bonus finds it.
+    assert.equal(best([
+        { name: 'Daniel', lang: 'en-GB' },
+        { name: 'Daniel (Premium)', lang: 'en-GB' },
+    ]), 'Daniel (Premium)');
+    assert.equal(best([
+        { name: 'Daniel', lang: 'en-GB' },
+        { name: 'Daniel (Enhanced)', lang: 'en-GB' },
+    ]), 'Daniel (Enhanced)');
+    assert.equal(best([
+        { name: 'Daniel (Enhanced)', lang: 'en-GB' },
+        { name: 'Daniel (Premium)', lang: 'en-GB' },
+    ]), 'Daniel (Premium)', 'Premium outranks Enhanced');
+});
+
+test('a name it knows beats a Premium voice it does not', () => {
+    // Otherwise a premium NOVELTY voice — a Mac ships Bubbles, Zarvox and Trinoids — could
+    // outrank a plain, sensible one.
+    assert.equal(best([
+        { name: 'Bubbles (Premium)', lang: 'en-US' },
+        { name: 'Daniel', lang: 'en-GB' },
+    ]), 'Daniel');
+});
+
+test('something is always chosen, even from an unrecognised list', () => {
+    assert.equal(best([{ name: 'Zarvox', lang: 'en-US' }, { name: 'Whisper', lang: 'en-US' }]), 'Zarvox');
+    assert.ok(VOICE.voiceScore({ name: 'anything', lang: 'en-GB' }) >= 0);
+});
+
+test('British edges it, all else equal', () => {
+    assert.equal(best([
+        { name: 'Unknownvoice', lang: 'en-US' },
+        { name: 'Otherunknown', lang: 'en-GB' },
+    ]), 'Otherunknown');
 });
 
 // ── the auctioneer's numbers ────────────────────────────────────────────────

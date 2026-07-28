@@ -2101,11 +2101,34 @@ function pickVoice() {
     const all = speechSynthesis.getVoices();
     if (!all.length) return null;                     // voices load async; try again next call
     _voiceTried = true;
-    const want = ['daniel', 'alex', 'google uk english male', 'rishi', 'arthur', 'fred', 'oliver'];
     const en = all.filter(v => /^en/i.test(v.lang));
-    _voice = want.map(w => en.find(v => v.name.toLowerCase().includes(w))).find(Boolean)
-        || en.find(v => /GB/i.test(v.lang)) || en[0] || all[0];
+    _voice = en.slice().sort((a, b) => voiceScore(b) - voiceScore(a))[0] || all[0];
     return _voice;
+}
+
+// Which English voice should call the auction? Ranked rather than a first-match list, because
+// the old list took the first NAME it recognised and so kept choosing a machine's compact Daniel
+// over a far better voice sitting right beside it.
+//
+// "Google UK English Male" wins where it exists: it is a network voice — Chrome sends the text
+// away and streams back audio — which is why it is a class above anything installed locally. It
+// is absent in Safari, absent offline, and absent on the Fire TV, all of which the fallbacks and
+// the error path already handle.
+//
+// The Premium/Enhanced bonus is the important part for machines other than this one: whatever
+// somebody has downloaded through System Settings gets used automatically, without anybody
+// having to know its name.
+const VOICE_PREF = ['google uk english male', 'oliver', 'arthur', 'daniel', 'alex',
+    'google us english', 'tom', 'nathan', 'rishi', 'fred'];
+function voiceScore(v) {
+    const name = (v.name || '').toLowerCase();
+    const lang = v.lang || '';
+    const i = VOICE_PREF.findIndex(p => name.includes(p));
+    let s = i >= 0 ? (VOICE_PREF.length - i) * 10 : 0;
+    if (/premium/.test(name)) s += 6;             // Apple's best downloadable assets…
+    else if (/enhanced/.test(name)) s += 4;       // …then its middle tier
+    if (/^en[-_]GB/i.test(lang)) s += 1;          // a saleroom accent, all else equal
+    return s;
 }
 function shutUp() { try { speechSynthesis.cancel(); } catch (e) {} auctTalk(false); }
 const voicesAvailable = () => {

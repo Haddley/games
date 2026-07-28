@@ -310,6 +310,13 @@ invented**: if a price could not be verified from a live source, the item is not
   default voice if the chosen one errors, with a watchdog for the case where nothing starts and
   nothing errors either. All three failures look identical from a sofa: he goes quiet and his
   mouth stops, because the mouth is driven by the utterance's own `onstart`.
+  **A clip bank was built to give Silk a voice and abandoned on the sound** — see
+  `goinggoneplan-realitems.md`; do not rebuild it without new information. Concatenated single
+  words do not sound like a sentence, and the better the voice the worse the joins; the best
+  candidate (Piper's `alan`) is also "All Rights Reserved" with nobody left to ask.
+  `voiceScore()` ranks rather than first-matches, so Google UK English Male wins where it exists
+  (Chrome only — Safari has Apple voices, Silk has none) and any downloaded Premium/Enhanced voice
+  is preferred automatically without hard-coding names.
   Recorded clips were considered and rejected: the numbers come out of a live auction,
   so they cannot be pre-recorded, and files would need hosting and licensing this repo has not got.
 - **Raises scale with the price** (`RAISE_LADDER`/`raisesFor`) — a fixed +10/+50/+100 needed
