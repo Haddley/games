@@ -628,6 +628,40 @@ test('the auctioneer stands on the TV only, and his mouth follows the speech', a
     await Promise.all([tv.close(), phone.close()]);
 });
 
+test('a silenced auctioneer says so, and one tap fixes him', async ({ browser }) => {
+    // A browser will not speak on a page nobody has interacted with, and a television is exactly
+    // that page — the attract mode runs for hours and nobody clicks it. Measured: 14 lines handed
+    // to the engine before any click, 0 started, every one refused "not-allowed"; one click and
+    // they play. There is no way around the policy, so the fix is to stop it being a mystery.
+    //
+    // The refusal is NOT reproducible on demand headlessly (the same page refused in one run and
+    // spoke freely in the next), so this drives the mechanism rather than hoping for the gate.
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/goinggone.html?mode=tvsimulation&players=3&rounds=1&lots=2');
+    await expect(tv.locator('#auctioneer')).toBeVisible({ timeout: 20_000 });
+
+    await tv.evaluate(() => voiceHint(true));
+    await expect(tv.locator('#voice-hint')).toBeVisible();
+    await expect(tv.locator('#voice-hint')).toContainText(/tap/i);
+
+    // …and any touch of the screen clears it, because that touch is what unblocks him
+    await tv.mouse.click(960, 540);
+    await expect(tv.locator('#voice-hint')).toHaveCount(0, { timeout: 5_000 });
+
+    // it is idempotent, and a successful start clears it too
+    await tv.evaluate(() => { voiceHint(true); voiceHint(true); });
+    expect(await tv.locator('#voice-hint').count()).toBe(1);
+    await tv.evaluate(() => voiceHint(false));
+    expect(await tv.locator('#voice-hint').count()).toBe(0);
+
+    // a PHONE never shows it — the voice was never its business
+    const phone = await browser.newPage({ viewport: PHONE });
+    await phone.goto('/goinggone.html');
+    await phone.evaluate(() => { mountAuctioneer(); voiceHint(true); });
+    await expect(phone.locator('#voice-hint')).toBeHidden();
+    await Promise.all([tv.close(), phone.close()]);
+});
+
 test('the attract mode takes its settings from the query string', async ({ browser }) => {
     // ?mode=tvsimulation&players=3&rounds=3 should be exactly that: three bidders, three banked
     // rounds. It used to hardcode two rounds and ignore the parameter. The rounds MECHANIC is

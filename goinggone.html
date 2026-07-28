@@ -493,6 +493,16 @@
         @keyframes auBob { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(calc(var(--ah) * -.018)) rotate(-.8deg); } }
 
         /* rostrum */
+        #voice-hint {
+            position: fixed; left: 50%; bottom: 2.4vmin; transform: translateX(-50%); z-index: 12;
+            padding: 1vmin 2.4vmin; border-radius: 2vmin; font-weight: 900; font-size: 2vmin;
+            background: rgba(40,28,60,.92); border: 1px solid var(--gold); color: var(--gold2);
+            box-shadow: 0 0 3vmin rgba(0,0,0,.6); animation: hintPulse 2.4s ease-in-out infinite;
+            pointer-events: none; display: none;
+        }
+        body.viewer-mode #voice-hint { display: block; }
+        @keyframes hintPulse { 0%, 100% { opacity: .62; } 50% { opacity: 1; } }
+
         #auctioneer .desk { position: absolute; left: -12%; bottom: 0; width: 124%; height: 30%; border-radius: calc(var(--ah) * .045) calc(var(--ah) * .045) 0 0; background: linear-gradient(180deg, #6b4415, #3a2409); box-shadow: inset 0 calc(var(--ah) * .022) 0 rgba(255,255,255,.2), 0 0 calc(var(--ah) * .2) rgba(0,0,0,.5); z-index: 4; }
         #auctioneer .desk::after { content: ''; position: absolute; left: 14%; top: 26%; width: 72%; height: 16%; border-radius: calc(var(--ah) * .02); background: rgba(232,183,90,.22); }
         /* body */
@@ -2084,6 +2094,20 @@ function mountAuctioneer() {
     </div>`;
     document.body.appendChild(_auct);
 }
+// A browser will not speak on a page nobody has touched, and a television is exactly that page:
+// the attract mode runs for hours and nobody ever clicks it. There is no way around the policy,
+// so the least it can do is stop being a mystery — one tap and he starts calling.
+function voiceHint(show) {
+    if (!_auct) return;
+    let el = $id('voice-hint');
+    if (!show) { if (el) el.remove(); return; }
+    if (el) return;
+    el = document.createElement('div');
+    el.id = 'voice-hint';
+    el.textContent = '🗣️ tap the screen to give the auctioneer his voice';
+    document.body.appendChild(el);
+}
+
 function auctTalk(on) { if (_auct) _auct.classList.toggle('talking', !!on); if (!on) stopMouth(); }
 
 // ── the mouth ──
@@ -2168,23 +2192,65 @@ function auctBang() {
 
 // The auction has always moved on, so a new line CANCELS the old one rather than queueing behind
 // it — a chant that lags the screen is worse than silence.
-function say(text, opts = {}) {
-    if (!canSpeak() || !text) return;
+//
+// Three ways this goes quiet on a real machine, all of them met here, because the symptom is
+// identical every time and impossible to tell apart from the sofa — he simply does not speak, and
+// his mouth does not move, because the mouth is driven by the utterance's own onstart:
+//   1. cancel() and speak() in the SAME TICK wedges Chrome: the new utterance never starts.
+//   2. some installed voices refuse to play at all (macOS ships several that need fetching), and
+//      the failure arrives as an error on the utterance rather than as an exception here.
+//   3. nothing may speak before the page has been interacted with, which in the ATTRACT MODE is
+//      never — nobody clicks a television.
+// A watchdog covers whatever is left: if a line was handed over and nothing started, it is tried
+// once more in the browser's own default voice, and after that it says so in the console rather
+// than leaving somebody to wonder.
+let _speechWarned = false, _speechWatch = null;
+
+function speakNow(text, opts, withVoice) {
     try {
-        shutUp();
         const u = new SpeechSynthesisUtterance(text);
-        const v = pickVoice();
+        const v = withVoice ? pickVoice() : null;
         if (v) u.voice = v;
         u.rate = opts.rate || 1.28;                   // bid-calling is fast
         u.pitch = opts.pitch === undefined ? 0.9 : opts.pitch;
         u.volume = opts.vol === undefined ? 1 : opts.vol;
+        let started = false;
         // his mouth is tied to THIS utterance, not to a timer
-        u.onstart = () => { auctTalk(true); startMouth(text, u.rate); };
+        u.onstart = () => { started = true; clearTimeout(_speechWatch); voiceHint(false); auctTalk(true); startMouth(text, u.rate); };
         u.onend = () => auctTalk(false);
-        u.onerror = () => auctTalk(false);
         u.onboundary = auctBeat;                      // per-word, where the browser offers it
-        duckMusic(opts.duck || 1.4);
+        u.onerror = e => {
+            auctTalk(false);
+            const why = e && e.error;
+            if (why === 'canceled' || why === 'interrupted') return;   // we did that on purpose
+            if (why === 'not-allowed') { voiceHint(true); return; }        // needs a tap first
+            if (withVoice) { _voice = null; speakNow(text, opts, false); }   // that voice will not play
+            else if (!_speechWarned) { _speechWarned = true; console.warn('[goinggone] the auctioneer cannot speak:', why); }
+        };
+        clearTimeout(_speechWatch);
+        _speechWatch = setTimeout(() => {
+            if (started || speechSynthesis.speaking) return;
+            voiceHint(true);
+            if (withVoice) { _voice = null; speakNow(text, opts, false); }
+            else if (!_speechWarned) {
+                _speechWarned = true;
+                console.warn('[goinggone] the auctioneer was handed a line but never started it — ' +
+                    'the page may not have been interacted with yet (tap the screen once).');
+            }
+        }, 700);
+        speechSynthesis.resume();                     // Chrome parks the queue on its own sometimes
         speechSynthesis.speak(u);
+    } catch (e) {}
+}
+
+function say(text, opts = {}) {
+    if (!canSpeak() || !text) return;
+    try {
+        duckMusic(opts.duck || 1.4);
+        const busy = speechSynthesis.speaking || speechSynthesis.pending;
+        if (!busy) { speakNow(text, opts, true); return; }
+        shutUp();
+        setTimeout(() => speakNow(text, opts, true), 80);   // never in the same tick as the cancel
     } catch (e) {}
 }
 
@@ -2338,6 +2404,11 @@ document.addEventListener('pointerdown', () => {
     if (_audioUnlocked) return;
     _audioUnlocked = true;
     if (ac()) startMusicLoop();
+    // …and the voice, which has its own gate: a page that has never been interacted with may
+    // not be allowed to speak at all. The attract mode is exactly that page, so if a television
+    // has been sitting on the demo in silence, one tap is what starts the auctioneer.
+    try { speechSynthesis.resume(); } catch (e) {}
+    if (typeof voiceHint === 'function') voiceHint(false);
 }, { capture: true });
 
 // ── Particle bursts + floating text ──

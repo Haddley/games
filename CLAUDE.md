@@ -271,7 +271,16 @@ invented**: if a price could not be verified from a live source, the item is not
   an American rostrum idiom, and it disagrees with the figure on the screen beside it.
   It speaks only under `isViewer || isTvHost` — ten phones chanting over each other is bedlam —
   cancels rather than queues (a chant lagging the screen is worse than silence), and has its own
-  🗣️ toggle. Recorded clips were considered and rejected: the numbers come out of a live auction,
+  🗣️ toggle. **A browser will not speak on a page nobody has interacted with, and a television is
+  exactly that page** — measured in the attract mode: 14 lines handed to the engine, 0 started,
+  every one refused `not-allowed`; one click and they play. That policy cannot be worked around,
+  so `voiceHint()` puts "tap the screen to give the auctioneer his voice" on the TV when a line is
+  actually refused, and any pointerdown clears it. `say()` also never cancels and speaks in the
+  same tick (that wedges Chrome — the new utterance never starts) and falls back to the browser's
+  default voice if the chosen one errors, with a watchdog for the case where nothing starts and
+  nothing errors either. All three failures look identical from a sofa: he goes quiet and his
+  mouth stops, because the mouth is driven by the utterance's own `onstart`.
+  Recorded clips were considered and rejected: the numbers come out of a live auction,
   so they cannot be pre-recorded, and files would need hosting and licensing this repo has not got.
 - **Raises scale with the price** (`RAISE_LADDER`/`raisesFor`) — a fixed +10/+50/+100 needed
   seventy taps to reach a serious bid once lots ran to $10,000. The host validates the raise
