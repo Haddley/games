@@ -110,17 +110,23 @@ test('TV-first: the ask, a bidding war, gavel, valuation, podium', async ({ brow
     await expect(ben.locator('text=Karen holds the bid')).toBeVisible({ timeout: 10_000 });
     await shot(karen, 'gavel-07-phone-winning');
 
-    // Ben's first raise rung — read it off the button rather than assuming the ladder
-    const rung = await ben.locator('#bid-btns .btn').first().textContent();
-    const raise = parseInt(rung.replace(/[^0-9]/g, ''), 10);
+    // Ben takes the first rung on offer. The price is READ BACK rather than predicted: the
+    // auctioneer splits the increment as the gavel falls, so the button can legitimately
+    // re-render smaller between reading its label and clicking it.
     await ben.locator('#bid-btns .btn').first().click();
-    await expect(tv.locator('#v-price')).toHaveText(money(opened + raise), { timeout: 10_000 });
+    await expect.poll(() => tv.evaluate(() => (H.bid && H.bid.price) || 0), { timeout: 10_000 })
+        .toBeGreaterThan(opened);
+    const afterBen = await tv.evaluate(() => H.bid.price);
+    await expect(tv.locator('#v-price')).toHaveText(money(afterBen), { timeout: 10_000 });
     await expect(ben.locator('text=You\'re winning this lot!')).toBeVisible({ timeout: 10_000 });
+
     await shot(tv, 'gavel-08-tv-bidding');
     await shot(karen, 'gavel-09-phone-outbid');
 
     // Karen takes it back and holds on to the gavel
     await karen.locator('#bid-btns .btn').first().click();
+    await expect.poll(() => tv.evaluate(() => (H.bid && H.bid.leaderId) ? H.players.find(p => p.id === H.bid.leaderId).name : null),
+        { timeout: 10_000 }).toBe('Karen');
     const finalPrice = await tv.evaluate(() => H.bid.price);
     expect(finalPrice).toBeGreaterThan(opened);
 
@@ -155,6 +161,64 @@ test('TV-first: the ask, a bidding war, gavel, valuation, podium', async ({ brow
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 15_000 });
 
     await Promise.all([tv, karen, ben].map(p => p.close()));
+});
+
+test('he splits the increment rather than dropping the hammer', async ({ browser }) => {
+    // A real auctioneer who cannot get another whole jump asks for less: "I'm bid five thousand,
+    // will you give me five-two? Five-one?" So the smallest acceptable raise softens as the gavel
+    // falls. Two halves, deliberately tested apart: the PHONE must re-offer at his reduced ask
+    // (its own clock, no host involved), and the HOST must actually accept it (its own clock, no
+    // click race). One test of both would have to SKEW the two clocks against each other — which
+    // is precisely the situation the feature must not tolerate, and an earlier version of this
+    // test did exactly that and failed, correctly.
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/goinggone.html');
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
+    const code = await tv.evaluate(() => roomCode);
+
+    const gus = await joinPhone(browser, code, 'Gus');
+    await expect(gus.locator('text=Captain\'s Settings')).toBeVisible({ timeout: 30_000 });
+    const hal = await joinPhone(browser, code, 'Hal');
+    await expect(tv.locator('.cxl-chip')).toHaveCount(2, { timeout: 20_000 });
+
+    await gus.getByRole('button', { name: '1', exact: true }).click();
+    await gus.waitForTimeout(250);
+    await gus.getByRole('button', { name: /Start the auction/ }).click();
+    await expect(tv.locator('.tv-lot')).toBeVisible({ timeout: 20_000 });
+    await forceCheapLots(tv);
+    await openBidding(gus, tv);      // somebody must be bidding before there is anything to split
+
+    // ── the phone re-offers, off its own clock ──
+    const num = t => parseInt(String(t).replace(/[^0-9]/g, ''), 10);
+    const full = num(await hal.locator('#bid-btns .btn').first().textContent());
+    await hal.evaluate(() => { _localGavelEnd = Date.now() + 300; });       // nearly out of time
+    await expect.poll(async () => num(await hal.locator('#bid-btns .btn').first().textContent()),
+        { timeout: 5_000, message: 'the auctioneer never came down off his full jump' })
+        .toBeLessThan(full);
+    await expect(hal.locator('#bid-btns .btn.soft')).toBeVisible();
+    await shot(hal, 'gavel-14-phone-split-increment');
+
+    // ── and the host takes it, off its own ──
+    const host = await tv.evaluate(() => {
+        const p = H.players.find(x => x.name === 'Hal');
+        const price = H.bid.price;
+        const fullRung = raisesFor(price)[0];
+        H.bid.endsAt = Date.now() + GAVEL_MS;                  // a fresh countdown: he wants it all
+        const early = softMinRaise(price, 1);
+        hostBid(p, Math.max(1, Math.round(fullRung / 8)));     // far below his standing ask
+        const refused = H.bid.price === price;
+        H.bid.endsAt = Date.now() + 400;                       // …and at the death, a fraction of it
+        const late = softMinRaise(price, 400 / GAVEL_MS);
+        hostBid(p, late);
+        return { fullRung, early, late, refused, took: H.bid.price - price };
+    });
+    expect(host.early, 'he softened before the countdown had even run').toBe(host.fullRung);
+    expect(host.refused, 'the host took a bid below his standing ask').toBe(true);
+    expect(host.late, 'he never came down').toBeLessThan(host.fullRung);
+    expect(host.took, 'the host refused his own reduced ask').toBe(host.late);
+
+    await Promise.all([tv, gus, hal].map(p => p.close()));
 });
 
 test('paddles: unique two-digit numbers, drawn on screen, and the auctioneer sells to the number', async ({ browser }) => {

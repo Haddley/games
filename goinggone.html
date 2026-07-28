@@ -132,6 +132,9 @@
         /* the opening ask: one button, the auctioneer's own number */
         .bid-btns .btn-open { flex: 1 0 100%; font-size: 1.12rem; padding: 18px 8px; }
         .bid-btns .open-note { flex: 1 0 100%; text-align: center; color: var(--muted); font-weight: 800; font-size: .7rem; }
+        /* he has split the increment — the smaller ask is the one to notice */
+        .bid-btns .btn.soft { background: linear-gradient(180deg, #f6eefb, #c9a8e6); color: #2a1a05; box-shadow: 0 5px 0 #7a4fa0, 0 10px 22px rgba(180,120,224,.35); animation: softIn .35s cubic-bezier(.2,1.5,.35,1); }
+        @keyframes softIn { 0% { transform: scale(.82); } 60% { transform: scale(1.06); } 100% { transform: none; } }
         /* an ask is a question, not a price — it reads a touch cooler, and lurches when it drops */
         .price-big.asking, .tv-price.asking { color: var(--plum); text-shadow: 0 0 22px rgba(180,120,224,.32); }
         .price-big.drop, .tv-price.drop { animation: askDrop .5s cubic-bezier(.3,1.5,.4,1); }
@@ -562,6 +565,39 @@ const RAISE_LADDER = [
     { under: Infinity, raises: [25000, 100000, 250000] },
 ];
 const raisesFor = price => RAISE_LADDER.find(r => price < r.under).raises;
+
+// ── SPLITTING THE INCREMENT ─────────────────────────────────────────────────
+// Once the bidding is running, an auctioneer who cannot get another full jump does not simply
+// drop the hammer — he asks for less. "I'm bid five thousand, will you give me five-five? Five-
+// two? Five-one?" So as the gavel countdown runs out the SMALLEST rung softens, in steps, down
+// to a floor of about 2% of the current price (never under a pound, so a cheap lot really does
+// reach "just one more"). The bigger jumps stay on offer the whole time — he is lowering his
+// ask, not capping anybody's enthusiasm — and the moment somebody bids, the countdown restarts
+// and he is back to asking for the full rung.
+const SOFT_STAGES = [0.60, 0.35, 0.15];   // fractions of the gavel window still to run
+const SOFT_SHARE = [1, 0.5, 0.25];        // …and the share of the first rung he will take at each
+const RAISE_FLOOR = 0.02;                 // past the last stage: this share of the price, min 1
+const SOFT_GRACE_MS = 700;                // clock slack, so a phone a little ahead is not punished
+
+const softStage = frac => frac > SOFT_STAGES[0] ? 0 : frac > SOFT_STAGES[1] ? 1 : frac > SOFT_STAGES[2] ? 2 : 3;
+
+// The smallest raise he will accept right now. Never rises as the clock runs down, whatever the
+// arithmetic says — a floor above the quarter-rung would otherwise make him ask for MORE as he
+// grew more desperate.
+function softMinRaise(price, frac) {
+    const full = raisesFor(price)[0];
+    const floor = Math.min(full, Math.max(1, roundAsk(price * RAISE_FLOOR)));
+    const st = softStage(frac);
+    if (st === 0) return full;
+    if (st >= SOFT_SHARE.length) return floor;
+    return Math.max(floor, Math.min(full, roundAsk(full * SOFT_SHARE[st])));
+}
+// What the phone offers: his current ask, then the two bigger jumps, deduplicated.
+function softRaises(price, frac) {
+    const rungs = raisesFor(price);
+    const min = softMinRaise(price, frac);
+    return [min, ...rungs.filter(r => r > min)].slice(0, 3);
+}
 
 // ── THE AUCTIONEER'S ASK ────────────────────────────────────────────────────
 // Bidding does not open at nothing. The auctioneer calls for an opening bid — and he is not an
@@ -2196,6 +2232,15 @@ const P_GOING = [
     "Going once… going twice…", "Fair warning now!", "All done? All through?",
     "Last call at {}.", "Fair warning — I'm selling at {}.", "Going… and going…",
 ];
+// …and when he has already come down off the full jump, he says so. This is the real thing:
+// an auctioneer who cannot get another whole increment splits it rather than dropping the hammer.
+const P_SPLIT = [
+    "I'll take {r}. Just {r} more, anybody?",
+    "Won't you give me {r}? {r} and it's yours.",
+    "I'm bid {}. I'll take {r} more. Just {r}.",
+    "Split it with me — {r}? Anybody at {r}?",
+    "Don't lose it for {r}. {r}!",
+];
 // The rostrum sells to the NUMBER, not the name — "{who}" is always "bidder number forty-two".
 const P_SOLD = [
     "SOLD! To {who}, for {}!", "GONE! {who} takes it at {}!",
@@ -2256,7 +2301,15 @@ function sayBid(msg) {
     if (msg.bid.leaderPaddle && Math.random() < 0.35) line += ' ' + pick(P_ACK).replace('{p}', words(msg.bid.leaderPaddle));
     say(line, { rate: 1.42 });
 }
-function sayGoing(price) { say(fill(pick(P_GOING), price), { rate: 1.15 }); }
+function sayGoing(price, minRaise) {
+    const full = raisesFor(price)[0];
+    // one utterance either way — say() cancels, so a separate "and I'll take fifty" would
+    // simply clip the fair warning it was meant to follow
+    const line = (minRaise && minRaise < full)
+        ? fill(pick(P_SPLIT), price).replace(/\{r\}/g, words(minRaise))
+        : fill(pick(P_GOING), price);
+    say(line, { rate: 1.15 });
+}
 function saySold(info) {
     // Never the name: an auctioneer sells to the paddle. (It also saves him mangling "Bux".)
     const who = info.paddle ? 'bidder number ' + words(info.paddle) : 'the gentleman at the back';
@@ -2743,9 +2796,13 @@ function hostBid(player, raise) {
         broadcastState();
         return;
     }
-    // The legal raises depend on the CURRENT price, so validate against the ladder here rather
-    // than trusting whatever the phone sent.
-    if (!raisesFor(H.bid.price).includes(raise)) return;
+    // The smallest legal raise depends on the price AND on how far the gavel has fallen, so it
+    // is settled here rather than trusting whatever the phone sent. A phone tapping just as the
+    // ask softens sends the older, LARGER number, which is always fine; the grace goes the other
+    // way, treating the clock as a little further on than it is, so a phone whose countdown runs
+    // marginally ahead of the host's does not have its tap thrown away.
+    const frac = (H.bid.endsAt - Date.now() - SOFT_GRACE_MS) / GAVEL_MS;
+    if (raise < softMinRaise(H.bid.price, frac)) return;
     if (H.bid.leaderId === player.id) return;               // can't outbid yourself
     const newPrice = H.bid.price + raise;
     if (player.coins < newPrice) return;                     // must be able to pay
@@ -2952,7 +3009,7 @@ function hostSet(patch) {
 // CLIENT (phone) MESSAGE HANDLING
 // ═══════════════════════════════════════════
 let _lastLotKey = '', _lastPrice = -1, _lastAsk = 0, _lastRevealIdx = -1, _goingStage = 0;
-let _cOpening = false, _cSpan = GAVEL_MS;
+let _cOpening = false, _cSpan = GAVEL_MS, _cSoft = -1;
 function stopClientTick() { clearInterval(_gavelTickClient); _gavelTickClient = null; _goingStage = 0; musicUrgent = false; }
 
 function applyMsg(msg) {
@@ -3078,6 +3135,12 @@ function applyMsg(msg) {
     }
 }
 
+// how far through the gavel window this device believes it is, for the softening ladder
+function localFrac() {
+    if (_cOpening || !_localGavelEnd) return 1;
+    return Math.max(0, Math.min(1, (_localGavelEnd - Date.now()) / GAVEL_MS));
+}
+
 function startClientGavel(msg) {
     _localGavelEnd = Date.now() + (msg.bid ? msg.bid.endsIn : 0);
     _cOpening = !!(msg.bid && msg.bid.price === 0);
@@ -3099,6 +3162,16 @@ function startClientGavel(msg) {
         if (musicUrgent) musicIntensity = 2;   // "going…" reached: full band stays in
         if (stage > _goingStage && left > 0) sGoing(stage);
         _goingStage = stage;   // a new bid refills the bar → stage drops → stings re-arm
+        // he has come down a step: re-offer, so the buttons say what he is actually asking
+        const soft = softStage(localFrac());
+        if (soft !== _cSoft) {
+            _cSoft = soft;
+            const bb = $id('bid-btns');
+            if (bb && D && D.phase === 'bidding' && D.bid && D.bid.price > 0 && !D.bid.youLead) {
+                bb.innerHTML = bidBtnsHTML(D);
+                if (soft > 0) { try { navigator.vibrate && navigator.vibrate(15); } catch (e) {} }
+            }
+        }
     }, 100);
 }
 
@@ -3322,13 +3395,21 @@ function startViewerGavel(msg) {
         if (bar) { bar.style.width = (frac * 100) + '%'; bar.classList.toggle('low', stage > 0); }
         const gl = $id('v-going');
         if (gl) {
+            // …and once he has come down off the full rung, say what now takes it
+            const price = vD && vD.bid ? vD.bid.price : 0;
+            const frac = Math.max(0, Math.min(1, left / GAVEL_MS));
+            const min = (!_vOpening && price) ? softMinRaise(price, frac) : 0;
+            const take = (min && min < raisesFor(price)[0]) ? ` — ${num(min)} takes it` : '';
             gl.textContent = _vOpening ? (left < 1800 ? 'coming down…' : '')
-                : left === 0 ? '' : stage === 2 ? 'going… GOING…' : stage === 1 ? 'going…' : '';
+                : left === 0 ? '' : stage === 2 ? 'going… GOING…' + take : stage === 1 ? 'going…' + take : '';
             gl.classList.toggle('low', stage > 0);
         }
         musicUrgent = left > 0 && stage > 0;
         if (musicUrgent) musicIntensity = 2;   // "going…" reached: full band stays in
-        if (stage > _vGoingStage && left > 0) { sGoing(stage); if (stage === 2 && vD && vD.bid) sayGoing(vD.bid.price); }
+        if (stage > _vGoingStage && left > 0) {
+            sGoing(stage);
+            if (stage === 2 && vD && vD.bid) sayGoing(vD.bid.price, softMinRaise(vD.bid.price, Math.max(0, left / GAVEL_MS)));
+        }
         _vGoingStage = stage;
     }, 100);
 }
@@ -3419,9 +3500,11 @@ function bidBtnsHTML(msg) {
             🙋 Start it at ${num(ask)}</button>
             <div class="open-note">${msg.myCoins >= ask ? 'or hold your nerve — he might come down…' : 'too rich for you'}</div>`;
     }
-    return raisesFor(msg.bid.price).map(r => {
+    return softRaises(msg.bid.price, localFrac()).map((r, i) => {
         const afford = msg.myCoins >= msg.bid.price + r;
-        return `<button class="btn btn-p" ${afford ? '' : 'disabled'} onclick="sendBid(${r})">+${r}</button>`;
+        // his softened ask is marked, so it is obvious he has just come down
+        const soft = i === 0 && r < raisesFor(msg.bid.price)[0];
+        return `<button class="btn btn-p${soft ? ' soft' : ''}" ${afford ? '' : 'disabled'} onclick="sendBid(${r})">+${num(r)}</button>`;
     }).join('');
 }
 

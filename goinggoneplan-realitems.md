@@ -56,6 +56,7 @@ worthwhile.
 | **Opening bid** | **the auctioneer's ask**, not zero — a randomised 0.85×–1.9× of true value, so it is a clue with a lie in it. Nobody bites → he comes down a rung (×0.55–0.75) and asks again, up to 5 rungs |
 | **Reserve** | **25% of true value**, never shown. When the next rung would go under it the lot is **passed in** |
 | **Paddle numbers** | unique, random, two digits (10–99), kept across a reconnect. The sale is called to the number, never the name |
+| **Splitting the increment** | as the gavel falls his ask drops: full rung → ½ → ¼ → ~2% of the price (min $1). Any bid resets it |
 | **Bid raises** | **scale with the price** — +10/50/100 under $100, up to +25,000/100,000/250,000 in the top tier. A fixed ladder needed seventy taps to reach a serious bid |
 | **Rounding** | values are rounded to **whole dollars** at embed time; the game's coin arithmetic is integer |
 

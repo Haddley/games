@@ -51,6 +51,16 @@ const makeDraw = (settings, players = 6) => {
 
 const ASK = new Function(ASK_SRC + '\nreturn { askLadder, reserveFor, roundAsk, RESERVE_FRAC, ASK_HI, ASK_LO, ASK_STEPS };')();
 
+// The raise ladder and the increment-splitting that softens it as the gavel falls.
+const RAISE_SRC = (() => {
+    const a = HTML.indexOf('const RAISE_LADDER = [');
+    const b = HTML.indexOf('const PLAYER_COLORS', a);
+    assert.ok(a >= 0 && b > a, 'could not slice the raise-ladder block out of goinggone.html');
+    return HTML.slice(a, b);
+})();
+const RAISE = new Function(RAISE_SRC +
+    '\nreturn { raisesFor, softMinRaise, softRaises, softStage, RAISE_FLOOR, SOFT_SHARE };')();
+
 // The auctioneer speaks his numbers, so they have to be built into words rather than left to a
 // speech engine to spell out digit by digit.
 const SPEAK_SRC = (() => {
@@ -282,6 +292,55 @@ test('asks are round numbers a person would say out loud', () => {
         for (const a of ASK.askLadder(v)) {
             const digits = String(a).replace(/0+$/, '').length;
             assert.ok(a < 20 || digits <= 2, `${a} is not a number an auctioneer would call`);
+        }
+    }
+});
+
+// ── splitting the increment ─────────────────────────────────────────────────
+// An auctioneer who cannot get another full jump asks for less rather than dropping the hammer.
+// So the smallest acceptable raise softens as the gavel countdown runs out.
+const PRICES = [1, 60, 99, 200, 900, 3400, 9000, 21000, 67000, 153000];
+
+test('the ask only ever comes DOWN as the gavel falls', () => {
+    // The floor is a share of the price and the stages are shares of the rung, so on some lots
+    // the floor lands above the quarter-rung. Left alone that makes him ask for MORE the more
+    // desperate he gets, which is the one thing it must never do.
+    for (const p of PRICES) {
+        let prev = Infinity;
+        for (const frac of [1, 0.8, 0.6, 0.45, 0.35, 0.2, 0.15, 0.05, 0]) {
+            const r = RAISE.softMinRaise(p, frac);
+            assert.ok(r <= prev, `price ${p}: ask went UP at frac ${frac} (${prev} → ${r})`);
+            assert.ok(r >= 1, `price ${p}: ask fell below a pound (${r})`);
+            assert.ok(r <= RAISE.raisesFor(p)[0], `price ${p}: ask ${r} exceeds the full rung`);
+            prev = r;
+        }
+    }
+});
+
+test('a fresh countdown asks for the full rung, and only softens later', () => {
+    for (const p of PRICES) {
+        assert.equal(RAISE.softMinRaise(p, 1), RAISE.raisesFor(p)[0], `price ${p} softened too early`);
+        assert.ok(RAISE.softMinRaise(p, 0.05) <= RAISE.softMinRaise(p, 1),
+            `price ${p} never came down at all`);
+    }
+});
+
+test('a cheap lot really does get down to "just one more"', () => {
+    // The whole point of the floor being a SHARE of the price: on a traffic cone it reaches $1,
+    // and on a Cessna it stops somewhere that is still a bid rather than a reflex test.
+    assert.equal(RAISE.softMinRaise(60, 0), 1);
+    assert.ok(RAISE.softMinRaise(67000, 0) > 500, 'a five-figure lot should not go to a pound');
+    assert.ok(RAISE.softMinRaise(67000, 0) <= 67000 * RAISE.RAISE_FLOOR * 1.2);
+});
+
+test('the phone is offered his ask plus the bigger jumps, in order', () => {
+    for (const p of PRICES) {
+        for (const frac of [1, 0.5, 0.2, 0]) {
+            const offer = RAISE.softRaises(p, frac);
+            assert.ok(offer.length >= 1 && offer.length <= 3, `price ${p}: ${offer.length} buttons`);
+            assert.equal(offer[0], RAISE.softMinRaise(p, frac), `price ${p}: first button is not his ask`);
+            assert.deepEqual(offer, [...new Set(offer)], `price ${p}: duplicate buttons ${offer}`);
+            offer.forEach((r, i) => { if (i) assert.ok(r > offer[i - 1], `price ${p}: ${offer} not ascending`); });
         }
     }
 });

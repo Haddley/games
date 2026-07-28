@@ -215,6 +215,19 @@ invented**: if a price could not be verified from a live source, the item is not
   strings: `text` for the screen (names) and `spoken` for the auctioneer (paddle numbers only).
   Shown on the banked board and the podium, staged to land after the thing they comment on; spoken
   as **one** utterance, because `say()` cancels and three calls would clip down to the last line.
+- **He SPLITS THE INCREMENT as the hammer falls.** Once bidding is running, the smallest
+  acceptable raise softens in stages as the gavel countdown empties (`softMinRaise`/`softRaises`):
+  full rung → ½ → ¼ → a floor of `RAISE_FLOOR` (2%) of the current price, never under $1. So a $60
+  traffic cone genuinely reaches "just one more" while a $67,000 Cessna bottoms out near $1,300 —
+  a literal $1 everywhere would make the last bid a reflex test rather than a judgement. The
+  bigger jumps stay on offer throughout (he is lowering his ask, not capping enthusiasm), and any
+  bid **resets the countdown**, so he starts asking for the full rung again. Three things this
+  depends on: the ask may **never rise** as the clock runs down (the floor can otherwise exceed
+  the quarter-rung — a unit test asserts monotonicity), the host validates against **its own**
+  clock with `SOFT_GRACE_MS` of slack so a phone running slightly ahead isn't punished, and the
+  phone re-renders its buttons from its **local** countdown so the offer changes without a
+  round-trip. Never skew those two clocks in a test to make it deterministic — that is the one
+  situation the feature must not tolerate.
 - **Every bidder has a PADDLE, and the auctioneer sells to the number.** `freePaddle()` deals a
   unique random two-digit number (10–99) at `hostAddPlayer`; two digits so it always reads as a
   rostrum number ("bidder number forty-two", never "bidder seven"), and a rejoining player keeps
