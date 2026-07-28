@@ -339,6 +339,39 @@ test('he says one line aloud and shows the rest', () => {
     assert.match(bank, /Math\.max\(/, 'and never shorter than the rows take to land');
 });
 
+test('when he splits the increment he calls the PRICE, not the step', () => {
+    // Heard in a real game: bid at 140, ask reduced to 25, and he said "I'll take 25". An
+    // auctioneer never calls the increment — he calls the price it makes, "one hundred and
+    // sixty-five". The increment is only ever spoken as "just X more".
+    // to the array's own closing bracket, NOT to the next const: the comment in between quotes
+    // "{who}", which this happily read as a line of patter
+    const from = HTML.indexOf('const P_SPLIT = [');
+    const SRC = HTML.slice(from, HTML.indexOf('];', from));
+    const lines = [...SRC.matchAll(/"((?:\\.|[^"])*)"/g)].map(m => m[1]);
+    assert.ok(lines.length >= 5, `only ${lines.length} split lines found`);
+    for (const l of lines) {
+        assert.match(l, /\{n\}/, `"${l}" never names the price the ask would make`);
+        // {r} is allowed, but only where "more" makes it obviously an increment
+        if (/\{r\}/.test(l)) {
+            assert.match(l, /\{r\}\s*(more|\.|!|\?)/,
+                `"${l}" uses the increment somewhere it will be heard as a price`);
+        }
+    }
+
+    // …and no trade jargon: a family is not an auction house
+    const JARGON = /split it with me|bid'em|chandelier|on the book/i;
+    for (const l of lines) assert.ok(!JARGON.test(l), `"${l}" is shop-talk nobody at a table will follow`);
+
+    // and the substitution feeds them the right numbers. Matched as RAW text: in the source the
+    // placeholders live inside a regex literal, so "{n}" is written `\{n\}` and a plain /\{n\}/
+    // never finds it — the backslash sits between the n and the brace.
+    const say = HTML.slice(HTML.indexOf('function sayGoing'), HTML.indexOf('function saySold'));
+    assert.ok(say.includes(String.raw`.replace(/\{n\}/g, words(price + minRaise))`),
+        '{n} must be substituted with the price the ask would make');
+    assert.ok(say.includes(String.raw`.replace(/\{r\}/g, words(minRaise))`),
+        '{r} must be substituted with the increment');
+});
+
 // ── nobody may read your bank balance off the TV ────────────────────────────
 test('the purse band never rises as you get poorer', () => {
     const avg = 7000;
@@ -535,6 +568,9 @@ test('the auctioneer says the number that is on the screen', () => {
         3100: 'three thousand one hundred', 5900: 'five thousand nine hundred',
         7000: 'seven thousand', 10000: 'ten thousand',
         48000: 'forty-eight thousand', 67000: 'sixty-seven thousand',
+        // the "and" belongs before a bare tail, and NOT once there are hundreds in it
+        3022: 'three thousand and twenty-two', 2963: 'two thousand nine hundred and sixty-three',
+        1005: 'one thousand and five', 40012: 'forty thousand and twelve',
         153309: 'one hundred and fifty-three thousand three hundred and nine',
     };
     for (const [n, want] of Object.entries(cases)) {

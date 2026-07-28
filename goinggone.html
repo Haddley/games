@@ -128,7 +128,9 @@
         }
         .lead-banner.other { background: rgba(160,130,190,.12); border-color: var(--border2); color: var(--muted); }
         .bid-btns { display: flex; gap: 9px; flex-wrap: wrap; }
-        .bid-btns .btn { flex: 1; font-size: 1.05rem; padding: 16px 8px; }
+        .bid-btns .btn { flex: 1; font-size: 1.05rem; padding: 14px 8px; line-height: 1.15; }
+        /* the price the button makes, because that is the number the auctioneer calls out */
+        .bid-btns .btn small { display: block; font-size: .68rem; font-weight: 800; opacity: .72; margin-top: 2px; }
         /* the opening ask: one button, the auctioneer's own number */
         .bid-btns .btn-open { flex: 1 0 100%; font-size: 1.12rem; padding: 18px 8px; }
         .bid-btns .open-note { flex: 1 0 100%; text-align: center; color: var(--muted); font-weight: 800; font-size: .7rem; }
@@ -2454,7 +2456,13 @@ function words(n) {
     // never "thirty-one hundred". The counting-in-hundreds idiom was tried here and is wrong twice
     // over — it is American rather than the voice this room has, and it disagrees with the figure
     // sitting on the screen next to it, which is the part that actually grates.
-    if (n < 1e6) return words(Math.floor(n / 1000)) + ' thousand' + (n % 1000 ? ' ' + words(n % 1000) : '');
+    // "three thousand AND twenty-two" — the and belongs before a bare tens-and-units tail, and is
+    // wrong once there are hundreds in it ("three thousand one hundred and twenty-two").
+    if (n < 1e6) {
+        const rest = n % 1000;
+        const tail = rest ? (rest < 100 ? ' and ' : ' ') + words(rest) : '';
+        return words(Math.floor(n / 1000)) + ' thousand' + tail;
+    }
     return words(Math.floor(n / 1e6)) + ' million' + (n % 1e6 >= 1000 ? ' ' + words(Math.floor((n % 1e6) / 1000)) + ' thousand' : '');
 }
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -2507,12 +2515,17 @@ const P_GOING = [
 ];
 // …and when he has already come down off the full jump, he says so. This is the real thing:
 // an auctioneer who cannot get another whole increment splits it rather than dropping the hammer.
+// {} is what is bid, {n} is the PRICE the reduced ask would make, {r} is the increment itself.
+// An auctioneer calls the price, never the increment — with 140 bid and a 25 ask he says "I'll
+// take one hundred and sixty-five", not "I'll take twenty-five". The increment only ever appears
+// as "just X more", which is the one place it is the natural thing to say.
 const P_SPLIT = [
-    "I'll take {r}. Just {r} more, anybody?",
-    "Won't you give me {r}? {r} and it's yours.",
-    "I'm bid {}. I'll take {r} more. Just {r}.",
-    "Split it with me — {r}? Anybody at {r}?",
-    "Don't lose it for {r}. {r}!",
+    "I'll take {n}. Just {r} more, anybody?",
+    "Won't you give me {n}? {n} and it's yours.",
+    "I'm bid {}. I'll take {n} — only {r} more.",
+    "I'll come down. {n}? Anybody at {n}?",
+    "Don't lose it for {r}. {n}!",
+    "{n}. Will ya give me {n}?",
 ];
 // The rostrum sells to the NUMBER, not the name — "{who}" is always "bidder number forty-two".
 const P_SOLD = [
@@ -2579,7 +2592,9 @@ function sayGoing(price, minRaise) {
     // one utterance either way — say() cancels, so a separate "and I'll take fifty" would
     // simply clip the fair warning it was meant to follow
     const line = (minRaise && minRaise < full)
-        ? fill(pick(P_SPLIT), price).replace(/\{r\}/g, words(minRaise))
+        ? fill(pick(P_SPLIT), price)
+            .replace(/\{n\}/g, words(price + minRaise))     // the price it makes…
+            .replace(/\{r\}/g, words(minRaise))             // …and the step itself, sparingly
         : fill(pick(P_GOING), price);
     say(line, { rate: 1.15 });
 }
@@ -3719,7 +3734,7 @@ function startViewerGavel(msg) {
             // …and once he has come down off the full rung, say what now takes it
             const price = vD && vD.bid ? vD.bid.price : 0;
             const min = (!_vOpening && price) ? softMinRaise(price, (vD.bid && vD.bid.soft) || 0) : 0;
-            const take = (min && min < raisesFor(price)[0]) ? ` — ${num(min)} takes it` : '';
+            const take = (min && min < raisesFor(price)[0]) ? ` — ${num(price + min)} takes it` : '';
             gl.textContent = _vOpening ? (left < 1800 ? 'coming down…' : '')
                 : left === 0 ? '' : stage === 2 ? 'going… GOING…' + take : stage === 1 ? 'going…' + take : '';
             gl.classList.toggle('low', stage > 0);
@@ -3824,7 +3839,8 @@ function bidBtnsHTML(msg) {
         const afford = msg.myCoins >= msg.bid.price + r;
         // his softened ask is marked, so it is obvious he has just come down
         const soft = i === 0 && r < raisesFor(msg.bid.price)[0];
-        return `<button class="btn btn-p${soft ? ' soft' : ''}" ${afford ? '' : 'disabled'} onclick="sendBid(${r})">+${num(r)}</button>`;
+        return `<button class="btn btn-p${soft ? ' soft' : ''}" ${afford ? '' : 'disabled'} onclick="sendBid(${r})">
+            +${num(r)}<small>${num(msg.bid.price + r)}</small></button>`;
     }).join('');
 }
 

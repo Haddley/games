@@ -233,6 +233,13 @@ invented**: if a price could not be verified from a live source, the item is not
   All of this is real auction practice, not invention (auctioneers genuinely fish down for an
   opening bid, and "passed in" is the trade's term) — see the research in
   `goinggoneplan-realitems.md`.
+- **He calls the PRICE, never the increment.** With 140 bid and his ask reduced to 25 he says
+  "I'll take one hundred and sixty-five" — the price it makes — not "I'll take 25", which is what
+  he did at first and which means nothing to a room. In `P_SPLIT`, `{n}` is the resulting price
+  and `{r}` the step, and `{r}` may only appear where "more" makes it obviously an increment; a
+  unit test enforces both. The TV's countdown label and the phone's button carry that same number
+  (`+25` with `165` beneath) so all three agree. **And no trade jargon:** "split it with me" is
+  real rostrum shop-talk and complete gibberish at a kitchen table.
 - **Spoken commentary is capped at ONE line; the screen carries all four.** Spoken numbers are
   dear — "forty-five thousand nine hundred" is three seconds — so two lines push the banked board
   past eighteen seconds, and the board must be held open for as long as he is talking or the next
