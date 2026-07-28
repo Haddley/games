@@ -455,7 +455,9 @@ test('passed in: the auctioneer fishes all the way down and nobody bites', async
     // the card is staged — feather falls, PASSED IN stamps at .7s, the value lands at 1.7s
     await tv.waitForTimeout(2400);
     await shot(tv, 'gavel-31-tv-passed-in');
-    await expect(cy.locator('text=PASSED IN')).toBeVisible({ timeout: 10_000 });
+    // the phone's own card, named precisely: the auctioneer's speech bubble carries the words
+    // "Passed in" too, and a loose text= matcher now resolves to both
+    await expect(cy.locator('.sold-card .st')).toHaveText('PASSED IN', { timeout: 10_000 });
 
     // Nobody paid for it and nobody owns it
     const after = await tv.evaluate(() => ({
@@ -820,6 +822,40 @@ test('the running totals stay shut until every lot has been valued', async ({ br
     expect(done.text).toContain('5,059');      // Ada: 900 + 4,159
     expect(done.text).toContain('7,018');      // Bo:  6,910 + 108
     await tv.close();
+});
+
+test('switching the voice on SPEAKS inside the tap, which is what iOS demands', async ({ browser }) => {
+    // iOS Safari grants permission to speak once, and only from inside a user gesture. Every line
+    // this game says arrives later from a network message, so if the toggle merely sets a flag,
+    // permission is never obtained and the auctioneer is mute for good — which is exactly what
+    // Neil saw on his iPhone while the same build worked on his laptop.
+    const phone = await browser.newPage({ viewport: PHONE });
+    await phone.addInitScript(() => {
+        window.__spoke = [];
+        const s = window.speechSynthesis, real = s.speak.bind(s);
+        s.speak = u => { window.__spoke.push({ text: u.text, vol: u.volume }); real(u); };
+    });
+    await phone.goto('/goinggone.html');
+
+    // the very first tap anywhere buys the permission, silently
+    await phone.mouse.click(195, 400);
+    await expect.poll(() => phone.evaluate(() => window.__spoke.length), { timeout: 3000 })
+        .toBeGreaterThan(0);
+    const primer = await phone.evaluate(() => window.__spoke[0]);
+    expect(primer.vol, 'the primer must be silent').toBe(0);
+
+    // …and turning the voice on says something audible, in the same tick as the tap
+    await phone.evaluate(() => { window.__spoke = []; toggleVoice(); });
+    const said = await phone.evaluate(() => window.__spoke);
+    expect(said.length, 'the toggle set a flag and spoke nothing — iOS will never unlock').toBe(1);
+    expect(said[0].vol).toBeGreaterThan(0);
+    expect(said[0].text).toMatch(/right then/i);
+
+    // switching it off again says nothing at all
+    await phone.evaluate(() => { window.__spoke = []; toggleVoice(); });
+    expect(await phone.evaluate(() => window.__spoke.length)).toBe(0);
+    expect(await phone.evaluate(() => voiceOn())).toBe(false);
+    await phone.close();
 });
 
 test('the attract mode takes its settings from the query string', async ({ browser }) => {

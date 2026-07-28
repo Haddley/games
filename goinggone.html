@@ -2093,8 +2093,16 @@ function toggleSfx() {
 function toggleVoice() {
     _voicePref = voiceOn() ? '0' : '1';
     localStorage.setItem('gavel-voice', _voicePref);
-    if (!voiceOn()) shutUp(); else voiceHint(false);
     syncVoiceBtn();
+    if (!voiceOn()) { shutUp(); return; }
+    voiceHint(false);
+    // Speak RIGHT HERE, inside the tap. iOS Safari will only ever start speech from a user
+    // gesture, and every line this game says otherwise arrives from a network message — so
+    // without this the toggle silently unlocked nothing and the auctioneer stayed mute for good.
+    // It doubles as the confirmation that the button did something, which the flag alone never
+    // gave anybody.
+    _speechPrimed = true;
+    speakNow('Right then. Lots to get through.', { rate: 1.1 }, true);
 }
 // the role decides the DEFAULT, and the role is not known until a room is joined, so the button
 // re-reads it rather than being set once at boot
@@ -2360,7 +2368,20 @@ function auctBang() {
 // A watchdog covers whatever is left: if a line was handed over and nothing started, it is tried
 // once more in the browser's own default voice, and after that it says so in the console rather
 // than leaving somebody to wonder.
-let _speechWarned = false, _speechWatch = null, _lastSpeechError = null;
+let _speechWarned = false, _speechWatch = null, _lastSpeechError = null, _speechPrimed = false;
+
+// iOS Safari hands out permission to speak ONCE, and only from inside a gesture. A silent
+// utterance spent on the first tap buys that permission for every line that arrives later over
+// the network — which is all of them. Harmless everywhere else.
+function primeSpeech() {
+    if (_speechPrimed || typeof speechSynthesis === 'undefined') return;
+    _speechPrimed = true;
+    try {
+        const u = new SpeechSynthesisUtterance('auction');
+        u.volume = 0;                     // it must be a real utterance, but nobody need hear it
+        speechSynthesis.speak(u);
+    } catch (e) {}
+}
 
 function speakNow(text, opts, withVoice) {
     try {
@@ -2570,6 +2591,7 @@ document.addEventListener('pointerdown', () => {
     // not be allowed to speak at all. The attract mode is exactly that page, so if a television
     // has been sitting on the demo in silence, one tap is what starts the auctioneer.
     try { speechSynthesis.resume(); } catch (e) {}
+    primeSpeech();
     if (typeof voiceHint === 'function') voiceHint(false);
 }, { capture: true });
 
