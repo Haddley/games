@@ -284,6 +284,17 @@ invented**: if a price could not be verified from a live source, the item is not
   `onend` always stops the mouth whereas a short plan leaves him mouthing silence. The gavel arm
   swings from `sGavel()`. `.tv` reserves a `padding-bottom` band for him so he never stands on the
   layout; the e2e asserts that no laid-out element overlaps him. Size is one number, `--ah`.
+- **He has a SPEECH BUBBLE, and it is not decoration.** `bubble()` fills on every line the
+  auctioneer utters and runs **before** the `canSpeak()` gate on purpose: on a screen with no Web
+  Speech at all — a Fire TV — the bubble *is* his performance. It takes the width the screen can
+  spare, stands about his height, and if there is no voice `mimeLine()` runs the mouth anyway, so
+  he mouths the words instead of standing frozen under a caption. TV only, and the e2e asserts it
+  never covers the layout.
+- **The valuation's running totals stay SHUT until the last lot is valued.** A net worth ticking
+  up beside the reveals gives the ending away — watch the numbers and you know who won before the
+  final card turns. During the reveals the rail shows only how many of each bidder's lots are
+  still to come, in **seating order** so even the order says nothing; the totals snap in when the
+  last card is done, and the banked board or podium then stages them.
 - **The auctioneer's VOICE is spoken, TV only.** `say()` drives Web Speech from the phrase banks
   (`P_OPEN`/`P_DROP_*`/`P_BID`/`P_GOING`/`P_SOLD`/`P_PASSED`), assembled from the trade's real
   filler words rather than stored whole, with `words()` turning 3100 into "three thousand one

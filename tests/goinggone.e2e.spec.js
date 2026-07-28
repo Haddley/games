@@ -722,6 +722,106 @@ test('any screen may speak, and a TV that JOINS an auction speaks too', async ({
     await Promise.all([tv, tv2, phone].map(p => p.close()));
 });
 
+test('he says it in writing too, especially where he cannot say it aloud', async ({ browser }) => {
+    // The speech bubble is not decoration: on a Fire TV, where Web Speech does not exist at all,
+    // it IS the auctioneer's performance. So it must fill on every line regardless of whether the
+    // device can speak — which is why bubble() runs before the canSpeak() gate, not after it.
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.addInitScript(() => {
+        // a browser with no speech synthesis whatsoever, which is the case that matters
+        Object.defineProperty(window, 'speechSynthesis', { value: undefined, configurable: true });
+    });
+    await tv.goto('/goinggone.html?mode=tvsimulation&players=3&rounds=1&lots=2');
+    await expect(tv.locator('#auctioneer')).toBeVisible({ timeout: 20_000 });
+    expect(await tv.evaluate(() => canSpeak()), 'this test is pointless if it can speak').toBe(false);
+
+    await tv.evaluate(() => say("Who'll start me at eight thousand five hundred?"));
+    await expect(tv.locator('#auct-bubble')).toBeVisible();
+    await expect(tv.locator('#auct-bubble')).toHaveClass(/on/);        // actually showing, not just present
+    await expect(tv.locator('#auct-bubble')).toContainText('eight thousand five hundred');
+    await expect.poll(() => tv.evaluate(() => getComputedStyle(document.querySelector('#auct-bubble')).opacity),
+        { timeout: 3000, message: 'the bubble never faded in' }).toBe('1');
+    // …and he mouths it, rather than standing frozen under a speech bubble
+    await expect(tv.locator('#auctioneer.talking')).toBeVisible();
+
+    const box = await tv.evaluate(() => {
+        const b = document.querySelector('#auct-bubble').getBoundingClientRect();
+        const a = document.querySelector('#auctioneer').getBoundingClientRect();
+        return { bw: b.width, bh: b.height, ah: a.height, gap: b.left - a.right, right: innerWidth - b.right,
+                 overflows: document.querySelector('#auct-bubble').scrollHeight > document.querySelector('#auct-bubble').clientHeight + 2 };
+    });
+    expect(box.bw, 'it should take the width it can get').toBeGreaterThan(1200);
+    expect(box.right, 'and leave a margin on the right').toBeGreaterThan(20);
+    expect(box.gap, 'it must not sit on top of him').toBeGreaterThan(0);
+    expect(box.bh).toBeGreaterThan(box.ah * 0.5);      // roughly his height
+    expect(box.overflows, 'text overflowed the bubble').toBe(false);
+
+    // a long line sets itself smaller rather than spilling
+    await tv.evaluate(() => say('Number forty-two paid nine thousand for something worth forty-five thousand nine hundred. Daylight robbery. And number seventy-seven gave nine hundred for a thing worth twenty-one.'));
+    await tv.waitForTimeout(200);
+    expect(await tv.evaluate(() => document.querySelector('#auct-bubble').scrollHeight
+        > document.querySelector('#auct-bubble').clientHeight + 2), 'a long line overflowed').toBe(false);
+    await shot(tv, 'gavel-18-tv-speech-bubble');
+
+    // it stands clear of everything the layout drew, like the auctioneer himself
+    const clash = await tv.evaluate(() => {
+        const b = document.querySelector('#auct-bubble').getBoundingClientRect();
+        return [...document.querySelectorAll('.tv-lot, .rail-row, .bank-row, .pod, .val-card')]
+            .filter(e => { const r = e.getBoundingClientRect(); return r.bottom > b.top && r.left < b.right && r.right > b.left; })
+            .map(e => e.className);
+    });
+    expect(clash, 'the bubble is covering the layout').toEqual([]);
+
+    // …and a phone never shows one
+    const phone = await browser.newPage({ viewport: PHONE });
+    await phone.goto('/goinggone.html');
+    await phone.evaluate(() => { mountAuctioneer(); bubble('anything at all'); });
+    await expect(phone.locator('#auct-bubble')).toBeHidden();
+    await Promise.all([tv.close(), phone.close()]);
+});
+
+test('the running totals stay shut until every lot has been valued', async ({ browser }) => {
+    // A net worth ticking up beside the reveals gives the ending away — you can see who has won
+    // long before the last card turns over, so the reveal the whole round builds to lands on a
+    // room that already knows. Driven straight through applyViewerMsg, one reveal at a time.
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/goinggone.html');
+    const at = (i) => tv.evaluate(idx => {
+        isViewer = true;
+        const reveals = [
+            { player: 'Ada', color: '#e8b75a', paddle: 42, lotName: 'A Canoe', emoji: '🛶', img: null, wasMystery: false, src: 'x', on: '2026-07-01', paid: 100, value: 4159, profit: 4059 },
+            { player: 'Bo', color: '#22d3ee', paddle: 77, lotName: 'A Kayak', emoji: '🛶', img: null, wasMystery: false, src: 'x', on: '2026-07-01', paid: 90, value: 108, profit: 18 },
+        ];
+        _vLotKey = ''; _vRevealIdx = -2;
+        applyViewerMsg({
+            type: 'viewer_state', phase: 'valuation', roomCode: 'T', round: 1, rounds: 1,
+            lotNum: 2, lotTotal: 2, lot: null, bid: null, soldInfo: null,
+            players: [{ name: 'Ada', color: '#e8b75a', paddle: 42, coins: 900, lotCount: 1 },
+                      { name: 'Bo', color: '#22d3ee', paddle: 77, coins: 6910, lotCount: 1 }],
+            reveals, revealIndex: idx, standings: null, awards: null, winner: null, commentary: null,
+            tvHost: false, captain: null,
+        });
+        const rail = document.querySelector('.tv-rail');
+        return { title: rail.querySelector('.rail-title').textContent,
+                 text: rail.textContent, coins: rail.querySelectorAll('.rcoins').length };
+    }, i);
+
+    // …part way through: no figures at all, just what is left to come
+    const mid = await at(0);
+    expect(mid.title).toBe('Still to be valued');
+    expect(mid.coins, 'a total was shown mid-valuation').toBe(0);
+    expect(mid.text).toContain('to value');
+    expect(mid.text, 'a net worth leaked').not.toMatch(/5,059|6,910|900/);
+
+    // …and once the last card is done, the totals arrive
+    const done = await at(2);
+    expect(done.title).toBe('Net worth');
+    expect(done.coins).toBe(2);
+    expect(done.text).toContain('5,059');      // Ada: 900 + 4,159
+    expect(done.text).toContain('7,018');      // Bo:  6,910 + 108
+    await tv.close();
+});
+
 test('the attract mode takes its settings from the query string', async ({ browser }) => {
     // ?mode=tvsimulation&players=3&rounds=3 should be exactly that: three bidders, three banked
     // rounds. It used to hardcode two rounds and ignore the parameter. The rounds MECHANIC is

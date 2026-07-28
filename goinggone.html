@@ -229,6 +229,7 @@
         }
         .rail-row .rname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .rail-row .rcoins { font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; }
+        .rail-row .rwait { font-weight: 800; font-size: 1.9vmin; color: var(--muted); white-space: nowrap; }
         /* how flush somebody LOOKS, which is all the room gets while the bidding is live */
         .rail-row .rpurse { font-weight: 900; font-size: 1.9vmin; letter-spacing: .1vmin; white-space: nowrap; }
         .rail-row .rpurse.flush { color: #ffd777; }
@@ -493,6 +494,36 @@
         @keyframes auBob { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(calc(var(--ah) * -.018)) rotate(-.8deg); } }
 
         /* rostrum */
+        /* HIS SPEECH BUBBLE. Wide as the screen allows, about as tall as he is, and filled on
+           EVERY line whether or not the device can actually speak — which is the point: on a
+           Fire TV, where Web Speech does not exist at all, this is how he still says it. */
+        #auct-bubble {
+            position: fixed; z-index: 11; pointer-events: none;
+            left: calc(3vmin + var(--ah, 18vmin) * .86 + 3vmin);
+            right: 4vmin; bottom: 2.5vmin; min-height: calc(var(--ah, 18vmin) * .74);
+            padding: 2vmin 3vmin; border-radius: 2.6vmin;
+            background: linear-gradient(180deg, #fdf7ff, #e6dcf2); color: #241a38;
+            border: .35vmin solid var(--gold); box-shadow: 0 1vmin 3vmin rgba(0,0,0,.55);
+            font-weight: 800; font-size: 3vmin; line-height: 1.3;
+            align-items: center; justify-content: center; text-align: center;
+            opacity: 0; transition: opacity .18s ease;
+            display: none;      /* …and NOT on a phone: this is the television's auctioneer */
+        }
+        body.viewer-mode #auct-bubble { display: flex; }
+        body.viewer-mode #auct-bubble.on { opacity: 1; }
+        /* the tail, pointing back at the man */
+        #auct-bubble::after {
+            content: ''; position: absolute; left: -2.2vmin; bottom: 3.5vmin;
+            border: 1.2vmin solid transparent; border-right-color: var(--gold);
+        }
+        #auct-bubble::before {
+            content: ''; position: absolute; left: -1.5vmin; bottom: 3.5vmin; z-index: 1;
+            border: 1.2vmin solid transparent; border-right-color: #fdf7ff;
+        }
+        /* a long line simply sets itself smaller rather than overflowing */
+        #auct-bubble.long { font-size: 2.4vmin; }
+        #auct-bubble.vlong { font-size: 2vmin; }
+
         #voice-hint {
             position: fixed; left: 50%; bottom: 2.4vmin; transform: translateX(-50%); z-index: 12;
             padding: 1vmin 2.4vmin; border-radius: 2vmin; font-weight: 900; font-size: 2vmin;
@@ -2153,7 +2184,29 @@ function mountAuctioneer() {
         <div class="desk"></div>
     </div>`;
     document.body.appendChild(_auct);
+    const b = document.createElement('div');
+    b.id = 'auct-bubble';
+    b.setAttribute('aria-live', 'polite');
+    document.body.appendChild(b);
 }
+
+// What he is saying, in writing. Shown for every line the auctioneer utters, and shown even when
+// the device cannot utter it — a Fire TV has no speech voices at all, so without this he simply
+// stands there. Reading time is generous: a line nobody can hear has to be readable from a sofa.
+let _bubbleTimer = null;
+function bubble(text, ms) {
+    const el = $id('auct-bubble');
+    if (!el || !text) return;
+    clearTimeout(_bubbleTimer);
+    el.textContent = text;
+    el.classList.toggle('long', text.length > 60);
+    el.classList.toggle('vlong', text.length > 120);
+    el.classList.add('on');
+    // ~14 characters a second, with a floor and a ceiling
+    const hold = ms || Math.min(9000, Math.max(2200, text.length * 72));
+    _bubbleTimer = setTimeout(() => el.classList.remove('on'), hold);
+}
+function bubbleOff() { clearTimeout(_bubbleTimer); const el = $id('auct-bubble'); if (el) el.classList.remove('on'); }
 // A browser will not speak on a page nobody has touched, and a television is exactly that page:
 // the attract mode runs for hours and nobody ever clicks it. There is no way around the policy,
 // so the least it can do is stop being a mystery — one tap and he starts calling.
@@ -2195,6 +2248,18 @@ function voiceDiag() {
     console.log('[goinggone] auctioneer:', d);
     return d;
 }
+
+// No voice on this device: run the mouth off the same plan anyway, for as long as the line would
+// have taken. Otherwise he stands stock still with a speech bubble over his head, which reads as
+// broken rather than as silent.
+function mimeLine(text) {
+    if (!_auct || REDUCED) return;
+    auctTalk(true);
+    startMouth(text, 1);
+    clearTimeout(_mimeTimer);
+    _mimeTimer = setTimeout(() => auctTalk(false), Math.min(9000, Math.max(1500, text.length * 72)));
+}
+let _mimeTimer = null;
 
 function auctTalk(on) { if (_auct) _auct.classList.toggle('talking', !!on); if (!on) stopMouth(); }
 
@@ -2305,7 +2370,7 @@ function speakNow(text, opts, withVoice) {
         let started = false;
         // his mouth is tied to THIS utterance, not to a timer
         u.onstart = () => { started = true; clearTimeout(_speechWatch); voiceHint(false); auctTalk(true); startMouth(text, u.rate); };
-        u.onend = () => auctTalk(false);
+        u.onend = () => { auctTalk(false); bubbleOff(); };
         u.onboundary = auctBeat;                      // per-word, where the browser offers it
         u.onerror = e => {
             auctTalk(false);
@@ -2334,7 +2399,11 @@ function speakNow(text, opts, withVoice) {
 }
 
 function say(text, opts = {}) {
-    if (!canSpeak() || !text) return;
+    if (!text) return;
+    // The writing comes first and unconditionally. Whether the device can speak is a separate
+    // question, and on the one that cannot this is the whole performance.
+    bubble(text);
+    if (!canSpeak()) { mimeLine(text); return; }
     try {
         duckMusic(opts.duck || 1.4);
         const busy = speechSynthesis.speaking || speechSynthesis.pending;
@@ -4113,15 +4182,35 @@ function renderViewerSold() {
     return tvShell(`<div class="tv-sold${s.passed ? ' passed' : ''}">${inner}</div>`, lotMeta(vD));
 }
 
+// THE TOTALS STAY SHUT UNTIL EVERY LOT HAS BEEN VALUED.
+// A running net worth beside the reveals gives the ending away: watch the numbers tick and you
+// know who has won two lots before the last card has turned over, so the final reveal — the one
+// the whole round has been building to — lands on a room that already knows. While the valuer is
+// working the rail shows only how many of each bidder's lots are still to come, in seating order
+// so even the ORDER gives nothing away. The moment the last card is done, the totals snap in, and
+// the banked board (or the podium) then stages them properly.
+function valuationDone(msg) {
+    const n = (msg.reveals || []).length;
+    return n > 0 && msg.revealIndex >= n;
+}
 function netWorthRows(msg) {
-    const revealedByPlayer = {};
+    const revealed = {}, toCome = {};
     (msg.reveals || []).forEach((r, i) => {
-        if (i <= msg.revealIndex) revealedByPlayer[r.player] = (revealedByPlayer[r.player] || 0) + r.value;
+        if (i <= msg.revealIndex) revealed[r.player] = (revealed[r.player] || 0) + r.value;
+        else toCome[r.player] = (toCome[r.player] || 0) + 1;
     });
-    return (msg.players || [])
-        .map(p => ({ ...p, net: p.coins + (revealedByPlayer[p.name] || 0) }))
-        .sort((a, b) => b.net - a.net)
-        .map(p => `
+    const rows = (msg.players || []).map(p => ({
+        ...p, net: p.coins + (revealed[p.name] || 0), left: toCome[p.name] || 0,
+    }));
+    if (!valuationDone(msg)) {
+        return rows.map(p => `
+        <div class="rail-row">
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <span class="rname">${esc(p.name)}</span>
+            <span class="rwait">${p.left ? p.left + ' to value' : '✓ all in'}</span>
+        </div>`).join('');
+    }
+    return rows.sort((a, b) => b.net - a.net).map(p => `
         <div class="rail-row">
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
             <span class="rname">${esc(p.name)}</span>
@@ -4159,7 +4248,7 @@ function renderViewerValuation() {
                 <div class="val-list">${cards || '<div class="tv-waiting">Fetching the valuer\'s monocle…</div>'}</div>
             </div>
         </div>
-        <div class="tv-rail"><div class="rail-title">Net worth (so far)</div>${netWorthRows(vD)}</div>
+        <div class="tv-rail"><div class="rail-title">${valuationDone(vD) ? 'Net worth' : 'Still to be valued'}</div>${netWorthRows(vD)}</div>
     </div>`, 'The Valuation');
 }
 
