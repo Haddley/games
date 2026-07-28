@@ -20,7 +20,7 @@
 // One game:  … --grep "bingo:"
 
 const { test, expect } = require('@playwright/test');
-const { GAMES, TV, openRoom, joinFresh, seatNames } = require('./games');
+const { GAMES, TV, openRoom, joinFresh, seatNames, minSeats, hostStart } = require('./games');
 
 // Nineteen games × several real peers each. The public broker throttles bursts; one retry.
 test.describe.configure({ retries: 1 });
@@ -109,15 +109,18 @@ for (const spec of GAMES) {
     });
 }
 
-// ⚠️  KNOWN GAP — READ BEFORE TRUSTING THIS BLOCK.
-// These cases PASS against the old rule as well as the new one, so they do NOT currently
-// prove the fix. The reported bug (a mid-game reconnect minting a second scoreboard row) has
-// not been reproduced in a harness. What has been ruled out:
-//   • the room really does leave the lobby first (asserted below — an earlier version did not)
-//   • the game really does add players mid-game (buzzin's hostAddPlayer has no phase guard)
-//   • `git stash push common.js` does NOT revert an already-committed file, which made two
-//     earlier "fails on the old code" checks meaningless — use `git show HEAD~1:common.js`
-// Only the unit tests currently prove the rule changed. Finish this before believing it.
+// ⚠️  PARTIAL PROOF — READ BEFORE TRUSTING THIS BLOCK.
+// These cases pass against the old rule as well as the new one, so they do NOT prove the fix;
+// only the unit tests do that. What they DO now prove is that the mid-game path is genuinely
+// exercised for every game, which for a long time it was not — see below.
+//
+// It used to call hostStartGame() and hope. Seven games never left the lobby as a result:
+// letterstorm and cornerthemarket spell it hostStartRound, goinggone hostStartAuction, and
+// oddsheep, lastlaugh, brokenpencil and moonlightvillage all refuse to start with the two
+// players this test joined. A missing function inside page.evaluate is a silent no-op, so the
+// only visible symptom was the lobby guard below firing. It now asks each game for its own
+// minimum (minSeats), fills the room to it, and tries every spelling of "start" (hostStart),
+// then says which one worked when it fails.
 //
 // From a Buzzin' final scoreboard: "Neil (you)" on 1 point, and "Neil (you)" again on 0.
 // The duplicate was made MID-GAME — the lobby rule had been relaxed but the mid-game one
@@ -135,13 +138,18 @@ for (const spec of GAMES) {
 
         const ava = await join('Ava');
         const neil = await join('Neil');
+        // …plus however many more THIS game insists on before it will start
+        const need = Math.max(2, await minSeats(tv));
+        const extras = ['Cam', 'Dee', 'Eli', 'Fay', 'Gus'].slice(0, need - 2);
+        for (const n of extras) await join(n);
+        const seated = ['Ava', 'Neil', ...extras];
         await expect.poll(() => seatNames(tv, spec), { timeout: 30_000 })
-            .toEqual(expect.arrayContaining(['Ava', 'Neil']));
+            .toEqual(expect.arrayContaining(seated));
 
-        // get the room out of the lobby however this game does it, then give Neil something
+        // get the room out of the lobby however this game spells it, then give Neil something
         // to lose — a duplicate row is only obviously wrong once it has a score of its own
+        const started = await hostStart(tv);
         await tv.evaluate(() => {
-            try { if (typeof hostStartGame === 'function') hostStartGame(); } catch (e) {}
             try { if (typeof H !== 'undefined' && H) {
                 const n = H.players.find(p => p.name === 'Neil');
                 if (n && 'score' in n) n.score = 7;
@@ -149,10 +157,10 @@ for (const spec of GAMES) {
         });
 
         // The room MUST have left the lobby, or this test silently exercises the lobby rule
-        // and passes against the bug — which the first version of it did.
-        const phase = await tv.evaluate(() => (typeof H !== 'undefined' && H ? H.phase : null));
-        if (phase !== null) {
-            expect(phase, `${spec.g}: still in the lobby, so this is not a mid-game reconnect`)
+        // and passes against the bug — which the first two versions of it did.
+        if (started.phase !== null) {
+            expect(started.phase,
+                `${spec.g}: still in the lobby with ${need} players — tried ${started.tried.join(', ') || 'nothing'}`)
                 .not.toBe('lobby');
         }
 
@@ -165,7 +173,7 @@ for (const spec of GAMES) {
             { timeout: 30_000, message: `${spec.g}: a mid-game reconnect made a second "Neil"` })
             .toBe(1);
         const names = await seatNames(tv, spec);
-        expect(names.length, `${spec.g}: ended with ${JSON.stringify(names)}`).toBe(2);
+        expect(names.length, `${spec.g}: ended with ${JSON.stringify(names)}`).toBe(seated.length);
         // and it is HIS row he came back to, score intact
         const score = await tv.evaluate(() => {
             if (typeof H === 'undefined' || !H) return null;

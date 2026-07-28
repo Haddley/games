@@ -67,6 +67,35 @@ async function joinFresh(browser, spec, code, name) {
     return { ctx, page: p };
 }
 
+// How many players does THIS game refuse to start without? Games express it three ways —
+// a MIN_PLAYERS constant, a minPlayers() function, or nothing at all — and a mid-game test
+// that ignores it silently never leaves the lobby, which is exactly how the mid-game battery
+// came to be testing the lobby rule instead.
+const minSeats = tv => tv.evaluate(() => {
+    try { if (typeof minPlayers === 'function') return minPlayers(); } catch (e) {}
+    try { if (typeof MIN_PLAYERS !== 'undefined') return MIN_PLAYERS; } catch (e) {}
+    return 2;
+});
+
+// Get the room out of the lobby, however this game spells it. There is no single entry point:
+// most games have hostStartGame, letterstorm and cornerthemarket have hostStartRound, and
+// goinggone has hostStartAuction. Calling a name that does not exist is a silent no-op inside
+// page.evaluate, so a test built on one guess passes while never starting anything.
+// Returns which function worked and the phase it produced, so a failure can say so out loud.
+const hostStart = tv => tv.evaluate(() => {
+    const phase = () => (typeof H !== 'undefined' && H) ? H.phase : null;
+    const tried = [];
+    for (const name of ['hostStartGame', 'hostStartRound', 'hostStartAuction']) {
+        let fn = null;
+        try { fn = eval(`typeof ${name} === 'function' ? ${name} : null`); } catch (e) {}
+        if (!fn) continue;
+        tried.push(name);
+        try { fn(); } catch (e) { /* a game that refuses is a phase check below, not a throw */ }
+        if (phase() && phase() !== 'lobby') return { fn: name, phase: phase(), tried };
+    }
+    return { fn: null, phase: phase(), tried };
+});
+
 // Who does the host think is in the room? ticktacktoe keeps its state on a class instance
 // (App) rather than a global H, hence the per-game hook.
 const seatNames = (tv, spec) => tv.evaluate(fn => (fn ? eval(fn)() :
@@ -82,4 +111,4 @@ const seatCount = async (tv, spec) => (await seatNames(tv, spec)).length;
 const COVERED = ['ticktacktoe', 'liarsdice', 'plumptrek', 'herdmind', 'bingo', 'rockpaperscissors'];
 
 
-module.exports = { GAMES, PHONE, TV, openRoom, joinFresh, seatNames, seatCount };
+module.exports = { GAMES, PHONE, TV, openRoom, joinFresh, seatNames, seatCount, minSeats, hostStart };
