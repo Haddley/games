@@ -1996,10 +1996,10 @@ function words(n) {
     if (n < 20) return ONES[n];
     if (n < 100) return TENS[Math.floor(n / 10)] + (n % 10 ? '-' + ONES[n % 10] : '');
     if (n < 1000) return ONES[Math.floor(n / 100)] + ' hundred' + (n % 100 ? ' and ' + words(n % 100) : '');
-    // 1,200 is "twelve hundred" on a rostrum, never "one thousand two hundred" — but a ROUND
-    // thousand is not: 7,000 is "seven thousand", never "seventy hundred". Excluding the round
-    // thousands is the whole point of the second test here.
-    if (n < 10000 && n % 100 === 0 && n % 1000 !== 0) return words(n / 100) + ' hundred';
+    // ANYTHING over a thousand is spoken in thousands: 3,100 is "three thousand one hundred",
+    // never "thirty-one hundred". The counting-in-hundreds idiom was tried here and is wrong twice
+    // over — it is American rather than the voice this room has, and it disagrees with the figure
+    // sitting on the screen next to it, which is the part that actually grates.
     if (n < 1e6) return words(Math.floor(n / 1000)) + ' thousand' + (n % 1000 ? ' ' + words(n % 1000) : '');
     return words(Math.floor(n / 1e6)) + ' million' + (n % 1e6 >= 1000 ? ' ' + words(Math.floor((n % 1e6) / 1000)) + ' thousand' : '');
 }

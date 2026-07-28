@@ -287,24 +287,27 @@ test('asks are round numbers a person would say out loud', () => {
 });
 
 // ── the auctioneer's numbers ────────────────────────────────────────────────
-test('a round thousand is spoken as thousands, never as hundreds', () => {
-    // Neil heard "seventy hundred" for $7,000. The rostrum idiom "twelve hundred" is real, but it
-    // stops dead at a round thousand — nobody has ever called seventy hundred dollars. The ask
-    // ladder rounds to two significant figures, so EVERY round thousand under $10,000 is a number
-    // this game says out loud several times an evening.
-    for (let n = 1000; n < 10000; n += 1000) {
-        assert.equal(words(n), words(n / 1000) + ' thousand', `${n} is spoken wrong`);
-        assert.ok(!/hundred/.test(words(n)), `${n} came out as "${words(n)}"`);
+test('anything over a thousand is spoken in THOUSANDS, never counted in hundreds', () => {
+    // Twice reported by ear: "seventy hundred" for $7,000, then "thirty-one hundred" for $3,100.
+    // Counting in hundreds is an American rostrum idiom and it was a bad fit here — but the
+    // deciding argument is that the figure is on the screen at the same time, so the voice saying
+    // anything other than "three thousand one hundred" reads as a mistake. This is the invariant:
+    // above a thousand, the word "thousand" is always in there.
+    for (let n = 1000; n <= 99000; n += 100) {
+        const w = words(n);
+        assert.ok(/thousand/.test(w), `${n} came out as "${w}" with no thousands in it`);
     }
 });
 
-test('the hundreds idiom survives where it belongs', () => {
+test('the auctioneer says the number that is on the screen', () => {
     const cases = {
         42: 'forty-two', 15: 'fifteen', 90: 'ninety',
-        190: 'one hundred and ninety', 700: 'seven hundred',
-        1200: 'twelve hundred', 3500: 'thirty-five hundred', 5900: 'fifty-nine hundred',
-        1000: 'one thousand', 7000: 'seven thousand', 10000: 'ten thousand',
+        190: 'one hundred and ninety', 700: 'seven hundred', 309: 'three hundred and nine',
+        1000: 'one thousand', 1200: 'one thousand two hundred',
+        3100: 'three thousand one hundred', 5900: 'five thousand nine hundred',
+        7000: 'seven thousand', 10000: 'ten thousand',
         48000: 'forty-eight thousand', 67000: 'sixty-seven thousand',
+        153309: 'one hundred and fifty-three thousand three hundred and nine',
     };
     for (const [n, want] of Object.entries(cases)) {
         assert.equal(words(+n), want, `${n} should be "${want}"`);
@@ -322,10 +325,10 @@ test('every number the ask ladder can produce is speakable', () => {
     for (const a of seen) {
         const w = words(a);
         assert.ok(w && !/undefined|NaN/.test(w), `${a} spoke as "${w}"`);
-        const m = w.match(/^(.*?) hundred$/);
-        if (m) assert.ok(!/thousand/.test(m[1]), `${a} spoke as "${w}"`);
-        // "N hundred" is only ever allowed for N up to ninety-nine
         assert.ok(!/hundred hundred/.test(w), `${a} spoke as "${w}"`);
+        // the invariant from the test above, applied to every ask the game can actually call
+        if (a >= 1000) assert.ok(/thousand|million/.test(w), `${a} spoke as "${w}"`);
+        if (a < 1000) assert.ok(!/thousand/.test(w), `${a} spoke as "${w}"`);
     }
 });
 
