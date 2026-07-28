@@ -3,13 +3,28 @@
 The brief and the decisions already made, written down so the next session starts with them
 rather than re-litigating them.
 
-> **STATUS: BUILT (27 July 2026).** The game now runs on **137 real lots** with verified prices,
-> sources and capture dates, 93 of them with product photography. The 40 invented lots are
-> retired and backed up in `data/goinggone-lots-original.json`.
+> **STATUS: BUILT (27 July 2026).** The game now runs on **969 real lots** with verified prices,
+> sources and capture dates. The 40 invented lots are retired and backed up in
+> `data/goinggone-lots-original.json`.
 >
-> `START_COINS` is **$7,000**, lots scale at **3 per player**, and over-band lots are **off by
-> default** behind a captain toggle. All three numbers come from the simulator running against
-> the real data — see "What the simulator says" below, and re-run it before changing any of them.
+> `START_COINS` is **$7,000**, lots scale at **3 per player per round**, and over-band lots are
+> **off by default** behind a captain toggle. All three numbers come from the simulator running
+> against the real data — see "What the simulator says" below, and re-run it before changing any
+> of them.
+>
+> **UPDATE (28 July 2026) — ROUNDS, THE ASK, AND PASSING IN.** Three changes that hang together;
+> see "The auctioneer" below.
+>
+> 1. **Rounds** (captain picks 1/2/3, default **3**). At the end of each round every shelf is
+>    sold back at its **true value** and the whole net worth becomes the next round's bankroll.
+>    Coins carry forward, the shelf does not, and the **podium only shows at the very end** — in
+>    between there is a *banked board*. Good judgement therefore compounds.
+> 2. **The band window climbs** with the round (`TIERS`/`roundBands`). Round 1 is the ordinary
+>    $1–$10,000 spread; the last round of a 3-round game deals from $1,000 up through **$50,000+**,
+>    because a table that has tripled its money should be shown lots it can now afford. A lot
+>    whose reserve exceeds `REACH` (45%) of the richest bankroll is never dealt at all.
+> 3. **Bidding no longer opens at zero.** The auctioneer *asks* for an opening bid, comes down
+>    when nobody bites, and **passes the lot in** when the ask would go under the reserve.
 
 ## Why change it
 
@@ -26,12 +41,15 @@ worthwhile.
 | **Bottom end** | $1 |
 | **Starting cash** | **$7,000** — `START_COINS`, set by the simulator. NOT the $15,000 originally guessed; see the sweep below for why higher is worse |
 | **`capturedOn`** | **recorded per item**, and **shown on the lot card while bidding** — real prices move weekly, so a wrong-looking price needs an explanation rather than looking like a bug. Bidding is when the argument happens, so that is where the date has to be. Shipped as "WebstaurantStore · Jul 2026" under every lot |
-| **Value spread** | **even across the range** — the draw deals round-robin across four bands ($1–100, $100–1k, $1k–5k, $5k–10k) so even a short auction spans the whole range |
-| **Lots per game** | **~3 per player** — 2 players → 6 lots, 6 → 18, 10 → 30. Captain can pick Short/Normal/Long (2/3/4 per player) |
-| **Unaffordable lot** | **passed in, unsold** — like a real auction with a reserve |
+| **Value spread** | **even across four neighbouring tiers**, and the window **climbs each round** — round 1 is $1–100/$100–1k/$1k–5k/$5k–10k; the last round of three is $1k–5k/$5k–10k/$10k–50k/$50k+ |
+| **Lots per game** | **~3 per player per round** — 2 players → 6 lots, 6 → 18, 10 → 30. Captain picks Short/Normal/Long (2/3/4 per player) and **1/2/3 rounds** |
+| **Rounds** | **3 by default.** Shelves sell back at true value between rounds and net worth becomes the bankroll; podium only at the end |
+| **Unaffordable lot** | **passed in, unsold** — the ask runs down to the reserve and the lot leaves the room, with its true value revealed |
 | **Over-band lots** | **OFF by default**, behind a captain toggle ("Big lot"), at FULL value when on. **This reverses the original decision** — see below |
 | **Mystery lots** | ~20% of the draw shows **the photograph and withholds the name**. Only lots with a photo qualify; the name is withheld by the *host*, never client-side |
-| **Bid raises** | **scale with the price** — +10/50/100 under $100, up to +500/2,500/5,000 past $5,000. A fixed ladder needed seventy taps to reach a serious bid |
+| **Opening bid** | **the auctioneer's ask**, not zero — a randomised 0.85×–1.9× of true value, so it is a clue with a lie in it. Nobody bites → he comes down a rung (×0.55–0.75) and asks again, up to 5 rungs |
+| **Reserve** | **25% of true value**, never shown. When the next rung would go under it the lot is **passed in** |
+| **Bid raises** | **scale with the price** — +10/50/100 under $100, up to +25,000/100,000/250,000 in the top tier. A fixed ladder needed seventy taps to reach a serious bid |
 | **Rounding** | values are rounded to **whole dollars** at embed time; the game's coin arithmetic is integer |
 
 ## What makes a good lot
@@ -181,6 +199,58 @@ experience. The lever reached for was *how many*, exactly as the plan said it sh
 **3. Three lots per player holds at every table size.** `--table-sweep` gives a median of exactly
 3 lots won per player from 2 players up to 10, so "everyone goes home with about three things"
 needs no special case.
+
+### The auctioneer: the ask, the fishing, and passing in (28 July 2026)
+
+Real bid-calling was researched before this was built, and the mechanic turns out to be the
+authentic one rather than an invention:
+
+- Auctioneers **fish for an opening bid** — they call a number, and if nobody bites they call a
+  lower one, until somebody opens. Bidding then ascends from there.
+- A lot that never clears its hidden minimum is **"passed in"** — the trade's own term.
+- The chant is **two numbers** (what is bid, what he wants next) stitched with *filler words*:
+  "dollar bid", "now", "will ya give me", "I'm bid", "bid'em at". Closing runs "going once, going
+  twice", "fair warning", "all done, all through", then the hammer.
+
+So: `askLadder(value)` draws a random descending ladder — opening ask **0.85×–1.9×** of true
+value (he is not an honest man, and sometimes the opening ask is a *gift*), each rung **×0.55–0.75**,
+at most **5 rungs**, floored at the **25% reserve**. Nobody opens → `checkGavel` walks him down a
+rung every `ASK_MS`. Rungs exhausted → **passed in**, and the true value is revealed, because
+otherwise the room never learns what it let walk out of the door.
+
+The ladder and the reserve **never leave the host**: phones are sent the current ask and the
+number of drops so far, never how far he is willing to go. Not knowing is the whole game — hold
+out for another drop and somebody else may take it, or it leaves the room entirely.
+
+### What the simulator says about ROUNDS (28 July 2026)
+
+`node sim/goinggone.js --by-round`, 6 players, 18 lots a round, 3 rounds:
+
+| round | bands | bankroll after | paid/value | passed in |
+|---|---|---|---|---|
+| 1 | $1–100 · $100–1k · $1k–5k · $5k–10k | $9,144 | 78.8% | 0.3% |
+| 2 | $100–1k · $1k–5k · $5k–10k · $10k–50k | $15,302 | 68.8% | 6.6% |
+| 3 | $1k–5k · $5k–10k · $10k–50k · $50k+ | $25,181 | 64.6% | 8.0% |
+
+Three findings that set the shipped numbers:
+
+**1. The compounding is real and it is the point.** Table wealth ends at ~360% of the starting
+purse, so round 3 genuinely can afford the $50,000 tier. Without the climbing window the late
+rounds would be rich players buying traffic cones.
+
+**2. The reserve fraction is the pass-in dial, and 0.25 is the knee.** At 0.35 the last round
+passed in **22%** of its lots — a quarter of the running order wheeled off, which is not drama,
+it is dead air. At 0.25 the arc is 0.3% → 6.6% → 8.0%: rare early, a handful later, and it climbs
+as the lots get grander, which is exactly the right shape.
+
+**3. Affordability must be judged lot by lot, not tier by tier.** The top tier runs from $50,000
+to a private aircraft; "somebody could clear the cheapest thing in this tier" is a different
+question from "somebody could clear THIS". `REACH = 0.45` — a lot's reserve may not demand more
+than 45% of the richest bankroll — and the pass-in rate halved.
+
+The winner's lead widens with rounds (7.7% → 16% → 21% of their own score), which is what
+compounding does. Three rounds is the default anyway: it is the shape of the game Neil asked for,
+and 21% is still a lead you can lose on the last lot.
 
 #### The old metric was broken, and the corrected one confirms the finding
 

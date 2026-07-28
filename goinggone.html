@@ -127,8 +127,19 @@
             background: rgba(74,222,128,.12); border: 1px solid rgba(74,222,128,.45); color: #a7f3c9;
         }
         .lead-banner.other { background: rgba(160,130,190,.12); border-color: var(--border2); color: var(--muted); }
-        .bid-btns { display: flex; gap: 9px; }
+        .bid-btns { display: flex; gap: 9px; flex-wrap: wrap; }
         .bid-btns .btn { flex: 1; font-size: 1.05rem; padding: 16px 8px; }
+        /* the opening ask: one button, the auctioneer's own number */
+        .bid-btns .btn-open { flex: 1 0 100%; font-size: 1.12rem; padding: 18px 8px; }
+        .bid-btns .open-note { flex: 1 0 100%; text-align: center; color: var(--muted); font-weight: 800; font-size: .7rem; }
+        /* an ask is a question, not a price — it reads a touch cooler, and lurches when it drops */
+        .price-big.asking, .tv-price.asking { color: var(--plum); text-shadow: 0 0 22px rgba(180,120,224,.32); }
+        .price-big.drop, .tv-price.drop { animation: askDrop .5s cubic-bezier(.3,1.5,.4,1); }
+        @keyframes askDrop {
+            0% { transform: translateY(-22%) scale(1.14); opacity: .35; }
+            60% { transform: translateY(4%) scale(.97); opacity: 1; }
+            100% { transform: none; }
+        }
         .gavel-wrap { height: 10px; border-radius: 6px; background: rgba(255,255,255,.09); overflow: hidden; }
         .gavel-bar { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--gold), var(--down)); transition: width .1s linear; }
         .coins-chip { display: inline-block; padding: 4px 12px; border-radius: 11px; background: rgba(232,183,90,.12); border: 1px solid var(--border); color: var(--gold); font-weight: 900; font-size: .8rem; }
@@ -281,6 +292,27 @@
         /* podium — the finale gets the valuation treatment: BIG, and revealed in podium order
            (bronze → silver → gold, delays set inline per medal rank), with the fanfare and
            confetti timed to the gold pod landing (PODIUM_GOLD_MS in the script). */
+        /* THE BANKED BOARD — between rounds. Rows land poorest-first (--d per row, matching
+           BANK_STEP_MS) so the leader's new bankroll is the last number to appear, and each net
+           worth stamps in after its own row. Deliberately not a podium: no medals, no confetti. */
+        .bank-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 1.1vmin; padding: 0 5vmin; }
+        .bank-title { text-align: center; font-family: 'Playfair Display', serif; font-weight: 900; font-size: 6vmin; color: var(--gold); text-shadow: 0 0 3vmin rgba(232,183,90,.35); }
+        .bank-sub { text-align: center; font-weight: 800; font-size: 2.2vmin; color: var(--muted); margin-bottom: 1.4vmin; }
+        .bank-row {
+            display: flex; align-items: center; gap: 1.8vmin; font-weight: 900;
+            background: var(--panel); border: 1px solid var(--border); border-radius: 1.6vmin; padding: 1.3vmin 2.4vmin;
+        }
+        .bank-row .bplace { color: var(--muted); font-size: 2.6vmin; width: 3vmin; }
+        .bank-row .bname { flex: 1; font-size: 3.4vmin; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bank-row .bmath { color: var(--muted); font-size: 2.2vmin; font-variant-numeric: tabular-nums; }
+        .bank-row .bnet { font-family: 'Playfair Display', serif; color: var(--gold); font-size: 4.4vmin; font-variant-numeric: tabular-nums; min-width: 9vmin; text-align: right; }
+        .bank-row.top { border-color: var(--gold); box-shadow: 0 0 4vmin rgba(232,183,90,.25); }
+        .bank-row.top .bnet { font-size: 5.4vmin; }
+        #app.fresh .bank-row { animation: valIn .5s cubic-bezier(.2,1.1,.3,1) both; animation-delay: var(--d, 0s); }
+        #app.fresh .bank-row .bnet { animation: stampIn .4s cubic-bezier(.2,1.6,.35,1) both; animation-delay: calc(var(--d, 0s) + .3s); }
+        #app.fresh .bank-title { animation: popIn .6s cubic-bezier(.2,1.2,.3,1) both; }
+        #app.fresh .bank-sub { animation: paidIn .5s ease .5s both; }
+
         .podium-wrap { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 3vmin; padding-bottom: 1vmin; }
         .pod { text-align: center; font-weight: 900; }
         .pod .pname { font-size: 3.4vmin; margin-bottom: .8vmin; }
@@ -404,6 +436,7 @@
     <div id="sound-togs">
         <button id="tog-music" title="Music on/off" onclick="toggleMusic()">🎵</button>
         <button id="tog-sfx" title="Sound effects on/off" onclick="toggleSfx()">🔊</button>
+        <button id="tog-voice" title="Auctioneer's voice on/off (big screen only)" onclick="toggleVoice()">🗣️</button>
     </div>
 <script>
 const GAVEL = '<svg class="gav" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="16" y="78" width="52" height="10" rx="5" fill="#7a4e16"/><rect x="16" y="78" width="52" height="4.5" rx="2.2" fill="#a06a20"/><g transform="rotate(40 58 40)"><rect x="53" y="36" width="9" height="46" rx="4.5" fill="#b97e26"/><rect x="34" y="26" width="48" height="27" rx="9.5" fill="#f4b63e"/><rect x="34" y="26" width="10" height="27" rx="4.5" fill="#d1901f"/><rect x="72" y="26" width="10" height="27" rx="4.5" fill="#d1901f"/><rect x="40" y="31" width="36" height="4" rx="2" fill="#ffd777"/></g></svg>';
@@ -422,16 +455,54 @@ const MAX_PLAYERS = 10, MIN_PLAYERS = 2;
 // leaves more players with nothing — scarcity is what spreads the lots around. See
 // goinggoneplan-realitems.md for the sweep.
 const START_COINS = 7000;
-// Raises have to scale with the lot. Real prices run $1–$10,000, so a fixed +10/+50/+100 would
-// need seventy taps to reach a serious bid. Each rung is about a tenth, a half and a whole of the
-// current order of magnitude, so any lot is reachable in a handful of taps at any size.
+// Raises have to scale with the lot. Real prices run $1 to a five-figure lot in a late round, so a
+// fixed +10/+50/+100 would need seventy taps to reach a serious bid. Each rung is about a tenth, a
+// half and a whole of the current order of magnitude, so any lot is reachable in a handful of taps
+// at any size.
 const RAISE_LADDER = [
     { under: 100, raises: [10, 50, 100] },
     { under: 1000, raises: [50, 250, 500] },
     { under: 5000, raises: [250, 1000, 2500] },
-    { under: Infinity, raises: [500, 2500, 5000] },
+    { under: 25000, raises: [1000, 5000, 10000] },
+    { under: 100000, raises: [5000, 25000, 50000] },
+    { under: Infinity, raises: [25000, 100000, 250000] },
 ];
 const raisesFor = price => RAISE_LADDER.find(r => price < r.under).raises;
+
+// ── THE AUCTIONEER'S ASK ────────────────────────────────────────────────────
+// Bidding does not open at nothing. The auctioneer calls for an opening bid — and he is not an
+// honest man. The ask starts somewhere either side of what the thing is really worth, so it is a
+// CLUE with a lie built into it. If nobody bites he FISHES: "nobody? then who'll give me…" and
+// comes down, and down, until the next drop would go under the reserve, at which point the lot is
+// PASSED IN and nobody gets it. (Both are real auction practice — fishing down for an opening bid
+// is standard, and "passed in" is the trade's own term for failing to make the reserve.)
+// Holding out for the next drop is therefore a game of nerve: wait, and somebody else takes it,
+// or it leaves the room entirely.
+const RESERVE_FRAC = 0.25;              // the pass-in floor, as a share of true value
+const ASK_HI = 1.9, ASK_LO = 0.85;      // opening ask as a share of true value — sometimes a gift
+const DROP_HI = 0.75, DROP_LO = 0.55;   // each "nobody? then who'll give me…" step
+const ASK_STEPS = 5;                    // most he will ever come down before passing it in
+const ASK_MS = 6000;                    // how long he waits at each ask before coming down
+const reserveFor = value => Math.round(value * RESERVE_FRAC);
+// Auctioneers ask for $48,000, never $47,318.
+function roundAsk(v) {
+    if (v < 20) return Math.max(1, Math.round(v));
+    const mag = Math.pow(10, Math.floor(Math.log10(v)) - 1);
+    return Math.round(v / mag) * mag;
+}
+// The whole descending ladder for one lot, drawn up front: [opening ask, …, last ask]. Random per
+// lot, so the same item never plays the same way twice.
+function askLadder(value) {
+    const floor = value * RESERVE_FRAC;
+    let a = value * (ASK_LO + Math.random() * (ASK_HI - ASK_LO));
+    const out = [];
+    while (out.length < ASK_STEPS && a >= floor) {
+        const r = roundAsk(a);
+        if (r >= floor && (!out.length || r < out[out.length - 1])) out.push(r);
+        a *= DROP_LO + Math.random() * (DROP_HI - DROP_LO);
+    }
+    return out.length ? out : [Math.max(1, Math.round(floor))];
+}
 // REVEAL_MS paces the valuation: each card plays a staged reveal (card → true value → profit
 // stamp at STAMP_MS) and needs air after the stamp for the number to sink in from a sofa.
 const GAVEL_MS = 5000, INTRO_MS = 5000, SOLD_MS = 4500, PASSED_MS = 3500, REVEAL_MS = 5200;
@@ -439,6 +510,9 @@ const LOT_UNVEIL_MS = 800;     // when the intro unveils the item — must match
 const SOLD_STAMP_MS = 700;     // when "SOLD to…" stamps in — must match the .tv-sold .who CSS delay
 const STAMP_MS = 2800;   // when the profit stamps in — must match the .val-card.live .profit CSS delay
 const PODIUM_GOLD_MS = 3000;   // when the gold pod lands — fanfare + confetti wait for it
+// The banked board between rounds: rows land poorest-first, so the leader's new bankroll is the
+// last number on screen. BANK_STEP_MS must match the .bank-row CSS delay.
+const BANK_MS = 7000, BANK_STEP_MS = 700;
 const PLAYER_COLORS = ['#e8b75a', '#22d3ee', '#f472b6', '#4ade80', '#b478e0', '#fb923c', '#f87171', '#38bdf8', '#a3e635', '#fcd34d'];
 
 // Real, purchasable items with verified prices — GENERATED, do not edit by hand.
@@ -1571,6 +1645,22 @@ function sWonLot() {
     if (!sfxOn || !AC) return;
     [0, 4, 7, 12].forEach((s, i) => tone(mf(76 + s), 0.09, { type: 'triangle', vol: 0.24, when: 0.35 + i * 0.055 }));
 }
+// The auctioneer comes down a rung — a descending pair, a little deflating
+function sDrop() {
+    if (!sfxOn || !AC) return;
+    tone(mf(69), 0.1, { type: 'triangle', vol: 0.16, lp: 3000 });
+    tone(mf(64), 0.18, { type: 'triangle', vol: 0.16, lp: 2600, when: 0.09 });
+    noiseHit(0.04, { vol: 0.1, hp: 5000, when: 0.09 });
+}
+// The round banks — a till drawer and a rising handful of coins
+function sBank() {
+    if (!sfxOn || !AC) return;
+    duckMusic(1.1);
+    noiseHit(0.06, { vol: 0.26, hp: 2600 });
+    tone(mf(60), 0.12, { type: 'square', vol: 0.16, lp: 3200 });
+    [72, 76, 79, 84].forEach((m, i) => tone(mf(m), 0.13, { type: 'triangle', vol: 0.22, when: 0.14 + i * 0.075 }));
+    noiseHit(0.35, { vol: 0.12, when: 0.44, hp: 7000 });
+}
 // Passed lot — a feather falls
 function sPassed() {
     if (!sfxOn || !AC) return;
@@ -1786,6 +1876,168 @@ function toggleSfx() {
     if (AC && sfxGain) sfxGain.gain.value = sfxOn ? 0.55 : 0;
     $id('tog-sfx').classList.toggle('off', !sfxOn);
 }
+function toggleVoice() {
+    voiceOn = !voiceOn;
+    localStorage.setItem('gavel-voice', voiceOn ? '1' : '0');
+    if (!voiceOn) shutUp();
+    $id('tog-voice').classList.toggle('off', !voiceOn);
+}
+
+// ═══════════════════════════════════════════
+// THE AUCTIONEER'S VOICE  — TV ONLY
+// ═══════════════════════════════════════════
+// Ten phones all chanting over each other would be bedlam: the auctioneer belongs to the room, so
+// he only ever speaks from the big screen (viewer/TV-host). The lines are SPOKEN, not recorded —
+// hundreds of clips of "who'll give me forty-eight thousand?" cannot be pre-recorded when the
+// numbers come out of a live auction, and files would need hosting, licensing and bandwidth this
+// repo deliberately does not have. Web Speech reads whatever number the room has just reached.
+//
+// The vocabulary is real. Bid-calling is a chant of TWO numbers — what is bid, and what he wants
+// next — stitched together with the trade's own "filler words" ("dollar bid", "now", "will ya give
+// me", "I'm bid", "bid'em at"). Fishing DOWN for an opening bid is standard practice, and a lot
+// that never makes its reserve is "passed in". Lines are assembled from banks rather than stored
+// whole, so a few dozen fragments give many hundreds of distinct calls.
+let voiceOn = localStorage.getItem('gavel-voice') !== '0';
+let _voice = null, _voiceTried = false;
+const canSpeak = () => voiceOn && sfxOn && typeof speechSynthesis !== 'undefined' && (isViewer || isTvHost);
+
+function pickVoice() {
+    if (_voiceTried || typeof speechSynthesis === 'undefined') return _voice;
+    const all = speechSynthesis.getVoices();
+    if (!all.length) return null;                     // voices load async; try again next call
+    _voiceTried = true;
+    const want = ['daniel', 'alex', 'google uk english male', 'rishi', 'arthur', 'fred', 'oliver'];
+    const en = all.filter(v => /^en/i.test(v.lang));
+    _voice = want.map(w => en.find(v => v.name.toLowerCase().includes(w))).find(Boolean)
+        || en.find(v => /GB/i.test(v.lang)) || en[0] || all[0];
+    return _voice;
+}
+function shutUp() { try { speechSynthesis.cancel(); } catch (e) {} }
+
+// The auction has always moved on, so a new line CANCELS the old one rather than queueing behind
+// it — a chant that lags the screen is worse than silence.
+function say(text, opts = {}) {
+    if (!canSpeak() || !text) return;
+    try {
+        shutUp();
+        const u = new SpeechSynthesisUtterance(text);
+        const v = pickVoice();
+        if (v) u.voice = v;
+        u.rate = opts.rate || 1.28;                   // bid-calling is fast
+        u.pitch = opts.pitch === undefined ? 0.9 : opts.pitch;
+        u.volume = opts.vol === undefined ? 1 : opts.vol;
+        duckMusic(opts.duck || 1.4);
+        speechSynthesis.speak(u);
+    } catch (e) {}
+}
+
+// Auctioneers say numbers, not digits: "twelve hundred", "forty-eight thousand". Left to itself a
+// speech engine may spell a long figure out digit by digit, which kills the rhythm dead.
+const ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+    'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+function words(n) {
+    n = Math.round(n);
+    if (n < 20) return ONES[n];
+    if (n < 100) return TENS[Math.floor(n / 10)] + (n % 10 ? '-' + ONES[n % 10] : '');
+    if (n < 1000) return ONES[Math.floor(n / 100)] + ' hundred' + (n % 100 ? ' ' + words(n % 100) : '');
+    // 1,200 is "twelve hundred" on a rostrum, never "one thousand two hundred"
+    if (n < 10000 && n % 100 === 0) return words(n / 100) + ' hundred';
+    if (n < 1e6) return words(Math.floor(n / 1000)) + ' thousand' + (n % 1000 ? ' ' + words(n % 1000) : '');
+    return words(Math.floor(n / 1e6)) + ' million' + (n % 1e6 >= 1000 ? ' ' + words(Math.floor((n % 1e6) / 1000)) + ' thousand' : '');
+}
+const pick = a => a[Math.floor(Math.random() * a.length)];
+
+// ── the banks ──────────────────────────────────────────────────────────────
+// "{}" is the number under discussion. Combined, these give many hundreds of distinct calls.
+const P_OPEN = [
+    "Who'll start me at {}?", "I'll take {} to start.", "Can I get {}?",
+    "{} to start it, who'll give me {}?", "Let's open at {}. {}, anyone?",
+    "Start me at {}, {} dollar bid.", "What am I bid? {} to start.",
+    "Right then — {}. Who wants it at {}?", "I'm asking {}. {} dollar bid, will ya give me {}?",
+];
+const P_DROP_LEAD = [
+    "Nobody?", "No takers?", "Not one of you?", "Come on now.", "Don't be shy.",
+    "You're breaking my heart.", "All right, all right.", "Have it your way.",
+    "Somebody must want this.", "Last chance at this money.", "You'll regret this.",
+    "Fine. Fine!", "Is this thing on?", "I'm being generous here.",
+];
+const P_DROP_BODY = [
+    "Then who'll give me {}?", "How about {}?", "I'll take {}.", "{} then. {}?",
+    "Say {}. Will ya give me {}?", "{}. That's a gift at {}.", "Down to {}, {} dollar bid.",
+    "{}, and that's robbery.", "Make it {}. Anyone at {}?", "{}? {}? Will ya bid {}?",
+];
+const P_BID = [
+    "I'm bid {}, now {}, now {}, will ya give me {}?",
+    "{} dollar bid, now {}, {}, who'll give me {}?",
+    "I have {}. Looking for {}. {}, will ya bid {}?",
+    "{} bid'em at {}, {}, gimme {}!",
+    "Thank you! {} dollar bid, now {}, now {}.",
+    "{} I'm bid. {} anywhere? {}, {}?",
+];
+const P_GOING = [
+    "Going once… going twice…", "Fair warning now!", "All done? All through?",
+    "Last call at {}.", "Fair warning — I'm selling at {}.", "Going… and going…",
+];
+const P_SOLD = [
+    "SOLD! To {who}, for {}!", "GONE! {who} takes it at {}!",
+    "Hammer's down — {} to {who}!", "SOLD at {} — well bought, {who}!",
+    "{who}, {} — and it's yours!", "That's SOLD, {who}, at {}!",
+];
+const P_PASSED = [
+    "Passed in. It never made its reserve.", "No sale. That one goes back in the van.",
+    "Passed in — and you've all just let it go.", "Not a bid. Shameful.",
+    "It's passed in. Your loss, I promise you.", "No takers, no sale. Wheel it away.",
+];
+const P_LOT = [
+    "Lot {n}.", "Lot number {n}.", "Next up, lot {n}.", "And now, lot {n}.",
+    "Lot {n}, ladies and gentlemen.", "Moving on. Lot {n}.",
+];
+const P_MYSTERY = [
+    "And I'm not telling you what it is.", "No name, no description. Use your eyes.",
+    "You get what you see and nothing more.", "Mystery lot. Good luck.",
+];
+
+const fill = (tpl, n) => tpl.replace(/\{\}/g, () => words(n));
+
+// The line printed under the price on the TV — same patter, read rather than heard, for anyone
+// with the voice off (or a browser that has no speech at all).
+function askPatter(msg) {
+    if (!msg.bid) return '';
+    if (msg.bid.price === 0) {
+        return msg.bid.drops
+            ? `Nobody? Then who'll give me ${num(msg.bid.ask)}?`
+            : `Who'll start me at ${num(msg.bid.ask)}?`;
+    }
+    return 'Opening bid, anyone?';
+}
+
+function sayLot(msg) {
+    if (!msg.lot) return;
+    const head = pick(P_LOT).replace('{n}', words(msg.lotNum));
+    say(msg.lot.mystery ? `${head} ${pick(P_MYSTERY)}` : `${head} ${msg.lot.name}.`, { rate: 1.1 });
+}
+function sayAsk(msg, first) {
+    if (!msg.bid || msg.bid.price !== 0) return;
+    const ask = msg.bid.ask;
+    say(first ? fill(pick(P_OPEN), ask) : `${pick(P_DROP_LEAD)} ${fill(pick(P_DROP_BODY), ask)}`);
+}
+function sayBid(msg) {
+    if (!msg.bid || !msg.bid.price) return;
+    const next = msg.bid.price + raisesFor(msg.bid.price)[0];
+    // the two-number chant: what is bid, then what he wants next
+    let i = 0;
+    say(pick(P_BID).replace(/\{\}/g, () => words(i++ === 0 ? msg.bid.price : next)), { rate: 1.42 });
+}
+function sayGoing(price) { say(fill(pick(P_GOING), price), { rate: 1.15 }); }
+function saySold(info) {
+    say(info.passed ? pick(P_PASSED)
+        : fill(pick(P_SOLD), info.price).replace(/\{who\}/g, info.winner), { rate: 1.1, pitch: 1 });
+}
+function sayBanked(msg) {
+    say(`That's the end of round ${words(msg.round)}. Settle up — everything you own turns back into money, and we go again.`, { rate: 1.05 });
+}
+function sayWinner(name) { say(`That is the sale. ${name} takes it. Thank you, ladies and gentlemen.`, { rate: 1.05, pitch: 1 }); }
 
 // Unlock audio on first interaction (browser autoplay policy)
 let _audioUnlocked = false;
@@ -1813,7 +2065,8 @@ let _localGavelEnd = 0, _gavelTickClient = null;
 let H = {
     phase: 'lobby',              // lobby|lot_intro|bidding|sold|valuation|podium
     players: [],                 // [{id,name,color,coins,lots:[{lotIdx,paid}]}]
-    settings: { lotsPer: 3, bigLot: false },
+    settings: { lotsPer: 3, bigLot: false, rounds: 3 },
+    round: 1, rounds: 3, usedLots: null, gameReveals: [],
     mysteryLots: null,           // Set of lotIdx hidden behind their photo this game
     lotOrder: [], lotIndex: -1,
     bid: null,                   // {price, leaderId, endsAt}
@@ -1913,13 +2166,18 @@ function stateFor(p) {
     return {
         type: 'state',
         phase: H.phase, roomCode,
+        round: H.round || 1, rounds: H.rounds || 1,
         lotNum: H.lotIndex + 1, lotTotal: H.lotOrder.length,
         lot: lotView(curIdx),
         bid: H.bid ? {
             price: H.bid.price,
+            // The ask, and how many times he has already come down — never how far he WILL come
+            // down. That number stays on the host; not knowing it is the whole game of nerve.
+            ask: currentAsk(), drops: H.bid.drops,
             leader: leader ? leader.name : null,
             leaderColor: leader ? leader.color : null,
             youLead: !!(p && leader && leader.id === p.id),
+            canOpen: !!(p && H.bid.price === 0 && p.coins >= currentAsk()),
             endsIn: Math.max(0, H.bid.endsAt - Date.now()),
         } : null,
         myCoins: p ? p.coins : 0,
@@ -2014,6 +2272,7 @@ function hostCtl(action, msg) {
     else if (action === 'again' && H.phase === 'podium') hostNewGame();
     else if (action === 'set' && H.phase === 'lobby') {
         if ([2, 3, 4].includes(msg.lotsPer)) H.settings.lotsPer = msg.lotsPer;
+        if ([1, 2, 3].includes(msg.rounds)) H.settings.rounds = msg.rounds;
         if (typeof msg.bigLot === 'boolean') H.settings.bigLot = msg.bigLot;
         broadcastLobby();
     }
@@ -2110,22 +2369,41 @@ function hostSyncSelf(msg) {
 // ═══════════════════════════════════════════
 // HOST AUCTION FLOW
 // ═══════════════════════════════════════════
-// Lots are dealt EVENLY across four price bands, so even a short auction spans $1 to $10,000
-// instead of clumping. sim/goinggone.js models exactly this — change the bands here and you must
+// Lots are dealt EVENLY across four neighbouring price tiers, so even a short auction spans a
+// wide range instead of clumping — and in a multi-round game that WINDOW CLIMBS, because net
+// worth banks between rounds and a table that has doubled its money should be shown the lots it
+// can now afford. sim/goinggone.js models exactly this — change these numbers here and you must
 // change them there, or the balance figures stop describing the game people actually play.
-const BANDS = [[1, 100], [100, 1000], [1000, 5000], [5000, 10000]];
+const TIERS = [[1, 100], [100, 1000], [1000, 5000], [5000, 10000], [10000, 50000], [50000, Infinity]];
+const BAND_SPAN = 4;          // how many neighbouring tiers a single round deals from
+const MAX_CLIMB = 2;          // how far the window has slid by the final round
 const OVER_BAND = 10000;      // "big lot" territory
+const REACH = 0.45;           // a lot's reserve may not demand more than this share of the richest bankroll
 const MYSTERY_SHARE = 0.2;    // roughly a fifth of the draw is photo-only
 
-function buildLotOrder(count) {
-    const idx = LOTS.map((_, i) => i);
-    const pools = BANDS.map(([lo, hi]) => shuffle(idx.filter(i => LOTS[i].value >= lo && LOTS[i].value < hi)));
+function roundBands(round, rounds) {
+    const climb = rounds <= 1 ? 0 : Math.round(((round - 1) / (rounds - 1)) * MAX_CLIMB);
+    return TIERS.slice(climb, climb + BAND_SPAN);
+}
+
+// `ceiling` is the richest bankroll at the table. Affordability is judged LOT BY LOT, not tier by
+// tier: the top tier runs from $50,000 to a private aircraft, and "somebody could clear the
+// cheapest thing in this tier" is not the same question as "somebody could clear THIS". A lot
+// nobody can reach is a pass-in nobody enjoyed, so it never reaches the running order.
+function buildLotOrder(count, round, rounds, ceiling) {
+    const used = H.usedLots || (H.usedLots = new Set());   // a game never sells the same item twice
+    const idx = LOTS.map((_, i) => i)
+        .filter(i => !used.has(i) && reserveFor(LOTS[i].value) <= ceiling * REACH);
+    const bands = roundBands(round || 1, rounds || 1);
+    const pools = bands.map(([lo, hi]) => shuffle(idx.filter(i => LOTS[i].value >= lo && LOTS[i].value < hi)));
     const big = shuffle(idx.filter(i => LOTS[i].value >= OVER_BAND));
-    // ONE over-band lot, and only if the captain asked. The simulator is unambiguous: a single
-    // lot worth more than the whole ordinary band takes the margin over second place from ~8% of
-    // the winner's score to ~48%, i.e. it decides the game by itself. That is a fine evening if
-    // you chose it, and a bad default.
-    const wantBig = (H.settings.bigLot && big.length) ? 1 : 0;
+    // ONE over-band lot, and only if the captain asked — and only while the round's own window
+    // doesn't already reach that high. The simulator is unambiguous: in a single-round game a lot
+    // worth more than the whole ordinary band takes the margin over second place from ~8% of the
+    // winner's score to ~48%, i.e. it decides the game by itself. That is a fine evening if you
+    // chose it, and a bad default.
+    const topsOut = bands.some(([lo]) => lo >= OVER_BAND);
+    const wantBig = (H.settings.bigLot && !topsOut && big.length) ? 1 : 0;
     const picked = [];
     for (let n = 0; picked.length < count - wantBig; n++) {
         const pool = pools[n % pools.length];
@@ -2134,27 +2412,44 @@ function buildLotOrder(count) {
     }
     if (wantBig) picked.push(big.pop());
     const order = shuffle(picked);
+    order.forEach(i => used.add(i));
     // Mystery lots show the photo and withhold the name, so only lots WITH a photo can be one.
     const eligible = shuffle(order.filter(i => LOTS[i].img));
     H.mysteryLots = new Set(eligible.slice(0, Math.round(order.length * MYSTERY_SHARE)));
     return order;
 }
 
-// ~3 lots per player, so everyone goes home with about three things whatever the table size —
-// the simulator shows that median holding from 2 players up to 10.
+// ~3 lots per player PER ROUND, so everyone goes home with about three things a round whatever
+// the table size — the simulator shows that median holding from 2 players up to 10.
 function plannedLotCount() {
     const n = Math.max(MIN_PLAYERS, connectedPlayers().length);
-    return Math.min(H.settings.lotsPer * n, LOTS.length);
+    const left = LOTS.length - (H.usedLots ? H.usedLots.size : 0);
+    return Math.max(1, Math.min(H.settings.lotsPer * n, left));
 }
 
 function hostStartAuction() {
     if (connectedPlayers().length < MIN_PLAYERS) { uiErr = 'Need at least ' + MIN_PLAYERS + ' bidders.'; if (ui === 'lobby_h') render(); return; }
     clearHostTimers();
-    H.lotOrder = buildLotOrder(plannedLotCount());
-    H.lotIndex = -1;
+    H.rounds = H.settings.rounds || 1;
+    H.round = 0;
+    H.usedLots = new Set();
+    H.gameReveals = [];
     H.players.forEach(p => { p.coins = START_COINS; p.lots = []; });
-    H.reveals = []; H.revealIndex = -1;
     H.standings = null; H.awards = null; H.winner = null;
+    startRound();
+}
+
+// A round is a full auction: lots, valuation, and then the shelves are sold back. Coins carry
+// forward, the shelf does not, and the podium waits for the last round.
+function startRound() {
+    clearHostTimers();
+    H.round += 1;
+    const ceiling = Math.max(START_COINS, ...H.players.map(p => p.coins));
+    H.lotOrder = buildLotOrder(plannedLotCount(), H.round, H.rounds, ceiling);
+    H.lotIndex = -1;
+    H.players.forEach(p => { p.lots = []; });
+    H.reveals = []; H.revealIndex = -1;
+    H.standings = null;
     startLot();
 }
 
@@ -2170,17 +2465,39 @@ function startLot() {
 
 function startBidding() {
     if (H.phase !== 'lot_intro') return;
+    const lot = LOTS[H.lotOrder[H.lotIndex]];
     H.phase = 'bidding';
-    H.bid = { price: 0, leaderId: null, endsAt: Date.now() + GAVEL_MS };
+    // The ladder and the reserve are drawn now and never leave the host — the phones are told the
+    // CURRENT ask and nothing else. How far he is willing to come down is the auctioneer's secret,
+    // and it is the only thing making the wait frightening.
+    H.bid = {
+        price: 0, leaderId: null, endsAt: Date.now() + ASK_MS,
+        ladder: askLadder(lot.value), askIdx: 0, drops: 0,
+    };
     broadcastState();
     clearInterval(_gavelTick);
     _gavelTick = setInterval(checkGavel, 120);
 }
 
+const currentAsk = () => H.bid && H.bid.price === 0 ? H.bid.ladder[H.bid.askIdx] : 0;
+
 function hostBid(player, raise) {
+    if (H.phase !== 'bidding' || !H.bid) return;
+    // Opening bid: the only legal move is to take the auctioneer's ask. A phone that tapped a
+    // moment before the ask dropped sent the OLD, higher number — honour it at the ask it is
+    // actually standing at rather than throwing the bid away.
+    if (H.bid.price === 0) {
+        const ask = currentAsk();
+        if (raise < ask || player.coins < ask) return;
+        H.bid.price = ask;
+        H.bid.leaderId = player.id;
+        H.bid.endsAt = Date.now() + GAVEL_MS;
+        broadcastState();
+        return;
+    }
     // The legal raises depend on the CURRENT price, so validate against the ladder here rather
     // than trusting whatever the phone sent.
-    if (H.phase !== 'bidding' || !H.bid || !raisesFor(H.bid.price).includes(raise)) return;
+    if (!raisesFor(H.bid.price).includes(raise)) return;
     if (H.bid.leaderId === player.id) return;               // can't outbid yourself
     const newPrice = H.bid.price + raise;
     if (player.coins < newPrice) return;                     // must be able to pay
@@ -2193,20 +2510,36 @@ function hostBid(player, raise) {
 function checkGavel() {
     if (H.phase !== 'bidding' || !H.bid) { clearInterval(_gavelTick); return; }
     if (Date.now() < H.bid.endsAt) return;
-    clearInterval(_gavelTick);
     const lotIdx = H.lotOrder[H.lotIndex];
-    const leader = H.bid.leaderId ? H.players.find(p => p.id === H.bid.leaderId) : null;
-    if (leader) {
-        leader.coins -= H.bid.price;
-        leader.lots.push({ lotIdx, paid: H.bid.price });
-        H.soldInfo = { lotIdx, winner: leader.name, color: leader.color, price: H.bid.price };
-    } else {
-        H.soldInfo = { lotIdx, passed: true };
+    // Nobody has opened yet: the auctioneer fishes — down one rung and ask again. When the rungs
+    // run out the reserve has not been met and the lot is passed in.
+    if (H.bid.price === 0) {
+        if (H.bid.askIdx < H.bid.ladder.length - 1) {
+            H.bid.askIdx += 1;
+            H.bid.drops += 1;
+            H.bid.endsAt = Date.now() + ASK_MS;
+            broadcastState();
+            return;
+        }
+        clearInterval(_gavelTick);
+        // The value comes out on a pass-in. Nobody owns it, so it never reaches the valuation —
+        // without this the room never learns what it just let walk out of the door.
+        H.soldInfo = { lotIdx, passed: true, lastAsk: currentAsk(), value: LOTS[lotIdx].value };
+        H.phase = 'sold';
+        H.bid = null;
+        broadcastState();
+        _lotTimer = setTimeout(startLot, PASSED_MS);
+        return;
     }
+    clearInterval(_gavelTick);
+    const leader = H.players.find(p => p.id === H.bid.leaderId);
+    leader.coins -= H.bid.price;
+    leader.lots.push({ lotIdx, paid: H.bid.price });
+    H.soldInfo = { lotIdx, winner: leader.name, color: leader.color, price: H.bid.price };
     H.phase = 'sold';
     H.bid = null;
     broadcastState();
-    _lotTimer = setTimeout(startLot, H.soldInfo.passed ? PASSED_MS : SOLD_MS);
+    _lotTimer = setTimeout(startLot, SOLD_MS);
 }
 
 function startValuation() {
@@ -2251,15 +2584,19 @@ function finishValuation() {
         return { name: p.name, color: p.color, coins: p.coins, shelf, net: p.coins + shelf, lots: p.lots.length };
     }).sort((a, b) => b.net - a.net || b.coins - a.coins);
     H.standings = rows;
+    // Awards are drawn from the WHOLE game, not the round that happens to have just ended.
+    H.gameReveals = (H.gameReveals || []).concat(H.reveals.map(r => ({ ...r, round: H.round })));
+    if (H.round < H.rounds) { startBanking(); return; }
     H.winner = rows[0] ? rows[0].name : null;
     const awards = [];
     let eagle = null, mug = null;
-    H.reveals.forEach(r => {
+    H.gameReveals.forEach(r => {
         if (r.profit > 0 && (!eagle || r.profit > eagle.profit)) eagle = r;
         if (r.profit < 0 && (!mug || r.profit < mug.profit)) mug = r;
     });
-    if (eagle) awards.push({ emoji: '🦅', title: 'Eagle Eye', name: eagle.player, detail: `+${eagle.profit} on ${eagle.lotName}` });
-    if (mug) awards.push({ emoji: '🫠', title: 'Mug of the Match', name: mug.player, detail: `${mug.profit} on ${mug.lotName}` });
+    const when = r => H.rounds > 1 ? ` (round ${r.round})` : '';
+    if (eagle) awards.push({ emoji: '🦅', title: 'Eagle Eye', name: eagle.player, detail: `+${num(eagle.profit)} on ${eagle.lotName}${when(eagle)}` });
+    if (mug) awards.push({ emoji: '🫠', title: 'Mug of the Match', name: mug.player, detail: `${num(mug.profit)} on ${mug.lotName}${when(mug)}` });
     const scrooge = H.players.slice().sort((a, b) => b.coins - a.coins)[0];
     if (scrooge) awards.push({ emoji: '🪙', title: 'Scrooge', name: scrooge.name, detail: `${num(scrooge.coins)} coins unspent` });
     H.awards = awards;
@@ -2267,11 +2604,25 @@ function finishValuation() {
     broadcastState();
 }
 
+// Between rounds the whole shelf is sold back at its true value and net worth becomes the next
+// round's bankroll, so a good eye COMPOUNDS — and the lot tiers climb to meet the money.
+function startBanking() {
+    clearHostTimers();
+    H.players.forEach(p => {
+        p.coins += p.lots.reduce((s, l) => s + LOTS[l.lotIdx].value, 0);
+        p.lots = [];
+    });
+    H.phase = 'banked';
+    broadcastState();
+    _lotTimer = setTimeout(startRound, BANK_MS + H.players.length * BANK_STEP_MS);
+}
+
 function hostNewGame() {
     clearHostTimers();
     H.phase = 'lobby';
     H.lotOrder = []; H.lotIndex = -1; H.bid = null; H.soldInfo = null; H.mysteryLots = null;
     H.reveals = []; H.revealIndex = -1; H.standings = null; H.awards = null; H.winner = null;
+    H.round = 1; H.rounds = H.settings.rounds || 1; H.usedLots = null; H.gameReveals = [];
     H.players.forEach(p => { p.coins = START_COINS; p.lots = []; });
     H.players = H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
     broadcastLobby();
@@ -2287,7 +2638,8 @@ function hostSet(patch) {
 // ═══════════════════════════════════════════
 // CLIENT (phone) MESSAGE HANDLING
 // ═══════════════════════════════════════════
-let _lastLotKey = '', _lastPrice = -1, _lastRevealIdx = -1, _goingStage = 0;
+let _lastLotKey = '', _lastPrice = -1, _lastAsk = 0, _lastRevealIdx = -1, _goingStage = 0;
+let _cOpening = false, _cSpan = GAVEL_MS;
 function stopClientTick() { clearInterval(_gavelTickClient); _gavelTickClient = null; _goingStage = 0; musicUrgent = false; }
 
 function applyMsg(msg) {
@@ -2312,7 +2664,7 @@ function applyMsg(msg) {
                 stopClientTick();
                 setMusic('bidding');
                 musicIntensity = 1;   // new lot: strip back until the gavel countdown
-                musicKeyShift = msg.lotNum === msg.lotTotal ? 2 : 0;   // final lot: key up
+                musicKeyShift = (msg.lotNum === msg.lotTotal && msg.round === msg.rounds) ? 2 : 0;   // final lot of the last round: key up
                 if (_lastLotKey !== lotKey) { _lastLotKey = lotKey; _lastPrice = -1; ui = 'lot'; render(); sLotIntro(); }
                 break;
             }
@@ -2324,6 +2676,20 @@ function applyMsg(msg) {
                     render();
                     startClientGavel(msg);
                     _lastPrice = msg.bid ? msg.bid.price : 0;
+                    _lastAsk = msg.bid ? msg.bid.ask : 0;
+                } else if (msg.bid && msg.bid.price === 0) {
+                    // Still fishing for an opening bid. Nothing has been bid, so there is no price
+                    // to bump — what moves is the auctioneer coming DOWN.
+                    const dropped = msg.bid.ask !== _lastAsk;
+                    _lastAsk = msg.bid.ask;
+                    patchBidding(msg);
+                    startClientGavel(msg);
+                    if (dropped) {
+                        sDrop();
+                        try { navigator.vibrate && navigator.vibrate(20); } catch (e) {}
+                        const pe = $id('p-price');
+                        if (pe) { pe.classList.remove('drop'); void pe.offsetWidth; pe.classList.add('drop'); }
+                    }
                 } else {
                     const priceUp = !!(msg.bid && msg.bid.price !== _lastPrice);
                     const diff = priceUp ? msg.bid.price - Math.max(0, _lastPrice) : 0;
@@ -2379,6 +2745,13 @@ function applyMsg(msg) {
                 }
                 break;
             }
+            if (msg.phase === 'banked') {
+                stopClientTick();
+                setMusic('results');
+                if (ui !== 'banked') { ui = 'banked'; render(); sBank(); }
+                else render();
+                break;
+            }
             if (msg.phase === 'podium') {
                 stopClientTick();
                 setMusic('over');
@@ -2394,16 +2767,19 @@ function applyMsg(msg) {
 
 function startClientGavel(msg) {
     _localGavelEnd = Date.now() + (msg.bid ? msg.bid.endsIn : 0);
+    _cOpening = !!(msg.bid && msg.bid.price === 0);
+    _cSpan = _cOpening ? ASK_MS : GAVEL_MS;
     if (_gavelTickClient) return;
     _gavelTickClient = setInterval(() => {
         const left = Math.max(0, _localGavelEnd - Date.now());
-        const frac = left / GAVEL_MS;
-        const stage = left === 0 ? 0 : frac < 0.25 ? 2 : frac < 0.5 ? 1 : 0;
+        const frac = Math.min(1, left / _cSpan);
+        const stage = (_cOpening || left === 0) ? 0 : frac < 0.25 ? 2 : frac < 0.5 ? 1 : 0;
         const bar = $id('gavel-bar');
         if (bar) { bar.style.width = (frac * 100) + '%'; bar.classList.toggle('low', stage > 0); }
         const gl = $id('going-lbl');
         if (gl) {
-            gl.textContent = left === 0 ? '' : stage === 2 ? 'going… GOING…' : stage === 1 ? 'going…' : '';
+            gl.textContent = _cOpening ? (left < 1800 ? 'coming down…' : '')
+                : left === 0 ? '' : stage === 2 ? 'going… GOING…' : stage === 1 ? 'going…' : '';
             gl.classList.toggle('low', stage > 0);
         }
         musicUrgent = left > 0 && stage > 0;
@@ -2415,6 +2791,15 @@ function startClientGavel(msg) {
 
 function sendBid(raise) {
     if (!D || D.phase !== 'bidding' || !D.bid || D.bid.youLead) return;
+    // Opening bid: `raise` IS the ask, not an increment on top of it.
+    if (D.bid.price === 0) {
+        if (D.myCoins < raise) return;
+        if (isHost && !isTvHost) {
+            const me = H.players.find(p => p.id === myId);
+            if (me) hostBid(me, raise);
+        } else send(hostConn, { type: 'bid', raise });
+        return;
+    }
     if (D.myCoins < D.bid.price + raise) return;
     if (isHost && !isTvHost) {
         const me = H.players.find(p => p.id === myId);
@@ -2423,8 +2808,11 @@ function sendBid(raise) {
 }
 
 function patchBidding(msg) {
+    const opening = msg.bid.price === 0;
     const price = $id('p-price');
-    if (price) price.textContent = num(msg.bid.price);
+    if (price) { price.textContent = num(opening ? msg.bid.ask : msg.bid.price); price.classList.toggle('asking', opening); }
+    const kick = $id('p-kick');
+    if (kick) kick.textContent = opening ? 'The auctioneer asks' : 'Current price';
     const lb = $id('lead-banner');
     if (lb) lb.innerHTML = leadBannerHTML(msg);
     const bb = $id('bid-btns');
@@ -2436,7 +2824,8 @@ function patchBidding(msg) {
 // ═══════════════════════════════════════════
 // VIEWER (TV) MESSAGE HANDLING
 // ═══════════════════════════════════════════
-let _vLotKey = '', _vPrice = -1, _vRevealIdx = -1, _vGavelEnd = 0, _vGavelTick = null, _vGoingStage = 0;
+let _vLotKey = '', _vPrice = -1, _vAsk = 0, _vRevealIdx = -1, _vGavelEnd = 0, _vGavelTick = null, _vGoingStage = 0;
+let _vOpening = false, _vSpan = GAVEL_MS;
 function stopViewerTick() { clearInterval(_vGavelTick); _vGavelTick = null; _vGoingStage = 0; musicUrgent = false; }
 
 function applyViewerMsg(msg) {
@@ -2457,12 +2846,12 @@ function applyViewerMsg(msg) {
         stopViewerTick();
         setMusic('bidding');
         musicIntensity = 1;   // new lot: strip back until the gavel countdown
-        musicKeyShift = msg.lotNum === msg.lotTotal ? 2 : 0;   // final lot: key up
+        musicKeyShift = (msg.lotNum === msg.lotTotal && msg.round === msg.rounds) ? 2 : 0;   // final lot of the last round: key up
         if (_vLotKey !== lotKey) {
             _vLotKey = lotKey; _vPrice = -1; render();
             // the sting belongs to the UNVEIL beat, not the announcement (phones keep it instant)
             const wait = (typeof REDUCED !== 'undefined' && REDUCED) ? 0 : LOT_UNVEIL_MS;
-            setTimeout(() => { if (_vLotKey === lotKey) sLotIntro(); }, wait);
+            setTimeout(() => { if (_vLotKey === lotKey) { sLotIntro(); sayLot(msg); } }, wait);
         }
         return;
     }
@@ -2472,6 +2861,21 @@ function applyViewerMsg(msg) {
             _vLotKey = lotKey;
             render();
             _vPrice = msg.bid ? msg.bid.price : 0;
+            _vAsk = msg.bid ? msg.bid.ask : 0;
+            sayAsk(msg, true);
+        } else if (msg.bid && msg.bid.price === 0) {
+            // Fishing for an opening bid: what moves is the auctioneer coming down.
+            const dropped = msg.bid.ask !== _vAsk;
+            _vAsk = msg.bid.ask;
+            patchViewerBidding(msg);
+            if (dropped) {
+                sDrop();
+                const pe = $id('v-price');
+                if (pe) { pe.classList.remove('drop'); void pe.offsetWidth; pe.classList.add('drop'); }
+                sayAsk(msg, false);
+            }
+            startViewerGavel(msg);
+            return;
         } else {
             const priceUp = !!(msg.bid && msg.bid.price !== _vPrice);
             const diff = priceUp ? msg.bid.price - Math.max(0, _vPrice) : 0;
@@ -2479,6 +2883,7 @@ function applyViewerMsg(msg) {
             patchViewerBidding(msg);
             if (priceUp) {
                 sBid(msg.bid.price);
+                sayBid(msg);
                 const pe = $id('v-price');
                 if (pe) {
                     pe.classList.remove('bump'); void pe.offsetWidth; pe.classList.add('bump');
@@ -2494,13 +2899,15 @@ function applyViewerMsg(msg) {
         if (_vLotKey !== lotKey) {
             _vLotKey = lotKey; render();
             const si = msg.soldInfo || {};
-            if (si.passed) sPassed();
+            if (si.passed) { sPassed(); saySold(si); }
             else {
                 sGavel();
                 // the burst belongs to the auctioneer's call, which stamps in at SOLD_STAMP_MS
                 const wait = (typeof REDUCED !== 'undefined' && REDUCED) ? 0 : SOLD_STAMP_MS;
                 setTimeout(() => {
-                    if (_vLotKey === lotKey) burst(innerWidth / 2, innerHeight * 0.34, ['#e8b75a', '#f5d38a', '#f6eefb', '#b478e0'], 26);
+                    if (_vLotKey !== lotKey) return;
+                    burst(innerWidth / 2, innerHeight * 0.34, ['#e8b75a', '#f5d38a', '#f6eefb', '#b478e0'], 26);
+                    saySold(si);
                 }, wait);
             }
         }
@@ -2531,6 +2938,21 @@ function applyViewerMsg(msg) {
         }
         return;
     }
+    if (msg.phase === 'banked') {
+        stopViewerTick();
+        setMusic('results');
+        const key = 'banked|' + msg.round;
+        if (_vLotKey !== key) {
+            _vLotKey = key;
+            render();
+            sayBanked(msg);
+            // the bell belongs to the LAST row landing — the leader's bankroll
+            const last = 1 + Math.max(0, (msg.standings || []).length - 1) * (BANK_STEP_MS / 1000);
+            const wait = (typeof REDUCED !== 'undefined' && REDUCED) ? 0 : last * 1000;
+            setTimeout(() => { if (_vLotKey === key) { sBank(); burst(innerWidth / 2, innerHeight * 0.5, ['#e8b75a', '#f5d38a', '#4ade80'], 22); } }, wait);
+        } else render();
+        return;
+    }
     if (msg.phase === 'podium') {
         stopViewerTick();
         setMusic('over');
@@ -2540,7 +2962,11 @@ function applyViewerMsg(msg) {
             // and silver land quietly on the outro music). Reduced motion shows all pods at
             // once, so the fanfare fires straight away there.
             const wait = (typeof REDUCED !== 'undefined' && REDUCED) ? 0 : PODIUM_GOLD_MS + 300;
-            setTimeout(() => { if (_vLotKey === 'podium') { sWin(); startConfetti(5200); } }, wait);
+            setTimeout(() => {
+                if (_vLotKey !== 'podium') return;
+                sWin(); startConfetti(5200);
+                setTimeout(() => { if (_vLotKey === 'podium') sayWinner(msg.winner || ''); }, 2600);
+            }, wait);
         }
         else render();
         return;
@@ -2550,32 +2976,40 @@ function applyViewerMsg(msg) {
 
 function startViewerGavel(msg) {
     _vGavelEnd = Date.now() + (msg.bid ? msg.bid.endsIn : 0);
+    // While he is still fishing for an opening bid the window is ASK_MS, not the gavel — and
+    // nothing is "going", because nothing has been bid.
+    _vOpening = !!(msg.bid && msg.bid.price === 0);
+    _vSpan = _vOpening ? ASK_MS : GAVEL_MS;
     if (_vGavelTick) return;
     _vGavelTick = setInterval(() => {
         const left = Math.max(0, _vGavelEnd - Date.now());
-        const frac = left / GAVEL_MS;
-        const stage = left === 0 ? 0 : frac < 0.25 ? 2 : frac < 0.5 ? 1 : 0;
+        const frac = Math.min(1, left / _vSpan);
+        const stage = (_vOpening || left === 0) ? 0 : frac < 0.25 ? 2 : frac < 0.5 ? 1 : 0;
         const bar = $id('v-gavel-bar');
         if (bar) { bar.style.width = (frac * 100) + '%'; bar.classList.toggle('low', stage > 0); }
         const gl = $id('v-going');
         if (gl) {
-            gl.textContent = left === 0 ? '' : stage === 2 ? 'going… GOING…' : stage === 1 ? 'going…' : '';
+            gl.textContent = _vOpening ? (left < 1800 ? 'coming down…' : '')
+                : left === 0 ? '' : stage === 2 ? 'going… GOING…' : stage === 1 ? 'going…' : '';
             gl.classList.toggle('low', stage > 0);
         }
         musicUrgent = left > 0 && stage > 0;
         if (musicUrgent) musicIntensity = 2;   // "going…" reached: full band stays in
-        if (stage > _vGoingStage && left > 0) sGoing(stage);
+        if (stage > _vGoingStage && left > 0) { sGoing(stage); if (stage === 2 && vD && vD.bid) sayGoing(vD.bid.price); }
         _vGoingStage = stage;
     }, 100);
 }
 
 function patchViewerBidding(msg) {
+    const opening = msg.bid.price === 0;
     const price = $id('v-price');
-    if (price) price.textContent = msg.bid.price === 0 ? 'Any bids?' : msg.bid.price;
+    if (price) { price.textContent = num(opening ? msg.bid.ask : msg.bid.price); price.classList.toggle('asking', opening); }
+    const kick = $id('v-kick');
+    if (kick) kick.textContent = opening ? 'The auctioneer asks' : 'Current price';
     const lead = $id('v-leader');
     if (lead) lead.innerHTML = msg.bid.leader
         ? `<span style="color:${msg.bid.leaderColor}">${esc(msg.bid.leader)}</span> holds the bid`
-        : 'Opening bid, anyone?';
+        : esc(askPatter(msg));
     const rail = $id('v-rail');
     if (rail) rail.innerHTML = railRowsHTML(msg);
 }
@@ -2587,14 +3021,23 @@ function hdrHTML(sub) {
     return `<h1 class="logo">${GAVEL} Going, Going, GONE!</h1><div class="sub">${esc(sub || 'bid big · regret bigger')}</div>`;
 }
 function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+// "Round 2 of 3 · Lot 5 of 18" — the round only shows when there is more than one of them.
+function lotMeta(msg) {
+    const r = (msg.rounds || 1) > 1 ? `Round ${msg.round} of ${msg.rounds} · ` : '';
+    return `${r}Lot ${msg.lotNum} of ${msg.lotTotal}`;
+}
 function isCaptain() { return !!(D && D.tvHost && D.captain && D.captain === myName); }
 function canDrive() { return (isHost && !isTvHost) || isCaptain(); }
 
 function settingsSegsHTML(settings, expr) {
     const lens = [[2, 'Short'], [3, 'Normal'], [4, 'Long']];
+    const rounds = settings.rounds || 1;
     return `
-        <div class="fg"><label>Auction length — ${settings.lotCount} lots for this table</label><div class="seg-row">${lens.map(([v, label]) =>
+        <div class="fg"><label>Auction length — ${settings.lotCount} lots${rounds > 1 ? ' per round' : ''} for this table</label><div class="seg-row">${lens.map(([v, label]) =>
         `<button class="btn btn-sm ${settings.lotsPer === v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{lotsPer:${v}}`)}">${label}</button>`).join('')}</div></div>
+        <div class="fg"><label>Rounds — ${rounds > 1 ? `${settings.lotCount * rounds} lots all told` : 'one sale, then the podium'}</label><div class="seg-row">${[1, 2, 3].map(v =>
+            `<button class="btn btn-sm ${rounds === v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{rounds:${v}}`)}">${v}</button>`).join('')}</div>
+            <div style="font-size:.6rem;color:var(--muted);margin-top:4px">Between rounds your whole shelf sells back at its true value and becomes your bankroll — so the money compounds, and the lots on offer climb to match it.</div></div>
         <div class="fg"><label>Big lot — one item worth far more than the rest</label><div class="seg-row">${[[false, 'Off'], [true, 'On']].map(([v, label]) =>
             `<button class="btn btn-sm ${settings.bigLot === v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{bigLot:${v}}`)}">${label}</button>`).join('')}</div>
             <div style="font-size:.6rem;color:var(--muted);margin-top:4px">Whoever wins it usually wins the game.</div></div>`;
@@ -2604,11 +3047,19 @@ function leadBannerHTML(msg) {
     if (!msg.bid) return '';
     if (msg.bid.youLead) return `<div class="lead-banner">🏆 You're winning this lot!</div>`;
     if (msg.bid.leader) return `<div class="lead-banner other"><span style="color:${msg.bid.leaderColor}">●</span> ${esc(msg.bid.leader)} holds the bid</div>`;
-    return `<div class="lead-banner other">No bids yet — be brave!</div>`;
+    return `<div class="lead-banner other">${msg.bid.drops ? `He's come down ${msg.bid.drops === 1 ? 'once' : msg.bid.drops + ' times'} — how low will he go?` : 'Nobody has opened it yet…'}</div>`;
 }
 
 function bidBtnsHTML(msg) {
     if (!msg.bid || msg.bid.youLead) return '';
+    // Nobody has opened yet: one button, and it is the auctioneer's own number. Take it or wait
+    // and hope he comes down again — he may not.
+    if (msg.bid.price === 0) {
+        const ask = msg.bid.ask;
+        return `<button class="btn btn-p btn-open" ${msg.myCoins >= ask ? '' : 'disabled'} onclick="sendBid(${ask})">
+            🙋 Start it at ${num(ask)}</button>
+            <div class="open-note">${msg.myCoins >= ask ? 'or hold your nerve — he might come down…' : 'too rich for you'}</div>`;
+    }
     return raisesFor(msg.bid.price).map(r => {
         const afford = msg.myCoins >= msg.bid.price + r;
         return `<button class="btn btn-p" ${afford ? '' : 'disabled'} onclick="sendBid(${r})">+${r}</button>`;
@@ -2644,7 +3095,7 @@ function lotHeaderHTML(msg, small) {
     if (!l) return '';
     return `
     <div class="card lot-card" ${small ? 'style="padding:14px 12px"' : ''}>
-        <div class="lot-kicker">Lot ${msg.lotNum} of ${msg.lotTotal}${l.mystery ? ' · ❓ mystery' : ''}</div>
+        <div class="lot-kicker">${lotMeta(msg)}${l.mystery ? ' · ❓ mystery' : ''}</div>
         ${lotArtHTML(l, small ? 'height:96px' : '', small ? 'font-size:2.1rem' : '')}
         <div class="lname" ${small ? 'style="font-size:1.05rem"' : ''}>${l.mystery ? 'Mystery Lot' : esc(l.name)}</div>
         <div class="ldesc">${l.mystery ? 'No name, no description. Bid on what you can see.' : '“' + esc(l.desc) + '”'}</div>
@@ -2675,6 +3126,7 @@ function render() {
         case 'bidding':    html = renderBidding(); break;
         case 'sold':       html = renderSold(); break;
         case 'valuation':  html = renderValuation(); break;
+        case 'banked':     html = renderBanked(); break;
         case 'podium':     html = renderPodium(); break;
         case 'viewer':     html = renderViewer(); break;
         default:           html = renderHome();
@@ -2807,7 +3259,7 @@ function renderLobbyG() {
     : `
     <div class="card">
         <div class="slbl">Settings</div>
-        <div style="font-weight:800;font-size:.85rem">${GAVEL} ${s.lotCount} lots · 🪙 ${START_COINS.toLocaleString()} coins each</div>
+        <div style="font-weight:800;font-size:.85rem">${GAVEL} ${s.lotCount} lots${(s.rounds || 1) > 1 ? ` × ${s.rounds} rounds` : ''} · 🪙 ${START_COINS.toLocaleString()} coins each</div>
         <div style="color:var(--muted);font-size:.72rem;font-weight:700;margin-top:8px">
             Waiting for ${D.tvHost ? `👑 ${esc(D.captain || 'the captain')}` : 'the host'} to start…
         </div>
@@ -2826,11 +3278,12 @@ function renderLotIntro() {
 }
 
 function renderBidding() {
+    const opening = D.bid.price === 0;
     return `
     ${lotHeaderHTML(D, true)}
     <div class="card" style="text-align:center">
-        <div class="lot-kicker">Current price</div>
-        <div class="price-big" id="p-price">${num(D.bid.price)}</div>
+        <div class="lot-kicker" id="p-kick">${opening ? 'The auctioneer asks' : 'Current price'}</div>
+        <div class="price-big${opening ? ' asking' : ''}" id="p-price">${num(opening ? D.bid.ask : D.bid.price)}</div>
         <div class="gavel-wrap" style="margin:10px 0 4px"><div class="gavel-bar" id="gavel-bar" style="width:100%"></div></div>
         <div id="going-lbl" style="min-height:1.2em;font-weight:900;color:var(--down)"></div>
     </div>
@@ -2846,8 +3299,9 @@ function renderSold() {
     // A mystery lot keeps its name back until the valuation, here too.
     const title = s.lot ? (s.lot.mystery ? '📦 the mystery lot' : s.lot.emoji + ' ' + s.lot.name) : '';
     const inner = s.passed
-        ? `<div class="gavel">🪶</div><div class="st">PASSED</div>
-           <div style="color:var(--muted);font-weight:700;margin-top:6px">Not a single bid for ${esc(title)}. Brutal.</div>`
+        ? `<div class="gavel">🪶</div><div class="st">PASSED IN</div>
+           <div style="color:var(--muted);font-weight:700;margin-top:6px">${esc(title)} never made its reserve.</div>
+           <div style="font-weight:900;color:var(--gold);margin-top:6px">It was worth ${num(s.value)}</div>`
         : `<div class="gavel">${GAVEL}</div><div class="st">${mine ? 'YOU WON IT!' : 'SOLD!'}</div>
            <div style="font-weight:800;color:var(--gold);margin-top:6px">${esc(title)}</div>
            <div style="font-weight:900;font-size:1.3rem;margin-top:4px">${mine ? `You paid ${num(s.price)}` : `${esc(s.winner)} pays ${num(s.price)}`}</div>`;
@@ -2867,6 +3321,33 @@ function renderValuation() {
     </div>
     <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>
     <div style="text-align:center"><span class="coins-chip">🪙 ${num(D.myCoins)} coins left</span></div>`;
+}
+
+// Between rounds. Deliberately NOT the podium: no medals, no confetti, no play-again — this is a
+// bank statement with a bell on it, and the game is still running.
+function renderBanked() {
+    const st = D.standings || [];
+    const me = st.find(p => p.name === myName);
+    return `
+    ${hdrHTML(`Round ${D.round} of ${D.rounds} — banked`)}
+    <div class="card sold-card highlight">
+        <div class="gavel">🏦</div>
+        <div class="st">${num(me ? me.net : D.myCoins)}</div>
+        <div style="color:var(--muted);font-weight:700;font-size:.78rem;margin-top:6px">
+            your shelf sold back at its true value — that's your bankroll for round ${D.round + 1}
+        </div>
+    </div>
+    <div class="card standings"><div class="slbl">Bankrolls</div>${st.map((p, i) => `
+        <div class="player-row" style="--i:${i}">
+            <span style="width:22px;text-align:center;color:var(--muted)">${i + 1}</span>
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--gold)">(you)</span>' : ''}</div>
+            <div class="sc">${num(p.net)} <span style="color:var(--muted);font-size:.7rem">(🪙${num(p.coins)} + 🖼️${num(p.shelf)})</span></div>
+        </div>`).join('')}
+    </div>
+    <div style="text-align:center;color:var(--muted);font-weight:800;font-size:.78rem">
+        Round ${D.round + 1} coming up — and the lots get grander…
+    </div>`;
 }
 
 function renderPodium() {
@@ -2916,6 +3397,7 @@ function renderViewer() {
     if (vD.phase === 'bidding') return renderViewerBidding();
     if (vD.phase === 'sold') return renderViewerSold();
     if (vD.phase === 'valuation') return renderViewerValuation();
+    if (vD.phase === 'banked') return renderViewerBanked();
     if (vD.phase === 'podium') return renderViewerPodium();
     return renderSpinner('Waiting for the auction…');
 }
@@ -2926,7 +3408,7 @@ function renderViewerLobby() {
     return tvLobby({
         title: 'GOING, GOING, GONE!', accent: '#e8b75a',
         roomCode: vD.roomCode, isTvHost: vD.tvHost, captainName: vD.captain,
-        settings: `${s.lotCount} lots · 🪙 ${START_COINS.toLocaleString()} coins each`,
+        settings: `${s.lotCount} lots${(s.rounds || 1) > 1 ? ` × ${s.rounds} rounds` : ''} · 🪙 ${START_COINS.toLocaleString()} coins each`,
         players: players.map(p => ({ name: p.name, color: p.color, captain: p.name === vD.captain })),
     });
 }
@@ -2935,7 +3417,7 @@ function tvLotCardHTML(msg, compact) {
     const l = msg.lot;
     return `
     <div class="tv-lot${compact ? '' : ' intro'}" ${compact ? 'style="flex:0 0 auto;padding:2vmin 3vmin"' : ''}>
-        <div class="lkick">Lot ${msg.lotNum} of ${msg.lotTotal}${l.mystery ? ' · ❓ mystery lot' : ''}</div>
+        <div class="lkick">${lotMeta(msg)}${l.mystery ? ' · ❓ mystery lot' : ''}</div>
         ${lotArtHTML(l, compact ? 'width:22vmin;height:16vmin' : '', compact ? 'font-size:5.5vmin' : '')}
         <div class="lname" ${compact ? 'style="font-size:3vmin"' : ''}>${l.mystery ? 'Mystery Lot' : esc(l.name)}</div>
         <div class="ldesc">${l.mystery ? 'No name, no description. Bid on what you can see.' : '“' + esc(l.desc) + '”'}</div>
@@ -2949,7 +3431,7 @@ function renderViewerLotIntro() {
     <div class="tv-main">
         <div class="tv-stage">${tvLotCardHTML(vD)}</div>
         <div class="tv-rail"><div class="rail-title">Bidders</div><div id="v-rail" style="display:flex;flex-direction:column;gap:1.2vmin">${railRowsHTML(vD)}</div></div>
-    </div>`, `Lot ${vD.lotNum} of ${vD.lotTotal}`);
+    </div>`, lotMeta(vD));
 }
 
 function renderViewerBidding() {
@@ -2958,11 +3440,11 @@ function renderViewerBidding() {
         <div class="tv-stage">
             ${tvLotCardHTML(vD, true)}
             <div class="tv-lot" style="flex:1;gap:1.6vmin">
-                <div class="lkick">Current price</div>
-                <div class="tv-price" id="v-price">${vD.bid.price === 0 ? 'Any bids?' : num(vD.bid.price)}</div>
+                <div class="lkick" id="v-kick">${vD.bid.price === 0 ? 'The auctioneer asks' : 'Current price'}</div>
+                <div class="tv-price${vD.bid.price === 0 ? ' asking' : ''}" id="v-price">${num(vD.bid.price === 0 ? vD.bid.ask : vD.bid.price)}</div>
                 <div class="tv-leader" id="v-leader">${vD.bid.leader
                     ? `<span style="color:${vD.bid.leaderColor}">${esc(vD.bid.leader)}</span> holds the bid`
-                    : 'Opening bid, anyone?'}</div>
+                    : esc(askPatter(vD))}</div>
                 <div class="tv-gavel-row" style="width:80%">
                     <div class="tv-gavel-wrap"><div class="tv-gavel-bar" id="v-gavel-bar" style="width:100%"></div></div>
                     <div class="going" id="v-going"></div>
@@ -2970,7 +3452,7 @@ function renderViewerBidding() {
             </div>
         </div>
         <div class="tv-rail"><div class="rail-title">Bidders</div><div id="v-rail" style="display:flex;flex-direction:column;gap:1.2vmin">${railRowsHTML(vD)}</div></div>
-    </div>`, `Lot ${vD.lotNum} of ${vD.lotTotal}`);
+    </div>`, lotMeta(vD));
 }
 
 function renderViewerSold() {
@@ -2979,12 +3461,13 @@ function renderViewerSold() {
     const title = s.lot ? (s.lot.mystery ? '📦 the mystery lot' : s.lot.emoji + ' ' + s.lot.name) : '';
     const inner = s.passed
         ? `<div class="gavel">🪶</div>
-           <div class="who">PASSED</div>
-           <div class="sub2">Not one bid for ${esc(title)}. The auctioneer is hurt.</div>`
+           <div class="who">PASSED IN</div>
+           <div class="sub2">${esc(title)} never made its reserve — and it was worth
+               <b style="color:var(--gold)">${num(s.value)}</b>.</div>`
         : `<div class="gavel">${GAVEL}</div>
            <div class="who">SOLD to <span style="color:${s.color}">${esc(s.winner)}</span> for ${num(s.price)}!</div>
            <div class="sub2">${esc(title)} — worth… well, we'll find out.</div>`;
-    return tvShell(`<div class="tv-sold${s.passed ? ' passed' : ''}">${inner}</div>`, `Lot ${vD.lotNum} of ${vD.lotTotal}`);
+    return tvShell(`<div class="tv-sold${s.passed ? ' passed' : ''}">${inner}</div>`, lotMeta(vD));
 }
 
 function netWorthRows(msg) {
@@ -3037,6 +3520,37 @@ function renderViewerValuation() {
     </div>`, 'The Valuation');
 }
 
+// Between rounds: every shelf sold back at its true value, and the whole net worth becomes the
+// next round's bankroll. Rows land POOREST FIRST so the leader's number is the last thing on
+// screen — the same reason the podium reveals gold last.
+function renderViewerBanked() {
+    const st = (vD.standings || []).slice();
+    // Leader at the TOP, like any leaderboard — it is only the TIMING that runs poorest-first, so
+    // the last number to appear is the one at the head of the board. (Same trick as the podium,
+    // where bronze lands first but stands on the right.)
+    const rows = st.map((p, i) => {
+        const place = i + 1;
+        const delay = 1 + (st.length - 1 - i) * (BANK_STEP_MS / 1000);
+        return `
+        <div class="bank-row${place === 1 ? ' top' : ''}" style="--d:${delay.toFixed(2)}s">
+            <span class="bplace">${place}</span>
+            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            <span class="bname">${esc(p.name)}</span>
+            <span class="bmath">🪙 ${num(p.coins)} + 🖼️ ${num(p.shelf)}</span>
+            <span class="bnet">${num(p.net)}</span>
+        </div>`;
+    }).join('');
+    return tvShell(`
+    <div class="tv-main" style="flex-direction:column">
+        <div class="bank-wrap">
+            <div class="bank-title">🏦 ROUND ${vD.round} BANKED</div>
+            <div class="bank-sub">every shelf sold back at its true value — that is your bankroll for round ${vD.round + 1}</div>
+            ${rows}
+            <div class="tv-waiting" style="text-align:center">Round ${vD.round + 1} of ${vD.rounds} — and the lots get grander…</div>
+        </div>
+    </div>`, `Round ${vD.round} of ${vD.rounds} banked`);
+}
+
 function renderViewerPodium() {
     const st = vD.standings || [];
     const medals = ['🥇', '🥈', '🥉'];
@@ -3085,6 +3599,7 @@ function startSimulation(nPlayers, mode) {
     simActive = true;
     roomCode = 'DEMO';
     H.settings.lotsPer = 2;                           // shorter auctions for the demo loop
+    H.settings.rounds = 2;                            // …but still show the banking between rounds
     H.players = []; guestConns = {}; viewerConns = {};
     const n = Math.max(MIN_PLAYERS, Math.min(nPlayers || 4, MAX_PLAYERS));
     if (simMode === 'tv') {
@@ -3118,6 +3633,16 @@ function simBidStep() {
     const key = 'L' + H.lotIndex;
     if (key !== simLotKey) { simLotKey = key; simBidsLeft = 2 + Math.floor(Math.random() * 4); }
     if (simBidsLeft <= 0 || Math.random() < 0.28) return;   // let the gavel fall
+    // Nobody has opened yet: a bot takes the ask now and then, and otherwise holds its nerve — so
+    // the demo shows the auctioneer fishing down, and occasionally passing a lot in.
+    if (H.bid.price === 0) {
+        const ask = currentAsk();
+        if (Math.random() < 0.32 + 0.22 * H.bid.drops) {
+            const able = H.players.filter(p => p.coins >= ask);
+            if (able.length) hostBid(able[Math.floor(Math.random() * able.length)], ask);
+        }
+        return;
+    }
     const price = H.bid.price;
     const rungs = raisesFor(price);
     const cands = H.players.filter(p => p.id !== H.bid.leaderId && p.coins >= price + rungs[0]);
@@ -3144,6 +3669,9 @@ function simRestart() {
     const params = new URLSearchParams(location.search);
     if (!musicOn) $id('tog-music').classList.add('off');
     if (!sfxOn) $id('tog-sfx').classList.add('off');
+    if (!voiceOn) $id('tog-voice').classList.add('off');
+    // Voices load asynchronously in most browsers — ask once now, and again when they arrive.
+    try { pickVoice(); speechSynthesis.addEventListener('voiceschanged', pickVoice, { once: true }); } catch (e) {}
     const mode = (params.get('mode') || '').toLowerCase();
     const simPlayers = parseInt(params.get('players'), 10) || 4;
     if (mode === 'playersimulation') { startSimulation(simPlayers, 'player'); return; }

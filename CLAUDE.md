@@ -184,12 +184,37 @@ invented**: if a price could not be verified from a live source, the item is not
   `familytrivia-pack.json` → `FAMILY_PACK`. `unit/goinggone.test.js` fails if the embed goes
   stale, so a forgotten run is caught by tests rather than by a wrong price mid-game.
 - **The balance numbers come from the simulator, not from judgement.** `START_COINS = 7000`,
-  3 lots per player, over-band lots off by default. **Run `node sim/goinggone.js` before touching
-  any of them** — it loads the real lots and deals them exactly as `buildLotOrder` does.
-  `--cash-sweep`, `--big-sweep`, `--table-sweep`.
-- **Two numbers are duplicated on purpose and must move together:** `BANDS`/`OVER_BAND` in
-  `goinggone.html` and in `sim/goinggone.js`. If they drift, the simulator stops describing the
-  shipped game.
+  3 lots per player per round, 3 rounds, `RESERVE_FRAC = 0.25`, `REACH = 0.45`, over-band lots off
+  by default. **Run `node sim/goinggone.js` before touching any of them** — it loads the real lots
+  and deals them exactly as `buildLotOrder` does. `--cash-sweep`, `--big-sweep`, `--table-sweep`,
+  `--round-sweep`, `--by-round`.
+- **The constants duplicated on purpose, which must move together:** `TIERS`/`BAND_SPAN`/
+  `MAX_CLIMB`/`OVER_BAND`/`REACH`/`RESERVE_FRAC`/`ASK_*`/`DROP_*` in `goinggone.html` and in
+  `sim/goinggone.js`. If they drift, the simulator stops describing the shipped game.
+- **Rounds, and why the money compounds.** The captain picks 1/2/3 rounds (default 3). At the end
+  of each round every shelf is sold back at its **true value** and the whole net worth becomes the
+  next round's bankroll (`startBanking` → the `banked` phase → `startRound`). Coins carry forward,
+  the shelf does not, and the **podium only appears after the last round** — in between there is a
+  banked board that is deliberately *not* a podium (no medals, no confetti, no play-again). The
+  lot tiers **climb with the round** (`roundBands`) so a table that has tripled its money is shown
+  lots it can now afford; `H.usedLots` spans the whole game so nothing is ever sold twice. Awards
+  come from `H.gameReveals` (every round), not the round that just ended.
+- **The auctioneer asks; he does not wait for zero.** Bidding opens at his *ask* — a randomised
+  0.85×–1.9× of true value, so it is a clue with a lie in it. Nobody bites → he comes down a rung
+  (`checkGavel`) and asks again, up to 5 rungs, floored at the 25% reserve; past that the lot is
+  **passed in** and its true value is revealed. **The ladder and the reserve never leave the
+  host** — `stateFor` sends only the current ask and the number of drops so far. Not knowing how
+  far he will go is the entire game of nerve; leak it and there is no reason ever to bid early.
+  All of this is real auction practice, not invention (auctioneers genuinely fish down for an
+  opening bid, and "passed in" is the trade's term) — see the research in
+  `goinggoneplan-realitems.md`.
+- **The auctioneer's VOICE is spoken, TV only.** `say()` drives Web Speech from the phrase banks
+  (`P_OPEN`/`P_DROP_*`/`P_BID`/`P_GOING`/`P_SOLD`/`P_PASSED`), assembled from the trade's real
+  filler words rather than stored whole, with `words()` turning 4800 into "forty-eight hundred".
+  It speaks only under `isViewer || isTvHost` — ten phones chanting over each other is bedlam —
+  cancels rather than queues (a chant lagging the screen is worse than silence), and has its own
+  🗣️ toggle. Recorded clips were considered and rejected: the numbers come out of a live auction,
+  so they cannot be pre-recorded, and files would need hosting and licensing this repo has not got.
 - **Raises scale with the price** (`RAISE_LADDER`/`raisesFor`) — a fixed +10/+50/+100 needed
   seventy taps to reach a serious bid once lots ran to $10,000. The host validates the raise
   against the ladder *at the current price*; never trust the phone's number.

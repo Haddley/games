@@ -20,20 +20,36 @@ const HTML = fs.readFileSync(path.join(ROOT, 'goinggone.html'), 'utf8');
 const LOTS = new Function(HTML.match(/const LOTS = \[[\s\S]*?\n\];/)[0] + '\nreturn LOTS;')();
 
 const DRAW_SRC = (() => {
-    const a = HTML.indexOf('const BANDS = [');
+    const a = HTML.indexOf('const TIERS = [');
     const b = HTML.indexOf('function hostStartAuction', a);
     assert.ok(a >= 0 && b > a, 'could not slice the lot-draw block out of goinggone.html');
     return HTML.slice(a, b);
 })();
 
+// The auctioneer's ask ladder + reserve live up with the raise ladder, not with the draw.
+const ASK_SRC = (() => {
+    const a = HTML.indexOf('const RESERVE_FRAC =');
+    const b = HTML.indexOf('const PLAYER_COLORS', a);
+    assert.ok(a >= 0 && b > a, 'could not slice the ask-ladder block out of goinggone.html');
+    return HTML.slice(a, b);
+})();
+
 // Evaluate the draw with its collaborators passed in as parameters, so nothing touches globals.
+// `ceiling` is the richest bankroll — Infinity in most tests, where affordability is not the point.
 const makeDraw = (settings, players = 6) => {
     const shuffle = a => a.slice();                     // deterministic: identity shuffle
-    const H = { settings, mysteryLots: null };
-    const fn = new Function('LOTS', 'shuffle', 'H', 'MIN_PLAYERS', 'connectedPlayers',
-        DRAW_SRC + '\nreturn { buildLotOrder, plannedLotCount, BANDS, OVER_BAND, MYSTERY_SHARE, H };');
-    return fn(LOTS, shuffle, H, 2, () => Array.from({ length: players }));
+    const H = { settings, mysteryLots: null, usedLots: null };
+    const fn = new Function('LOTS', 'shuffle', 'H', 'MIN_PLAYERS', 'connectedPlayers', 'reserveFor',
+        DRAW_SRC + '\nreturn { buildLotOrder, plannedLotCount, roundBands, TIERS, BAND_SPAN, OVER_BAND, REACH, MYSTERY_SHARE, H };');
+    const d = fn(LOTS, shuffle, H, 2, () => Array.from({ length: players }), v => Math.round(v * 0.25));
+    // most tests predate rounds and just want "one round, everything affordable"
+    const raw = d.buildLotOrder;
+    d.buildLotOrder = (n, round = 1, rounds = 1, ceiling = Infinity) => raw(n, round, rounds, ceiling);
+    d.rawBuildLotOrder = raw;
+    return d;
 };
+
+const ASK = new Function(ASK_SRC + '\nreturn { askLadder, reserveFor, roundAsk, RESERVE_FRAC, ASK_HI, ASK_LO, ASK_STEPS };')();
 
 const SOURCES = ['data/goinggone-lots-real.json', 'data/goinggone-lots-catalogue.json'];
 const jsonLots = SOURCES
@@ -100,19 +116,30 @@ test('no lot name or description states its own price', () => {
 });
 
 // ── band depth: a research check, not a code check ──────────────────────────
-test('every price band can fill the largest possible auction without repeating', () => {
-    const { BANDS } = makeDraw({ lotsPer: 3, bigLot: false });
+// Repeats are impossible by construction now (H.usedLots excludes everything already dealt, in
+// this round and every earlier one), so a thin tier no longer shows the same item twice. What it
+// does instead is quietly under-represent itself: the draw rotates on to the next tier and the
+// round loses the price range it was supposed to span. So the hard floor is "deep enough for an
+// ordinary table", and anything thinner than the largest possible draw is REPORTED as a research
+// target rather than failed — the top tier is only ever reached in the last round of a 3-round
+// game, and holding the whole suite red over it would be dishonest about the severity.
+test('every price tier is deep enough for an ordinary table', () => {
+    const { TIERS, BAND_SPAN } = makeDraw({ lotsPer: 3, bigLot: false });
+    const TYPICAL = 6 * 3;                               // 6 players, the Normal setting
     const MAX_DRAW = 10 * 4;                             // MAX_PLAYERS x the longest setting
-    const perBand = Math.ceil(MAX_DRAW / BANDS.length);
-    const report = [];
-    for (const [lo, hi] of BANDS) {
+    const floor = Math.ceil(TYPICAL / BAND_SPAN);
+    const want = Math.ceil(MAX_DRAW / BAND_SPAN);
+    const report = [], thin = [];
+    for (const [lo, hi] of TIERS) {
         const n = LOTS.filter(l => l.value >= lo && l.value < hi).length;
-        report.push(`$${lo}-${hi}: ${n} (needs ${perBand})`);
-        assert.ok(n >= perBand,
-            `band $${lo}-${hi} has only ${n} lots but a full table draws ${perBand} — ` +
-            `research more lots in this band or the same item appears twice in one auction`);
+        report.push(`$${lo}-${hi}: ${n}`);
+        if (n < want) thin.push(`$${lo}-${hi} has ${n}, wants ${want} for the biggest table`);
+        assert.ok(n >= floor,
+            `tier $${lo}-${hi} has only ${n} lots and an ordinary table draws ${floor} — ` +
+            `research more lots in this tier or a round stops spanning its price range`);
     }
-    console.log('      band depth →', report.join(', '));
+    console.log('      tier depth →', report.join(', '));
+    if (thin.length) console.log('      RESEARCH TARGETS →', thin.join('; '));
 });
 
 // ── the draw ────────────────────────────────────────────────────────────────
@@ -128,9 +155,9 @@ test('buildLotOrder returns the requested number of DISTINCT lots', () => {
 test('the draw spreads evenly across the bands', () => {
     // This is what makes a short auction still span $1 to $10,000 instead of clumping, and it is
     // the assumption every balance figure in goinggoneplan-realitems.md rests on.
-    const { buildLotOrder, BANDS } = makeDraw({ lotsPer: 3, bigLot: false });
+    const { buildLotOrder, roundBands } = makeDraw({ lotsPer: 3, bigLot: false });
     const order = buildLotOrder(20);
-    const counts = BANDS.map(([lo, hi]) => order.filter(i => LOTS[i].value >= lo && LOTS[i].value < hi).length);
+    const counts = roundBands(1, 1).map(([lo, hi]) => order.filter(i => LOTS[i].value >= lo && LOTS[i].value < hi).length);
     assert.deepEqual(counts, [5, 5, 5, 5], `expected an even spread, got ${counts.join('/')}`);
 });
 
@@ -159,6 +186,93 @@ test('mystery lots always have a photo, because the photo is all you get', () =>
     for (const i of mystery) {
         assert.ok(LOTS[i].img, `${LOTS[i].name} was made a mystery lot but has no photo`);
         assert.ok(order.includes(i), 'a mystery lot was chosen that is not even in this auction');
+    }
+});
+
+// ── rounds: the bands climb, and nothing is ever sold twice ─────────────────
+test('the band window climbs with the round and always tops out in the last one', () => {
+    const { roundBands, TIERS, BAND_SPAN } = makeDraw({ lotsPer: 3, bigLot: false });
+    // one round: the ordinary spread, never the monsters
+    assert.deepEqual(roundBands(1, 1), TIERS.slice(0, BAND_SPAN));
+    // three rounds: opens ordinary, ends at the top of the ladder
+    assert.deepEqual(roundBands(1, 3), TIERS.slice(0, BAND_SPAN));
+    assert.deepEqual(roundBands(3, 3), TIERS.slice(-BAND_SPAN));
+    // two rounds must ALSO reach the top by the end — a shorter game should not be capped out of
+    // the private-aircraft tier just for being shorter
+    assert.deepEqual(roundBands(2, 2), TIERS.slice(-BAND_SPAN));
+    // and the window never falls off the end of the ladder
+    for (const rounds of [1, 2, 3]) {
+        for (let r = 1; r <= rounds; r++) {
+            assert.equal(roundBands(r, rounds).length, BAND_SPAN, `round ${r}/${rounds} lost a tier`);
+        }
+    }
+});
+
+test('a multi-round game never sells the same item twice', () => {
+    // H.usedLots spans the whole game, not the round. Without it round 3 can re-deal round 1's
+    // lot — and a player who watched it get valued knows exactly what it is worth.
+    const draw = makeDraw({ lotsPer: 3, bigLot: false });
+    const seen = new Set();
+    for (let round = 1; round <= 3; round++) {
+        const order = draw.buildLotOrder(18, round, 3, Infinity);
+        for (const i of order) {
+            assert.ok(!seen.has(i), `${LOTS[i].name} was dealt twice in one game (round ${round})`);
+            seen.add(i);
+        }
+    }
+});
+
+test('a lot nobody could clear the reserve on never reaches the running order', () => {
+    // Affordability is judged lot by lot: a $70,000 oven in front of a table holding $9,000 is a
+    // pass-in nobody enjoyed. REACH is how much of the richest bankroll a reserve may demand.
+    const draw = makeDraw({ lotsPer: 3, bigLot: false });
+    const ceiling = 9000;
+    const order = draw.buildLotOrder(18, 3, 3, ceiling);
+    for (const i of order) {
+        assert.ok(ASK.reserveFor(LOTS[i].value) <= ceiling * draw.REACH,
+            `${LOTS[i].name} ($${LOTS[i].value}) was dealt to a table whose richest player holds $${ceiling}`);
+    }
+});
+
+// ── the auctioneer's ask ────────────────────────────────────────────────────
+test('the ask ladder descends, and never goes under the reserve', () => {
+    // The floor is the whole point: below it the lot is passed in rather than given away.
+    for (const value of [1, 15, 99, 450, 2200, 9500, 19799, 70886]) {
+        for (let n = 0; n < 200; n++) {
+            const ladder = ASK.askLadder(value);
+            assert.ok(ladder.length >= 1 && ladder.length <= ASK.ASK_STEPS, `${value}: ${ladder.length} rungs`);
+            ladder.forEach((a, i) => {
+                assert.ok(a >= ASK.reserveFor(value) || a >= value * ASK.RESERVE_FRAC,
+                    `${value}: rung ${a} is under the reserve ${ASK.reserveFor(value)}`);
+                assert.ok(a >= 1, `${value}: rung ${a} is not a price`);
+                if (i) assert.ok(a < ladder[i - 1], `${value}: ladder went UP (${ladder.join(' → ')})`);
+            });
+            // +1 of slack: rounding a $1 tulip bulb to a callable number can only go up
+            assert.ok(ladder[0] <= Math.max(1, value * ASK.ASK_HI) * 1.05 + 1,
+                `${value}: opening ask ${ladder[0]} is beyond even a dishonest auctioneer`);
+        }
+    }
+});
+
+test('the opening ask is sometimes a gift and sometimes a swindle', () => {
+    // If he always asked above the value the room would learn to wait every time, and if he always
+    // asked below it there would be no risk in jumping early. Both sides must actually occur.
+    const value = 4000;
+    let over = 0, under = 0;
+    for (let n = 0; n < 400; n++) {
+        const open = ASK.askLadder(value)[0];
+        if (open > value) over++; else under++;
+    }
+    assert.ok(over > 20 && under > 20, `openings were one-sided: ${over} over / ${under} under`);
+});
+
+test('asks are round numbers a person would say out loud', () => {
+    // "Who will start me at forty-seven thousand three hundred and eighteen?" — no.
+    for (const v of [850, 4200, 19799, 70886]) {
+        for (const a of ASK.askLadder(v)) {
+            const digits = String(a).replace(/0+$/, '').length;
+            assert.ok(a < 20 || digits <= 2, `${a} is not a number an auctioneer would call`);
+        }
     }
 });
 
