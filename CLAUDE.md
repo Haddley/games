@@ -217,6 +217,9 @@ invented**: if a price could not be verified from a live source, the item is not
   `--pad-h`) in both lobbies, the TV rail, the SOLD card, and on your own phone, where **it goes
   up when you hold the bid** — patched only when that state changes, or the raise animation
   restarts on every bid in the room.
+- **The attract mode takes parameters:** `?mode=tvsimulation&players=3&rounds=3&lots=4` —
+  bidders (2–10), banked rounds (1–3) and lots per player per round (2–4). Defaults are 4 / 2 / 2,
+  short enough that the demo loop turns over but still showing the banking between rounds.
 - **The auctioneer's VOICE is spoken, TV only.** `say()` drives Web Speech from the phrase banks
   (`P_OPEN`/`P_DROP_*`/`P_BID`/`P_GOING`/`P_SOLD`/`P_PASSED`), assembled from the trade's real
   filler words rather than stored whole, with `words()` turning 4800 into "forty-eight hundred".

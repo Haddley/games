@@ -348,6 +348,27 @@ test('passed in: the auctioneer fishes all the way down and nobody bites', async
     await Promise.all([tv, cy, di].map(p => p.close()));
 });
 
+test('the attract mode takes its settings from the query string', async ({ browser }) => {
+    // ?mode=tvsimulation&players=3&rounds=3 should be exactly that: three bidders, three banked
+    // rounds. It used to hardcode two rounds and ignore the parameter. The rounds MECHANIC is
+    // covered by its own spec above — this only checks the wiring, so it stays fast.
+    const tv = await browser.newPage({ viewport: TV });
+    const errs = [];
+    tv.on('pageerror', e => errs.push(e.message));
+    await tv.goto('/goinggone.html?mode=tvsimulation&players=3&rounds=3&lots=4');
+    await tv.waitForTimeout(1200);
+    expect(await tv.evaluate(() => ({
+        players: H.players.length, rounds: H.settings.rounds, lotsPer: H.settings.lotsPer,
+    }))).toEqual({ players: 3, rounds: 3, lotsPer: 4 });
+    // and the defaults still apply when nothing is asked for
+    await tv.goto('/goinggone.html?mode=tvsimulation');
+    await tv.waitForTimeout(1200);
+    expect(await tv.evaluate(() => ({ players: H.players.length, rounds: H.settings.rounds })))
+        .toEqual({ players: 4, rounds: 2 });
+    expect(errs).toEqual([]);
+    await tv.close();
+});
+
 test('phone-first: host phone + TV viewer, one bid takes the lot', async ({ browser }) => {
     fs.mkdirSync(SHOTS, { recursive: true });
 

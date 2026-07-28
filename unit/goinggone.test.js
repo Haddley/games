@@ -51,6 +51,16 @@ const makeDraw = (settings, players = 6) => {
 
 const ASK = new Function(ASK_SRC + '\nreturn { askLadder, reserveFor, roundAsk, RESERVE_FRAC, ASK_HI, ASK_LO, ASK_STEPS };')();
 
+// The auctioneer speaks his numbers, so they have to be built into words rather than left to a
+// speech engine to spell out digit by digit.
+const SPEAK_SRC = (() => {
+    const a = HTML.indexOf('const ONES = [');
+    const b = HTML.indexOf('const pick = ', a);
+    assert.ok(a >= 0 && b > a, 'could not slice the number-to-words block out of goinggone.html');
+    return HTML.slice(a, b);
+})();
+const { words } = new Function(SPEAK_SRC + '\nreturn { words };')();
+
 const SOURCES = ['data/goinggone-lots-real.json', 'data/goinggone-lots-catalogue.json'];
 const jsonLots = SOURCES
     .flatMap(f => JSON.parse(fs.readFileSync(path.join(ROOT, f), 'utf8')).lots)
@@ -273,6 +283,49 @@ test('asks are round numbers a person would say out loud', () => {
             const digits = String(a).replace(/0+$/, '').length;
             assert.ok(a < 20 || digits <= 2, `${a} is not a number an auctioneer would call`);
         }
+    }
+});
+
+// ── the auctioneer's numbers ────────────────────────────────────────────────
+test('a round thousand is spoken as thousands, never as hundreds', () => {
+    // Neil heard "seventy hundred" for $7,000. The rostrum idiom "twelve hundred" is real, but it
+    // stops dead at a round thousand — nobody has ever called seventy hundred dollars. The ask
+    // ladder rounds to two significant figures, so EVERY round thousand under $10,000 is a number
+    // this game says out loud several times an evening.
+    for (let n = 1000; n < 10000; n += 1000) {
+        assert.equal(words(n), words(n / 1000) + ' thousand', `${n} is spoken wrong`);
+        assert.ok(!/hundred/.test(words(n)), `${n} came out as "${words(n)}"`);
+    }
+});
+
+test('the hundreds idiom survives where it belongs', () => {
+    const cases = {
+        42: 'forty-two', 15: 'fifteen', 90: 'ninety',
+        190: 'one hundred and ninety', 700: 'seven hundred',
+        1200: 'twelve hundred', 3500: 'thirty-five hundred', 5900: 'fifty-nine hundred',
+        1000: 'one thousand', 7000: 'seven thousand', 10000: 'ten thousand',
+        48000: 'forty-eight thousand', 67000: 'sixty-seven thousand',
+    };
+    for (const [n, want] of Object.entries(cases)) {
+        assert.equal(words(+n), want, `${n} should be "${want}"`);
+    }
+});
+
+test('every number the ask ladder can produce is speakable', () => {
+    // The real guard: sweep the actual asks for the actual lots and insist nothing comes out
+    // malformed — no empty words, no "undefined", and never a hundreds-count above ninety-nine.
+    const seen = new Set();
+    for (const lot of LOTS) for (let i = 0; i < 6; i++) ASK.askLadder(lot.value).forEach(a => seen.add(a));
+    // roundAsk collapses everything to two significant figures, so a thousand lots yield a few
+    // hundred distinct calls, not a few thousand. This only guards against the sweep going empty.
+    assert.ok(seen.size > 250, `only ${seen.size} distinct asks swept`);
+    for (const a of seen) {
+        const w = words(a);
+        assert.ok(w && !/undefined|NaN/.test(w), `${a} spoke as "${w}"`);
+        const m = w.match(/^(.*?) hundred$/);
+        if (m) assert.ok(!/thousand/.test(m[1]), `${a} spoke as "${w}"`);
+        // "N hundred" is only ever allowed for N up to ninety-nine
+        assert.ok(!/hundred hundred/.test(w), `${a} spoke as "${w}"`);
     }
 });
 
