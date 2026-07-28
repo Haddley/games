@@ -208,6 +208,13 @@ invented**: if a price could not be verified from a live source, the item is not
   All of this is real auction practice, not invention (auctioneers genuinely fish down for an
   opening bid, and "passed in" is the trade's term) — see the research in
   `goinggoneplan-realitems.md`.
+- **The auctioneer sums the round up, from what actually happened.** `commentaryFor(rows, reveals,
+  final)` builds up to four lines on the host at `finishValuation` — who leads, the round's real
+  best bargain, its real disaster, who never lifted their paddle, and whether it is close or a
+  runaway — because "well played everyone" is worth nothing on a TV. Each line carries **two**
+  strings: `text` for the screen (names) and `spoken` for the auctioneer (paddle numbers only).
+  Shown on the banked board and the podium, staged to land after the thing they comment on; spoken
+  as **one** utterance, because `say()` cancels and three calls would clip down to the last line.
 - **Every bidder has a PADDLE, and the auctioneer sells to the number.** `freePaddle()` deals a
   unique random two-digit number (10–99) at `hostAddPlayer`; two digits so it always reads as a
   rostrum number ("bidder number forty-two", never "bidder seven"), and a rejoining player keeps

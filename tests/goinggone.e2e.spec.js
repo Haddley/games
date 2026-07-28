@@ -397,6 +397,63 @@ test('the last valuation card is revealed once, not twice', async ({ browser }) 
     await tv.close();
 });
 
+test('the auctioneer sums up the round, from what actually happened', async ({ browser }) => {
+    // Commentary is generated on the host from the standings and the round's own reveals, so it
+    // has to name the real best bargain and the real disaster — a generic line would be worthless.
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/goinggone.html');
+    const lines = await tv.evaluate(() => {
+        const rows = [
+            { name: 'Ada', color: '#e8b75a', paddle: 42, coins: 3100, shelf: 6200, net: 9300, lots: 3 },
+            { name: 'Cy', color: '#4ade80', paddle: 13, coins: 7000, shelf: 0, net: 7000, lots: 0 },
+            { name: 'Bux', color: '#22d3ee', paddle: 77, coins: 5400, shelf: 900, net: 6300, lots: 1 },
+        ];
+        const reveals = [
+            { player: 'Ada', paddle: 42, lotName: 'a Zamboni', paid: 9000, value: 45900, profit: 36900 },
+            { player: 'Bux', paddle: 77, lotName: 'one Bowling Pin', paid: 900, value: 21, profit: -879 },
+        ];
+        return {
+            round: commentaryFor(rows, reveals, false),
+            final: commentaryFor(rows, reveals, true),
+            spoken: commentarySpoken({ commentary: commentaryFor(rows, reveals, false) }),
+            none: commentaryFor([], [], false),
+        };
+    });
+    const roundText = lines.round.map(l => l.text).join(' | ');
+    expect(roundText).toContain('Ada');            // the leader, by name and paddle
+    expect(roundText).toContain('42');
+    expect(roundText).toContain('Zamboni');        // the real steal of the round
+    expect(roundText).toContain('Bowling Pin');    // and the real disaster
+    expect(roundText).toContain('Cy');             // who never lifted their paddle
+    expect(lines.final.map(l => l.text).join(' ')).toMatch(/takes it/);
+    expect(lines.none).toEqual([]);                // no players, no commentary, no crash
+
+    // Spoken lines use PADDLE NUMBERS, never names, and start with a capital
+    expect(lines.spoken).toMatch(/number forty-two/i);   // the paddle, not the person
+    expect(lines.spoken).not.toContain('Ada');
+    expect(lines.spoken).not.toContain('Bux');
+    expect(lines.spoken[0]).toBe(lines.spoken[0].toUpperCase());   // each line is a sentence
+
+    // …and it reaches the screen on both the banked board and the podium
+    for (const phase of ['banked', 'podium']) {
+        await tv.evaluate(([phase, commentary]) => {
+            isViewer = true;
+            applyViewerMsg({
+                type: 'viewer_state', phase, roomCode: 'TEST', round: 1, rounds: 2,
+                lotNum: 1, lotTotal: 1, lot: null, bid: null, soldInfo: null, reveals: null, revealIndex: -1,
+                players: [], standings: [
+                    { name: 'Ada', color: '#e8b75a', paddle: 42, coins: 3100, shelf: 6200, net: 9300, lots: 3 },
+                    { name: 'Bux', color: '#22d3ee', paddle: 77, coins: 5400, shelf: 900, net: 6300, lots: 1 },
+                ],
+                awards: [], winner: 'Ada', commentary, tvHost: false, captain: null,
+            });
+        }, [phase, lines.round]);
+        await expect(tv.locator('.cline').first()).toBeVisible({ timeout: 5000 });
+        expect(await tv.locator('.cline').count(), `${phase} dropped the commentary`).toBe(lines.round.length);
+    }
+    await tv.close();
+});
+
 test('the attract mode takes its settings from the query string', async ({ browser }) => {
     // ?mode=tvsimulation&players=3&rounds=3 should be exactly that: three bidders, three banked
     // rounds. It used to hardcode two rounds and ignore the parameter. The rounds MECHANIC is

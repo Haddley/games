@@ -183,6 +183,16 @@
             100% { transform: none; }
         }
         .paddle-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
+
+        /* the auctioneer's summing-up: one line at a time, after the thing it is about has landed */
+        .crow { display: flex; flex-direction: column; align-items: center; gap: 7px; margin-top: 10px; }
+        .cline {
+            font-weight: 800; text-align: center; color: var(--muted); font-size: .82rem;
+            font-style: italic; max-width: 34ch;
+        }
+        body.viewer-mode .crow { gap: 1vmin; margin-top: 1.6vmin; }
+        body.viewer-mode .cline { font-size: 2.5vmin; max-width: 62ch; color: #d9cbe8; }
+        #app.fresh .cline { animation: paidIn .55s ease both; animation-delay: var(--d, 0s); }
         .paddle-lbl { font-weight: 900; font-size: .74rem; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); }
         .shelf { display: flex; flex-wrap: wrap; gap: 6px; }
         .shelf .sh-item {
@@ -2103,10 +2113,15 @@ function saySold(info) {
     say(info.passed ? pick(P_PASSED)
         : fill(pick(P_SOLD), info.price).replace(/\{who\}/g, who), { rate: 1.1, pitch: 1 });
 }
+const commentarySpoken = msg => (msg.commentary || [])
+    .map(l => l.spoken.charAt(0).toUpperCase() + l.spoken.slice(1)).join(' ');
 function sayBanked(msg) {
-    say(`That's the end of round ${words(msg.round)}. Settle up — everything you own turns back into money, and we go again.`, { rate: 1.05 });
+    say(`That's the end of round ${words(msg.round)}. Everything you own turns back into money, and we go again. `
+        + commentarySpoken(msg), { rate: 1.05 });
 }
-function sayWinner(name) { say(`That is the sale. ${name} takes it. Thank you, ladies and gentlemen.`, { rate: 1.05, pitch: 1 }); }
+function sayWinner(msg) {
+    say(`${commentarySpoken(msg)} Thank you, ladies and gentlemen.`, { rate: 1.05, pitch: 1 });
+}
 
 // Unlock audio on first interaction (browser autoplay policy)
 let _audioUnlocked = false;
@@ -2272,6 +2287,7 @@ function stateFor(p) {
         reveals: H.phase === 'valuation' || H.phase === 'podium' ? H.reveals : null,
         revealIndex: H.revealIndex,
         standings: H.standings, awards: H.awards, winner: H.winner,
+        commentary: H.commentary || null,
         players: H.players.map(q => ({ name: q.name, color: q.color, paddle: q.paddle, coins: q.coins, lotCount: q.lots.length })),
         tvHost: isTvHost, captain: capName(),
     };
@@ -2515,7 +2531,7 @@ function hostStartAuction() {
     H.rounds = H.settings.rounds || 1;
     H.round = 0;
     H.usedLots = new Set();
-    H.gameReveals = [];
+    H.gameReveals = []; H.commentary = null;
     H.players.forEach(p => { p.coins = START_COINS; p.lots = []; });
     H.standings = null; H.awards = null; H.winner = null;
     startRound();
@@ -2666,6 +2682,7 @@ function finishValuation() {
         return { name: p.name, color: p.color, paddle: p.paddle, coins: p.coins, shelf, net: p.coins + shelf, lots: p.lots.length };
     }).sort((a, b) => b.net - a.net || b.coins - a.coins);
     H.standings = rows;
+    H.commentary = commentaryFor(rows, H.reveals, H.round >= H.rounds);
     // Awards are drawn from the WHOLE game, not the round that happens to have just ended.
     H.gameReveals = (H.gameReveals || []).concat(H.reveals.map(r => ({ ...r, round: H.round })));
     if (H.round < H.rounds) { startBanking(); return; }
@@ -2686,6 +2703,70 @@ function finishValuation() {
     broadcastState();
 }
 
+// THE AUCTIONEER'S SUMMING-UP. Built from what ACTUALLY happened this round — the best bargain,
+// the worst mistake, who sat on their hands — because "well played everyone" is worth nothing on
+// a TV. Each line carries two strings: one for the screen, which uses names, and one for the
+// auctioneer, who only ever says paddle numbers.
+function commentaryFor(rows, reveals, final) {
+    if (!rows || !rows.length) return [];
+    const out = [];
+    const push = (text, spoken) => out.push({ text, spoken });
+    const who = r => r.name + (r.paddle ? ' (' + r.paddle + ')' : '');
+    const said = r => r.paddle ? 'number ' + words(r.paddle) : r.name;
+    const lead = rows[0], tail = rows[rows.length - 1];
+
+    if (final) {
+        push(`${who(lead)} takes it with ${num(lead.net)}.`,
+            `That is the sale. ${said(lead)} takes it, with ${words(lead.net)}.`);
+    } else {
+        push(pick([
+            `${who(lead)} leads on ${num(lead.net)}.`,
+            `${who(lead)} is out in front with ${num(lead.net)}.`,
+            `Top of the room: ${who(lead)} on ${num(lead.net)}.`,
+        ]), `${said(lead)} leads, on ${words(lead.net)}.`);
+    }
+
+    // the round's best and worst piece of judgement
+    let best = null, worst = null;
+    (reveals || []).forEach(r => {
+        if (r.profit > 0 && (!best || r.profit > best.profit)) best = r;
+        if (r.profit < 0 && (!worst || r.profit < worst.profit)) worst = r;
+    });
+    if (best) push(
+        pick([
+            `${best.player} paid ${num(best.paid)} for ${best.lotName}. It was worth ${num(best.value)}.`,
+            `The steal of the round: ${best.lotName}, ${num(best.paid)} to ${best.player}, worth ${num(best.value)}.`,
+        ]),
+        `${said(best)} paid ${words(best.paid)} for something worth ${words(best.value)}. Daylight robbery.`);
+    if (worst && worst.profit <= -20) push(
+        pick([
+            `${worst.player} gave ${num(worst.paid)} for ${worst.lotName} — worth ${num(worst.value)}.`,
+            `We do not talk about ${worst.player} and ${worst.lotName}: ${num(worst.paid)} for ${num(worst.value)}.`,
+        ]),
+        `And ${said(worst)} gave ${words(worst.paid)} for a thing worth ${words(worst.value)}. We shall say no more.`);
+
+    // somebody who never lifted their paddle at all
+    const idle = rows.filter(r => !r.lots);
+    if (idle.length === 1) push(
+        `${who(idle[0])} bought nothing at all. A strategy, of sorts.`,
+        `${said(idle[0])} bought nothing whatsoever. A strategy, of sorts.`);
+    else if (idle.length > 1 && idle.length < rows.length) push(
+        `${idle.length} of you bought nothing at all.`,
+        `${words(idle.length)} of you bought nothing at all. Disgraceful.`);
+
+    // how close it is
+    if (rows.length > 1) {
+        const gap = lead.net - tail.net;
+        if (gap <= lead.net * 0.06) push(
+            `Only ${num(gap)} covers the whole room.`,
+            `Only ${words(gap)} covers the whole room. Anybody's.`);
+        else if (gap >= lead.net * 0.55 && !final) push(
+            `${who(lead)} is ${num(gap)} clear. Somebody stop them.`,
+            `${said(lead)} is ${words(gap)} clear of the back marker. Somebody stop them.`);
+    }
+    return out.slice(0, 4);
+}
+
 // Between rounds the whole shelf is sold back at its true value and net worth becomes the next
 // round's bankroll, so a good eye COMPOUNDS — and the lot tiers climb to meet the money.
 function startBanking() {
@@ -2704,7 +2785,7 @@ function hostNewGame() {
     H.phase = 'lobby';
     H.lotOrder = []; H.lotIndex = -1; H.bid = null; H.soldInfo = null; H.mysteryLots = null;
     H.reveals = []; H.revealIndex = -1; H.standings = null; H.awards = null; H.winner = null;
-    H.round = 1; H.rounds = H.settings.rounds || 1; H.usedLots = null; H.gameReveals = [];
+    H.round = 1; H.rounds = H.settings.rounds || 1; H.usedLots = null; H.gameReveals = []; H.commentary = null;
     H.players.forEach(p => { p.coins = START_COINS; p.lots = []; });
     H.players = H.players.filter(p => p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]);
     broadcastLobby();
@@ -3042,11 +3123,16 @@ function applyViewerMsg(msg) {
         if (_vLotKey !== key) {
             _vLotKey = key;
             render();
-            sayBanked(msg);
-            // the bell belongs to the LAST row landing — the leader's bankroll
+            // the bell belongs to the LAST row landing — the leader's bankroll — and the
+            // summing-up follows it, once there is a full board to sum up
             const last = 1 + Math.max(0, (msg.standings || []).length - 1) * (BANK_STEP_MS / 1000);
             const wait = (typeof REDUCED !== 'undefined' && REDUCED) ? 0 : last * 1000;
-            setTimeout(() => { if (_vLotKey === key) { sBank(); burst(innerWidth / 2, innerHeight * 0.5, ['#e8b75a', '#f5d38a', '#4ade80'], 22); } }, wait);
+            setTimeout(() => {
+                if (_vLotKey !== key) return;
+                sBank();
+                burst(innerWidth / 2, innerHeight * 0.5, ['#e8b75a', '#f5d38a', '#4ade80'], 22);
+                sayBanked(msg);
+            }, wait);
         } else render();
         return;
     }
@@ -3062,7 +3148,7 @@ function applyViewerMsg(msg) {
             setTimeout(() => {
                 if (_vLotKey !== 'podium') return;
                 sWin(); startConfetti(5200);
-                setTimeout(() => { if (_vLotKey === 'podium') sayWinner(msg.winner || ''); }, 2600);
+                setTimeout(() => { if (_vLotKey === 'podium') sayWinner(msg); }, 2600);
             }, wait);
         }
         else render();
@@ -3117,6 +3203,15 @@ function patchViewerBidding(msg) {
 function hdrHTML(sub) {
     return `<h1 class="logo">${GAVEL} Going, Going, GONE!</h1><div class="sub">${esc(sub || 'bid big · regret bigger')}</div>`;
 }
+// The auctioneer's summing-up, on screen. Lines land one after another, after whatever they are
+// commenting on has finished arriving.
+function commentaryHTML(msg, from) {
+    const c = msg.commentary || [];
+    if (!c.length) return '';
+    return `<div class="crow">${c.map((l, i) =>
+        `<div class="cline" style="--d:${(from + i * 1.5).toFixed(2)}s">${esc(l.text)}</div>`).join('')}</div>`;
+}
+
 // A bidder's paddle: blade, handle, number, in their own colour. Sized entirely by --pad-h so the
 // same markup works as a 20px chip in a lobby row and a 30vmin trophy on the SOLD card.
 function paddleHTML(p, cls) {
@@ -3460,6 +3555,7 @@ function renderBanked() {
             <div class="sc">${num(p.net)} <span style="color:var(--muted);font-size:.7rem">(🪙${num(p.coins)} + 🖼️${num(p.shelf)})</span></div>
         </div>`).join('')}
     </div>
+    ${commentaryHTML(D, 0.2)}
     <div style="text-align:center;color:var(--muted);font-weight:800;font-size:.78rem">
         Round ${D.round + 1} coming up — and the lots get grander…
     </div>`;
@@ -3481,6 +3577,7 @@ function renderPodium() {
         <div style="color:var(--muted);font-weight:700;font-size:.78rem;margin-top:4px">net worth ${winner ? winner.net : 0} — coins + shelf value</div>
         <div style="margin-top:10px">${awards}</div>
     </div>
+    ${commentaryHTML(D, 0.2)}
     <div class="card standings"><div class="slbl">Net worth</div>${(() => { const ranks = rankByScore(st, 'net'); return st.map((p, i) => `
         <div class="player-row" style="--i:${i}">
             <span style="width:22px;text-align:center">${medals[ranks[i]] || (ranks[i] + 1)}</span>
@@ -3663,6 +3760,7 @@ function renderViewerBanked() {
             <div class="bank-title">🏦 ROUND ${vD.round} BANKED</div>
             <div class="bank-sub">every shelf sold back at its true value — that is your bankroll for round ${vD.round + 1}</div>
             ${rows}
+            ${commentaryHTML(vD, 1 + st.length * (BANK_STEP_MS / 1000))}
             <div class="tv-waiting" style="text-align:center">Round ${vD.round + 1} of ${vD.rounds} — and the lots get grander…</div>
         </div>
     </div>`, `Round ${vD.round} of ${vD.rounds} banked`);
@@ -3691,6 +3789,7 @@ function renderViewerPodium() {
     return tvShell(`
     <div class="tv-main" style="flex-direction:column">
         <div class="podium-wrap">${pods}</div>
+        ${commentaryHTML(vD, PODIUM_GOLD_MS / 1000 + 1.2)}
         <div class="awards-row">${awards}</div>
         <div class="tv-waiting" style="text-align:center;padding-bottom:1.5vmin">${hint}</div>
     </div>`, '🏆 Auction closed');
