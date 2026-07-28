@@ -211,7 +211,7 @@
         .standings .sc { margin-left: auto; font-weight: 900; font-variant-numeric: tabular-nums; }
 
         /* ═════════ TV ═════════ */
-        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 2.6vmin 3.2vmin; gap: 1.8vmin; }
+        .tv { height: 100dvh; display: flex; flex-direction: column; padding: 2.6vmin 3.2vmin 16vmin; gap: 1.8vmin; }
         .tv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 2vmin; }
         .tv-logo { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 3.1vmin; color: var(--gold); text-shadow: 0 0 24px rgba(232,183,90,.4); }
         .tv-meta { font-size: 1.8vmin; font-weight: 900; letter-spacing: .3vmin; text-transform: uppercase; color: var(--muted); }
@@ -467,6 +467,45 @@
             100% { opacity: 0; transform: translate3d(0, 12px, 0) rotate(var(--r0, -8deg)) scale(.9); }
         }
         body.viewer-mode #ambient .amb { font-size: var(--tsz, var(--sz, 4vmin)); }
+
+        /* ── THE AUCTIONEER ────────────────────────────────────────────────────────────────
+           Drawn in CSS, because the only third-party art in this repo is Kenney's CC0 sprites
+           and adding more means the whole provenance dance in llmwiki/sprites-and-licensing.md.
+           He lives OUTSIDE #app: that element's innerHTML is replaced on every render, and a
+           talking head rebuilt mid-sentence would drop its mouth animation and its `talking`
+           class every time a bid landed. TV only — a row of ten phones each with their own
+           auctioneer is not a joke that lands.
+           Everything is a fraction of --ah, so his size is one number. The TV shell reserves a
+           band at the bottom for him (see .tv padding) rather than letting him sit on top of a
+           panel, which looked like a bug rather than a character. */
+        #auctioneer { --ah: 18vmin; position: fixed; left: 3vmin; bottom: 0; width: calc(var(--ah) * .86); height: var(--ah); z-index: 11; pointer-events: none; display: none; }
+        body.viewer-mode #auctioneer { display: block; }
+        #auctioneer .au { position: absolute; inset: 0; transform-origin: bottom center; animation: auBob 3.6s ease-in-out infinite; }
+        @keyframes auBob { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(calc(var(--ah) * -.018)) rotate(-.8deg); } }
+
+        /* rostrum */
+        #auctioneer .desk { position: absolute; left: -12%; bottom: 0; width: 124%; height: 30%; border-radius: calc(var(--ah) * .045) calc(var(--ah) * .045) 0 0; background: linear-gradient(180deg, #6b4415, #3a2409); box-shadow: inset 0 calc(var(--ah) * .022) 0 rgba(255,255,255,.2), 0 0 calc(var(--ah) * .2) rgba(0,0,0,.5); z-index: 4; }
+        #auctioneer .desk::after { content: ''; position: absolute; left: 14%; top: 26%; width: 72%; height: 16%; border-radius: calc(var(--ah) * .02); background: rgba(232,183,90,.22); }
+        /* body */
+        #auctioneer .torso { position: absolute; left: 17%; bottom: 22%; width: 66%; height: 36%; border-radius: calc(var(--ah) * .14) calc(var(--ah) * .14) calc(var(--ah) * .03) calc(var(--ah) * .03); background: linear-gradient(170deg, #382a4e, #1d1730); box-shadow: inset 0 0 0 calc(var(--ah) * .012) rgba(232,183,90,.4); z-index: 2; }
+        #auctioneer .tie { position: absolute; left: 50%; top: 12%; width: 13%; height: 60%; transform: translateX(-50%); background: linear-gradient(180deg, var(--gold), #9c7420); clip-path: polygon(50% 0, 100% 20%, 66% 100%, 34% 100%, 0 20%); }
+        /* head */
+        #auctioneer .head { position: absolute; left: 25%; bottom: 52%; width: 50%; height: 36%; border-radius: 46% 46% 42% 42%; background: radial-gradient(120% 120% at 38% 30%, #f6d9b8, #cfa075); z-index: 3; }
+        #auctioneer .hair { position: absolute; left: -6%; top: -10%; width: 112%; height: 46%; border-radius: 50% 50% 34% 34%; background: linear-gradient(180deg, #4a3524, #2a1c10); }
+        #auctioneer .eye { position: absolute; top: 46%; width: 13%; height: 13%; border-radius: 50%; background: #241a12; animation: auBlink 5.4s infinite; }
+        #auctioneer .eye.l { left: 22%; } #auctioneer .eye.r { right: 22%; }
+        @keyframes auBlink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.08); } }
+        /* the mouth is the whole point: it moves only while he is ACTUALLY speaking */
+        #auctioneer .mouth { position: absolute; left: 50%; top: 66%; width: 30%; height: 6%; transform: translateX(-50%); border-radius: 12% 12% 46% 46%; background: #6b2b2b; transition: height .07s linear; }
+        #auctioneer.talking .mouth { animation: auTalk .24s ease-in-out infinite; }
+        @keyframes auTalk { 0%, 100% { height: 6%; } 50% { height: 26%; } }
+        #auctioneer.talking .au { animation: auBob 1.2s ease-in-out infinite; }
+        /* arm + gavel, which swing only when the hammer actually falls */
+        #auctioneer .arm { position: absolute; right: 4%; bottom: 40%; width: 12%; height: 26%; border-radius: calc(var(--ah) * .06); background: linear-gradient(180deg, #382a4e, #221a38); transform-origin: 50% 8%; transform: rotate(-14deg); z-index: 5; }
+        #auctioneer .gav { position: absolute; left: -70%; bottom: -14%; width: 240%; height: 34%; border-radius: calc(var(--ah) * .02); background: linear-gradient(180deg, #f4b63e, #9c6d18); box-shadow: 0 calc(var(--ah) * .008) 0 rgba(0,0,0,.35); }
+        #auctioneer .gav::after { content: ''; position: absolute; left: 38%; top: 96%; width: 24%; height: 150%; border-radius: 0 0 40% 40%; background: linear-gradient(180deg, #b97e26, #7a5314); }
+        #auctioneer.bang .arm { animation: auBang .55s cubic-bezier(.3, 1.4, .4, 1); }
+        @keyframes auBang { 0% { transform: rotate(-72deg); } 45% { transform: rotate(6deg); } 70% { transform: rotate(-24deg); } 100% { transform: rotate(-14deg); } }
 
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } #ambient { display: none; } }
     </style>
@@ -1697,6 +1736,7 @@ function sGoing(n) {
 }
 // THE GAVEL — deep thump, wood body, crack, little bounce
 function sGavel() {
+    auctBang();                                       // the arm comes down with the sound
     if (!sfxOn || !AC) return;
     duckMusic(1.0);
     tone(110, 0.3, { type: 'sine', vol: 0.65, slide: 36 });
@@ -1977,7 +2017,38 @@ function pickVoice() {
         || en.find(v => /GB/i.test(v.lang)) || en[0] || all[0];
     return _voice;
 }
-function shutUp() { try { speechSynthesis.cancel(); } catch (e) {} }
+function shutUp() { try { speechSynthesis.cancel(); } catch (e) {} auctTalk(false); }
+
+// ── the man himself ──
+// Mounted once, outside #app, because #app's innerHTML is replaced on every render and a head
+// rebuilt mid-sentence loses its mouth. The mouth is driven by the utterance's OWN start/end
+// events rather than a timer, so it is synchronised to the audio actually playing rather than to
+// a guess about how long a sentence takes — which would drift the moment a voice reads at a
+// different rate, and they all do.
+let _auct = null;
+function mountAuctioneer() {
+    if (_auct || !document.body) return;
+    _auct = document.createElement('div');
+    _auct.id = 'auctioneer';
+    _auct.innerHTML = `<div class="au">
+        <div class="head"><div class="hair"></div><div class="eye l"></div><div class="eye r"></div><div class="mouth"></div></div>
+        <div class="torso"><div class="tie"></div></div>
+        <div class="arm"><div class="gav"></div></div>
+        <div class="desk"></div>
+    </div>`;
+    document.body.appendChild(_auct);
+}
+function auctTalk(on) { if (_auct) _auct.classList.toggle('talking', !!on); }
+// a word boundary landed — nudge the mouth so the flap is not a metronome
+function auctBeat() {
+    if (!_auct || REDUCED) return;
+    const m = _auct.querySelector('.mouth');
+    if (m) m.style.height = (0.6 + Math.random() * 1.8).toFixed(2) + 'vmin';
+}
+function auctBang() {
+    if (!_auct || REDUCED) return;
+    _auct.classList.remove('bang'); void _auct.offsetWidth; _auct.classList.add('bang');
+}
 
 // The auction has always moved on, so a new line CANCELS the old one rather than queueing behind
 // it — a chant that lags the screen is worse than silence.
@@ -1991,6 +2062,11 @@ function say(text, opts = {}) {
         u.rate = opts.rate || 1.28;                   // bid-calling is fast
         u.pitch = opts.pitch === undefined ? 0.9 : opts.pitch;
         u.volume = opts.vol === undefined ? 1 : opts.vol;
+        // his mouth is tied to THIS utterance, not to a timer
+        u.onstart = () => auctTalk(true);
+        u.onend = () => auctTalk(false);
+        u.onerror = () => auctTalk(false);
+        u.onboundary = auctBeat;                      // per-word, where the browser offers it
         duckMusic(opts.duck || 1.4);
         speechSynthesis.speak(u);
     } catch (e) {}
@@ -3894,6 +3970,7 @@ function simRestart() {
     if (!musicOn) $id('tog-music').classList.add('off');
     if (!sfxOn) $id('tog-sfx').classList.add('off');
     if (!voiceOn) $id('tog-voice').classList.add('off');
+    mountAuctioneer();
     // Voices load asynchronously in most browsers — ask once now, and again when they arrive.
     try { pickVoice(); speechSynthesis.addEventListener('voiceschanged', pickVoice, { once: true }); } catch (e) {}
     const mode = (params.get('mode') || '').toLowerCase();

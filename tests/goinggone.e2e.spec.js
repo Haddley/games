@@ -454,6 +454,37 @@ test('the auctioneer sums up the round, from what actually happened', async ({ b
     await tv.close();
 });
 
+test('the auctioneer stands on the TV only, and his mouth follows the speech', async ({ browser }) => {
+    // He is mounted OUTSIDE #app, whose innerHTML is replaced on every render — a head rebuilt
+    // mid-sentence would drop its talking class every time a bid landed. And he is the TV's:
+    // ten phones each with their own auctioneer is not a joke that lands.
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/goinggone.html?mode=tvsimulation&players=3&rounds=1&lots=2');
+    await expect(tv.locator('#auctioneer')).toBeVisible({ timeout: 20_000 });
+    expect(await tv.evaluate(() => document.querySelector('#auctioneer').closest('#app'))).toBeNull();
+
+    // he must not sit on top of anything the layout drew — the TV shell reserves him a band
+    const clash = await tv.evaluate(() => {
+        const a = document.querySelector('#auctioneer').getBoundingClientRect();
+        return [...document.querySelectorAll('.tv-lot, .rail-row, .bank-row, .pod, .val-card')]
+            .filter(e => { const b = e.getBoundingClientRect(); return b.bottom > a.top && b.left < a.right && b.right > a.left; })
+            .map(e => e.className);
+    });
+    expect(clash, 'the auctioneer is standing on the layout').toEqual([]);
+
+    // the mouth is driven by the utterance's own start/end, not a timer
+    expect(await tv.evaluate(() => { auctTalk(true); return document.querySelector('#auctioneer').classList.contains('talking'); })).toBe(true);
+    expect(await tv.evaluate(() => { auctTalk(false); return document.querySelector('#auctioneer').classList.contains('talking'); })).toBe(false);
+    // …and the arm swings on the real hammer blow
+    expect(await tv.evaluate(() => { auctBang(); return document.querySelector('#auctioneer').classList.contains('bang'); })).toBe(true);
+
+    // a PHONE gets no auctioneer of its own
+    const phone = await browser.newPage({ viewport: PHONE });
+    await phone.goto('/goinggone.html');
+    await expect(phone.locator('#auctioneer')).toBeHidden();
+    await Promise.all([tv.close(), phone.close()]);
+});
+
 test('the attract mode takes its settings from the query string', async ({ browser }) => {
     // ?mode=tvsimulation&players=3&rounds=3 should be exactly that: three bidders, three banked
     // rounds. It used to hardcode two rounds and ignore the parameter. The rounds MECHANIC is

@@ -227,6 +227,15 @@ invented**: if a price could not be verified from a live source, the item is not
 - **The attract mode takes parameters:** `?mode=tvsimulation&players=3&rounds=3&lots=4` —
   bidders (2–10), banked rounds (1–3) and lots per player per round (2–4). Defaults are 4 / 2 / 2,
   short enough that the demo loop turns over but still showing the banking between rounds.
+- **The auctioneer is DRAWN as well as heard, TV only.** `mountAuctioneer()` builds a CSS figure
+  at the bottom-left — no new third-party art, because that would mean the whole provenance dance
+  in `llmwiki/sprites-and-licensing.md`. He is mounted **outside `#app`**: that element's innerHTML
+  is replaced on every render, and a head rebuilt mid-sentence drops its mouth animation every
+  time a bid lands. His mouth is driven by the utterance's own `onstart`/`onend`/`onboundary`, so
+  it is synchronised to the audio actually playing rather than to a guess about sentence length —
+  which would drift the moment a voice reads at a different rate, and they all do. The gavel arm
+  swings from `sGavel()`. `.tv` reserves a `padding-bottom` band for him so he never stands on the
+  layout; the e2e asserts that no laid-out element overlaps him. Size is one number, `--ah`.
 - **The auctioneer's VOICE is spoken, TV only.** `say()` drives Web Speech from the phrase banks
   (`P_OPEN`/`P_DROP_*`/`P_BID`/`P_GOING`/`P_SOLD`/`P_PASSED`), assembled from the trade's real
   filler words rather than stored whole, with `words()` turning 4800 into "forty-eight hundred".
