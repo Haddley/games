@@ -348,6 +348,55 @@ test('passed in: the auctioneer fishes all the way down and nobody bites', async
     await Promise.all([tv, cy, di].map(p => p.close()));
 });
 
+test('the last valuation card is revealed once, not twice', async ({ browser }) => {
+    // The host sends one more state after the final reveal, to hold the screen before the
+    // standings. The viewer used to re-render on it, rebuilding the last card with its `live`
+    // class — and that entrance is staged in CSS and not gated on #app.fresh, so the whole reveal
+    // played a second time. On a TV it read as the last lot being sold twice.
+    //
+    // Driven straight through applyViewerMsg: no PeerJS, no waiting out a real auction, and it
+    // pins the exact frame that was wrong.
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/goinggone.html');
+    const result = await tv.evaluate(() => {
+        const reveals = [
+            { player: 'Ada', color: '#e8b75a', paddle: 42, lotName: 'A Canoe', emoji: '🛶', img: null, wasMystery: false, src: 'x', on: '2026-07-01', paid: 100, value: 159, profit: 59 },
+            { player: 'Bo', color: '#22d3ee', paddle: 77, lotName: 'A Kayak', emoji: '🛶', img: null, wasMystery: false, src: 'x', on: '2026-07-01', paid: 90, value: 108, profit: 18 },
+        ];
+        const msg = i => ({
+            type: 'viewer_state', phase: 'valuation', roomCode: 'TEST', round: 1, rounds: 1,
+            lotNum: 2, lotTotal: 2, lot: null, bid: null, soldInfo: null,
+            players: [{ name: 'Ada', color: '#e8b75a', paddle: 42, coins: 100, lotCount: 1 },
+                      { name: 'Bo', color: '#22d3ee', paddle: 77, coins: 90, lotCount: 1 }],
+            reveals, revealIndex: i, standings: null, awards: null, winner: null,
+            tvHost: false, captain: null,
+        });
+        isViewer = true;
+        applyViewerMsg(msg(0));
+        applyViewerMsg(msg(1));
+        // stamp the live card so we can tell whether the next message rebuilds it
+        const live = document.querySelector('.val-card.live');
+        if (!live) return { error: 'no live card after the last reveal' };
+        live.dataset.stamp = 'original';
+        const nameAfterLast = live.querySelector('.vname').textContent.trim();
+        // …the extra state the host sends once the reveals have run out
+        applyViewerMsg(msg(2));
+        const after = document.querySelector('.val-card.live');
+        return {
+            nameAfterLast,
+            survived: !!(after && after.dataset.stamp === 'original'),
+            stillLive: !!after,
+            liveCount: document.querySelectorAll('.val-card.live').length,
+        };
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.nameAfterLast).toBe('A Kayak');
+    expect(result.stillLive).toBe(true);
+    expect(result.liveCount).toBe(1);
+    expect(result.survived, 'the final card was rebuilt and replayed its whole reveal').toBe(true);
+    await tv.close();
+});
+
 test('the attract mode takes its settings from the query string', async ({ browser }) => {
     // ?mode=tvsimulation&players=3&rounds=3 should be exactly that: three bidders, three banked
     // rounds. It used to hardcode two rounds and ignore the parameter. The rounds MECHANIC is

@@ -3005,9 +3005,17 @@ function applyViewerMsg(msg) {
     if (msg.phase === 'valuation') {
         stopViewerTick();
         setMusic('results');
-        render();
+        // Render ONLY on a real change — entering the valuation, or a genuinely new card. The
+        // `.val-card.live` entrance is staged in CSS (card in, true value at 1.9s, profit stamp at
+        // 2.8s) and it is not gated on `#app.fresh`, so it replays every time the list is rebuilt.
+        // The host sends one more state after the last reveal, to hold the screen before the
+        // standings; re-rendering on that rebuilt the final card as `live` and played its whole
+        // reveal a second time. On a TV that reads as the last lot being sold twice.
+        const key = 'valuation|' + msg.round;
+        if (_vLotKey !== key) { _vLotKey = key; _vRevealIdx = -1; render(); }
         if (msg.revealIndex !== _vRevealIdx && msg.revealIndex >= 0 && msg.revealIndex < (msg.reveals || []).length) {
             _vRevealIdx = msg.revealIndex;
+            render();
             const r = msg.reveals[msg.revealIndex];
             // The payoff lands when the profit STAMPS onto the card, not when the card slides in
             // — sound, pop and burst all wait for that beat. Under reduced motion the staged CSS
