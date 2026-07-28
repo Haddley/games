@@ -233,6 +233,13 @@ invented**: if a price could not be verified from a live source, the item is not
   All of this is real auction practice, not invention (auctioneers genuinely fish down for an
   opening bid, and "passed in" is the trade's term) — see the research in
   `goinggoneplan-realitems.md`.
+- **Spoken commentary is capped at ONE line; the screen carries all four.** Spoken numbers are
+  dear — "forty-five thousand nine hundred" is three seconds — so two lines push the banked board
+  past eighteen seconds, and the board must be held open for as long as he is talking or the next
+  round starts and `say()` cancels him mid-sentence (which is exactly what happened). Worse, a TV
+  with no voice would then sit on a silent board for those eighteen seconds. `startBanking`
+  measures the hold with `speechMs()` rather than using a fixed one. The podium is not on a clock,
+  so it gets two.
 - **The auctioneer sums the round up, from what actually happened.** `commentaryFor(rows, reveals,
   final)` builds up to four lines on the host at `finishValuation` — who leads, the round's real
   best bargain, its real disaster, who never lifted their paddle, and whether it is close or a
@@ -249,8 +256,13 @@ invented**: if a price could not be verified from a live source, the item is not
   paddle going up is not a secret), your own purse always reaches you via `myCoins`, and the
   valuation, banked board and podium show the real numbers — they are the payoff. The e2e asserts
   what actually crosses the wire, not what the TV happens to draw.
-- **He SPLITS THE INCREMENT as the hammer falls.** Once bidding is running, the smallest
-  acceptable raise softens in stages as the gavel countdown empties (`softMinRaise`/`softRaises`):
+- **He SPLITS THE INCREMENT as the hammer falls, and WAITS at each step.** Each reduction gets its
+  own `SOFT_STEP_MS` window, exactly as fishing for an opening bid does. Deriving the step from
+  how much of one 5s gavel had elapsed put the whole descent inside that gavel and left the
+  cheapest ask on offer for under a second — a reflex test, not a decision. The step is now
+  explicit host state (`H.bid.soft`, broadcast with `span`), which also deleted the clock-skew
+  grace: no device works the ladder out from its own clock any more.
+  Once bidding is running, the smallest acceptable raise softens in stages (`softMinRaise`/`softRaises`):
   full rung → ½ → ¼ → a floor of `RAISE_FLOOR` (2%) of the current price, never under $1. So a $60
   traffic cone genuinely reaches "just one more" while a $67,000 Cessna bottoms out near $1,300 —
   a literal $1 everywhere would make the last bid a reflex test rather than a judgement. The

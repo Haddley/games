@@ -621,30 +621,33 @@ const raisesFor = price => RAISE_LADDER.find(r => price < r.under).raises;
 // reach "just one more"). The bigger jumps stay on offer the whole time — he is lowering his
 // ask, not capping anybody's enthusiasm — and the moment somebody bids, the countdown restarts
 // and he is back to asking for the full rung.
-const SOFT_STAGES = [0.60, 0.35, 0.15];   // fractions of the gavel window still to run
-const SOFT_SHARE = [1, 0.5, 0.25];        // …and the share of the first rung he will take at each
-const RAISE_FLOOR = 0.02;                 // past the last stage: this share of the price, min 1
-const SOFT_GRACE_MS = 700;                // clock slack, so a phone a little ahead is not punished
+const SOFT_SHARE = [1, 0.5, 0.25];         // the share of the first rung he will take at each step
+const RAISE_FLOOR = 0.02;                 // past the last step: this share of the price, min 1
+// EACH STEP GETS ITS OWN WINDOW. Deriving the step from how much of one gavel had elapsed meant
+// the whole descent happened inside five seconds and the cheapest ask existed for under one of
+// them — a reflex test rather than a decision. He now comes down a step and WAITS, exactly as he
+// does when fishing for an opening bid, and the step is explicit state rather than something each
+// device works out from its own clock (which is also how the clock-skew grace went away).
+const SOFT_STEP_MS = 3000;
 
-const softStage = frac => frac > SOFT_STAGES[0] ? 0 : frac > SOFT_STAGES[1] ? 1 : frac > SOFT_STAGES[2] ? 2 : 3;
-
-// The smallest raise he will accept right now. Never rises as the clock runs down, whatever the
+// The smallest raise he will accept at step `idx`. Never rises as he goes down, whatever the
 // arithmetic says — a floor above the quarter-rung would otherwise make him ask for MORE as he
 // grew more desperate.
-function softMinRaise(price, frac) {
+function softMinRaise(price, idx) {
     const full = raisesFor(price)[0];
     const floor = Math.min(full, Math.max(1, roundAsk(price * RAISE_FLOOR)));
-    const st = softStage(frac);
+    const st = Math.max(0, Math.min(SOFT_SHARE.length, idx | 0));
     if (st === 0) return full;
     if (st >= SOFT_SHARE.length) return floor;
     return Math.max(floor, Math.min(full, roundAsk(full * SOFT_SHARE[st])));
 }
 // What the phone offers: his current ask, then the two bigger jumps, deduplicated.
-function softRaises(price, frac) {
+function softRaises(price, idx) {
     const rungs = raisesFor(price);
-    const min = softMinRaise(price, frac);
+    const min = softMinRaise(price, idx);
     return [min, ...rungs.filter(r => r > min)].slice(0, 3);
 }
+const SOFT_STEPS = SOFT_SHARE.length;     // …after which the hammer really does fall
 
 // ── THE AUCTIONEER'S ASK ────────────────────────────────────────────────────
 // Bidding does not open at nothing. The auctioneer calls for an opening bid — and he is not an
@@ -2456,6 +2459,21 @@ function words(n) {
 }
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
+// Roughly how long a line takes to speak, used by the HOST to decide how long to hold a screen
+// open. Erring long is the safe direction: a screen held a beat too long is a pause, a screen
+// that moves on mid-sentence cuts the auctioneer off, which is what happened to the round-end
+// commentary — the board's fixed nine seconds could not cover four spoken lines and the next
+// lot's announcement cancelled the rest.
+const speechMs = text => Math.round((text || '').length * 68);
+
+// He says at most this many of his summing-up lines OUT LOUD, and the screen carries the rest.
+// Spoken numbers are dear — "forty-five thousand nine hundred" is three seconds — so two lines
+// push the banked board past eighteen seconds, and the board has to be held open for as long as
+// he is talking or he gets cut off mid-sentence. Worse, a television with no voice at all would
+// then sit on a silent screen for those eighteen seconds. One line aloud, four on the screen.
+// The podium is not on a clock, so it gets two.
+const SPOKEN_COMMENTARY = 1;
+
 // ── the banks ──────────────────────────────────────────────────────────────
 // "{}" is the number under discussion. Combined, these give many hundreds of distinct calls.
 const P_OPEN = [
@@ -2571,14 +2589,14 @@ function saySold(info) {
     say(info.passed ? pick(P_PASSED)
         : fill(pick(P_SOLD), info.price).replace(/\{who\}/g, who), { rate: 1.1, pitch: 1 });
 }
-const commentarySpoken = msg => (msg.commentary || [])
+const commentarySpoken = (msg, n) => (msg.commentary || []).slice(0, n || SPOKEN_COMMENTARY)
     .map(l => l.spoken.charAt(0).toUpperCase() + l.spoken.slice(1)).join(' ');
+const BANKED_PREAMBLE = round => `That's round ${words(round)} banked.`;
 function sayBanked(msg) {
-    say(`That's the end of round ${words(msg.round)}. Everything you own turns back into money, and we go again. `
-        + commentarySpoken(msg), { rate: 1.05 });
+    say(`${BANKED_PREAMBLE(msg.round)} ${commentarySpoken(msg)}`, { rate: 1.05 });
 }
 function sayWinner(msg) {
-    say(`${commentarySpoken(msg)} Thank you, ladies and gentlemen.`, { rate: 1.05, pitch: 1 });
+    say(`${commentarySpoken(msg, 2)} Thank you, ladies and gentlemen.`, { rate: 1.05, pitch: 1 });
 }
 
 // Unlock audio on first interaction (browser autoplay policy)
@@ -2748,6 +2766,7 @@ function stateFor(p) {
             // The ask, and how many times he has already come down — never how far he WILL come
             // down. That number stays on the host; not knowing it is the whole game of nerve.
             ask: currentAsk(), drops: H.bid.drops,
+            soft: H.bid.soft, span: H.bid.span || GAVEL_MS,
             leader: leader ? leader.name : null,
             leaderColor: leader ? leader.color : null,
             leaderPaddle: leader ? leader.paddle : null,
@@ -3057,8 +3076,8 @@ function startBidding() {
     // CURRENT ask and nothing else. How far he is willing to come down is the auctioneer's secret,
     // and it is the only thing making the wait frightening.
     H.bid = {
-        price: 0, leaderId: null, endsAt: Date.now() + ASK_MS,
-        ladder: askLadder(lot.value), askIdx: 0, drops: 0,
+        price: 0, leaderId: null, endsAt: Date.now() + ASK_MS, span: ASK_MS,
+        ladder: askLadder(lot.value), askIdx: 0, drops: 0, soft: 0,
     };
     broadcastState();
     clearInterval(_gavelTick);
@@ -3078,6 +3097,8 @@ function hostBid(player, raise) {
         H.bid.price = ask;
         H.bid.leaderId = player.id;
         H.bid.endsAt = Date.now() + GAVEL_MS;
+        H.bid.span = GAVEL_MS;
+        H.bid.soft = 0;
         broadcastState();
         return;
     }
@@ -3086,14 +3107,15 @@ function hostBid(player, raise) {
     // ask softens sends the older, LARGER number, which is always fine; the grace goes the other
     // way, treating the clock as a little further on than it is, so a phone whose countdown runs
     // marginally ahead of the host's does not have its tap thrown away.
-    const frac = (H.bid.endsAt - Date.now() - SOFT_GRACE_MS) / GAVEL_MS;
-    if (raise < softMinRaise(H.bid.price, frac)) return;
+    if (raise < softMinRaise(H.bid.price, H.bid.soft)) return;
     if (H.bid.leaderId === player.id) return;               // can't outbid yourself
     const newPrice = H.bid.price + raise;
     if (player.coins < newPrice) return;                     // must be able to pay
     H.bid.price = newPrice;
     H.bid.leaderId = player.id;
-    H.bid.endsAt = Date.now() + GAVEL_MS;                    // gavel resets
+    H.bid.endsAt = Date.now() + GAVEL_MS;                    // gavel resets…
+    H.bid.span = GAVEL_MS;
+    H.bid.soft = 0;                                          // …and so does his ask
     broadcastState();
 }
 
@@ -3108,6 +3130,7 @@ function checkGavel() {
             H.bid.askIdx += 1;
             H.bid.drops += 1;
             H.bid.endsAt = Date.now() + ASK_MS;
+            H.bid.span = ASK_MS;
             broadcastState();
             return;
         }
@@ -3119,6 +3142,15 @@ function checkGavel() {
         H.bid = null;
         broadcastState();
         _lotTimer = setTimeout(startLot, PASSED_MS);
+        return;
+    }
+    // Bidding is running but nobody has moved: come down a step and wait again, rather than
+    // dropping the hammer the moment the first window empties.
+    if (H.bid.soft < SOFT_STEPS) {
+        H.bid.soft += 1;
+        H.bid.endsAt = Date.now() + SOFT_STEP_MS;
+        H.bid.span = SOFT_STEP_MS;
+        broadcastState();
         return;
     }
     clearInterval(_gavelTick);
@@ -3269,7 +3301,12 @@ function startBanking() {
     });
     H.phase = 'banked';
     broadcastState();
-    _lotTimer = setTimeout(startRound, BANK_MS + H.players.length * BANK_STEP_MS);
+    // Long enough for the rows to land, for him to say his piece, and for a beat afterwards.
+    // A fixed hold cut him off mid-sentence the moment the summing-up ran past it.
+    const rows = 1000 + H.players.length * BANK_STEP_MS;
+    const spoken = speechMs(`${BANKED_PREAMBLE(H.round)} `
+        + (H.commentary || []).slice(0, SPOKEN_COMMENTARY).map(l => l.spoken).join(' '));
+    _lotTimer = setTimeout(startRound, Math.max(BANK_MS + H.players.length * BANK_STEP_MS, rows + spoken + 1800));
 }
 
 function hostNewGame() {
@@ -3332,6 +3369,7 @@ function applyMsg(msg) {
                     startClientGavel(msg);
                     _lastPrice = msg.bid ? msg.bid.price : 0;
                     _lastAsk = msg.bid ? msg.bid.ask : 0;
+                    _cSoft = msg.bid ? (msg.bid.soft || 0) : 0;
                     if (msg.bid && msg.bid.price === 0) sayAsk(msg, true);
                 } else if (msg.bid && msg.bid.price === 0) {
                     // Still fishing for an opening bid. Nothing has been bid, so there is no price
@@ -3347,6 +3385,13 @@ function applyMsg(msg) {
                         const pe = $id('p-price');
                         if (pe) { pe.classList.remove('drop'); void pe.offsetWidth; pe.classList.add('drop'); }
                     }
+                } else if (msg.bid && msg.bid.price > 0 && (msg.bid.soft || 0) !== _cSoft) {
+                    // he has come down a step, and is now waiting again — re-offer at his ask
+                    _cSoft = msg.bid.soft || 0;
+                    patchBidding(msg);
+                    startClientGavel(msg);
+                    sDrop();
+                    try { navigator.vibrate && navigator.vibrate(15); } catch (e) {}
                 } else {
                     const priceUp = !!(msg.bid && msg.bid.price !== _lastPrice);
                     const diff = priceUp ? msg.bid.price - Math.max(0, _lastPrice) : 0;
@@ -3424,16 +3469,10 @@ function applyMsg(msg) {
     }
 }
 
-// how far through the gavel window this device believes it is, for the softening ladder
-function localFrac() {
-    if (_cOpening || !_localGavelEnd) return 1;
-    return Math.max(0, Math.min(1, (_localGavelEnd - Date.now()) / GAVEL_MS));
-}
-
 function startClientGavel(msg) {
     _localGavelEnd = Date.now() + (msg.bid ? msg.bid.endsIn : 0);
     _cOpening = !!(msg.bid && msg.bid.price === 0);
-    _cSpan = _cOpening ? ASK_MS : GAVEL_MS;
+    _cSpan = (msg.bid && msg.bid.span) || (_cOpening ? ASK_MS : GAVEL_MS);
     if (_gavelTickClient) return;
     _gavelTickClient = setInterval(() => {
         const left = Math.max(0, _localGavelEnd - Date.now());
@@ -3451,19 +3490,9 @@ function startClientGavel(msg) {
         if (musicUrgent) musicIntensity = 2;   // "going…" reached: full band stays in
         if (stage > _goingStage && left > 0) {
             sGoing(stage);
-            if (stage === 2 && D && D.bid && D.bid.price) sayGoing(D.bid.price, softMinRaise(D.bid.price, Math.max(0, left / GAVEL_MS)));
+            if (stage === 2 && D && D.bid && D.bid.price) sayGoing(D.bid.price, softMinRaise(D.bid.price, D.bid.soft || 0));
         }
         _goingStage = stage;   // a new bid refills the bar → stage drops → stings re-arm
-        // he has come down a step: re-offer, so the buttons say what he is actually asking
-        const soft = softStage(localFrac());
-        if (soft !== _cSoft) {
-            _cSoft = soft;
-            const bb = $id('bid-btns');
-            if (bb && D && D.phase === 'bidding' && D.bid && D.bid.price > 0 && !D.bid.youLead) {
-                bb.innerHTML = bidBtnsHTML(D);
-                if (soft > 0) { try { navigator.vibrate && navigator.vibrate(15); } catch (e) {} }
-            }
-        }
     }, 100);
 }
 
@@ -3677,7 +3706,7 @@ function startViewerGavel(msg) {
     // While he is still fishing for an opening bid the window is ASK_MS, not the gavel — and
     // nothing is "going", because nothing has been bid.
     _vOpening = !!(msg.bid && msg.bid.price === 0);
-    _vSpan = _vOpening ? ASK_MS : GAVEL_MS;
+    _vSpan = (msg.bid && msg.bid.span) || (_vOpening ? ASK_MS : GAVEL_MS);
     if (_vGavelTick) return;
     _vGavelTick = setInterval(() => {
         const left = Math.max(0, _vGavelEnd - Date.now());
@@ -3689,8 +3718,7 @@ function startViewerGavel(msg) {
         if (gl) {
             // …and once he has come down off the full rung, say what now takes it
             const price = vD && vD.bid ? vD.bid.price : 0;
-            const frac = Math.max(0, Math.min(1, left / GAVEL_MS));
-            const min = (!_vOpening && price) ? softMinRaise(price, frac) : 0;
+            const min = (!_vOpening && price) ? softMinRaise(price, (vD.bid && vD.bid.soft) || 0) : 0;
             const take = (min && min < raisesFor(price)[0]) ? ` — ${num(min)} takes it` : '';
             gl.textContent = _vOpening ? (left < 1800 ? 'coming down…' : '')
                 : left === 0 ? '' : stage === 2 ? 'going… GOING…' + take : stage === 1 ? 'going…' + take : '';
@@ -3700,7 +3728,7 @@ function startViewerGavel(msg) {
         if (musicUrgent) musicIntensity = 2;   // "going…" reached: full band stays in
         if (stage > _vGoingStage && left > 0) {
             sGoing(stage);
-            if (stage === 2 && vD && vD.bid) sayGoing(vD.bid.price, softMinRaise(vD.bid.price, Math.max(0, left / GAVEL_MS)));
+            if (stage === 2 && vD && vD.bid) sayGoing(vD.bid.price, softMinRaise(vD.bid.price, vD.bid.soft || 0));
         }
         _vGoingStage = stage;
     }, 100);
@@ -3792,7 +3820,7 @@ function bidBtnsHTML(msg) {
             🙋 Start it at ${num(ask)}</button>
             <div class="open-note">${msg.myCoins >= ask ? 'or hold your nerve — he might come down…' : 'too rich for you'}</div>`;
     }
-    return softRaises(msg.bid.price, localFrac()).map((r, i) => {
+    return softRaises(msg.bid.price, msg.bid.soft || 0).map((r, i) => {
         const afford = msg.myCoins >= msg.bid.price + r;
         // his softened ask is marked, so it is obvious he has just come down
         const soft = i === 0 && r < raisesFor(msg.bid.price)[0];

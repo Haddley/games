@@ -59,7 +59,7 @@ const RAISE_SRC = (() => {
     return HTML.slice(a, b);
 })();
 const RAISE = new Function(RAISE_SRC +
-    '\nreturn { raisesFor, softMinRaise, softRaises, softStage, RAISE_FLOOR, SOFT_SHARE };')();
+    '\nreturn { raisesFor, softMinRaise, softRaises, RAISE_FLOOR, SOFT_SHARE, SOFT_STEPS, SOFT_STEP_MS };')();
 
 // What the room is allowed to learn about everybody else's purse.
 const PURSE_SRC = (() => {
@@ -315,6 +315,30 @@ test('asks are round numbers a person would say out loud', () => {
     }
 });
 
+test('he waits at every step, so the whole descent is not one gavel long', () => {
+    // The descent used to be derived from how much of a single five-second gavel had elapsed,
+    // which left the cheapest ask on offer for well under a second — a reflex test, not a
+    // decision. Each step now has its own window.
+    assert.ok(RAISE.SOFT_STEP_MS >= 2500, `${RAISE.SOFT_STEP_MS}ms is not long enough to react to`);
+    const total = RAISE.SOFT_STEPS * RAISE.SOFT_STEP_MS;
+    assert.ok(total >= 8000, `the whole descent lasts only ${total}ms`);
+});
+
+test('he says one line aloud and shows the rest', () => {
+    // Spoken numbers are dear — "forty-five thousand nine hundred" is three seconds — so the
+    // banked board would have to be held open for eighteen seconds to let two lines finish, and
+    // a TV with no voice would sit on a silent screen for all of it. Neil heard the round-end
+    // commentary cut off mid-sentence when the board moved on beneath it.
+    const SRC = HTML.slice(HTML.indexOf('const SPOKEN_COMMENTARY'), HTML.indexOf('const fill ='));
+    const n = +(/const SPOKEN_COMMENTARY = (\d+)/.exec(SRC) || [])[1];
+    assert.equal(n, 1, 'more than one spoken line pushes the banked hold past what it is worth');
+
+    // and the board must wait for however long he actually needs
+    const bank = HTML.slice(HTML.indexOf('function startBanking'), HTML.indexOf('function hostNewGame'));
+    assert.match(bank, /speechMs\(/, 'the banked hold must be measured against the speech, not fixed');
+    assert.match(bank, /Math\.max\(/, 'and never shorter than the rows take to land');
+});
+
 // ── nobody may read your bank balance off the TV ────────────────────────────
 test('the purse band never rises as you get poorer', () => {
     const avg = 7000;
@@ -367,9 +391,9 @@ test('the ask only ever comes DOWN as the gavel falls', () => {
     // desperate he gets, which is the one thing it must never do.
     for (const p of PRICES) {
         let prev = Infinity;
-        for (const frac of [1, 0.8, 0.6, 0.45, 0.35, 0.2, 0.15, 0.05, 0]) {
-            const r = RAISE.softMinRaise(p, frac);
-            assert.ok(r <= prev, `price ${p}: ask went UP at frac ${frac} (${prev} → ${r})`);
+        for (const step of [0, 1, 2, 3, 4]) {
+            const r = RAISE.softMinRaise(p, step);
+            assert.ok(r <= prev, `price ${p}: ask went UP at step ${step} (${prev} → ${r})`);
             assert.ok(r >= 1, `price ${p}: ask fell below a pound (${r})`);
             assert.ok(r <= RAISE.raisesFor(p)[0], `price ${p}: ask ${r} exceeds the full rung`);
             prev = r;
@@ -377,10 +401,10 @@ test('the ask only ever comes DOWN as the gavel falls', () => {
     }
 });
 
-test('a fresh countdown asks for the full rung, and only softens later', () => {
+test('the first window asks for the full rung, and only softens after it', () => {
     for (const p of PRICES) {
-        assert.equal(RAISE.softMinRaise(p, 1), RAISE.raisesFor(p)[0], `price ${p} softened too early`);
-        assert.ok(RAISE.softMinRaise(p, 0.05) <= RAISE.softMinRaise(p, 1),
+        assert.equal(RAISE.softMinRaise(p, 0), RAISE.raisesFor(p)[0], `price ${p} softened too early`);
+        assert.ok(RAISE.softMinRaise(p, RAISE.SOFT_STEPS) <= RAISE.softMinRaise(p, 0),
             `price ${p} never came down at all`);
     }
 });
@@ -388,17 +412,17 @@ test('a fresh countdown asks for the full rung, and only softens later', () => {
 test('a cheap lot really does get down to "just one more"', () => {
     // The whole point of the floor being a SHARE of the price: on a traffic cone it reaches $1,
     // and on a Cessna it stops somewhere that is still a bid rather than a reflex test.
-    assert.equal(RAISE.softMinRaise(60, 0), 1);
-    assert.ok(RAISE.softMinRaise(67000, 0) > 500, 'a five-figure lot should not go to a pound');
-    assert.ok(RAISE.softMinRaise(67000, 0) <= 67000 * RAISE.RAISE_FLOOR * 1.2);
+    assert.equal(RAISE.softMinRaise(60, RAISE.SOFT_STEPS), 1);
+    assert.ok(RAISE.softMinRaise(67000, RAISE.SOFT_STEPS) > 500, 'a five-figure lot should not go to a pound');
+    assert.ok(RAISE.softMinRaise(67000, RAISE.SOFT_STEPS) <= 67000 * RAISE.RAISE_FLOOR * 1.2);
 });
 
 test('the phone is offered his ask plus the bigger jumps, in order', () => {
     for (const p of PRICES) {
-        for (const frac of [1, 0.5, 0.2, 0]) {
-            const offer = RAISE.softRaises(p, frac);
+        for (const step of [0, 1, 2, 3]) {
+            const offer = RAISE.softRaises(p, step);
             assert.ok(offer.length >= 1 && offer.length <= 3, `price ${p}: ${offer.length} buttons`);
-            assert.equal(offer[0], RAISE.softMinRaise(p, frac), `price ${p}: first button is not his ask`);
+            assert.equal(offer[0], RAISE.softMinRaise(p, step), `price ${p}: first button is not his ask`);
             assert.deepEqual(offer, [...new Set(offer)], `price ${p}: duplicate buttons ${offer}`);
             offer.forEach((r, i) => { if (i) assert.ok(r > offer[i - 1], `price ${p}: ${offer} not ascending`); });
         }

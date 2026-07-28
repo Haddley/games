@@ -245,34 +245,39 @@ test('he splits the increment rather than dropping the hammer', async ({ browser
     await forceCheapLots(tv);
     await openBidding(gus, tv);      // somebody must be bidding before there is anything to split
 
-    // ── the phone re-offers, off its own clock ──
+    // ── he comes down a step, and the phone re-offers at the new ask ──
+    // The step is the HOST's, broadcast like any other state, so nothing here depends on two
+    // clocks agreeing. Waiting it out for real would take SOFT_STEP_MS, so the window is simply
+    // expired rather than slept through.
     const num = t => parseInt(String(t).replace(/[^0-9]/g, ''), 10);
     const full = num(await hal.locator('#bid-btns .btn').first().textContent());
-    await hal.evaluate(() => { _localGavelEnd = Date.now() + 300; });       // nearly out of time
+    await tv.evaluate(() => { H.bid.endsAt = Date.now(); });
     await expect.poll(async () => num(await hal.locator('#bid-btns .btn').first().textContent()),
-        { timeout: 5_000, message: 'the auctioneer never came down off his full jump' })
+        { timeout: 6_000, message: 'the auctioneer never came down off his full jump' })
         .toBeLessThan(full);
     await expect(hal.locator('#bid-btns .btn.soft')).toBeVisible();
+    expect(await tv.evaluate(() => H.bid.soft), 'the host should have stepped down').toBe(1);
     await shot(hal, 'gavel-14-phone-split-increment');
 
-    // ── and the host takes it, off its own ──
+    // ── and he WAITS there, rather than running out the same gavel ──
+    const waited = await tv.evaluate(() => H.bid.endsAt - Date.now());
+    expect(waited, 'he came down and gave nobody time to answer').toBeGreaterThan(1500);
+
+    // ── the host takes his reduced ask, and refuses anything under it ──
     const host = await tv.evaluate(() => {
         const p = H.players.find(x => x.name === 'Hal');
         const price = H.bid.price;
         const fullRung = raisesFor(price)[0];
-        H.bid.endsAt = Date.now() + GAVEL_MS;                  // a fresh countdown: he wants it all
-        const early = softMinRaise(price, 1);
-        hostBid(p, Math.max(1, Math.round(fullRung / 8)));     // far below his standing ask
+        const ask = softMinRaise(price, H.bid.soft);
+        hostBid(p, Math.max(1, Math.floor(ask / 4)));          // under his standing ask
         const refused = H.bid.price === price;
-        H.bid.endsAt = Date.now() + 400;                       // …and at the death, a fraction of it
-        const late = softMinRaise(price, 400 / GAVEL_MS);
-        hostBid(p, late);
-        return { fullRung, early, late, refused, took: H.bid.price - price };
+        hostBid(p, ask);                                       // …and exactly it
+        return { fullRung, ask, refused, took: H.bid.price - price, resetTo: H.bid.soft };
     });
-    expect(host.early, 'he softened before the countdown had even run').toBe(host.fullRung);
+    expect(host.ask, 'he never came down').toBeLessThan(host.fullRung);
     expect(host.refused, 'the host took a bid below his standing ask').toBe(true);
-    expect(host.late, 'he never came down').toBeLessThan(host.fullRung);
-    expect(host.took, 'the host refused his own reduced ask').toBe(host.late);
+    expect(host.took, 'the host refused his own reduced ask').toBe(host.ask);
+    expect(host.resetTo, 'a bid should put him back to the full jump').toBe(0);
 
     await Promise.all([tv, gus, hal].map(p => p.close()));
 });
