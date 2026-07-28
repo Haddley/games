@@ -497,12 +497,184 @@
       "confidence": "medium",
       "confidenceNote": "From $657.90 for a 10in x 6.1in capacity horizontal saw. Metal bandsaws start well above woodworking ones.",
       "capturedOn": "2026-07-27"
+    },
+    {
+      "emoji": "✈️",
+      "name": "A Used Cessna 152",
+      "desc": "The two-seat aeroplane that taught half the world to fly. Yours, on an airfield, with keys.",
+      "value": 67000,
+      "apparent": "high",
+      "source": "AeroGurus marketplace, median of 51 live listings, 2026",
+      "url": "https://aerogurus.com/models/cessna-152",
+      "confidence": "medium",
+      "confidenceNote": "Median asking price across 51 live listings; the range runs $39,950–$105,000. Controller.com listings sit $49,500–$125,000.",
+      "capturedOn": "2026-07-28"
+    },
+    {
+      "emoji": "🚁",
+      "name": "AutoGyro MTOsport Gyrocopter",
+      "desc": "An open-cockpit one-seater with an unpowered windmill on top. It cannot stall.",
+      "value": 85000,
+      "apparent": "high",
+      "source": "AutoGyro USA, factory-built, 2026",
+      "url": "https://autogyrousa.com/sales-info/",
+      "confidence": "high",
+      "confidenceNote": "Factory-built from $85,000; the kit is $80,000. Dealer notes pricing tracks the euro exchange rate.",
+      "capturedOn": "2026-07-28"
+    },
+    {
+      "emoji": "🛩️",
+      "name": "AutoGyro Calidus Gyrocopter",
+      "desc": "The enclosed one, for pilots who have met weather.",
+      "value": 110000,
+      "apparent": "high",
+      "source": "AutoGyro USA, factory-built, 2026",
+      "url": "https://autogyrousa.com/sales-info/",
+      "confidence": "high",
+      "confidenceNote": "Factory-built from $110,000; the kit is $105,000.",
+      "capturedOn": "2026-07-28"
+    },
+    {
+      "emoji": "🎈",
+      "name": "A Complete Hot Air Balloon",
+      "desc": "Envelope, basket, burner, tanks and instruments. The inflation fan is separate.",
+      "value": 40000,
+      "apparent": "high",
+      "source": "NV Aloft, new commercial-made balloon, 2026",
+      "url": "https://nvaloft.com/2025/07/09/how-much-does-a-hot-air-balloon-cost-is-it-worth-it/",
+      "confidence": "medium",
+      "confidenceNote": "New commercial-made balloons run $30,000–$40,000, with the basic complete setup around $40,000. Well-kept used rigs start near $10,000–$25,000.",
+      "capturedOn": "2026-07-28"
+    },
+    {
+      "emoji": "⛸️",
+      "name": "2014 Zamboni 525 Ice Resurfacer",
+      "desc": "Shaves the rink, floods it, and lays a fresh sheet behind it. Children wave at it.",
+      "value": 45900,
+      "apparent": "fair",
+      "source": "Used arena equipment listing, Winnipeg, 2026",
+      "url": "https://www.arenawarehouse.com/for-sale",
+      "confidence": "medium",
+      "confidenceNote": "A 2014 Zamboni 525 listed at $45,900 + tax; a 2010 at $33,900, a propane model 500 at $16,500 and a 1991 Olympia at $8,750. New full-size machines run far higher.",
+      "capturedOn": "2026-07-28"
+    },
+    {
+      "emoji": "🚌",
+      "name": "A 1966 Routemaster Double-Decker Bus",
+      "desc": "Open platform at the back, curving staircase, London red. Conductor not included.",
+      "value": 26750,
+      "apparent": "fair",
+      "source": "Autoline listing, British Bus Routemaster, 1966",
+      "url": "https://autoline.com/-/sale/double-decker-buses/British-Bus/ROUTEMASTER--24090615410083798400",
+      "confidence": "medium",
+      "confidenceNote": "A live listing for a 1966 Routemaster. Five ex-London Routemasters went to auction in 2026 at £20,000–£30,000; a pristine 1964 example is listed at $400,000.",
+      "capturedOn": "2026-07-28"
+    },
+    {
+      "emoji": "🎠",
+      "name": "A Full-Size Fairground Carousel",
+      "desc": "Galloping horses on brass poles, mirrored centre, and an organ that never once stops.",
+      "value": 98500,
+      "apparent": "high",
+      "source": "Dinis carousel manufacturer, full-size range, 2026",
+      "url": "https://www.carouselmanufacturer.com/product/full-size-carousel-for-sale/",
+      "confidence": "medium",
+      "confidenceNote": "Manufacturer range: $9,000 for a 12-seat, $12,000–$35,000 for 24–36 seats, up to $110,000+ for a full-size. $98,500 sits near the top of the full-size range.",
+      "capturedOn": "2026-07-28"
+    },
+    {
+      "emoji": "🔭",
+      "name": "PlaneWave CDK17 Observatory Telescope",
+      "desc": "A seventeen-inch mirror on a direct-drive mount. Photographs galaxies from a back garden.",
+      "value": 52000,
+      "apparent": "high",
+      "source": "PlaneWave CDK400Q system pricing, 2026",
+      "url": "https://planewave.com/product-category/cdk/",
+      "confidence": "medium",
+      "confidenceNote": "CDK17 (CDK400Q) system $52,000; the CDK20 is $65,000 and the CDK24 package $113,000. Bare optical tubes are roughly half.",
+      "capturedOn": "2026-07-28"
+    },
+    {
+      "emoji": "🌌",
+      "name": "PlaneWave CDK14 Astrograph",
+      "desc": "Forty-eight pounds of telescope with pinpoint stars right to the corners of the field.",
+      "value": 33500,
+      "apparent": "high",
+      "source": "PlaneWave CDK350Q system, dealer pricing, 2026",
+      "url": "https://www.deepspaceproducts.com/product/planewave-cdk14-telescope",
+      "confidence": "medium",
+      "confidenceNote": "CDK14 (CDK350Q) system $33,500–$35,800; the tube alone is $18,500–$25,170.",
+      "capturedOn": "2026-07-28"
+    },
+    {
+      "emoji": "🐟",
+      "name": "One Show-Quality Japanese Koi",
+      "desc": "A single fish. Picked out in Niigata, flown over in a bag of oxygen, and given a name.",
+      "value": 15000,
+      "apparent": "high",
+      "source": "Kodama Koi Farm pricing guide, 2026",
+      "url": "https://www.kodamakoifarm.com/how-much-do-koi-fish-cost/",
+      "confidence": "medium",
+      "confidenceNote": "The farm's own guide: show quality $1,200–$15,000, champion quality $3,500–$50,000+. Taken at the top of show quality. The record koi, S Legend, went for $1.8m in 2018.",
+      "capturedOn": "2026-07-28"
+    },
+    {
+      "emoji": "🏡",
+      "name": "A Turnkey Tiny House on Wheels",
+      "desc": "A whole house on a trailer, with a staircase you have to take seriously.",
+      "value": 92959,
+      "apparent": "high",
+      "source": "Clever Tiny Homes, financed example, 2026",
+      "url": "https://clevertinyhomes.com/blog/how-much-does-a-tiny-home-on-wheels-cost-in-2026",
+      "confidence": "medium",
+      "confidenceNote": "A specific financed unit at $92,959. Professionally built THOWs run $70,000–$150,000; a panelised shell kit starts around $28,900.",
+      "capturedOn": "2026-07-28"
+    },
+    {
+      "emoji": "🚒",
+      "name": "A 2015 Pierce Velocity Rescue Pumper",
+      "desc": "A fire engine. Ladders down both sides and a pump that will empty a swimming pool.",
+      "value": 150000,
+      "apparent": "high",
+      "source": "Firetrucks Unlimited used inventory, 2026",
+      "url": "https://www.usedfiretrucks.firetrucksunlimited.com/AvailableTrucksFTU/Pumpers-Engines",
+      "confidence": "high",
+      "confidenceNote": "The lowest listed pumper in the dealer inventory; a 2015 Pierce Freightliner is $375,000 and a 2024 Toyne $850,000.",
+      "capturedOn": "2026-07-28"
+    },
+    {
+      "emoji": "🥇",
+      "name": "One Kilogram of Gold",
+      "desc": "A single poured Swiss bar, 999.9 fine. It fits in a coat pocket and destroys the coat.",
+      "value": 153309,
+      "apparent": "high",
+      "source": "GoldPrice.org, PAMP Suisse 1 kilo, spot-derived, 2026",
+      "url": "https://goldprice.org/gold-prices/gold-bars/pamp-suisse-1-kilo-gold-bars.htm",
+      "confidence": "high",
+      "confidenceNote": "32.15 troy oz of .9999 fine gold, valued from the live spot price on the capture date. This one genuinely moves every day — it is a snapshot, not a sticker.",
+      "capturedOn": "2026-07-28"
+    },
+    {
+      "emoji": "🎹",
+      "name": "A Steinway Model D Concert Grand",
+      "desc": "Nine feet of Hamburg spruce and cast iron. The one that lives on the concert stage.",
+      "value": 246900,
+      "apparent": "high",
+      "source": "Lindeblad Piano, new Model D, 2026",
+      "url": "https://www.lindebladpiano.com/blog/how-much-does-a-steinway-piano-cost-2026-prices-for-new-restored-steinways",
+      "confidence": "medium",
+      "confidenceNote": "Steinway does not publish prices; dealers quote $235,000–$246,900 for the 2026 Model D in satin ebony. Spirio player systems and exotic finishes add much more.",
+      "capturedOn": "2026-07-28"
     }
   ],
   "researchLog": [
     {
       "on": "2026-07-27",
       "learned": "Item-specific searches work; category searches do not. 'Surprisingly expensive everyday objects' returned inflation journalism with no purchasable items. Every good lot so far came from naming the THING and asking its price. Budget roughly one search per item and corroborate across dealers where a single retail listing does not exist."
+    },
+    {
+      "on": "2026-07-28",
+      "learned": "Top-tier pass, driven by a test failure rather than a hunch: the band-depth check reported the $50,000+ tier holding only 8 lots, all of them commercial catering equipment from the bulk harvest — so the last round of a three-round game was choosing between a pot-and-pan washer and a pizza oven. Fourteen hand-researched lots added, nine of them over $50,000. What worked: naming an ICONIC OBJECT and asking its price ('Zamboni', 'Routemaster', 'gyrocopter') rather than asking for expensive things. Dealer inventory pages (Firetrucks Unlimited, AutoGyro USA) and marketplace medians (AeroGurus, 51 Cessna 152 listings) give the firmest numbers; manufacturers of one-off equipment mostly refuse to publish and need a dealer or a pricing guide instead. Machinio blocks fetching (403). NOTE THE ARITHMETIC CEILING: a lot is only ever dealt when its reserve fits the richest bankroll (value <= 1.8 x ceiling at RESERVE_FRAC 0.25 / REACH 0.45), so with round-3 bankrolls near $25,000-$60,000 the useful sweet spot is $50,000-$110,000. A private aircraft DOES fit there — a used Cessna 152 is $67,000 — but a business jet never will without a much larger economy."
     }
   ],
   "pricingNote2026": "MEMORY PRICES ARE MOVING IN 2026 and several computing lots have already re-priced: Mac mini $599 -> $799 (June 2026), Mac Studio M3 Ultra +$1,300 with the 256GB/512GB options withdrawn entirely (March-May 2026), DGX Spark +18% on LPDDR5X shortages. Re-check every computing lot before a session; these are the fastest-rotting prices in the file, and the reason capturedOn is shown on the bidding card.",

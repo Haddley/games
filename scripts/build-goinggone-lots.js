@@ -62,6 +62,20 @@ const HOSTS = {
     'affordabletool.com': 'Affordable Tool',
     'worldofwoodcraft.com': 'World of Woodcraft',
     'trick-tools.com': 'Trick-Tools',
+    // the hand-researched top-tier pass (Jul 2026): aircraft, gold, carousels, a Zamboni
+    'aerogurus.com': 'AeroGurus',
+    'autogyrousa.com': 'AutoGyro USA',
+    'nvaloft.com': 'NV Aloft',
+    'arenawarehouse.com': 'Arena Warehouse',
+    'autoline.com': 'Autoline',
+    'carouselmanufacturer.com': 'Dinis Carousel',
+    'planewave.com': 'PlaneWave',
+    'deepspaceproducts.com': 'Deep Space Products',
+    'kodamakoifarm.com': 'Kodama Koi Farm',
+    'clevertinyhomes.com': 'Clever Tiny Homes',
+    'usedfiretrucks.firetrucksunlimited.com': 'Firetrucks Unlimited',
+    'goldprice.org': 'GoldPrice',
+    'lindebladpiano.com': 'Lindeblad Piano',
 };
 
 function label(url) {
