@@ -187,12 +187,27 @@ test('paddles: unique two-digit numbers, drawn on screen, and the auctioneer sel
     await expect(tv.locator('.tv-lot')).toBeVisible({ timeout: 20_000 });
     await forceCheapLots(tv);
 
-    // The TV rail draws a paddle per bidder
+    // The TV rail draws a paddle per bidder — and EVERY bidder is still on the screen.
+    // A paddle modifier called `.tv` once collided with the game's own full-screen `.tv` wrapper
+    // (height: 100dvh), which stretched the rail paddle to fill the column and pushed every
+    // bidder but the first off the bottom of the TV. No error, no failing assertion on counts —
+    // the rows were all in the DOM. So this checks the geometry, not the count.
     await expect(tv.locator('#v-rail .paddle')).toHaveCount(2, { timeout: 20_000 });
+    const rail = await tv.evaluate(() => {
+        const h = window.innerHeight;
+        return [...document.querySelectorAll('.rail-row')].map(r => {
+            const b = r.getBoundingClientRect();
+            return { top: Math.round(b.top), height: Math.round(b.height), onScreen: b.bottom <= h + 1 };
+        });
+    });
+    for (const r of rail) {
+        expect(r.onScreen, `a bidder row fell off the TV: ${JSON.stringify(rail)}`).toBe(true);
+        expect(r.height, `a bidder row is absurdly tall: ${JSON.stringify(rail)}`).toBeLessThan(200);
+    }
 
     // Your own paddle goes UP when you hold the bid
     await openBidding(eve, tv);
-    await expect(eve.locator('#my-paddle .paddle.up')).toBeVisible({ timeout: 10_000 });
+    await expect(eve.locator('#my-paddle .paddle.pad-up')).toBeVisible({ timeout: 10_000 });
     const evePaddle = await tv.evaluate(() => H.players.find(p => p.name === 'Eve').paddle);
     await expect(eve.locator('#my-paddle')).toContainText(`number ${evePaddle}`);
     await shot(eve, 'gavel-15-phone-paddle-up');

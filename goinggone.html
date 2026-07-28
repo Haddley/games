@@ -151,6 +151,9 @@
             --pad-h: 26px;
             position: relative; display: inline-flex; align-items: center; justify-content: center;
             width: calc(var(--pad-h) * .82); height: var(--pad-h);
+            /* every modifier is pad-* on purpose: a bare `.tv` here collided with the game's own
+               full-screen .tv wrapper and stretched the rail paddle to 100dvh, which silently
+               pushed all but the first bidder off the bottom of the TV. */
             border-radius: calc(var(--pad-h) * .16);
             background: linear-gradient(160deg, var(--pc), color-mix(in srgb, var(--pc) 58%, #1a1024));
             box-shadow: 0 calc(var(--pad-h) * .05) calc(var(--pad-h) * .16) rgba(0,0,0,.45),
@@ -169,11 +172,11 @@
             font-size: calc(var(--pad-h) * .46); color: #2a1a05;
             text-shadow: 0 1px 0 rgba(255,255,255,.35);
         }
-        .paddle.big { --pad-h: 92px; }
-        .paddle.tv { --pad-h: 5vmin; }
-        .paddle.tv-huge { --pad-h: 22vmin; }
+        .paddle.pad-big { --pad-h: 92px; }
+        .paddle.pad-tv { --pad-h: 5vmin; }
+        .paddle.pad-huge { --pad-h: 22vmin; }
         /* raised, because you are holding the bid */
-        .paddle.up { animation: paddleUp .5s cubic-bezier(.2,1.5,.35,1) both; }
+        .paddle.pad-up { animation: paddleUp .5s cubic-bezier(.2,1.5,.35,1) both; }
         @keyframes paddleUp {
             0% { transform: translateY(30%) rotate(-6deg); }
             60% { transform: translateY(-12%) rotate(3deg); }
@@ -3139,7 +3142,7 @@ function myPaddleHTML(msg) {
     if (!msg.myPaddle) return '';
     const me = { paddle: msg.myPaddle, color: (msg.players || []).find(p => p.name === myName)?.color };
     const up = !!(msg.bid && msg.bid.youLead);
-    return `${paddleHTML(me, 'big' + (up ? ' up' : ''))}
+    return `${paddleHTML(me, 'pad-big' + (up ? ' pad-up' : ''))}
         <div><div class="paddle-lbl">You are bidder</div>
         <div style="font-weight:900;font-size:1.3rem;color:var(--gold)">number ${msg.myPaddle}</div></div>`;
 }
@@ -3184,7 +3187,7 @@ function shelfHTML(msg) {
 function railRowsHTML(msg) {
     return (msg.players || []).map(p => `
         <div class="rail-row${msg.bid && msg.bid.leader === p.name ? ' leader' : ''}">
-            ${paddleHTML(p, 'tv')}
+            ${paddleHTML(p, 'pad-tv')}
             <span class="rname">${esc(p.name)}</span>
             <span class="rlots">${p.lotCount} lot${p.lotCount === 1 ? '' : 's'}</span>
             <span class="rcoins">🪙${num(p.coins)}</span>
@@ -3568,7 +3571,7 @@ function renderViewerSold() {
                <b style="color:var(--gold)">${num(s.value)}</b>.</div>`
         : `<div class="gavel">${GAVEL}</div>
            <div class="who">SOLD to <span style="color:${s.color}">${esc(s.winner)}</span> for ${num(s.price)}!</div>
-           <div class="paddle-row" style="margin:1vmin 0">${paddleHTML(s, 'tv-huge')}
+           <div class="paddle-row" style="margin:1vmin 0">${paddleHTML(s, 'pad-huge')}
              <div class="sub2">bidder number ${s.paddle}</div></div>
            <div class="sub2">${esc(title)} — and we'll find out what it was really worth.</div>`;
     return tvShell(`<div class="tv-sold${s.passed ? ' passed' : ''}">${inner}</div>`, lotMeta(vD));
