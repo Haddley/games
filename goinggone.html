@@ -2060,10 +2060,16 @@ function toggleSfx() {
     $id('tog-sfx').classList.toggle('off', !sfxOn);
 }
 function toggleVoice() {
-    voiceOn = !voiceOn;
-    localStorage.setItem('gavel-voice', voiceOn ? '1' : '0');
-    if (!voiceOn) shutUp();
-    $id('tog-voice').classList.toggle('off', !voiceOn);
+    _voicePref = voiceOn() ? '0' : '1';
+    localStorage.setItem('gavel-voice', _voicePref);
+    if (!voiceOn()) shutUp(); else voiceHint(false);
+    syncVoiceBtn();
+}
+// the role decides the DEFAULT, and the role is not known until a room is joined, so the button
+// re-reads it rather than being set once at boot
+function syncVoiceBtn() {
+    const b = $id('tog-voice');
+    if (b) b.classList.toggle('off', !voiceOn());
 }
 
 // ═══════════════════════════════════════════
@@ -2080,9 +2086,15 @@ function toggleVoice() {
 // me", "I'm bid", "bid'em at"). Fishing DOWN for an opening bid is standard practice, and a lot
 // that never makes its reserve is "passed in". Lines are assembled from banks rather than stored
 // whole, so a few dozen fragments give many hundreds of distinct calls.
-let voiceOn = localStorage.getItem('gavel-voice') !== '0';
+// ANY device that can speak is allowed to — the 🗣️ toggle decides, and it is on every screen,
+// including a television that came in through "…or show an existing auction" (that path sets
+// isViewer, so it always could). The toggle merely DEFAULTS off on a phone: five phones and a
+// television all calling the same lot in slightly different voices a beat apart is bedlam, and
+// the auctioneer belongs to the room. Turn it on wherever you like; the choice sticks.
+let _voicePref = localStorage.getItem('gavel-voice');      // '1' | '0' | null = never chosen
+const voiceOn = () => (_voicePref === null ? !!(isViewer || isTvHost) : _voicePref !== '0');
 let _voice = null, _voiceTried = false;
-const canSpeak = () => voiceOn && sfxOn && typeof speechSynthesis !== 'undefined' && (isViewer || isTvHost);
+const canSpeak = () => voiceOn() && sfxOn && typeof speechSynthesis !== 'undefined';
 
 function pickVoice() {
     if (_voiceTried || typeof speechSynthesis === 'undefined') return _voice;
@@ -2149,7 +2161,7 @@ function voiceHint(reason) {
 function voiceDiag() {
     const v = (typeof speechSynthesis !== 'undefined' && speechSynthesis.getVoices()) || [];
     const d = {
-        canSpeak: canSpeak(), voiceOn, sfxOn, isViewer, isTvHost,
+        canSpeak: canSpeak(), voiceOn: voiceOn(), voicePref: _voicePref, sfxOn, isViewer, isTvHost,
         hasSpeechSynthesis: typeof speechSynthesis !== 'undefined',
         voicesInstalled: v.length,
         chosenVoice: (pickVoice() || {}).name || '(browser default)',
@@ -3733,6 +3745,7 @@ function render() {
         case 'viewer':     html = renderViewer(); break;
         default:           html = renderHome();
     }
+    syncVoiceBtn();     // the default follows the role, which arrives with the first message
     // guarded: a stale common.js (no setHTML) must never blank the game
     if (typeof setHTML === 'function') setHTML(app, html); else app.innerHTML = html;
     app.classList.toggle('fresh', fresh);
@@ -4286,18 +4299,18 @@ function simRestart() {
     const params = new URLSearchParams(location.search);
     if (!musicOn) $id('tog-music').classList.add('off');
     if (!sfxOn) $id('tog-sfx').classList.add('off');
-    if (!voiceOn) $id('tog-voice').classList.add('off');
+    syncVoiceBtn();
     mountAuctioneer();
     // Voices load asynchronously in most browsers — ask once now, and again when they arrive.
     // A browser with NO speech API at all never reaches say(), so it would never report itself —
     // which is the Silk browser on a Fire TV, where the music and stingers play perfectly well
     // and only the auctioneer is missing.
-    if (typeof speechSynthesis === 'undefined') { if (voiceOn) setTimeout(() => voiceHint('novoices'), 2500); }
+    if (typeof speechSynthesis === 'undefined') { if (voiceOn()) setTimeout(() => voiceHint('novoices'), 2500); }
     else try {
         pickVoice();
         speechSynthesis.addEventListener('voiceschanged', () => { pickVoice(); voiceHint(voicesAvailable() ? false : 'novoices'); }, { once: true });
         // voices can take a moment to arrive; if they never do, there is nothing to wait for
-        setTimeout(() => { if (!voicesAvailable() && voiceOn) voiceHint('novoices'); }, 4000);
+        setTimeout(() => { if (!voicesAvailable() && voiceOn()) voiceHint('novoices'); }, 4000);
     } catch (e) {}
     const mode = (params.get('mode') || '').toLowerCase();
     const simPlayers = parseInt(params.get('players'), 10) || 4;

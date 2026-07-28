@@ -289,8 +289,11 @@ invented**: if a price could not be verified from a live source, the item is not
   filler words rather than stored whole, with `words()` turning 3100 into "three thousand one
   hundred" — never "thirty-one hundred", which was reported by ear twice: counting in hundreds is
   an American rostrum idiom, and it disagrees with the figure on the screen beside it.
-  It speaks only under `isViewer || isTvHost` — ten phones chanting over each other is bedlam —
-  cancels rather than queues (a chant lagging the screen is worse than silence), and has its own
+  **Any device may speak** — the 🗣️ toggle decides and appears on every screen, including a TV
+  that arrived via "…or show an existing auction" (that path sets `isViewer`). It merely DEFAULTS
+  off on a phone, because five phones and a telly calling the same lot a beat apart is bedlam;
+  `voiceOn()` resolves that default from the role at call time, since the role is not known at
+  boot. It cancels rather than queues (a chant lagging the screen is worse than silence), and has its own
   🗣️ toggle. **Web Speech and WebAudio are separate subsystems with separate gates**, so a screen
   that plays music and stingers happily can still be mute — one working tells you nothing about
   the other, and the symptom is identical whatever the cause (he goes quiet and his mouth stops,

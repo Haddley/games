@@ -683,6 +683,45 @@ test('a screen with no speech voices says so, and then stops saying it', async (
     await tv.close();
 });
 
+test('any screen may speak, and a TV that JOINS an auction speaks too', async ({ browser }) => {
+    // "…or show an existing auction" is a second way a television reaches the room, and it must
+    // get a voice like any other. The 🗣️ toggle decides on every device; it merely defaults off
+    // on a phone, because five phones and a telly calling the same lot a beat apart is bedlam.
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/goinggone.html');
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
+    const code = await tv.evaluate(() => roomCode);
+
+    // a SECOND television, arriving by the viewer route rather than by hosting
+    const tv2 = await browser.newPage({ viewport: TV });
+    await tv2.goto('/goinggone.html');
+    await tv2.locator('input[placeholder="4-letter code"]').last().fill(code);
+    await tv2.getByRole('button', { name: /Open auction floor/ }).click();
+    await expect(tv2.locator('.cxl-code')).toHaveText(code, { timeout: 30_000 });
+    expect(await tv2.evaluate(() => ({ isViewer, voiceOn: voiceOn(), canSpeak: canSpeak() })))
+        .toEqual({ isViewer: true, voiceOn: true, canSpeak: true });
+
+    // a phone is silent by default…
+    const phone = await joinPhone(browser, code, 'Kit');
+    await expect(phone.locator('.player-row').first()).toBeVisible({ timeout: 30_000 });
+    expect(await phone.evaluate(() => voiceOn()), 'a phone should not chant unasked').toBe(false);
+
+    // …but may be told to speak, and remembers being told
+    await phone.evaluate(() => toggleVoice());
+    expect(await phone.evaluate(() => ({ voiceOn: voiceOn(), canSpeak: canSpeak() })))
+        .toEqual({ voiceOn: true, canSpeak: true });
+    await expect(phone.locator('#tog-voice')).not.toHaveClass(/off/);
+
+    // and a television may be told to shut up
+    await tv2.evaluate(() => toggleVoice());
+    expect(await tv2.evaluate(() => ({ voiceOn: voiceOn(), canSpeak: canSpeak() })))
+        .toEqual({ voiceOn: false, canSpeak: false });
+    await expect(tv2.locator('#tog-voice')).toHaveClass(/off/);
+
+    await Promise.all([tv, tv2, phone].map(p => p.close()));
+});
+
 test('the attract mode takes its settings from the query string', async ({ browser }) => {
     // ?mode=tvsimulation&players=3&rounds=3 should be exactly that: three bidders, three banked
     // rounds. It used to hardcode two rounds and ignore the parameter. The rounds MECHANIC is
