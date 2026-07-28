@@ -475,6 +475,29 @@ test('the auctioneer stands on the TV only, and his mouth follows the speech', a
     // the mouth is driven by the utterance's own start/end, not a timer
     expect(await tv.evaluate(() => { auctTalk(true); return document.querySelector('#auctioneer').classList.contains('talking'); })).toBe(true);
     expect(await tv.evaluate(() => { auctTalk(false); return document.querySelector('#auctioneer').classList.contains('talking'); })).toBe(false);
+
+    // …and the SHAPE of it comes from the words. The first version flapped at a fixed rate, so
+    // "SOLD!" and a hundred-and-fifty-three-thousand looked identical — which is what a fixed
+    // keyframe loop always looks like. The plan must differ per line, scale with length, and
+    // close the mouth at punctuation.
+    const mouth = await tv.evaluate(() => {
+        const plan = t => planMouth(t, 1.28);
+        const shape = t => plan(t).map(s => s.open).join(',');
+        const ms = t => plan(t).reduce((a, s) => a + s.dur, 0);
+        return {
+            sold: shape('SOLD!'), ask: shape("Who'll start me at eight thousand five hundred?"),
+            shortMs: ms('SOLD!'), longMs: ms('Number forty-two leads, on nine thousand three hundred.'),
+            closesAtStop: plan('Passed in. No sale.').some(s => s.open === 0),
+            noStopNoClose: plan('going going gone').every(s => s.open > 0),
+            openness: new Set(plan("Who'll start me at eight thousand five hundred?").map(s => s.open)).size,
+        };
+    });
+    expect(mouth.sold).not.toBe(mouth.ask);                    // different words, different mouth
+    expect(mouth.longMs).toBeGreaterThan(mouth.shortMs * 3);   // and it scales with the line
+    expect(mouth.closesAtStop, 'the mouth should shut at a full stop').toBe(true);
+    expect(mouth.noStopNoClose, 'nothing to close for, so it should not').toBe(true);
+    expect(mouth.openness, 'every syllable opened the same amount — that is a metronome')
+        .toBeGreaterThan(1);
     // …and the arm swings on the real hammer blow
     expect(await tv.evaluate(() => { auctBang(); return document.querySelector('#auctioneer').classList.contains('bang'); })).toBe(true);
 

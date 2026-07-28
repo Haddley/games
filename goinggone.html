@@ -496,9 +496,13 @@
         #auctioneer .eye.l { left: 22%; } #auctioneer .eye.r { right: 22%; }
         @keyframes auBlink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.08); } }
         /* the mouth is the whole point: it moves only while he is ACTUALLY speaking */
-        #auctioneer .mouth { position: absolute; left: 50%; top: 66%; width: 30%; height: 6%; transform: translateX(-50%); border-radius: 12% 12% 46% 46%; background: #6b2b2b; transition: height .07s linear; }
-        #auctioneer.talking .mouth { animation: auTalk .24s ease-in-out infinite; }
-        @keyframes auTalk { 0%, 100% { height: 6%; } 50% { height: 26%; } }
+        /* No keyframe loop here on purpose. A fixed flap is a metronome: it looks identical
+           whether he is saying "sold" or reading out a hundred and fifty-three thousand. The
+           height and width are set from JS, one step per syllable of the words actually being
+           spoken — see startMouth(). (The first version DID have a CSS loop plus an inline
+           height per word, which is worse than either: a running animation overrides inline
+           styles, so the per-word variation was computed and then thrown away.) */
+        #auctioneer .mouth { position: absolute; left: 50%; top: 66%; width: 26%; height: 6%; transform: translateX(-50%); border-radius: 12% 12% 46% 46%; background: #6b2b2b; transition: height .05s linear, width .05s linear; }
         #auctioneer.talking .au { animation: auBob 1.2s ease-in-out infinite; }
         /* arm + gavel, which swing only when the hammer actually falls */
         #auctioneer .arm { position: absolute; right: 4%; bottom: 40%; width: 12%; height: 26%; border-radius: calc(var(--ah) * .06); background: linear-gradient(180deg, #382a4e, #221a38); transform-origin: 50% 8%; transform: rotate(-14deg); z-index: 5; }
@@ -2038,12 +2042,82 @@ function mountAuctioneer() {
     </div>`;
     document.body.appendChild(_auct);
 }
-function auctTalk(on) { if (_auct) _auct.classList.toggle('talking', !!on); }
-// a word boundary landed — nudge the mouth so the flap is not a metronome
-function auctBeat() {
-    if (!_auct || REDUCED) return;
+function auctTalk(on) { if (_auct) _auct.classList.toggle('talking', !!on); if (!on) stopMouth(); }
+
+// ── the mouth ──
+// Driven by the WORDS, not by a timer at a fixed rate. Speech engines give you onstart and (in
+// most browsers) onboundary per word, but nothing about shape — so the plan is built from the
+// text itself: one step per syllable, opened by the vowel in that syllable, and CLOSED at
+// punctuation, which is what makes a full stop read as a full stop. onboundary, where it fires,
+// re-anchors the plan against the real audio so it cannot drift over a long line.
+let _mouthTimer = null, _mouthPlan = null, _mouthStep = 0;
+// An average English syllable at rate 1. Erring LONG is the safe direction: onend always stops
+// the mouth, so a plan that outlives the audio costs nothing, while one that finishes early
+// leaves him mouthing silence — and if it does run out mid-sentence the plan simply loops.
+const SYL_MS = 210;
+
+// Exported shape so the test can assert the plan rather than watch a face.
+function planMouth(text, rate) {
+    const steps = [];
+    const re = /\S+/g;
+    let m;
+    while ((m = re.exec(text || ''))) {
+        const at = m.index, word = m[0];
+        const letters = word.replace(/[^a-z']/gi, '').toLowerCase();
+        const vowels = letters.match(/[aeiouy]+/g) || [];
+        const syl = Math.max(1, vowels.length);
+        for (let k = 0; k < syl; k++) {
+            const v = vowels[Math.min(k, vowels.length - 1)] || 'a';
+            // how far the jaw drops for this syllable — "aw" is not "ee"
+            const open = /^[ao]/.test(v) ? 1 : /^[eu]/.test(v) ? 0.66 : 0.42;
+            steps.push({ at, open, dur: Math.round(SYL_MS / (rate || 1)) });
+        }
+        const tail = word.slice(-1);
+        if (/[,;:—-]/.test(tail)) steps.push({ at, open: 0, dur: Math.round(150 / (rate || 1)) });
+        else if (/[.!?]/.test(tail)) steps.push({ at, open: 0, dur: Math.round(300 / (rate || 1)) });
+    }
+    return steps;
+}
+
+function setMouth(open) {
+    if (!_auct) return;
     const m = _auct.querySelector('.mouth');
-    if (m) m.style.height = (0.6 + Math.random() * 1.8).toFixed(2) + 'vmin';
+    if (!m) return;
+    m.style.height = (6 + open * 26).toFixed(1) + '%';
+    // a wide-open mouth is also a narrower one — otherwise it reads as a letterbox
+    m.style.width = (26 - open * 7).toFixed(1) + '%';
+}
+
+function stopMouth() {
+    clearTimeout(_mouthTimer); _mouthTimer = null; _mouthPlan = null; _mouthStep = 0;
+    setMouth(0);
+}
+
+function startMouth(text, rate) {
+    stopMouth();
+    if (REDUCED) return;
+    _mouthPlan = planMouth(text, rate);
+    _mouthStep = 0;
+    const tick = () => {
+        if (!_mouthPlan) { stopMouth(); return; }
+        if (_mouthStep >= _mouthPlan.length) {
+            // still talking? a slower voice than we estimated — go round again rather than
+            // closing his mouth while sound is still coming out of it
+            if (!_auct || !_auct.classList.contains('talking')) { stopMouth(); return; }
+            _mouthStep = 0;
+        }
+        const s = _mouthPlan[_mouthStep++];
+        setMouth(s.open);
+        _mouthTimer = setTimeout(tick, s.dur);
+    };
+    tick();
+}
+
+// the engine tells us which character it has reached — jump the plan to that word
+function auctBeat(e) {
+    if (!_mouthPlan || !e || typeof e.charIndex !== 'number') return;
+    const i = _mouthPlan.findIndex(s => s.at >= e.charIndex);
+    if (i >= 0) _mouthStep = i;
 }
 function auctBang() {
     if (!_auct || REDUCED) return;
@@ -2063,7 +2137,7 @@ function say(text, opts = {}) {
         u.pitch = opts.pitch === undefined ? 0.9 : opts.pitch;
         u.volume = opts.vol === undefined ? 1 : opts.vol;
         // his mouth is tied to THIS utterance, not to a timer
-        u.onstart = () => auctTalk(true);
+        u.onstart = () => { auctTalk(true); startMouth(text, u.rate); };
         u.onend = () => auctTalk(false);
         u.onerror = () => auctTalk(false);
         u.onboundary = auctBeat;                      // per-word, where the browser offers it

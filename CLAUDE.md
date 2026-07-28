@@ -231,9 +231,15 @@ invented**: if a price could not be verified from a live source, the item is not
   at the bottom-left — no new third-party art, because that would mean the whole provenance dance
   in `llmwiki/sprites-and-licensing.md`. He is mounted **outside `#app`**: that element's innerHTML
   is replaced on every render, and a head rebuilt mid-sentence drops its mouth animation every
-  time a bid lands. His mouth is driven by the utterance's own `onstart`/`onend`/`onboundary`, so
-  it is synchronised to the audio actually playing rather than to a guess about sentence length —
-  which would drift the moment a voice reads at a different rate, and they all do. The gavel arm
+  time a bid lands. His mouth opens **once per syllable of the words actually being spoken**
+  (`planMouth`/`startMouth`): the plan is built from the text, the jaw drops further for an "aw"
+  than an "ee", and it SHUTS at punctuation, which is what makes a full stop read as one. Never a
+  keyframe loop — a fixed flap looks identical whether he is saying "sold" or a hundred and
+  fifty-three thousand, and that is exactly how it looked when first built. (Nor a loop *plus* a
+  per-word inline height: a running CSS animation overrides inline styles, so that version
+  computed the variation and threw it away.) `onstart`/`onend` bracket it and `onboundary`
+  re-anchors it against the real audio; the syllable estimate deliberately errs LONG, because
+  `onend` always stops the mouth whereas a short plan leaves him mouthing silence. The gavel arm
   swings from `sGavel()`. `.tv` reserves a `padding-bottom` band for him so he never stands on the
   layout; the e2e asserts that no laid-out element overlaps him. Size is one number, `--ah`.
 - **The auctioneer's VOICE is spoken, TV only.** `say()` drives Web Speech from the phrase banks
