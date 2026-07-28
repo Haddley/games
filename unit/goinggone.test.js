@@ -61,6 +61,15 @@ const RAISE_SRC = (() => {
 const RAISE = new Function(RAISE_SRC +
     '\nreturn { raisesFor, softMinRaise, softRaises, softStage, RAISE_FLOOR, SOFT_SHARE };')();
 
+// What the room is allowed to learn about everybody else's purse.
+const PURSE_SRC = (() => {
+    const a = HTML.indexOf('const PURSE_HIDDEN = [');
+    const b = HTML.indexOf('function stateFor', a);
+    assert.ok(a >= 0 && b > a, 'could not slice the purse-band block out of goinggone.html');
+    return HTML.slice(a, b);
+})();
+const PURSE = new Function(PURSE_SRC + '\nreturn { purseBand, PURSE_BANDS, PURSE_HIDDEN };')();
+
 // The auctioneer speaks his numbers, so they have to be built into words rather than left to a
 // speech engine to spell out digit by digit.
 const SPEAK_SRC = (() => {
@@ -293,6 +302,47 @@ test('asks are round numbers a person would say out loud', () => {
             const digits = String(a).replace(/0+$/, '').length;
             assert.ok(a < 20 || digits <= 2, `${a} is not a number an auctioneer would call`);
         }
+    }
+});
+
+// ── nobody may read your bank balance off the TV ────────────────────────────
+test('the purse band never rises as you get poorer', () => {
+    const avg = 7000;
+    let prev = null;
+    const order = ['flush', 'comfortable', 'short', 'skint'];
+    for (const coins of [40000, 20000, 10500, 9000, 7000, 5600, 3000, 2100, 1000, 100, 0]) {
+        const band = PURSE.purseBand(coins, avg);
+        assert.ok(order.includes(band), `${coins} produced "${band}"`);
+        if (prev !== null) {
+            assert.ok(order.indexOf(band) >= order.indexOf(prev),
+                `${coins} reads "${band}" but a richer player read "${prev}"`);
+        }
+        prev = band;
+    }
+});
+
+test('a band is a judgement, not the number in disguise', () => {
+    // If every purse produced a distinct band it would just be the balance with extra steps.
+    // Four bands, and a whole spread of purses has to collapse into each.
+    const avg = 7000;
+    const bands = [7000, 7200, 6800, 6500, 8000].map(c => PURSE.purseBand(c, avg));
+    assert.equal(new Set(bands).size, 1, `similar purses split across bands: ${bands}`);
+    assert.equal(PURSE.PURSE_BANDS.length, 4);
+});
+
+test('everyone starts the game reading the same', () => {
+    // Round one, nobody has spent anything: the room should learn nothing from the rail.
+    const equal = [7000, 7000, 7000].map(c => PURSE.purseBand(c, 7000));
+    assert.equal(new Set(equal).size, 1, `identical purses read differently: ${equal}`);
+});
+
+test('the money is hidden exactly while the bidding is live, and not after', () => {
+    // The reveal screens MUST show the numbers — the banked board and the podium are the payoff.
+    for (const phase of ['lot_intro', 'bidding', 'sold']) {
+        assert.ok(PURSE.PURSE_HIDDEN.includes(phase), `${phase} leaks the purses`);
+    }
+    for (const phase of ['lobby', 'valuation', 'banked', 'podium']) {
+        assert.ok(!PURSE.PURSE_HIDDEN.includes(phase), `${phase} hides money it should be showing`);
     }
 });
 

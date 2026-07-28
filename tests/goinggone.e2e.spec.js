@@ -163,6 +163,62 @@ test('TV-first: the ask, a bidding war, gavel, valuation, podium', async ({ brow
     await Promise.all([tv, karen, ben].map(p => p.close()));
 });
 
+test('nobody can read another bidder\'s purse while the bidding is live', async ({ browser }) => {
+    // Knowing somebody has $217 left tells you $220 takes it, which turns a guessing game into
+    // an arithmetic one. So the exact figure never LEAVES THE HOST during a lot — not to the TV
+    // and not to the phones, because hiding it client-side would leave it one console away, the
+    // same reason mystery lots are withheld host-side.
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/goinggone.html');
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
+    const code = await tv.evaluate(() => roomCode);
+
+    const ivy = await joinPhone(browser, code, 'Ivy');
+    await expect(ivy.locator('text=Captain\'s Settings')).toBeVisible({ timeout: 30_000 });
+    const jon = await joinPhone(browser, code, 'Jon');
+    await expect(tv.locator('.cxl-chip')).toHaveCount(2, { timeout: 20_000 });
+
+    await ivy.getByRole('button', { name: '1', exact: true }).click();
+    await ivy.waitForTimeout(250);
+    await ivy.getByRole('button', { name: /Start the auction/ }).click();
+    await expect(tv.locator('.tv-lot')).toBeVisible({ timeout: 20_000 });
+    await forceCheapLots(tv);
+    await openBidding(ivy, tv);                       // spend something, so the purses differ
+
+    // what the host is actually willing to say about everyone, mid-lot
+    const live = await tv.evaluate(() => ({
+        viewer: viewerStateMsg().players,
+        toJon: stateFor(H.players.find(p => p.name === 'Jon')).players,
+        myCoins: stateFor(H.players.find(p => p.name === 'Jon')).myCoins,
+        phase: H.phase,
+    }));
+    expect(['lot_intro', 'bidding', 'sold']).toContain(live.phase);
+    for (const row of [...live.viewer, ...live.toJon]) {
+        expect(row.coins, `${row.name}'s balance went over the wire during ${live.phase}`).toBeUndefined();
+        expect(row.purse, `${row.name} has no purse band to show instead`).toBeTruthy();
+        expect(row.lotCount, 'lots won should stay public — a paddle going up is not a secret').toBeGreaterThanOrEqual(0);
+    }
+    expect(live.myCoins, 'you must still be told your OWN purse').toBeGreaterThan(0);
+
+    // and the TV shows the band rather than a number
+    await expect(tv.locator('#v-rail .rpurse').first()).toBeVisible();
+    expect(await tv.locator('#v-rail .rcoins').count()).toBe(0);
+    await shot(tv, 'gavel-17-tv-purse-bands');
+
+    // …but the reveal screens are the payoff and must show the real figures
+    const shown = await tv.evaluate(() => {
+        H.phase = 'banked';
+        return viewerStateMsg().players.map(p => ({ coins: p.coins, purse: p.purse }));
+    });
+    for (const row of shown) {
+        expect(row.coins, 'the banked board must show the real numbers').toBeGreaterThanOrEqual(0);
+        expect(row.purse).toBeUndefined();
+    }
+
+    await Promise.all([tv, ivy, jon].map(p => p.close()));
+});
+
 test('he splits the increment rather than dropping the hammer', async ({ browser }) => {
     // A real auctioneer who cannot get another whole jump asks for less: "I'm bid five thousand,
     // will you give me five-two? Five-one?" So the smallest acceptable raise softens as the gavel

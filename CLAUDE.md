@@ -215,6 +215,15 @@ invented**: if a price could not be verified from a live source, the item is not
   strings: `text` for the screen (names) and `spoken` for the auctioneer (paddle numbers only).
   Shown on the banked board and the podium, staged to land after the thing they comment on; spoken
   as **one** utterance, because `say()` cancels and three calls would clip down to the last line.
+- **Nobody can read another bidder's purse while a lot is live.** The exact figure is the one
+  piece of information that turns this from a guessing game into an arithmetic one ("he has $217,
+  so $220 takes it"), so during `lot_intro`/`bidding`/`sold` (`PURSE_HIDDEN`) `stateFor` sends a
+  **band** — flush · comfortable · short · skint, from their share of the room's average — instead
+  of `coins`. Withheld **on the host**, like mystery lots and for the same reason: phones render
+  whatever arrives, so hiding it client-side leaves it one console away. Lots won stays public (a
+  paddle going up is not a secret), your own purse always reaches you via `myCoins`, and the
+  valuation, banked board and podium show the real numbers — they are the payoff. The e2e asserts
+  what actually crosses the wire, not what the TV happens to draw.
 - **He SPLITS THE INCREMENT as the hammer falls.** Once bidding is running, the smallest
   acceptable raise softens in stages as the gavel countdown empties (`softMinRaise`/`softRaises`):
   full rung → ½ → ¼ → a floor of `RAISE_FLOOR` (2%) of the current price, never under $1. So a $60

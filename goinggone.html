@@ -229,6 +229,12 @@
         }
         .rail-row .rname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .rail-row .rcoins { font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; }
+        /* how flush somebody LOOKS, which is all the room gets while the bidding is live */
+        .rail-row .rpurse { font-weight: 900; font-size: 1.9vmin; letter-spacing: .1vmin; white-space: nowrap; }
+        .rail-row .rpurse.flush { color: #ffd777; }
+        .rail-row .rpurse.comfortable { color: #a7f3c9; }
+        .rail-row .rpurse.short { color: #f6c177; }
+        .rail-row .rpurse.skint { color: var(--down); opacity: .85; }
         .rail-row .rlots { color: var(--muted); font-size: 1.5vmin; }
         .rail-row.leader { border-color: var(--gold); box-shadow: 0 0 18px rgba(232,183,90,.22); }
 
@@ -2454,6 +2460,21 @@ function lotView(lotIdx) {
     return { emoji: lot.emoji, name: lot.name, desc: lot.desc, img: lot.img || null, src: lot.src, on: lot.on, mystery: false };
 }
 
+// ── WHAT THE ROOM CAN SEE OF YOUR PURSE ─────────────────────────────────────
+// At a real sale you cannot see anyone's bank balance, and the exact figure is the single piece
+// of information that turns this from a guessing game into an arithmetic one: "he has $217, so
+// $220 takes it." What you CAN read off somebody across a saleroom is how comfortable they look,
+// so that is what the room gets — a band, computed from their share of the average purse.
+// Lots won stays public throughout, because a paddle going up is not a secret anywhere.
+// The withholding happens HERE, on the host, for the same reason mystery lots do: phones render
+// whatever arrives, so hiding it client-side would leave it a console away.
+const PURSE_HIDDEN = ['lot_intro', 'bidding', 'sold'];
+const PURSE_BANDS = [[1.5, 'flush'], [0.8, 'comfortable'], [0.3, 'short'], [0, 'skint']];
+function purseBand(coins, avg) {
+    const ratio = avg > 0 ? coins / avg : 1;
+    return (PURSE_BANDS.find(([lo]) => ratio >= lo) || PURSE_BANDS[PURSE_BANDS.length - 1])[1];
+}
+
 function stateFor(p) {
     const curIdx = H.lotIndex >= 0 ? H.lotOrder[H.lotIndex] : -1;
     // A mystery lot stays hidden on its OWNER's shelf too, right up to the valuation — otherwise
@@ -2491,7 +2512,16 @@ function stateFor(p) {
         revealIndex: H.revealIndex,
         standings: H.standings, awards: H.awards, winner: H.winner,
         commentary: H.commentary || null,
-        players: H.players.map(q => ({ name: q.name, color: q.color, paddle: q.paddle, coins: q.coins, lotCount: q.lots.length })),
+        players: (() => {
+            // your OWN purse always reaches you, via myCoins above — this is what you learn
+            // about everybody else
+            const hide = PURSE_HIDDEN.includes(H.phase);
+            const avg = H.players.reduce((s, q) => s + q.coins, 0) / Math.max(1, H.players.length);
+            return H.players.map(q => ({
+                name: q.name, color: q.color, paddle: q.paddle, lotCount: q.lots.length,
+                ...(hide ? { purse: purseBand(q.coins, avg) } : { coins: q.coins }),
+            }));
+        })(),
         tvHost: isTvHost, captain: capName(),
     };
 }
@@ -3522,13 +3552,17 @@ function shelfHTML(msg) {
     }).join('')}</div>`;
 }
 
+// How a band reads from a sofa. Deliberately a judgement rather than a measurement.
+const PURSE_LABEL = { flush: '💰 flush', comfortable: '🙂 comfortable', short: '😬 short', skint: '🫥 skint' };
 function railRowsHTML(msg) {
     return (msg.players || []).map(p => `
         <div class="rail-row${msg.bid && msg.bid.leader === p.name ? ' leader' : ''}">
             ${paddleHTML(p, 'pad-tv')}
             <span class="rname">${esc(p.name)}</span>
             <span class="rlots">${p.lotCount} lot${p.lotCount === 1 ? '' : 's'}</span>
-            <span class="rcoins">🪙${num(p.coins)}</span>
+            ${p.coins === undefined
+                ? `<span class="rpurse ${p.purse}">${PURSE_LABEL[p.purse] || ''}</span>`
+                : `<span class="rcoins">🪙${num(p.coins)}</span>`}
         </div>`).join('');
 }
 
