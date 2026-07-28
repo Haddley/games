@@ -300,6 +300,12 @@ invented**: if a price could not be verified from a live source, the item is not
   filler words rather than stored whole, with `words()` turning 3100 into "three thousand one
   hundred" — never "thirty-one hundred", which was reported by ear twice: counting in hundreds is
   an American rostrum idiom, and it disagrees with the figure on the screen beside it.
+  **Both message handlers must speak the same beats.** The say() calls live in `applyMsg` (phone)
+  AND `applyViewerMsg` (TV); they were TV-only at first, so removing the role gate granted phones
+  permission for something never invoked — the toggle did nothing, with no error to find.
+  `unit/goinggone.test.js` audits the two handlers against each other. The voice is **not** gated
+  on `sfxOn` either: it has its own button, and having 🔊 silence it too made a setting look like
+  a bug.
   **Any device may speak** — the 🗣️ toggle decides and appears on every screen, including a TV
   that arrived via "…or show an existing auction" (that path sets `isViewer`). It merely DEFAULTS
   off on a phone, because five phones and a telly calling the same lot a beat apart is bedlam;

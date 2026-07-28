@@ -2125,7 +2125,10 @@ function syncVoiceBtn() {
 let _voicePref = localStorage.getItem('gavel-voice');      // '1' | '0' | null = never chosen
 const voiceOn = () => (_voicePref === null ? !!(isViewer || isTvHost) : _voicePref !== '0');
 let _voice = null, _voiceTried = false;
-const canSpeak = () => voiceOn() && sfxOn && typeof speechSynthesis !== 'undefined';
+// NB: deliberately NOT gated on sfxOn. The auctioneer has his own 🗣️ button, and having the
+// 🔊 one silence him too made "I turned the voice on and nothing happened" a puzzle rather than
+// a setting.
+const canSpeak = () => voiceOn() && typeof speechSynthesis !== 'undefined';
 
 function pickVoice() {
     if (_voiceTried || typeof speechSynthesis === 'undefined') return _voice;
@@ -3295,7 +3298,7 @@ function applyMsg(msg) {
                 setMusic('bidding');
                 musicIntensity = 1;   // new lot: strip back until the gavel countdown
                 musicKeyShift = (msg.lotNum === msg.lotTotal && msg.round === msg.rounds) ? 2 : 0;   // final lot of the last round: key up
-                if (_lastLotKey !== lotKey) { _lastLotKey = lotKey; _lastPrice = -1; ui = 'lot'; render(); sLotIntro(); }
+                if (_lastLotKey !== lotKey) { _lastLotKey = lotKey; _lastPrice = -1; ui = 'lot'; render(); sLotIntro(); sayLot(msg); }
                 break;
             }
             if (msg.phase === 'bidding') {
@@ -3307,6 +3310,7 @@ function applyMsg(msg) {
                     startClientGavel(msg);
                     _lastPrice = msg.bid ? msg.bid.price : 0;
                     _lastAsk = msg.bid ? msg.bid.ask : 0;
+                    if (msg.bid && msg.bid.price === 0) sayAsk(msg, true);
                 } else if (msg.bid && msg.bid.price === 0) {
                     // Still fishing for an opening bid. Nothing has been bid, so there is no price
                     // to bump — what moves is the auctioneer coming DOWN.
@@ -3316,6 +3320,7 @@ function applyMsg(msg) {
                     startClientGavel(msg);
                     if (dropped) {
                         sDrop();
+                        sayAsk(msg, false);
                         try { navigator.vibrate && navigator.vibrate(20); } catch (e) {}
                         const pe = $id('p-price');
                         if (pe) { pe.classList.remove('drop'); void pe.offsetWidth; pe.classList.add('drop'); }
@@ -3336,6 +3341,7 @@ function applyMsg(msg) {
                             if (lb) { lb.classList.remove('shake'); void lb.offsetWidth; lb.classList.add('shake'); }
                         } else {
                             sBid(msg.bid.price);
+                            sayBid(msg);
                             try { navigator.vibrate && navigator.vibrate(30); } catch (e) {}
                         }
                         const pe = $id('p-price');
@@ -3354,6 +3360,7 @@ function applyMsg(msg) {
                 if (_lastLotKey !== lotKey) {
                     _lastLotKey = lotKey; ui = 'sold'; render();
                     const si = msg.soldInfo || {};
+                    saySold(si);
                     if (si.passed) sPassed();
                     else {
                         sGavel();
@@ -3378,14 +3385,14 @@ function applyMsg(msg) {
             if (msg.phase === 'banked') {
                 stopClientTick();
                 setMusic('results');
-                if (ui !== 'banked') { ui = 'banked'; render(); sBank(); }
+                if (ui !== 'banked') { ui = 'banked'; render(); sBank(); sayBanked(msg); }
                 else render();
                 break;
             }
             if (msg.phase === 'podium') {
                 stopClientTick();
                 setMusic('over');
-                if (ui !== 'podium') { ui = 'podium'; render(); sWin(); startConfetti(3600); }
+                if (ui !== 'podium') { ui = 'podium'; render(); sWin(); startConfetti(3600); sayWinner(msg); }
                 else render();
                 break;
             }
@@ -3420,7 +3427,10 @@ function startClientGavel(msg) {
         }
         musicUrgent = left > 0 && stage > 0;
         if (musicUrgent) musicIntensity = 2;   // "going…" reached: full band stays in
-        if (stage > _goingStage && left > 0) sGoing(stage);
+        if (stage > _goingStage && left > 0) {
+            sGoing(stage);
+            if (stage === 2 && D && D.bid && D.bid.price) sayGoing(D.bid.price, softMinRaise(D.bid.price, Math.max(0, left / GAVEL_MS)));
+        }
         _goingStage = stage;   // a new bid refills the bar → stage drops → stings re-arm
         // he has come down a step: re-offer, so the buttons say what he is actually asking
         const soft = softStage(localFrac());

@@ -405,6 +405,41 @@ test('the phone is offered his ask plus the bigger jumps, in order', () => {
     }
 });
 
+// ── the two message handlers must speak the same beats ──────────────────────
+test('AUDIT: the phone speaks the same lines the TV does', () => {
+    // The role gate was removed from canSpeak() so that any device may speak — but every say()
+    // call lived in applyViewerMsg, the TV's handler. A phone runs applyMsg, so turning the voice
+    // on there granted permission for something that was never invoked: the toggle did nothing
+    // and there was no error to find. Neil hit exactly that.
+    //
+    // The two handlers are separate on purpose (a phone and a television show different things),
+    // so this asserts only that neither loses a VOICE beat the other has.
+    const slice = (from, to) => {
+        const a = HTML.indexOf(from), b = HTML.indexOf(to, a);
+        assert.ok(a >= 0 && b > a, `could not slice ${from}`);
+        return HTML.slice(a, b);
+    };
+    const spoken = src => new Set([...src.matchAll(/\bsay([A-Z][a-zA-Z]*)\s*\(/g)].map(m => m[1]));
+
+    // each handler plus the gavel ticker that belongs to it
+    const tv = spoken(slice('function applyViewerMsg', 'function patchViewerBidding'));
+    const phone = spoken(slice('function applyMsg', 'function sendBid'));
+
+    const missingOnPhone = [...tv].filter(x => !phone.has(x));
+    const missingOnTv = [...phone].filter(x => !tv.has(x));
+    assert.deepEqual(missingOnPhone, [], `the TV says these and the phone does not: ${missingOnPhone}`);
+    assert.deepEqual(missingOnTv, [], `the phone says these and the TV does not: ${missingOnTv}`);
+    assert.ok(tv.size >= 6, `only ${tv.size} spoken beats found — has the slice drifted?`);
+});
+
+test('the voice is not gagged by the sound-effects toggle', () => {
+    // They are two buttons. Having 🔊 also silence the auctioneer made "I turned the voice on and
+    // nothing happened" a puzzle rather than a setting.
+    const src = HTML.slice(HTML.indexOf('const canSpeak ='), HTML.indexOf('function pickVoice'));
+    assert.ok(/voiceOn\(\)/.test(src), 'canSpeak should consult the voice toggle');
+    assert.ok(!/sfxOn/.test(src), 'canSpeak must not depend on sfxOn');
+});
+
 // ── which voice calls the auction ───────────────────────────────────────────
 test('the best available voice wins, not the first one recognised', () => {
     // The old code took the first NAME it knew from a fixed list, so a machine holding both
