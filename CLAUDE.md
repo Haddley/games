@@ -256,24 +256,21 @@ invented**: if a price could not be verified from a live source, the item is not
   paddle going up is not a secret), your own purse always reaches you via `myCoins`, and the
   valuation, banked board and podium show the real numbers — they are the payoff. The e2e asserts
   what actually crosses the wire, not what the TV happens to draw.
-- **He SPLITS THE INCREMENT as the hammer falls, and WAITS at each step.** Each reduction gets its
-  own `SOFT_STEP_MS` window, exactly as fishing for an opening bid does. Deriving the step from
-  how much of one 5s gavel had elapsed put the whole descent inside that gavel and left the
-  cheapest ask on offer for under a second — a reflex test, not a decision. The step is now
-  explicit host state (`H.bid.soft`, broadcast with `span`), which also deleted the clock-skew
-  grace: no device works the ladder out from its own clock any more.
-  Once bidding is running, the smallest acceptable raise softens in stages (`softMinRaise`/`softRaises`):
-  full rung → ½ → ¼ → a floor of `RAISE_FLOOR` (2%) of the current price, never under $1. So a $60
-  traffic cone genuinely reaches "just one more" while a $67,000 Cessna bottoms out near $1,300 —
-  a literal $1 everywhere would make the last bid a reflex test rather than a judgement. The
-  bigger jumps stay on offer throughout (he is lowering his ask, not capping enthusiasm), and any
-  bid **resets the countdown**, so he starts asking for the full rung again. Three things this
-  depends on: the ask may **never rise** as the clock runs down (the floor can otherwise exceed
-  the quarter-rung — a unit test asserts monotonicity), the host validates against **its own**
-  clock with `SOFT_GRACE_MS` of slack so a phone running slightly ahead isn't punished, and the
-  phone re-renders its buttons from its **local** countdown so the offer changes without a
-  round-trip. Never skew those two clocks in a test to make it deterministic — that is the one
-  situation the feature must not tolerate.
+- **He SPLITS THE INCREMENT as the hammer falls, and WAITS at each step.** Once bidding is running
+  the smallest acceptable raise softens (`softMinRaise`/`softRaises`): full rung → ½ → ¼ → a floor
+  of `RAISE_FLOOR` (2%) of the current price, never under $1. So a $60 traffic cone genuinely
+  reaches "just one more" while a $67,000 Cessna bottoms out near $1,300 — a literal $1 everywhere
+  would make the last bid a reflex test rather than a judgement. The bigger jumps stay on offer
+  throughout: he is lowering his ask, not capping enthusiasm.
+  **Each step gets its own `SOFT_STEP_MS` window**, exactly as fishing for an opening bid does.
+  Deriving the step from how much of one 5s gavel had elapsed put the whole descent inside that
+  gavel and left the cheapest ask on offer for well under a second — a reflex test again, which is
+  what Neil heard. Any bid resets him to the full rung and a full window.
+  Two things this depends on. The ask may **never rise** as he comes down (the floor can otherwise
+  exceed the quarter-rung — a unit test asserts monotonicity across every band). And the step is
+  **explicit host state** (`H.bid.soft`, broadcast alongside `span`, the length of the current
+  window): no device derives the ladder from its own clock any more, which is what let the
+  clock-skew grace and the whole local-countdown path be deleted.
 - **Every bidder has a PADDLE, and the auctioneer sells to the number.** `freePaddle()` deals a
   unique random two-digit number (10–99) at `hostAddPlayer`; two digits so it always reads as a
   rostrum number ("bidder number forty-two", never "bidder seven"), and a rejoining player keeps

@@ -57,7 +57,7 @@ worthwhile.
 | **Reserve** | **25% of true value**, never shown. When the next rung would go under it the lot is **passed in** |
 | **Paddle numbers** | unique, random, two digits (10–99), kept across a reconnect. The sale is called to the number, never the name |
 | **Purses** | hidden while a lot is live — the room sees a band (flush/comfortable/short/skint), never the figure. Revealed at the valuation, the banked board and the podium |
-| **Splitting the increment** | as the gavel falls his ask drops: full rung → ½ → ¼ → ~2% of the price (min $1). Any bid resets it |
+| **Splitting the increment** | as the hammer nears, his ask drops: full rung → ½ → ¼ → ~2% of the price (min $1), and he **waits `SOFT_STEP_MS` at each step** rather than running the whole descent inside one gavel. Any bid resets him to the full rung |
 | **Bid raises** | **scale with the price** — +10/50/100 under $100, up to +25,000/100,000/250,000 in the top tier. A fixed ladder needed seventy taps to reach a serious bid |
 | **Rounding** | values are rounded to **whole dollars** at embed time; the game's coin arithmetic is integer |
 
@@ -209,7 +209,22 @@ experience. The lever reached for was *how many*, exactly as the plan said it sh
 3 lots won per player from 2 players up to 10, so "everyone goes home with about three things"
 needs no special case.
 
-### The auctioneer: the ask, the fishing, and passing in (28 July 2026)
+### What the auctioneer says, and when (28 July 2026)
+
+The patter is spoken through Web Speech where a device has it, and **written in a speech bubble
+everywhere** — the bubble fills before the `canSpeak()` check precisely so that a screen with no
+voice still gets the performance. Timing is the part that bites:
+
+- **One** commentary line is spoken at the end of a round; all four are on the screen. Spoken
+  numbers are dear ("forty-five thousand nine hundred" is three seconds), so two lines would hold
+  the banked board past eighteen seconds — and a television with no voice would sit on a silent
+  board for all of it. `startBanking` measures its hold with `speechMs()` rather than a fixed
+  wait, because a fixed one cut him off mid-sentence when the next round began.
+- The **podium is not on a clock**, so it gets two lines.
+- `say()` cancels whatever is talking rather than queueing: a chant lagging the screen is worse
+  than silence. That is also why anything that must be heard in full needs its screen held open.
+
+## The auctioneer: the ask, the fishing, and passing in (28 July 2026)
 
 Real bid-calling was researched before this was built, and the mechanic turns out to be the
 authentic one rather than an invention:
