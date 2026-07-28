@@ -269,6 +269,14 @@ invented**: if a price could not be verified from a live source, the item is not
 - **The attract mode takes parameters:** `?mode=tvsimulation&players=3&rounds=3&lots=4` —
   bidders (2–10), banked rounds (1–3) and lots per player per round (2–4). Defaults are 4 / 2 / 2,
   short enough that the demo loop turns over but still showing the banking between rounds.
+- **Two iOS rules that look like bugs in our code and are not.** (1) iOS Safari grants permission
+  to speak **once, only from inside a user gesture**, and every line this game says arrives later
+  from a network message — so `toggleVoice()` speaks immediately when switched on, and the first
+  tap anywhere spends a silent utterance on `primeSpeech()`. Without that the auctioneer is mute
+  on iPhone for good while the same build works in Chrome. (2) **Web Audio respects the hardware
+  Ring/Silent switch** on iOS, unlike video playback — a silenced iPhone plays no music, no
+  stingers and no speech, and there is no API that can detect it. If somebody reports "no sound at
+  all" on an iPhone, that switch is the first thing to check, not the code.
 - **The auctioneer is DRAWN as well as heard, TV only.** `mountAuctioneer()` builds a CSS figure
   at the bottom-left — no new third-party art, because that would mean the whole provenance dance
   in `llmwiki/sprites-and-licensing.md`. He is mounted **outside `#app`**: that element's innerHTML
