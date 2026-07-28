@@ -142,6 +142,26 @@ The P2P pattern is identical across `boggle.html`, `cornerthemarket.html`, `lett
 - **Seeing which path you got**: `p2p.js` polls `getStats()` on the live `RTCPeerConnection`, maps the selected candidate pair's types, and every game shows the result in the control strip — 🏠 same network · 🌐 STUN/direct · 📡 TURN relay · ⏳ settling (`?net=0` hides it). `p2pPath()` returns the same value in the console. **A direct connection across two networks is the normal, healthy result** — "no 📡" almost always means STUN did its job, not that detection broke. `tests/relay.e2e.spec.js` forces `iceTransportPolicy:'relay'` to exercise the TURN path for real, because two browsers on one machine always connect 🏠.
 - **Broker reconnect**: the PeerJS signaling broker periodically drops a peer's socket, which de-registers the host's room ID so *new* guests get `peer-unavailable` ("Could not reach room") even though the host tab still shows the lobby. herdmind's `makeRoom` handles this with `peer.on('disconnected', () => peer.reconnect())` and treats `network`/`server-error`/`socket-*` errors as recoverable instead of tearing down the room; its `joinGame` retries the whole connect up to twice (700 ms apart) covering both `peer-unavailable` and negotiation failures. This now lives in `p2p.js` (`hostPeer`/`joinPeer`) and every game uses it, ticktacktoe included (hand-ported).
 
+## Emoji fonts, and the one-scope trap
+
+- **Incomplete emoji fonts draw a box.** Fire OS (the Silk browser on a Fire TV), older smart-TV
+  browsers and some Androids ship fonts missing anything recent — 🪶 arrived in 2020 and boxes on
+  a Fire TV while the music plays perfectly. Guessing which glyphs a given telly has is hopeless,
+  so **`common.js` owns a detector**: `emojiOK(ch)` measures the glyph against a codepoint nothing
+  can have (same width ⇒ tofu), `emojiPick(…)` returns the first drawable option, and `mountScene`
+  filters each theme's cast through it — never to empty, because a scene of nothing is worse than
+  a scene of boxes. Games call them **guarded** (`typeof emojiPick === 'function' ? … : opts[0]`)
+  so a stale common.js still shows the emoji; goinggone resolves its chrome once into `ICON` and
+  falls back to 📦 for a lot's own emoji.
+- **⚠️ common.js and a game's inline script share ONE global lexical scope.** A top-level
+  `const castOf` in common.js is a **SyntaxError** in any game that already has one — and a
+  SyntaxError takes the entire inline script with it: blank page, no QR, no scene. Adding an
+  emoji helper called `castOf` did exactly that to Plump Trek, which has had its own for months.
+  `function` redeclaration is legal (the later wins — letterstorm and liarsdice deliberately
+  override common.js's `toggleFullscreen`), **`const`/`let`/`class` is fatal.**
+  `unit/common-names.test.js` audits every game against every shared file it loads and names both
+  files; run it before adding ANY top-level name to a shared file.
+
 ## Audio & animation conventions
 
 Every game has a procedural WebAudio engine and a CSS/JS FX stack. The byte-identical primitives now live in the **shared files** (`fx.js`, and `audio.js`/`ambient.js` — see "Shared files" above); the hand-tuned parts (`TRACKS`, `ac()`, `playMusicStep()`, stingers) stay inline. **`brokenpencil.html` and `herdmind.html` are the reference implementations** — copy patterns from them when polishing another game.
@@ -271,11 +291,18 @@ invented**: if a price could not be verified from a live source, the item is not
   an American rostrum idiom, and it disagrees with the figure on the screen beside it.
   It speaks only under `isViewer || isTvHost` — ten phones chanting over each other is bedlam —
   cancels rather than queues (a chant lagging the screen is worse than silence), and has its own
-  🗣️ toggle. **A browser will not speak on a page nobody has interacted with, and a television is
-  exactly that page** — measured in the attract mode: 14 lines handed to the engine, 0 started,
-  every one refused `not-allowed`; one click and they play. That policy cannot be worked around,
-  so `voiceHint()` puts "tap the screen to give the auctioneer his voice" on the TV when a line is
-  actually refused, and any pointerdown clears it. `say()` also never cancels and speaks in the
+  🗣️ toggle. **Web Speech and WebAudio are separate subsystems with separate gates**, so a screen
+  that plays music and stingers happily can still be mute — one working tells you nothing about
+  the other, and the symptom is identical whatever the cause (he goes quiet and his mouth stops,
+  because the mouth is driven by the utterance's own `onstart`). Three causes, and `voiceHint()`
+  names the one that actually happened rather than guessing: a page nobody has interacted with is
+  refused `not-allowed` (measured in the attract mode: 14 lines handed over, 0 started; one click
+  and they play — and nobody clicks a television), a browser with **no voices installed** accepts
+  the utterance and plays nothing (common on smart-TV browsers — this is what Neil hit, his laptop
+  being fine), and a chosen voice can simply refuse. Only the first is worth a permanent banner,
+  because only tapping fixes it; the others take themselves away after 12s. `voiceDiag()` in the
+  console prints the lot. **The game is fully playable mute** — every line he speaks is also on
+  the screen. `say()` also never cancels and speaks in the
   same tick (that wedges Chrome — the new utterance never starts) and falls back to the browser's
   default voice if the chosen one errors, with a watchdog for the case where nothing starts and
   nothing errors either. All three failures look identical from a sofa: he goes quiet and his

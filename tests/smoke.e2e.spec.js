@@ -122,3 +122,33 @@ test('the reconnecting curtain covers the screen and clears', async ({ page }) =
     await page.evaluate(() => p2pCurtain(false));
     await expect(page.locator('#p2p-curtain')).toHaveCount(0);
 });
+
+// A television with an incomplete emoji font draws every glyph it lacks as an empty rectangle.
+// Fire OS is the common one — Neil's Fire TV boxed the feather (added to Unicode in 2020) while
+// happily playing the music. common.js owns the detector because every game paints emoji and they
+// all meet the same televisions.
+test('an incomplete emoji font gets stand-ins, not boxes', async ({ page }) => {
+    const MISSING = ['🪙', '🪶', '🫠', '🫥', '🧐'];
+    await page.addInitScript(missing => {
+        const proto = CanvasRenderingContext2D.prototype, real = proto.measureText;
+        proto.measureText = function (t) { return real.call(this, missing.includes(t) ? '\uFFFF' : t); };
+    }, MISSING);
+    await page.goto('/goinggone.html?mode=tvsimulation&players=3&rounds=1&lots=2');
+    await page.waitForTimeout(2500);
+
+    // the detector is shared, and it swapped every risky glyph for one the font has
+    expect(await page.evaluate(() => typeof emojiOK)).toBe('function');
+    const icons = await page.evaluate(() => ({ ...ICON }));
+    for (const [name, ch] of Object.entries(icons)) {
+        expect(MISSING, `${name} kept a glyph this font cannot draw`).not.toContain(ch);
+    }
+    // …including the ambient scene, which is common.js's own cast
+    const onScreen = await page.evaluate(m => m.filter(g => document.body.innerText.includes(g)), MISSING);
+    expect(onScreen, 'a tofu box reached the screen').toEqual([]);
+
+    // and with a COMPLETE font nothing is substituted at all
+    const page2 = await page.context().newPage();
+    await page2.goto('/goinggone.html');
+    expect(await page2.evaluate(() => ICON.coin)).toBe('🪙');
+    await page2.close();
+});

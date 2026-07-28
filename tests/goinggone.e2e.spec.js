@@ -662,6 +662,27 @@ test('a silenced auctioneer says so, and one tap fixes him', async ({ browser })
     await Promise.all([tv.close(), phone.close()]);
 });
 
+test('a screen with no speech voices says so, and then stops saying it', async ({ browser }) => {
+    // WebAudio and Web Speech are separate subsystems with separate gates, which is how a TV can
+    // play music and stingers happily while the auctioneer stays mute — one working tells you
+    // nothing about the other. Smart-TV browsers routinely ship no voices at all.
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.addInitScript(() => { window.speechSynthesis.getVoices = () => []; });
+    await tv.goto('/goinggone.html?mode=tvsimulation&players=3&rounds=1&lots=2');
+
+    await expect(tv.locator('#voice-hint')).toBeVisible({ timeout: 15_000 });
+    await expect(tv.locator('#voice-hint')).toContainText(/no speech voices/i);
+    expect(await tv.evaluate(() => voiceDiag().voicesInstalled)).toBe(0);
+
+    // …and then it goes away. "Tap the screen" earns a permanent banner because tapping fixes it;
+    // "this browser cannot" does not, and an attract screen runs for hours.
+    await expect(tv.locator('#voice-hint')).toHaveCount(0, { timeout: 20_000 });
+
+    // the game is entirely playable without him: his patter is on the screen either way
+    await expect(tv.locator('#v-leader, .tv-waiting, .lkick').first()).toBeVisible();
+    await tv.close();
+});
+
 test('the attract mode takes its settings from the query string', async ({ browser }) => {
     // ?mode=tvsimulation&players=3&rounds=3 should be exactly that: three bidders, three banked
     // rounds. It used to hardcode two rounds and ignore the parameter. The rounds MECHANIC is

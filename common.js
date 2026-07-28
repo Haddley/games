@@ -284,9 +284,41 @@ function _buildEmojiScene(m, t) {
     m.innerHTML = html;
 }
 
+// ── TOFU ────────────────────────────────────────────────────────────────────
+// Fire OS (the Silk browser on a Fire TV), older smart-TV browsers and some Android builds ship
+// an INCOMPLETE emoji font, and a glyph the font lacks renders as an empty rectangle — which on
+// a scene of drifting emoji is a row of little boxes. The newer the emoji the likelier it is
+// missing, and guessing which ones a given television has is hopeless, so each is measured
+// against a codepoint nothing can possibly have: same width, same tofu, drop it.
+const _emojiSeen = {};
+function emojiOK(ch) {
+    if (ch in _emojiSeen) return _emojiSeen[ch];
+    let ok = true;
+    try {
+        const c = document.createElement('canvas').getContext('2d');
+        c.font = '32px sans-serif';
+        ok = Math.abs(c.measureText(ch).width - c.measureText('\uFFFF').width) > 0.5;
+    } catch (e) { /* no canvas: assume the font is fine rather than blank the scene */ }
+    _emojiSeen[ch] = ok;
+    return ok;
+}
+// first of these the screen can actually draw
+const emojiPick = (...opts) => opts.find(emojiOK) || opts[opts.length - 1];
+// A cast with the unavailable glyphs taken out — but never emptied, because a scene of nothing
+// is worse than a scene of boxes.
+// NB: these names are deliberately namespaced. common.js and a game's inline script share ONE
+// global lexical scope, so a plain name like `castOf` here is a SyntaxError in any game that
+// already has one — which is exactly what happened: plumptrek has its own, and the clash blanked
+// its whole script. unit/common-names.test.js now fails on any such collision.
+// An ABSENT cast must stay absent. The meadow theme has no emoji walkers at all (its flock is
+// drawn in CSS) and the builder branches on whether the list exists — turning undefined into an
+// empty array is truthy, and took the wrong branch.
+const _emojiCast = list => { if (!list) return list; const ok = list.filter(emojiOK); return ok.length ? ok : list; };
+
 function mountScene(theme, contentSelector) {
     if (typeof document === 'undefined') return;
-    const t = SCENE_THEMES[theme] || SCENE_THEMES.meadow;
+    const raw = SCENE_THEMES[theme] || SCENE_THEMES.meadow;
+    const t = { ...raw, walk: _emojiCast(raw.walk), props: _emojiCast(raw.props), fly: _emojiCast(raw.fly) };
     const lift = contentSelector || 'body.viewer-mode #app';
     const run = () => {
         if (!document.getElementById('scene-style')) {

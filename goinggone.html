@@ -1674,8 +1674,30 @@ function priceDate(iso) {
 // The lot's picture, falling back to its emoji. These images are hotlinked from retailer CDNs:
 // some block cross-origin referrers and all of them rot eventually, so a failed load must degrade
 // to the emoji card rather than leaving a broken frame on the telly.
+// ── TOFU ────────────────────────────────────────────────────────────────────
+// Incomplete emoji fonts (Fire OS's Silk on a Fire TV, older smart-TV browsers) draw a glyph they
+// do not have as an empty rectangle. The detector lives in common.js, because every game paints
+// emoji and they all meet the same televisions — these are the guarded wrappers, so a browser
+// holding a STALE common.js without it still shows the emoji rather than throwing.
+// NB: do not redeclare common.js's names here. A game's inline script and common.js share ONE
+// global lexical scope, so a duplicate top-level const is a SyntaxError that blanks the game.
+const ggGlyph = (...opts) => (typeof emojiPick === 'function' ? emojiPick(...opts) : opts[0]);
+const ggMissing = ch => (typeof emojiOK === 'function' ? !emojiOK(ch) : false);
+
+// Every emoji in the CHROME that is newer than about 2018, with an older stand-in. The lots have
+// their own emoji too — hundreds of them — handled in lotArtHTML.
+const ICON = {
+    coin: ggGlyph('🪙', '💰'),        // 2019
+    feather: ggGlyph('🪶', '🕊️', '💤'), // 2020 — the passed-in card
+    mug: ggGlyph('🫠', '😵', '😳'),    // 2021 — Mug of the Match
+    skint: ggGlyph('🫥', '😶', '·'),   // 2021 — the emptiest purse
+    monocle: ggGlyph('🧐', '🔍'),      // 2018 — the valuer
+    frame: ggGlyph('🖼️', '🏷️'),        // the shelf
+};
+
 function lotArtHTML(l, imgStyle, emojiStyle) {
-    const emoji = extra => `<div class="lemoji" style="${emojiStyle || ''}${extra}">${l.emoji}</div>`;
+    const face = ggMissing(l.emoji) ? '📦' : l.emoji;   // a box beats a broken box
+    const emoji = extra => `<div class="lemoji" style="${emojiStyle || ''}${extra}">${face}</div>`;
     if (!l.img) return emoji('');
     return `<img class="lphoto" style="${imgStyle || ''}" src="${esc(l.img)}" alt="" referrerpolicy="no-referrer"
         onerror="this.style.display='none';this.nextElementSibling.style.display='';">` + emoji(';display:none');
@@ -2074,6 +2096,9 @@ function pickVoice() {
     return _voice;
 }
 function shutUp() { try { speechSynthesis.cancel(); } catch (e) {} auctTalk(false); }
+const voicesAvailable = () => {
+    try { return speechSynthesis.getVoices().length > 0; } catch (e) { return false; }
+};
 
 // ── the man himself ──
 // Mounted once, outside #app, because #app's innerHTML is replaced on every render and a head
@@ -2097,15 +2122,43 @@ function mountAuctioneer() {
 // A browser will not speak on a page nobody has touched, and a television is exactly that page:
 // the attract mode runs for hours and nobody ever clicks it. There is no way around the policy,
 // so the least it can do is stop being a mystery — one tap and he starts calling.
-function voiceHint(show) {
+// WebAudio and Web Speech are separate subsystems with separate gates, which is why a screen can
+// happily play music and stingers while the auctioneer stays mute — one working tells you nothing
+// about the other. Three things stop him, and they are indistinguishable from a sofa, so the
+// screen names the one that actually happened rather than guessing.
+const VOICE_REASONS = {
+    blocked: '🗣️ tap the screen to give the auctioneer his voice',
+    novoices: '🗣️ this browser has no speech voices, so the auctioneer stays quiet',
+    failed: '🗣️ this browser would not play the auctioneer\'s voice',
+};
+let _hintTimer = null;
+function voiceHint(reason) {
     if (!_auct) return;
+    clearTimeout(_hintTimer);
     let el = $id('voice-hint');
-    if (!show) { if (el) el.remove(); return; }
-    if (el) return;
-    el = document.createElement('div');
-    el.id = 'voice-hint';
-    el.textContent = '🗣️ tap the screen to give the auctioneer his voice';
-    document.body.appendChild(el);
+    if (!reason) { if (el) el.remove(); return; }
+    const key = reason === true ? 'blocked' : reason;
+    if (!el) { el = document.createElement('div'); el.id = 'voice-hint'; document.body.appendChild(el); }
+    el.textContent = VOICE_REASONS[key] || VOICE_REASONS.blocked;
+    // "tap the screen" is worth leaving up, because tapping fixes it. "this browser has no
+    // voices" is not — nothing the room can do about that, and an attract screen runs for hours.
+    if (key !== 'blocked') _hintTimer = setTimeout(() => voiceHint(false), 12_000);
+}
+
+// Everything worth knowing when he is silent, in one place: `voiceDiag()` in the console.
+function voiceDiag() {
+    const v = (typeof speechSynthesis !== 'undefined' && speechSynthesis.getVoices()) || [];
+    const d = {
+        canSpeak: canSpeak(), voiceOn, sfxOn, isViewer, isTvHost,
+        hasSpeechSynthesis: typeof speechSynthesis !== 'undefined',
+        voicesInstalled: v.length,
+        chosenVoice: (pickVoice() || {}).name || '(browser default)',
+        speaking: typeof speechSynthesis !== 'undefined' ? speechSynthesis.speaking : null,
+        audioUnlockedByAGesture: _audioUnlocked,
+        lastSpeechError: _lastSpeechError || '(none yet)',
+    };
+    console.log('[goinggone] auctioneer:', d);
+    return d;
 }
 
 function auctTalk(on) { if (_auct) _auct.classList.toggle('talking', !!on); if (!on) stopMouth(); }
@@ -2204,7 +2257,7 @@ function auctBang() {
 // A watchdog covers whatever is left: if a line was handed over and nothing started, it is tried
 // once more in the browser's own default voice, and after that it says so in the console rather
 // than leaving somebody to wonder.
-let _speechWarned = false, _speechWatch = null;
+let _speechWarned = false, _speechWatch = null, _lastSpeechError = null;
 
 function speakNow(text, opts, withVoice) {
     try {
@@ -2223,14 +2276,16 @@ function speakNow(text, opts, withVoice) {
             auctTalk(false);
             const why = e && e.error;
             if (why === 'canceled' || why === 'interrupted') return;   // we did that on purpose
-            if (why === 'not-allowed') { voiceHint(true); return; }        // needs a tap first
+            _lastSpeechError = why;
+            if (why === 'not-allowed') { voiceHint('blocked'); return; }   // needs a tap first
             if (withVoice) { _voice = null; speakNow(text, opts, false); }   // that voice will not play
             else if (!_speechWarned) { _speechWarned = true; console.warn('[goinggone] the auctioneer cannot speak:', why); }
         };
         clearTimeout(_speechWatch);
         _speechWatch = setTimeout(() => {
             if (started || speechSynthesis.speaking) return;
-            voiceHint(true);
+            // nothing started and nothing errored: no voices at all is the usual reason
+            voiceHint(voicesAvailable() ? 'failed' : 'novoices');
             if (withVoice) { _voice = null; speakNow(text, opts, false); }
             else if (!_speechWarned) {
                 _speechWarned = true;
@@ -3003,9 +3058,9 @@ function finishValuation() {
     });
     const when = r => H.rounds > 1 ? ` (round ${r.round})` : '';
     if (eagle) awards.push({ emoji: '🦅', title: 'Eagle Eye', name: eagle.player, detail: `+${num(eagle.profit)} on ${eagle.lotName}${when(eagle)}` });
-    if (mug) awards.push({ emoji: '🫠', title: 'Mug of the Match', name: mug.player, detail: `${num(mug.profit)} on ${mug.lotName}${when(mug)}` });
+    if (mug) awards.push({ emoji: ICON.mug, title: 'Mug of the Match', name: mug.player, detail: `${num(mug.profit)} on ${mug.lotName}${when(mug)}` });
     const scrooge = H.players.slice().sort((a, b) => b.coins - a.coins)[0];
-    if (scrooge) awards.push({ emoji: '🪙', title: 'Scrooge', name: scrooge.name, detail: `${num(scrooge.coins)} coins unspent` });
+    if (scrooge) awards.push({ emoji: ICON.coin, title: 'Scrooge', name: scrooge.name, detail: `${num(scrooge.coins)} coins unspent` });
     H.awards = awards;
     H.phase = 'podium';
     broadcastState();
@@ -3624,7 +3679,7 @@ function shelfHTML(msg) {
 }
 
 // How a band reads from a sofa. Deliberately a judgement rather than a measurement.
-const PURSE_LABEL = { flush: '💰 flush', comfortable: '🙂 comfortable', short: '😬 short', skint: '🫥 skint' };
+const PURSE_LABEL = { flush: '💰 flush', comfortable: '🙂 comfortable', short: '😬 short', skint: ICON.skint + ' skint' };
 function railRowsHTML(msg) {
     return (msg.players || []).map(p => `
         <div class="rail-row${msg.bid && msg.bid.leader === p.name ? ' leader' : ''}">
@@ -3633,7 +3688,7 @@ function railRowsHTML(msg) {
             <span class="rlots">${p.lotCount} lot${p.lotCount === 1 ? '' : 's'}</span>
             ${p.coins === undefined
                 ? `<span class="rpurse ${p.purse}">${PURSE_LABEL[p.purse] || ''}</span>`
-                : `<span class="rcoins">🪙${num(p.coins)}</span>`}
+                : `<span class="rcoins">${ICON.coin}${num(p.coins)}</span>`}
         </div>`).join('');
 }
 
@@ -3806,7 +3861,7 @@ function renderLobbyG() {
     : `
     <div class="card">
         <div class="slbl">Settings</div>
-        <div style="font-weight:800;font-size:.85rem">${GAVEL} ${s.lotCount} lots${(s.rounds || 1) > 1 ? ` × ${s.rounds} rounds` : ''} · 🪙 ${START_COINS.toLocaleString()} coins each</div>
+        <div style="font-weight:800;font-size:.85rem">${GAVEL} ${s.lotCount} lots${(s.rounds || 1) > 1 ? ` × ${s.rounds} rounds` : ''} · ${ICON.coin} ${START_COINS.toLocaleString()} coins each</div>
         <div style="color:var(--muted);font-size:.72rem;font-weight:700;margin-top:8px">
             Waiting for ${D.tvHost ? `👑 ${esc(D.captain || 'the captain')}` : 'the host'} to start…
         </div>
@@ -3819,7 +3874,7 @@ function renderLotIntro() {
     ${lotHeaderHTML(D)}
     <div class="card" style="text-align:center">
         <div style="font-weight:900;color:var(--gold)">Bidding opens in a moment…</div>
-        <div style="margin-top:8px"><span class="coins-chip">🪙 <span id="my-coins">${num(D.myCoins)}</span> coins</span></div>
+        <div style="margin-top:8px"><span class="coins-chip">${ICON.coin} <span id="my-coins">${num(D.myCoins)}</span> coins</span></div>
     </div>
     <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>`;
 }
@@ -3837,7 +3892,7 @@ function renderBidding() {
     <div id="lead-banner">${leadBannerHTML(D)}</div>
     <div class="paddle-row" id="my-paddle">${myPaddleHTML(D)}</div>
     <div class="bid-btns" id="bid-btns">${bidBtnsHTML(D)}</div>
-    <div style="text-align:center"><span class="coins-chip">🪙 <span id="my-coins">${num(D.myCoins)}</span> coins left</span></div>
+    <div style="text-align:center"><span class="coins-chip">${ICON.coin} <span id="my-coins">${num(D.myCoins)}</span> coins left</span></div>
     <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>`;
 }
 
@@ -3847,7 +3902,7 @@ function renderSold() {
     // A mystery lot keeps its name back until the valuation, here too.
     const title = s.lot ? (s.lot.mystery ? '📦 the mystery lot' : s.lot.emoji + ' ' + s.lot.name) : '';
     const inner = s.passed
-        ? `<div class="gavel">🪶</div><div class="st">PASSED IN</div>
+        ? `<div class="gavel">${ICON.feather}</div><div class="st">PASSED IN</div>
            <div style="color:var(--muted);font-weight:700;margin-top:6px">${esc(title)} never made its reserve.</div>
            <div style="font-weight:900;color:var(--gold);margin-top:6px">It was worth ${num(s.value)}</div>`
         : `<div class="gavel">${GAVEL}</div><div class="st">${mine ? 'YOU WON IT!' : 'SOLD!'}</div>
@@ -3855,7 +3910,7 @@ function renderSold() {
            <div style="font-weight:900;font-size:1.3rem;margin-top:4px">${mine ? `You paid ${num(s.price)}` : `${esc(s.winner)} pays ${num(s.price)}`}</div>`;
     return `
     <div class="card sold-card${mine ? ' highlight' : ''}">${inner}</div>
-    <div style="text-align:center"><span class="coins-chip">🪙 ${num(D.myCoins)} coins left</span></div>
+    <div style="text-align:center"><span class="coins-chip">${ICON.coin} ${num(D.myCoins)} coins left</span></div>
     <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>`;
 }
 
@@ -3863,12 +3918,12 @@ function renderValuation() {
     return `
     ${hdrHTML('The Valuation')}
     <div class="card" style="text-align:center">
-        <div style="font-size:2.6rem">🧐</div>
+        <div style="font-size:2.6rem">${ICON.monocle}</div>
         <div style="font-weight:900;font-size:1.15rem;margin-top:6px">The valuer is in — eyes on the TV!</div>
         <div style="color:var(--muted);font-weight:700;font-size:.78rem;margin-top:6px">True values revealed one lot at a time…</div>
     </div>
     <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>
-    <div style="text-align:center"><span class="coins-chip">🪙 ${num(D.myCoins)} coins left</span></div>`;
+    <div style="text-align:center"><span class="coins-chip">${ICON.coin} ${num(D.myCoins)} coins left</span></div>`;
 }
 
 // Between rounds. Deliberately NOT the podium: no medals, no confetti, no play-again — this is a
@@ -3890,7 +3945,7 @@ function renderBanked() {
             <span style="width:22px;text-align:center;color:var(--muted)">${i + 1}</span>
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
             <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--gold)">(you)</span>' : ''}</div>
-            <div class="sc">${num(p.net)} <span style="color:var(--muted);font-size:.7rem">(🪙${num(p.coins)} + 🖼️${num(p.shelf)})</span></div>
+            <div class="sc">${num(p.net)} <span style="color:var(--muted);font-size:.7rem">(${ICON.coin}${num(p.coins)} + ${ICON.frame}${num(p.shelf)})</span></div>
         </div>`).join('')}
     </div>
     ${commentaryHTML(D, 0.2)}
@@ -3921,7 +3976,7 @@ function renderPodium() {
             <span style="width:22px;text-align:center">${medals[ranks[i]] || (ranks[i] + 1)}</span>
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
             <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--gold)">(you)</span>' : ''}</div>
-            <div class="sc">${num(p.net)} <span style="color:var(--muted);font-size:.7rem">(🪙${num(p.coins)} + 🖼️${num(p.shelf)})</span></div>
+            <div class="sc">${num(p.net)} <span style="color:var(--muted);font-size:.7rem">(${ICON.coin}${num(p.coins)} + ${ICON.frame}${num(p.shelf)})</span></div>
         </div>`).join(''); })()}
     </div>
     ${driveBtn}`;
@@ -3958,7 +4013,7 @@ function renderViewerLobby() {
     return tvLobby({
         title: 'GOING, GOING, GONE!', accent: '#e8b75a',
         roomCode: vD.roomCode, isTvHost: vD.tvHost, captainName: vD.captain,
-        settings: `${s.lotCount} lots${(s.rounds || 1) > 1 ? ` × ${s.rounds} rounds` : ''} · 🪙 ${START_COINS.toLocaleString()} coins each`,
+        settings: `${s.lotCount} lots${(s.rounds || 1) > 1 ? ` × ${s.rounds} rounds` : ''} · ${ICON.coin} ${START_COINS.toLocaleString()} coins each`,
         players: players.map(p => ({ name: p.name, color: p.color, captain: p.name === vD.captain })),
     });
 }
@@ -4010,7 +4065,7 @@ function renderViewerSold() {
     // A mystery lot has no name to show — it keeps its secret until the valuation.
     const title = s.lot ? (s.lot.mystery ? '📦 the mystery lot' : s.lot.emoji + ' ' + s.lot.name) : '';
     const inner = s.passed
-        ? `<div class="gavel">🪶</div>
+        ? `<div class="gavel">${ICON.feather}</div>
            <div class="who">PASSED IN</div>
            <div class="sub2">${esc(title)} never made its reserve — and it was worth
                <b style="color:var(--gold)">${num(s.value)}</b>.</div>`
@@ -4064,7 +4119,7 @@ function renderViewerValuation() {
     <div class="tv-main">
         <div class="tv-stage">
             <div class="tv-val">
-                <div class="rail-title">🧐 The Valuation — what was it all actually worth?</div>
+                <div class="rail-title">${ICON.monocle} The Valuation — what was it all actually worth?</div>
                 <div class="val-list">${cards || '<div class="tv-waiting">Fetching the valuer\'s monocle…</div>'}</div>
             </div>
         </div>
@@ -4088,7 +4143,7 @@ function renderViewerBanked() {
             <span class="bplace">${place}</span>
             <span class="pdot" style="background:${p.color};color:${p.color}"></span>
             <span class="bname">${esc(p.name)}</span>
-            <span class="bmath">🪙 ${num(p.coins)} + 🖼️ ${num(p.shelf)}</span>
+            <span class="bmath">${ICON.coin} ${num(p.coins)} + ${ICON.frame} ${num(p.shelf)}</span>
             <span class="bnet">${num(p.net)}</span>
         </div>`;
     }).join('');
@@ -4234,7 +4289,16 @@ function simRestart() {
     if (!voiceOn) $id('tog-voice').classList.add('off');
     mountAuctioneer();
     // Voices load asynchronously in most browsers — ask once now, and again when they arrive.
-    try { pickVoice(); speechSynthesis.addEventListener('voiceschanged', pickVoice, { once: true }); } catch (e) {}
+    // A browser with NO speech API at all never reaches say(), so it would never report itself —
+    // which is the Silk browser on a Fire TV, where the music and stingers play perfectly well
+    // and only the auctioneer is missing.
+    if (typeof speechSynthesis === 'undefined') { if (voiceOn) setTimeout(() => voiceHint('novoices'), 2500); }
+    else try {
+        pickVoice();
+        speechSynthesis.addEventListener('voiceschanged', () => { pickVoice(); voiceHint(voicesAvailable() ? false : 'novoices'); }, { once: true });
+        // voices can take a moment to arrive; if they never do, there is nothing to wait for
+        setTimeout(() => { if (!voicesAvailable() && voiceOn) voiceHint('novoices'); }, 4000);
+    } catch (e) {}
     const mode = (params.get('mode') || '').toLowerCase();
     const simPlayers = parseInt(params.get('players'), 10) || 4;
     const simOpts = {
