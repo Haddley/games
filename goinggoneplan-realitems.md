@@ -25,6 +25,12 @@ rather than re-litigating them.
 >    whose reserve exceeds `REACH` (45%) of the richest bankroll is never dealt at all.
 > 3. **Bidding no longer opens at zero.** The auctioneer *asks* for an opening bid, comes down
 >    when nobody bites, and **passes the lot in** when the ask would go under the reserve.
+> 4. **Paddles.** Every bidder gets a unique random two-digit number and the auctioneer sells to
+>    it — "sold to bidder number forty-two" — never to a name, which is both how a rostrum works
+>    and kinder to a speech engine facing "Bux". The paddle is drawn on both lobbies, the TV rail
+>    and the SOLD card, and goes **up** on your own phone when you hold the bid.
+> 5. **Fourteen hand-researched top-tier lots** (28 July), because the band-depth test reported
+>    the $50,000+ tier holding eight lots, all of them catering equipment. See the research log.
 
 ## Why change it
 
@@ -49,6 +55,7 @@ worthwhile.
 | **Mystery lots** | ~20% of the draw shows **the photograph and withholds the name**. Only lots with a photo qualify; the name is withheld by the *host*, never client-side |
 | **Opening bid** | **the auctioneer's ask**, not zero — a randomised 0.85×–1.9× of true value, so it is a clue with a lie in it. Nobody bites → he comes down a rung (×0.55–0.75) and asks again, up to 5 rungs |
 | **Reserve** | **25% of true value**, never shown. When the next rung would go under it the lot is **passed in** |
+| **Paddle numbers** | unique, random, two digits (10–99), kept across a reconnect. The sale is called to the number, never the name |
 | **Bid raises** | **scale with the price** — +10/50/100 under $100, up to +25,000/100,000/250,000 in the top tier. A fixed ladder needed seventy taps to reach a serious bid |
 | **Rounding** | values are rounded to **whole dollars** at embed time; the game's coin arithmetic is integer |
 

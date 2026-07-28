@@ -208,6 +208,15 @@ invented**: if a price could not be verified from a live source, the item is not
   All of this is real auction practice, not invention (auctioneers genuinely fish down for an
   opening bid, and "passed in" is the trade's term) — see the research in
   `goinggoneplan-realitems.md`.
+- **Every bidder has a PADDLE, and the auctioneer sells to the number.** `freePaddle()` deals a
+  unique random two-digit number (10–99) at `hostAddPlayer`; two digits so it always reads as a
+  rostrum number ("bidder number forty-two", never "bidder seven"), and a rejoining player keeps
+  theirs because the seat object survives the reconnect. `saySold` never speaks a player's *name* —
+  that is how a real auction house works, and it saves the speech engine mangling "Bux". The
+  paddle is drawn (`paddleHTML`, CSS blade + handle in the player's colour, everything scaled off
+  `--pad-h`) in both lobbies, the TV rail, the SOLD card, and on your own phone, where **it goes
+  up when you hold the bid** — patched only when that state changes, or the raise animation
+  restarts on every bid in the room.
 - **The auctioneer's VOICE is spoken, TV only.** `say()` drives Web Speech from the phrase banks
   (`P_OPEN`/`P_DROP_*`/`P_BID`/`P_GOING`/`P_SOLD`/`P_PASSED`), assembled from the trade's real
   filler words rather than stored whole, with `words()` turning 4800 into "forty-eight hundred".

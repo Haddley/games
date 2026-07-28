@@ -143,6 +143,44 @@
         .gavel-wrap { height: 10px; border-radius: 6px; background: rgba(255,255,255,.09); overflow: hidden; }
         .gavel-bar { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--gold), var(--down)); transition: width .1s linear; }
         .coins-chip { display: inline-block; padding: 4px 12px; border-radius: 11px; background: rgba(232,183,90,.12); border: 1px solid var(--border); color: var(--gold); font-weight: 900; font-size: .8rem; }
+
+        /* THE PADDLE. Blade + handle, drawn in the bidder's own colour, and the auctioneer sells
+           to the number on it. Everything scales off --pad-h, so the same markup is a 22px chip in
+           a lobby row and a 26vmin trophy on the SOLD card. */
+        .paddle {
+            --pad-h: 26px;
+            position: relative; display: inline-flex; align-items: center; justify-content: center;
+            width: calc(var(--pad-h) * .82); height: var(--pad-h);
+            border-radius: calc(var(--pad-h) * .16);
+            background: linear-gradient(160deg, var(--pc), color-mix(in srgb, var(--pc) 58%, #1a1024));
+            box-shadow: 0 calc(var(--pad-h) * .05) calc(var(--pad-h) * .16) rgba(0,0,0,.45),
+                        inset 0 0 0 calc(var(--pad-h) * .035) rgba(255,255,255,.4);
+            flex: 0 0 auto; vertical-align: middle; margin-bottom: calc(var(--pad-h) * .22);
+        }
+        /* the handle */
+        .paddle::after {
+            content: ''; position: absolute; left: 50%; top: 96%;
+            width: calc(var(--pad-h) * .17); height: calc(var(--pad-h) * .3);
+            transform: translateX(-50%); border-radius: 0 0 calc(var(--pad-h) * .09) calc(var(--pad-h) * .09);
+            background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 62%, #1a1024), #4a3320);
+        }
+        .paddle .pnum {
+            font-family: 'Playfair Display', serif; font-weight: 900; line-height: 1;
+            font-size: calc(var(--pad-h) * .46); color: #2a1a05;
+            text-shadow: 0 1px 0 rgba(255,255,255,.35);
+        }
+        .paddle.big { --pad-h: 92px; }
+        .paddle.tv { --pad-h: 5vmin; }
+        .paddle.tv-huge { --pad-h: 22vmin; }
+        /* raised, because you are holding the bid */
+        .paddle.up { animation: paddleUp .5s cubic-bezier(.2,1.5,.35,1) both; }
+        @keyframes paddleUp {
+            0% { transform: translateY(30%) rotate(-6deg); }
+            60% { transform: translateY(-12%) rotate(3deg); }
+            100% { transform: none; }
+        }
+        .paddle-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
+        .paddle-lbl { font-weight: 900; font-size: .74rem; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); }
         .shelf { display: flex; flex-wrap: wrap; gap: 6px; }
         .shelf .sh-item {
             background: rgba(21,10,30,.6); border: 1px solid var(--border2); border-radius: 10px;
@@ -1993,10 +2031,17 @@ const P_GOING = [
     "Going once… going twice…", "Fair warning now!", "All done? All through?",
     "Last call at {}.", "Fair warning — I'm selling at {}.", "Going… and going…",
 ];
+// The rostrum sells to the NUMBER, not the name — "{who}" is always "bidder number forty-two".
 const P_SOLD = [
     "SOLD! To {who}, for {}!", "GONE! {who} takes it at {}!",
     "Hammer's down — {} to {who}!", "SOLD at {} — well bought, {who}!",
     "{who}, {} — and it's yours!", "That's SOLD, {who}, at {}!",
+    "All done. {} to {who}!", "Yours at {}, {}. Thank you, {who}!",
+];
+// Acknowledging the paddle holding the bid — "bid'em at, bidder now" is straight off a rostrum.
+const P_ACK = [
+    "Bidder number {p}.", "In at {p}.", "Number {p} has it.", "With {p}.",
+    "Bid'em at, bidder {p}.", "Standing with number {p}.",
 ];
 const P_PASSED = [
     "Passed in. It never made its reserve.", "No sale. That one goes back in the van.",
@@ -2041,12 +2086,17 @@ function sayBid(msg) {
     const next = msg.bid.price + raisesFor(msg.bid.price)[0];
     // the two-number chant: what is bid, then what he wants next
     let i = 0;
-    say(pick(P_BID).replace(/\{\}/g, () => words(i++ === 0 ? msg.bid.price : next)), { rate: 1.42 });
+    let line = pick(P_BID).replace(/\{\}/g, () => words(i++ === 0 ? msg.bid.price : next));
+    // …and every so often he acknowledges the paddle that holds it, the way a real one does
+    if (msg.bid.leaderPaddle && Math.random() < 0.35) line += ' ' + pick(P_ACK).replace('{p}', words(msg.bid.leaderPaddle));
+    say(line, { rate: 1.42 });
 }
 function sayGoing(price) { say(fill(pick(P_GOING), price), { rate: 1.15 }); }
 function saySold(info) {
+    // Never the name: an auctioneer sells to the paddle. (It also saves him mangling "Bux".)
+    const who = info.paddle ? 'bidder number ' + words(info.paddle) : 'the gentleman at the back';
     say(info.passed ? pick(P_PASSED)
-        : fill(pick(P_SOLD), info.price).replace(/\{who\}/g, info.winner), { rate: 1.1, pitch: 1 });
+        : fill(pick(P_SOLD), info.price).replace(/\{who\}/g, who), { rate: 1.1, pitch: 1 });
 }
 function sayBanked(msg) {
     say(`That's the end of round ${words(msg.round)}. Settle up — everything you own turns back into money, and we go again.`, { rate: 1.05 });
@@ -2135,18 +2185,29 @@ function capSync(prevId) {
     tvHostSync();
 }
 
+// Every bidder gets a paddle, and the auctioneer sells to the NUMBER: "sold to bidder number
+// forty-two". Two digits always, so it reads as a proper rostrum number rather than "bidder
+// seven", and drawn at random from the free ones — being number 88 is worth something.
+// A rejoining player keeps theirs, because the seat object survives the reconnect.
+function freePaddle() {
+    const taken = new Set(H.players.map(p => p.paddle));
+    const pool = [];
+    for (let n = 10; n <= 99; n++) if (!taken.has(n)) pool.push(n);
+    return pool[Math.floor(Math.random() * pool.length)];
+}
+
 function hostAddPlayer(id, name) {
     if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
     H.players.push({
         id, name, color: PLAYER_COLORS[H.players.length % PLAYER_COLORS.length],
-        coins: START_COINS, lots: [],
+        paddle: freePaddle(), coins: START_COINS, lots: [],
     });
 }
 
 function lobbyMsg() {
     return {
         type: 'lobby', roomCode,
-        players: H.players.map(p => ({ name: p.name, color: p.color })),
+        players: H.players.map(p => ({ name: p.name, color: p.color, paddle: p.paddle })),
         settings: { ...H.settings, lotCount: plannedLotCount() },
         tvHost: isTvHost, captain: capName(),
     };
@@ -2190,11 +2251,13 @@ function stateFor(p) {
             ask: currentAsk(), drops: H.bid.drops,
             leader: leader ? leader.name : null,
             leaderColor: leader ? leader.color : null,
+            leaderPaddle: leader ? leader.paddle : null,
             youLead: !!(p && leader && leader.id === p.id),
             canOpen: !!(p && H.bid.price === 0 && p.coins >= currentAsk()),
             endsIn: Math.max(0, H.bid.endsAt - Date.now()),
         } : null,
         myCoins: p ? p.coins : 0,
+        myPaddle: p ? p.paddle : null,
         myLots: p ? p.lots.map(l => ({
             name: hidden(l) ? 'Mystery Lot' : LOTS[l.lotIdx].name,
             emoji: hidden(l) ? '📦' : LOTS[l.lotIdx].emoji,
@@ -2204,7 +2267,7 @@ function stateFor(p) {
         reveals: H.phase === 'valuation' || H.phase === 'podium' ? H.reveals : null,
         revealIndex: H.revealIndex,
         standings: H.standings, awards: H.awards, winner: H.winner,
-        players: H.players.map(q => ({ name: q.name, color: q.color, coins: q.coins, lotCount: q.lots.length })),
+        players: H.players.map(q => ({ name: q.name, color: q.color, paddle: q.paddle, coins: q.coins, lotCount: q.lots.length })),
         tvHost: isTvHost, captain: capName(),
     };
 }
@@ -2549,7 +2612,7 @@ function checkGavel() {
     const leader = H.players.find(p => p.id === H.bid.leaderId);
     leader.coins -= H.bid.price;
     leader.lots.push({ lotIdx, paid: H.bid.price });
-    H.soldInfo = { lotIdx, winner: leader.name, color: leader.color, price: H.bid.price };
+    H.soldInfo = { lotIdx, winner: leader.name, color: leader.color, paddle: leader.paddle, price: H.bid.price };
     H.phase = 'sold';
     H.bid = null;
     broadcastState();
@@ -2565,7 +2628,7 @@ function startValuation() {
         const entry = owner.lots.find(l => l.lotIdx === lotIdx);
         const lot = LOTS[lotIdx];
         H.reveals.push({
-            player: owner.name, color: owner.color,
+            player: owner.name, color: owner.color, paddle: owner.paddle,
             // The valuation is where a mystery lot finally gets its name — send the real one.
             lotName: lot.name, emoji: lot.emoji, img: lot.img || null,
             wasMystery: !!(H.mysteryLots && H.mysteryLots.has(lotIdx)),
@@ -2595,7 +2658,7 @@ function finishValuation() {
     clearHostTimers();
     const rows = H.players.map(p => {
         const shelf = p.lots.reduce((s, l) => s + LOTS[l.lotIdx].value, 0);
-        return { name: p.name, color: p.color, coins: p.coins, shelf, net: p.coins + shelf, lots: p.lots.length };
+        return { name: p.name, color: p.color, paddle: p.paddle, coins: p.coins, shelf, net: p.coins + shelf, lots: p.lots.length };
     }).sort((a, b) => b.net - a.net || b.coins - a.coins);
     H.standings = rows;
     // Awards are drawn from the WHOLE game, not the round that happens to have just ended.
@@ -2829,6 +2892,13 @@ function patchBidding(msg) {
     if (kick) kick.textContent = opening ? 'The auctioneer asks' : 'Current price';
     const lb = $id('lead-banner');
     if (lb) lb.innerHTML = leadBannerHTML(msg);
+    const mp = $id('my-paddle');
+    // only rewrite the paddle when its raised/lowered state actually changed, or the entrance
+    // animation restarts on every bid in the room
+    if (mp && mp.dataset.up !== String(!!(msg.bid && msg.bid.youLead))) {
+        mp.dataset.up = String(!!(msg.bid && msg.bid.youLead));
+        mp.innerHTML = myPaddleHTML(msg);
+    }
     const bb = $id('bid-btns');
     if (bb) bb.innerHTML = bidBtnsHTML(msg);
     const mc = $id('my-coins');
@@ -3034,6 +3104,12 @@ function patchViewerBidding(msg) {
 function hdrHTML(sub) {
     return `<h1 class="logo">${GAVEL} Going, Going, GONE!</h1><div class="sub">${esc(sub || 'bid big · regret bigger')}</div>`;
 }
+// A bidder's paddle: blade, handle, number, in their own colour. Sized entirely by --pad-h so the
+// same markup works as a 20px chip in a lobby row and a 30vmin trophy on the SOLD card.
+function paddleHTML(p, cls) {
+    if (!p || !p.paddle) return '';
+    return `<span class="paddle ${cls || ''}" style="--pc:${p.color || 'var(--gold)'}"><span class="pnum">${p.paddle}</span></span>`;
+}
 function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
 // "Round 2 of 3 · Lot 5 of 18" — the round only shows when there is more than one of them.
 function lotMeta(msg) {
@@ -3055,6 +3131,17 @@ function settingsSegsHTML(settings, expr) {
         <div class="fg"><label>Big lot — one item worth far more than the rest</label><div class="seg-row">${[[false, 'Off'], [true, 'On']].map(([v, label]) =>
             `<button class="btn btn-sm ${settings.bigLot === v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{bigLot:${v}}`)}">${label}</button>`).join('')}</div>
             <div style="font-size:.6rem;color:var(--muted);margin-top:4px">Whoever wins it usually wins the game.</div></div>`;
+}
+
+// Your own paddle, and it goes UP when you hold the bid — the one thing on the phone that mirrors
+// what your hand would be doing in the room.
+function myPaddleHTML(msg) {
+    if (!msg.myPaddle) return '';
+    const me = { paddle: msg.myPaddle, color: (msg.players || []).find(p => p.name === myName)?.color };
+    const up = !!(msg.bid && msg.bid.youLead);
+    return `${paddleHTML(me, 'big' + (up ? ' up' : ''))}
+        <div><div class="paddle-lbl">You are bidder</div>
+        <div style="font-weight:900;font-size:1.3rem;color:var(--gold)">number ${msg.myPaddle}</div></div>`;
 }
 
 function leadBannerHTML(msg) {
@@ -3097,7 +3184,7 @@ function shelfHTML(msg) {
 function railRowsHTML(msg) {
     return (msg.players || []).map(p => `
         <div class="rail-row${msg.bid && msg.bid.leader === p.name ? ' leader' : ''}">
-            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            ${paddleHTML(p, 'tv')}
             <span class="rname">${esc(p.name)}</span>
             <span class="rlots">${p.lotCount} lot${p.lotCount === 1 ? '' : 's'}</span>
             <span class="rcoins">🪙${num(p.coins)}</span>
@@ -3218,7 +3305,7 @@ function renderHome() {
 function renderLobbyH() {
     const pList = H.players.map((p, i) =>
         `<div class="player-row" style="--i:${i}">
-            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            ${paddleHTML(p)}
             <div style="flex:1">${esc(p.name)}${i === 0 ? ' <span style="color:var(--muted)">(you — host)</span>' : ''}</div>
             <div class="dot"></div>
         </div>`).join('');
@@ -3252,7 +3339,7 @@ function renderLobbyG() {
     const cap = isCaptain();
     const pList = (D.players || []).map((p, i) =>
         `<div class="player-row" style="--i:${i}">
-            <span class="pdot" style="background:${p.color};color:${p.color}"></span>
+            ${paddleHTML(p)}
             <div style="flex:1">${esc(p.name)}${p.name === myName ? ' <span style="color:var(--muted)">(you)</span>' : ''}${D.tvHost && p.name === D.captain ? ' 👑' : ''}</div>
             <div class="dot"></div>
         </div>`).join('');
@@ -3302,6 +3389,7 @@ function renderBidding() {
         <div id="going-lbl" style="min-height:1.2em;font-weight:900;color:var(--down)"></div>
     </div>
     <div id="lead-banner">${leadBannerHTML(D)}</div>
+    <div class="paddle-row" id="my-paddle">${myPaddleHTML(D)}</div>
     <div class="bid-btns" id="bid-btns">${bidBtnsHTML(D)}</div>
     <div style="text-align:center"><span class="coins-chip">🪙 <span id="my-coins">${num(D.myCoins)}</span> coins left</span></div>
     <div class="card"><div class="slbl">Your shelf</div>${shelfHTML(D)}</div>`;
@@ -3480,7 +3568,9 @@ function renderViewerSold() {
                <b style="color:var(--gold)">${num(s.value)}</b>.</div>`
         : `<div class="gavel">${GAVEL}</div>
            <div class="who">SOLD to <span style="color:${s.color}">${esc(s.winner)}</span> for ${num(s.price)}!</div>
-           <div class="sub2">${esc(title)} — worth… well, we'll find out.</div>`;
+           <div class="paddle-row" style="margin:1vmin 0">${paddleHTML(s, 'tv-huge')}
+             <div class="sub2">bidder number ${s.paddle}</div></div>
+           <div class="sub2">${esc(title)} — and we'll find out what it was really worth.</div>`;
     return tvShell(`<div class="tv-sold${s.passed ? ' passed' : ''}">${inner}</div>`, lotMeta(vD));
 }
 

@@ -157,6 +157,56 @@ test('TV-first: the ask, a bidding war, gavel, valuation, podium', async ({ brow
     await Promise.all([tv, karen, ben].map(p => p.close()));
 });
 
+test('paddles: unique two-digit numbers, drawn on screen, and the auctioneer sells to the number', async ({ browser }) => {
+    fs.mkdirSync(SHOTS, { recursive: true });
+
+    const tv = await browser.newPage({ viewport: TV });
+    await tv.goto('/goinggone.html');
+    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
+    const code = await tv.evaluate(() => roomCode);
+
+    const eve = await joinPhone(browser, code, 'Eve');
+    await expect(eve.locator('text=Captain\'s Settings')).toBeVisible({ timeout: 30_000 });
+    const fin = await joinPhone(browser, code, 'Fin');
+    await expect(tv.locator('.cxl-chip')).toHaveCount(2, { timeout: 20_000 });
+
+    // Every bidder holds a distinct two-digit paddle
+    const paddles = await tv.evaluate(() => H.players.map(p => p.paddle));
+    expect(paddles).toHaveLength(2);
+    expect(new Set(paddles).size).toBe(2);                       // never the same number twice
+    for (const n of paddles) expect(n).toBeGreaterThanOrEqual(10);
+    for (const n of paddles) expect(n).toBeLessThanOrEqual(99);
+
+    // The phone shows you yours
+    await expect(eve.locator('.player-row .paddle').first()).toBeVisible();
+
+    await eve.getByRole('button', { name: '1', exact: true }).click();
+    await eve.waitForTimeout(250);
+    await eve.getByRole('button', { name: /Start the auction/ }).click();
+    await expect(tv.locator('.tv-lot')).toBeVisible({ timeout: 20_000 });
+    await forceCheapLots(tv);
+
+    // The TV rail draws a paddle per bidder
+    await expect(tv.locator('#v-rail .paddle')).toHaveCount(2, { timeout: 20_000 });
+
+    // Your own paddle goes UP when you hold the bid
+    await openBidding(eve, tv);
+    await expect(eve.locator('#my-paddle .paddle.up')).toBeVisible({ timeout: 10_000 });
+    const evePaddle = await tv.evaluate(() => H.players.find(p => p.name === 'Eve').paddle);
+    await expect(eve.locator('#my-paddle')).toContainText(`number ${evePaddle}`);
+    await shot(eve, 'gavel-15-phone-paddle-up');
+
+    // …and the sale is called to the NUMBER, not the name
+    await expect(tv.locator('.tv-sold')).toBeVisible({ timeout: 20_000 });
+    await expect(tv.locator('.tv-sold')).toContainText(`bidder number ${evePaddle}`);
+    await expect(tv.locator('.tv-sold .paddle')).toBeVisible();
+    await tv.waitForTimeout(2000);
+    await shot(tv, 'gavel-16-tv-sold-paddle');
+
+    await Promise.all([tv, eve, fin].map(p => p.close()));
+});
+
 test('rounds: net worth banks back into cash, and the podium waits for the last one', async ({ browser }) => {
     fs.mkdirSync(SHOTS, { recursive: true });
 
