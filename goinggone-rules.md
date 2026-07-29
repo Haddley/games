@@ -64,7 +64,7 @@ Every lot runs the same five stages. Only the middle one can loop.
 |---|---|---|
 | **Intro** | Announces the lot; the item unveils | none — watch |
 | **Seeking** | Asks a price, comes down when nobody answers | take the ask, or wait |
-| **Bidding** | Has a bid, wants the next one; softens his ask if it doesn't come | raise (three sizes), or wait |
+| **Bidding** | Has a bid, wants the next one; softens his ask if it doesn't come | **take his ask**, or wait |
 | **Close** | "Going once… going twice…" | raise — **bids still count** |
 | **Sold / Passed in** | Hammer, or the tumbleweed | none |
 
@@ -97,11 +97,11 @@ a unit test enforces that.
 
 1. **Nothing is under 2.5 seconds** (`MIN_DECIDE_MS`). That is the floor for noticing a changed
    number on a phone in your hand and acting on it. Urgent is good; unfair is not.
-2. **A bid always buys back a full window.** Whatever pressure he had built, a bid resets him
-   completely — full 4.5 s, back to asking for the full increment, close called off. Longer than
-   every other beat in the game bar one: the very first cold ask, at 5 s, which is the only
-   decision anybody makes with no price on the board at all. The player who just spent money is
-   never given less time than the one who sat still.
+2. **A bid always buys back a full window.** Whatever pressure he had built, a bid resets the
+   CLOCK completely — full 4.5 s, close called off. Longer than every other beat in the game bar
+   one: the very first cold ask, at 5 s, which is the only decision anybody makes with no price on
+   the board at all. The player who just spent money is never given less time than the one who sat
+   still. What a bid does **not** reset is the NUMBER — see §5.
 3. **He only ever accelerates.** Each unanswered call is shorter than the one before it, in both
    the seeking and the bidding phases. The room can feel him losing patience.
 4. **The dullest outcome is the fastest.** A lot nobody wants takes **24.1 s** end to end. A lot
@@ -119,13 +119,28 @@ Two mechanisms, because a quiet window is the bug this schedule exists to fix.
 - **Mid-window re-ask.** Partway through every unanswered ask (at the halfway mark) he fires the
   chant again — *"Who'll give me sixty? Sixty? Anywhere?"* — from `P_CHANT`, short and quick
   (rate 1.5) so it reads as pressure rather than a new announcement.
-- **Fair warning.** Once a bid exists, at 50 % of the window the screen shows *going…*, at 25 % it
-  shows *going… GOING…*, and the 25 % mark also speaks a fair-warning line (`P_GOING`) — or, if he
-  has already softened his ask, the reduced price itself (`P_SPLIT`).
+- **Fair warning — and only where he means it.** On his **last rung**, at 50 % of the window the
+  screen shows *going…*, at 25 % *going… GOING…*, and the 25 % mark speaks a fair-warning line
+  (`P_GOING`). On any earlier rung it says **coming down…** instead, because that is what is about
+  to happen.
+
+  This is a rule, not a detail. Saying *"going… GOING…"* and then offering a **smaller** increment
+  is a threat he never intended to keep, and a room that hears it three times a lot learns that the
+  word means nothing — which is precisely what it did. Coming down has its own line (`P_SPLIT`),
+  spoken **at the start of the cheaper ask** rather than on top of the fair warning at the end of
+  the dearer one.
 
 Through the **close** both are suppressed. "GOING ONCE" is the line everybody knows and it does not
 share its beat with anything; a second utterance would simply cancel it, since `speechSynthesis`
 cancels rather than queues.
+
+### How fast he talks
+
+One dial, `SAY_RATE` (0.85), multiplied into every utterance; the per-line rates under it are only
+relative character (the chant is quicker than the hammer). The first build ran the bid calls at
+1.4–1.5×, which on a synthetic voice is not "auctioneer" but unintelligible — and every number here
+is one somebody has to act on. `speechMs()` divides by the same dial, so the beats that wait for him
+to stop talking (the banked board) follow it automatically.
 
 ---
 
@@ -158,12 +173,32 @@ room entirely.
 
 ## 5. Bidding — and softening the ask
 
-Once there is a bid, the player options are **three raise sizes** — his current ask, then the two
-bigger jumps from `RAISE_LADDER` (roughly ×5 and ×10). You cannot outbid yourself, and you cannot
-bid past your bankroll.
+Once there is a bid there is **one option: take his ask.** A rostrum has no menu — he calls a price
+and your paddle either goes up or it does not. (It used to offer the reduced ask alongside two
+bigger jumps. That made the phone a calculator, and the bigger jumps were exactly the ones nobody
+was taking, which is why he had come down in the first place.) You cannot outbid yourself, and you
+cannot bid past your bankroll.
 
 If a window empties with no raise, he does what a real auctioneer does: he **asks for less**, and
 waits again. Three steps, each with its own window (see the table).
+
+**His ask never climbs back up.** He came down to $25 because the room would not give him $100; a
+bid at $25 is not evidence they have changed their minds, so re-running the whole descent after
+every single bid is a descent they have already sat through. Within a lot he only ever descends;
+each new lot starts him back at a full jump.
+
+That is a measured decision, not a taste one — `sim/goinggone-bidding.js` plays thousands of lots
+under each rule:
+
+| Rule | taps/lot | seconds/lot | price/value |
+|---|---:|---:|---:|
+| reset to the top on every bid (old) | 3.4 | 47.9 | 122 % |
+| **leave it where the room left it (shipped)** | **3.9** | **40.8** | **118 %** |
+| step back up one rung on a bid | 3.5 | 43.7 | 119 % |
+| seed a new lot from the last few lots' appetite | 6.7 | 43.1 | 116 % |
+
+Seven seconds a lot, for half a tap, at the same price. The last row is the idea that looks
+sensible and is not: a lot that opens on a soft rung climbs in dribs, and nearly doubles the taps.
 
 **He calls the price, never the increment.** With $140 bid and a $25 ask he says *"I'll take one
 hundred and sixty-five — just twenty-five more"*, not *"I'll take twenty-five"*. The increment only

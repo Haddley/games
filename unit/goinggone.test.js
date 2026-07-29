@@ -59,7 +59,7 @@ const RAISE_SRC = (() => {
     return HTML.slice(a, b);
 })();
 const RAISE = new Function(RAISE_SRC +
-    '\nreturn { raisesFor, softMinRaise, softRaises, RAISE_FLOOR, SOFT_SHARE, SOFT_STEPS };')();
+    '\nreturn { raisesFor, softMinRaise, askLadderFor, lastRung, RAISE_FLOOR, SOFT_SHARE, SOFT_STEPS };')();
 
 // THE CLOCK. Every number that decides how long a player has to think, in one block, so the rules
 // document (goinggone-rules.md), the game and these tests cannot drift apart.
@@ -467,7 +467,7 @@ test('when he splits the increment he calls the PRICE, not the step', () => {
     // and the substitution feeds them the right numbers. Matched as RAW text: in the source the
     // placeholders live inside a regex literal, so "{n}" is written `\{n\}` and a plain /\{n\}/
     // never finds it — the backslash sits between the n and the brace.
-    const say = HTML.slice(HTML.indexOf('function sayGoing'), HTML.indexOf('function saySold'));
+    const say = HTML.slice(HTML.indexOf('function saySplit'), HTML.indexOf('function sayChant'));
     assert.ok(say.includes(String.raw`.replace(/\{n\}/g, words(price + minRaise))`),
         '{n} must be substituted with the price the ask would make');
     assert.ok(say.includes(String.raw`.replace(/\{r\}/g, words(minRaise))`),
@@ -569,16 +569,84 @@ test('a cheap lot really does get down to "just one more"', () => {
     assert.ok(RAISE.softMinRaise(67000, RAISE.SOFT_STEPS) <= 67000 * RAISE.RAISE_FLOOR * 1.2);
 });
 
-test('the phone is offered his ask plus the bigger jumps, in order', () => {
+test('the phone offers ONE option, and it is the auctioneer\'s own number', () => {
+    // A rostrum has no menu. Offering his reduced ask alongside two bigger jumps turned the phone
+    // into a calculator, and the bigger jumps were exactly the ones nobody was taking — which is
+    // why he came down in the first place.
+    const src = HTML.slice(HTML.indexOf('function bidBtnsHTML'), HTML.indexOf('function shelfHTML'));
+    assert.ok(!/softRaises/.test(src) && !/softRaises/.test(HTML),
+        'the phone is still building a menu of raises');
+    const buttons = [...src.matchAll(/onclick="sendBid\(/g)].length;
+    assert.equal(buttons, 2, 'exactly two bid buttons in the source: the opening ask, and his ask');
+    assert.match(src, /softMinRaise\(msg\.bid\.price, msg\.bid\.soft/,
+        'the one button must be his CURRENT ask, not a full jump');
+});
+
+test('his ask never climbs back up after a bid', () => {
+    // He came down because the room would not give him a full jump. A bid at the reduced ask is
+    // not evidence they changed their minds, so re-running the whole descent after every single
+    // bid is a descent the room has already sat through — measured at seven seconds a lot in
+    // sim/goinggone-bidding.js. The gavel still resets in full; the NUMBER does not.
+    const src = HTML.slice(HTML.indexOf('function hostBid'), HTML.indexOf('function checkGavel'));
+    const raise = src.slice(src.indexOf("can't outbid yourself"));
+    assert.ok(!/H\.bid\.soft\s*=\s*0/.test(raise), 'a raise still resets his ask to a full jump');
+    assert.match(raise, /openWindow\(GAVEL_MS\)/, 'a bid must still buy back the longest window');
+    // …but a brand-new lot does start him at the top again: the sim is unambiguous that carrying
+    // a soft rung ACROSS lots nearly doubles the taps, because the price then climbs in dribs.
+    const start = HTML.slice(HTML.indexOf('function startBidding'), HTML.indexOf('const currentAsk'));
+    assert.match(start, /soft: 0/, 'each lot must open with him asking for a full jump');
+});
+
+test('"going" is the close, and never sits on top of an ask he is about to cut', () => {
+    // The complaint that started this: he said "going… GOING…" and then offered a SMALLER
+    // increment, over and over. A warning he has no intention of keeping teaches the room to
+    // ignore it. So the escalation is armed only on his last rung, where the next beat really is
+    // "going once" — and the split is announced where it happens, at the start of the cheaper ask.
+    const ticks = [...HTML.matchAll(/const stage = \(_[cv]Opening \|\| ([^)]*)\)/g)].map(m => m[1]);
+    assert.equal(ticks.length, 2, 'both the phone and the TV countdowns must be found');
+    for (const cond of ticks) assert.match(cond, /!last/, `"going…" is not held back to the last rung: ${cond}`);
+    // and lastRung is what decides it, on the price the client can already see
+    assert.ok(/function lastRung\(/.test(HTML), 'lastRung() decides when the close is next');
     for (const p of PRICES) {
-        for (const step of [0, 1, 2, 3]) {
-            const offer = RAISE.softRaises(p, step);
-            assert.ok(offer.length >= 1 && offer.length <= 3, `price ${p}: ${offer.length} buttons`);
-            assert.equal(offer[0], RAISE.softMinRaise(p, step), `price ${p}: first button is not his ask`);
-            assert.deepEqual(offer, [...new Set(offer)], `price ${p}: duplicate buttons ${offer}`);
-            offer.forEach((r, i) => { if (i) assert.ok(r > offer[i - 1], `price ${p}: ${offer} not ascending`); });
-        }
+        const n = RAISE.askLadderFor(p).length;
+        assert.ok(!RAISE.lastRung(p, 0) || n === 1, `price ${p}: his opening ask is already his last`);
+        assert.ok(RAISE.lastRung(p, n - 1), `price ${p}: the bottom rung is not the last`);
+        assert.ok(RAISE.lastRung(p, 99), `price ${p}: past the bottom must still read as the last`);
     }
+});
+
+test('the fair warning carries no fresh ask, and the split is its own line', () => {
+    const going = HTML.slice(HTML.indexOf('function sayGoing'), HTML.indexOf('function saySplit'));
+    assert.ok(!/P_SPLIT/.test(going), 'the fair warning is still offering a discount in the same breath');
+    assert.match(going, /P_GOING/, 'the fair warning must come from the fair-warning bank');
+    // …and it is spoken at the moment he comes down, in BOTH handlers (the TV had no branch at
+    // all, so the one beat the whole descent exists for used to pass in silence)
+    for (const [from, to, who] of [['function applyMsg', 'function startClientGavel', 'the phone'],
+                                   ['function applyViewerMsg', 'function startViewerGavel', 'the TV']]) {
+        const src = HTML.slice(HTML.indexOf(from), HTML.indexOf(to));
+        assert.match(src, /saySplit\(/, `${who} never announces that he has come down`);
+    }
+});
+
+test('he does not chant a number he has already stopped asking for', () => {
+    const src = HTML.slice(HTML.indexOf('function sayBid'), HTML.indexOf('function sayGoing'));
+    assert.match(src, /softMinRaise\(msg\.bid\.price, msg\.bid\.soft/,
+        'the two-number chant must name his CURRENT ask as the next price');
+});
+
+test('the voice is not a blur', () => {
+    // Reported by ear: "incredibly rushed". Every number in this game is one somebody has to act
+    // on, and a synthetic voice at 1.5× is not an auctioneer, it is noise. One dial for the whole
+    // performance, and nothing may sit above a brisk conversational pace once it is applied.
+    const dial = +HTML.match(/const SAY_RATE = ([\d.]+)/)[1];
+    assert.ok(dial > 0 && dial <= 0.95, `SAY_RATE is ${dial} — that is not a slow-down`);
+    assert.match(HTML, /u\.rate = \(opts\.rate \|\| [\d.]+\) \* SAY_RATE/, 'the dial must reach every utterance');
+    const rates = [...HTML.matchAll(/rate: ([\d.]+)/g)].map(m => +m[1] * dial);
+    assert.ok(rates.length >= 8, `only ${rates.length} spoken lines found`);
+    for (const r of rates) assert.ok(r <= 1.12, `a line is spoken at ${r.toFixed(2)}× — still a blur`);
+    // and the beats that WAIT for him to finish must follow the dial, or the banked board starts
+    // the next round mid-sentence again
+    assert.match(HTML, /const speechMs = [\s\S]{0,80}SAY_RATE/, 'speechMs must scale with SAY_RATE');
 });
 
 // ── the two message handlers must speak the same beats ──────────────────────

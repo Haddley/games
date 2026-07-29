@@ -159,13 +159,13 @@ test('three players, three rounds: the auctioneer keeps to his own schedule', as
     await tv.screenshot({ path: `${SHOTS}/auction-02-bidding-war.png` });
     await bo.screenshot({ path: `${SHOTS}/auction-03-phone-options.png` });
 
-    // The phone is never offered fewer than one or more than three ways to bid, and every one of
-    // them is a bigger number than the last — options a player can scan without reading.
+    // ONE way to bid, and it is the auctioneer's own number. A rostrum has no menu: your paddle
+    // goes up at the price he called or it does not.
     const offered = await bo.evaluate(() =>
         [...document.querySelectorAll('.bid-btns .btn-p')].map(b => +(b.getAttribute('onclick').match(/-?\d+/) || [0])[0]));
-    expect(offered.length).toBeGreaterThan(0);
-    expect(offered.length).toBeLessThanOrEqual(3);
-    for (let i = 1; i < offered.length; i++) expect(offered[i]).toBeGreaterThan(offered[i - 1]);
+    expect(offered.length, 'the phone is offering a menu again').toBe(1);
+    expect(offered[0], 'the one button is not his standing ask')
+        .toBe(await tv.evaluate(() => softMinRaise(H.bid.price, H.bid.soft || 0)));
 
     // Now everyone sits on their hands: he softens his ask, step by step, then closes.
     await expect(tv.locator('.tv-sold')).toBeVisible({ timeout: 60_000 });
@@ -186,8 +186,26 @@ test('three players, three rounds: the auctioneer keeps to his own schedule', as
     expect(closes[0].ms).toBe(closes[1].ms);
     expect(closes[0].ms).toBeLessThan(gavelMs);
 
+    // HE NEVER SAYS "GOING" AND THEN CUTS HIS ASK. Fair warning is a warning he intends to keep,
+    // so it may not be uttered while there is still a cheaper rung to call — otherwise the room
+    // learns the word means nothing. Every fair-warning line must therefore land after the last
+    // time he came down on this lot. (Coming down has its OWN line, at the moment it happens.)
+    const lastSoften = softens.length ? softens[softens.length - 1].t : all[mark].t;
+    const heard = await said(tv);
+    const warnings = heard.filter(l => /fair warning|all done|all through|last call|anybody else/i.test(l.text));
+    for (const w of warnings) {
+        if (w.t < all[mark].t) continue;                         // an earlier lot's warning
+        expect(w.t, `"${w.text}" was said while he still had a cheaper ask to call`)
+            .toBeGreaterThanOrEqual(lastSoften);
+    }
+    // …and coming down is announced where it happens, rather than in silence
+    if (softens.length) {
+        const splits = heard.filter(l => l.t >= all[mark].t && /i'll take|i'll come down|won't you give|don't lose it|who'll give me/i.test(l.text));
+        expect(splits.length, 'he came down and said nothing about it').toBeGreaterThan(0);
+    }
+
     // The lines everybody knows were actually spoken, in order, and separately.
-    const spoken = (await said(tv)).map(l => l.text.toLowerCase());
+    const spoken = heard.map(l => l.text.toLowerCase());
     const once = spoken.findIndex(t => /going once|^once/.test(t));
     const twice = spoken.findIndex(t => /going twice|^twice/.test(t));
     expect(once, 'nobody said "going once"').toBeGreaterThanOrEqual(0);

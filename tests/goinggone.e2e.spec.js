@@ -249,10 +249,15 @@ test('he splits the increment rather than dropping the hammer', async ({ browser
     // The step is the HOST's, broadcast like any other state, so nothing here depends on two
     // clocks agreeing. Waiting it out for real would take SOFT_STEP_MS, so the window is simply
     // expired rather than slept through.
-    const num = t => parseInt(String(t).replace(/[^0-9]/g, ''), 10);
-    const full = num(await hal.locator('#bid-btns .btn').first().textContent());
+    // Read the RAISE out of the button's own handler rather than off its label — the label is
+    // prose and the number in it is the price, not the step.
+    const askOn = phone => phone.evaluate(() => {
+        const b = document.querySelector('#bid-btns .btn-p');
+        return b ? +(b.getAttribute('onclick').match(/-?\d+/) || [0])[0] : 0;
+    });
+    const full = await askOn(hal);
     await tv.evaluate(() => { H.bid.endsAt = Date.now(); });
-    await expect.poll(async () => num(await hal.locator('#bid-btns .btn').first().textContent()),
+    await expect.poll(() => askOn(hal),
         { timeout: 6_000, message: 'the auctioneer never came down off his full jump' })
         .toBeLessThan(full);
     await expect(hal.locator('#bid-btns .btn.soft')).toBeVisible();
@@ -277,7 +282,10 @@ test('he splits the increment rather than dropping the hammer', async ({ browser
     expect(host.ask, 'he never came down').toBeLessThan(host.fullRung);
     expect(host.refused, 'the host took a bid below his standing ask').toBe(true);
     expect(host.took, 'the host refused his own reduced ask').toBe(host.ask);
-    expect(host.resetTo, 'a bid should put him back to the full jump').toBe(0);
+    // …and STAYS THERE. He came down because the room would not give him a full jump; a bid at
+    // the reduced ask is not evidence they changed their minds, so climbing back to the top and
+    // laddering all the way down again is a descent they have already sat through.
+    expect(host.resetTo, 'a bid put him back to the full jump — he should hold his reduced ask').toBe(1);
 
     await Promise.all([tv, gus, hal].map(p => p.close()));
 });

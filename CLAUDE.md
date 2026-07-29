@@ -48,6 +48,8 @@ python3 -m http.server 8231                      # manual dev server (Playwright
 node scripts/build-goinggone-lots.js             # re-embed Going, Going, GONE!'s lots after editing the JSON
 node sim/goinggone.js --cash-sweep               # its balance simulator, against the real lots
 node sim/goinggone.js --by-round                 #   …round by round: do the bands outrun the money?
+node sim/goinggone-bidding.js                    # the BIDDING sim: how should his ask behave?
+node sim/goinggone-bidding.js --trace            #   …one lot, beat by beat, under each rule
 ```
 
 `unit/` holds pure-JS unit tests (`node --test`, no deps) — including `presence.test.js`,
