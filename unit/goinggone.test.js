@@ -428,18 +428,35 @@ test('the ask only ever comes DOWN as the gavel falls', () => {
             const r = RAISE.softMinRaise(p, step);
             assert.ok(r <= prev, `price ${p}: ask went UP at step ${step} (${prev} → ${r})`);
             assert.ok(r >= 1, `price ${p}: ask fell below a pound (${r})`);
-            assert.ok(r <= RAISE.raisesFor(p)[0], `price ${p}: ask ${r} exceeds the full rung`);
+            // NB the raise may now EXCEED the nominal rung: he asks for a round PRICE, and
+            // reaching one costs whatever it costs.
             prev = r;
         }
     }
 });
 
-test('the first window asks for the full rung, and only softens after it', () => {
+test('his opening ask is never below a full jump, and every ask is a ROUND price', () => {
+    // Heard in a real game: bid at 2,963 and an ask of 3,022. Nobody has ever said that on a
+    // rostrum — he asks for three thousand one hundred. So the ladder is built of round prices
+    // and the increment is merely what it costs to reach one, which means the raise can be
+    // BIGGER than the nominal rung.
+    const round = v => v % 25 === 0 || v % 10 === 0 || v % 5 === 0 || v < 100;
     for (const p of PRICES) {
-        assert.equal(RAISE.softMinRaise(p, 0), RAISE.raisesFor(p)[0], `price ${p} softened too early`);
-        assert.ok(RAISE.softMinRaise(p, RAISE.SOFT_STEPS) <= RAISE.softMinRaise(p, 0),
-            `price ${p} never came down at all`);
+        const first = p + RAISE.softMinRaise(p, 0);
+        assert.ok(first >= p + RAISE.raisesFor(p)[0], `price ${p}: opened at ${first}, under a full jump`);
+        for (const step of [0, 1, 2, 3]) {
+            const ask = p + RAISE.softMinRaise(p, step);
+            assert.ok(ask > p, `price ${p} step ${step}: asked ${ask}, at or under the bid`);
+            assert.ok(round(ask), `price ${p} step ${step}: ${ask} is not a number anybody would call`);
+        }
+        assert.ok(RAISE.softMinRaise(p, 3) <= RAISE.softMinRaise(p, 0), `price ${p} never came down`);
     }
+});
+
+test('2,963 gets the ladder a real auctioneer would call', () => {
+    // Neil's own example, and the shape the whole rewrite exists to produce.
+    const asks = [0, 1, 2, 3].map(i => 2963 + RAISE.softMinRaise(2963, i));
+    assert.deepEqual(asks, [3250, 3100, 3050, 3000]);
 });
 
 test('a cheap lot really does get down to "just one more"', () => {

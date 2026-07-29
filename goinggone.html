@@ -631,24 +631,66 @@ const RAISE_FLOOR = 0.02;                 // past the last step: this share of t
 // does when fishing for an opening bid, and the step is explicit state rather than something each
 // device works out from its own clock (which is also how the clock-skew grace went away).
 const SOFT_STEP_MS = 3000;
+// Once he has run out of round numbers to come down to, he does not simply hammer: he closes the
+// lot properly. Going once, going twice — the beat everybody in the room is waiting for.
+const CLOSE_MS = 4600;
 
-// The smallest raise he will accept at step `idx`. Never rises as he goes down, whatever the
-// arithmetic says — a floor above the quarter-rung would otherwise make him ask for MORE as he
-// grew more desperate.
-function softMinRaise(price, idx) {
+// ── HE ASKS FOR A ROUND NUMBER ──────────────────────────────────────────────
+// An auctioneer thinks in the PRICE, not the step, and the price he calls is one a person would
+// actually say: "three thousand one hundred", never "three thousand and twenty-two". So his asks
+// are built as a ladder of ROUND PRICES — the next multiple of each successively smaller unit —
+// and the increment is merely whatever gets you there.
+//
+// Built as a descending, de-duplicated set rather than by shrinking the step, because shrinking
+// the step does not behave: at £21,000 a half and a quarter step both round to £21,500, so he
+// "comes down" three times to the same number; and at £67,000 the smaller unit lands HIGHER
+// (68,000) than the bigger one did (67,500).
+const NICE = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000];
+const tidyUnit = inc => NICE.filter(u => u <= Math.max(1, inc)).pop() || 1;
+
+// Every price he might call for this lot, biggest first. Each rung is a NOTIONAL step (the full
+// jump, a half, a quarter, the floor) rounded UP to a unit that suits its size — step first, then
+// tidy. Taking the next multiple of the step instead collapses the opening ask whenever the price
+// sits just under a round number: at 2,963 the next multiple of 250 is 3,000, a jump of 37.
+// A rung that lands level with the one above is nudged down a unit, because coming down to the
+// same number twice reads as a stuck screen.
+function askLadderFor(price) {
     const full = raisesFor(price)[0];
-    const floor = Math.min(full, Math.max(1, roundAsk(price * RAISE_FLOOR)));
-    const st = Math.max(0, Math.min(SOFT_SHARE.length, idx | 0));
-    if (st === 0) return full;
-    if (st >= SOFT_SHARE.length) return floor;
-    return Math.max(floor, Math.min(full, roundAsk(full * SOFT_SHARE[st])));
+    // Sized from where the ask will LAND, not from where the bidding currently is: at 99 the
+    // asks run past 100, and choosing the unit from 99 let a £102 through — which is not a
+    // number anybody calls.
+    const mag = price + full;
+    const floorUnit = mag >= 1000 ? 25 : mag >= 100 ? 5 : 1;
+    const incs = [full, full / 2, full / 4, Math.max(1, Math.round(price * RAISE_FLOOR))];
+    const out = [];
+    for (const inc of incs) {
+        const u = Math.max(floorUnit, tidyUnit(Math.max(1, Math.min(full, inc))));
+        let ask = Math.ceil((price + Math.max(1, inc)) / u) * u;
+        while (out.length && ask >= out[out.length - 1]) ask -= u;
+        if (ask > price) out.push(ask); else break;
+    }
+    return out;
 }
-// What the phone offers: his current ask, then the two bigger jumps, deduplicated.
+
+// The smallest raise he will accept at step `idx` — the price at that rung, less what is bid.
+// Strictly decreasing by construction, so he can never ask MORE as he grows more desperate.
+function softMinRaise(price, idx) {
+    const ladder = askLadderFor(price);
+    if (!ladder.length) return 1;
+    return ladder[Math.max(0, Math.min(ladder.length - 1, idx | 0))] - price;
+}
+// What the phone offers: his current ask, then the bigger jumps — every one of them a round price.
 function softRaises(price, idx) {
-    const rungs = raisesFor(price);
-    const min = softMinRaise(price, idx);
-    return [min, ...rungs.filter(r => r > min)].slice(0, 3);
+    const ladder = askLadderFor(price);
+    if (!ladder.length) return [1];
+    const mine = softMinRaise(price, idx);
+    const bigger = raisesFor(price).map(r => {
+        const u = tidyUnit(r);
+        return Math.ceil((price + r) / u) * u - price;             // round up there too
+    }).filter(r => r > mine);
+    return [...new Set([mine, ...bigger])].slice(0, 3);
 }
+
 const SOFT_STEPS = SOFT_SHARE.length;     // …after which the hammer really does fall
 
 // ── THE AUCTIONEER'S ASK ────────────────────────────────────────────────────
@@ -2781,7 +2823,7 @@ function stateFor(p) {
             // The ask, and how many times he has already come down — never how far he WILL come
             // down. That number stays on the host; not knowing it is the whole game of nerve.
             ask: currentAsk(), drops: H.bid.drops,
-            soft: H.bid.soft, span: H.bid.span || GAVEL_MS,
+            soft: H.bid.soft, span: H.bid.span || GAVEL_MS, closing: !!H.bid.closing,
             leader: leader ? leader.name : null,
             leaderColor: leader ? leader.color : null,
             leaderPaddle: leader ? leader.paddle : null,
@@ -3092,7 +3134,7 @@ function startBidding() {
     // and it is the only thing making the wait frightening.
     H.bid = {
         price: 0, leaderId: null, endsAt: Date.now() + ASK_MS, span: ASK_MS,
-        ladder: askLadder(lot.value), askIdx: 0, drops: 0, soft: 0,
+        ladder: askLadder(lot.value), askIdx: 0, drops: 0, soft: 0, closing: false,
     };
     broadcastState();
     clearInterval(_gavelTick);
@@ -3114,6 +3156,7 @@ function hostBid(player, raise) {
         H.bid.endsAt = Date.now() + GAVEL_MS;
         H.bid.span = GAVEL_MS;
         H.bid.soft = 0;
+        H.bid.closing = false;
         broadcastState();
         return;
     }
@@ -3131,6 +3174,7 @@ function hostBid(player, raise) {
     H.bid.endsAt = Date.now() + GAVEL_MS;                    // gavel resets…
     H.bid.span = GAVEL_MS;
     H.bid.soft = 0;                                          // …and so does his ask
+    H.bid.closing = false;                                   // and the close is called off
     broadcastState();
 }
 
@@ -3161,10 +3205,22 @@ function checkGavel() {
     }
     // Bidding is running but nobody has moved: come down a step and wait again, rather than
     // dropping the hammer the moment the first window empties.
-    if (H.bid.soft < SOFT_STEPS) {
+    // …but only while there is a genuinely lower round price left to call. On some prices the
+    // ladder is shorter than SOFT_STEPS, and "coming down" to the number he just said reads as a
+    // stuck screen rather than an auctioneer.
+    if (H.bid.soft < askLadderFor(H.bid.price).length - 1) {
         H.bid.soft += 1;
         H.bid.endsAt = Date.now() + SOFT_STEP_MS;
         H.bid.span = SOFT_STEP_MS;
+        broadcastState();
+        return;
+    }
+    // Out of round numbers to offer: close it properly rather than dropping the hammer the
+    // instant the last window empties. Going once, going twice — then GONE.
+    if (!H.bid.closing) {
+        H.bid.closing = true;
+        H.bid.endsAt = Date.now() + CLOSE_MS;
+        H.bid.span = CLOSE_MS;
         broadcastState();
         return;
     }
@@ -3346,7 +3402,7 @@ function hostSet(patch) {
 // CLIENT (phone) MESSAGE HANDLING
 // ═══════════════════════════════════════════
 let _lastLotKey = '', _lastPrice = -1, _lastAsk = 0, _lastRevealIdx = -1, _goingStage = 0;
-let _cOpening = false, _cSpan = GAVEL_MS, _cSoft = -1;
+let _cOpening = false, _cSpan = GAVEL_MS, _cSoft = -1, _cClosing = false;
 function stopClientTick() { clearInterval(_gavelTickClient); _gavelTickClient = null; _goingStage = 0; musicUrgent = false; }
 
 function applyMsg(msg) {
@@ -3385,6 +3441,7 @@ function applyMsg(msg) {
                     _lastPrice = msg.bid ? msg.bid.price : 0;
                     _lastAsk = msg.bid ? msg.bid.ask : 0;
                     _cSoft = msg.bid ? (msg.bid.soft || 0) : 0;
+                    _cClosing = false;
                     if (msg.bid && msg.bid.price === 0) sayAsk(msg, true);
                 } else if (msg.bid && msg.bid.price === 0) {
                     // Still fishing for an opening bid. Nothing has been bid, so there is no price
@@ -3400,7 +3457,12 @@ function applyMsg(msg) {
                         const pe = $id('p-price');
                         if (pe) { pe.classList.remove('drop'); void pe.offsetWidth; pe.classList.add('drop'); }
                     }
-                } else if (msg.bid && msg.bid.price > 0 && (msg.bid.soft || 0) !== _cSoft) {
+                } else if (msg.bid && msg.bid.closing && !_cClosing) {
+            _cClosing = true;
+            patchBidding(msg);
+            startClientGavel(msg);
+            sayGoing(msg.bid.price, 0);                 // "Going once… going twice…"
+        } else if (msg.bid && msg.bid.price > 0 && (msg.bid.soft || 0) !== _cSoft) {
                     // he has come down a step, and is now waiting again — re-offer at his ask
                     _cSoft = msg.bid.soft || 0;
                     patchBidding(msg);
@@ -3497,8 +3559,11 @@ function startClientGavel(msg) {
         if (bar) { bar.style.width = (frac * 100) + '%'; bar.classList.toggle('low', stage > 0); }
         const gl = $id('going-lbl');
         if (gl) {
+            const closing = !!(D && D.bid && D.bid.closing);
             gl.textContent = _cOpening ? (left < 1800 ? 'coming down…' : '')
-                : left === 0 ? '' : stage === 2 ? 'going… GOING…' : stage === 1 ? 'going…' : '';
+                : left === 0 ? ''
+                : closing ? (frac > 0.5 ? 'GOING ONCE…' : 'GOING TWICE…')
+                : stage === 2 ? 'going… GOING…' : stage === 1 ? 'going…' : '';
             gl.classList.toggle('low', stage > 0);
         }
         musicUrgent = left > 0 && stage > 0;
@@ -3554,7 +3619,7 @@ function patchBidding(msg) {
 // VIEWER (TV) MESSAGE HANDLING
 // ═══════════════════════════════════════════
 let _vLotKey = '', _vPrice = -1, _vAsk = 0, _vRevealIdx = -1, _vGavelEnd = 0, _vGavelTick = null, _vGoingStage = 0;
-let _vOpening = false, _vSpan = GAVEL_MS;
+let _vOpening = false, _vSpan = GAVEL_MS, _vClosing = false;
 function stopViewerTick() { clearInterval(_vGavelTick); _vGavelTick = null; _vGoingStage = 0; musicUrgent = false; }
 
 function applyViewerMsg(msg) {
@@ -3591,6 +3656,7 @@ function applyViewerMsg(msg) {
             render();
             _vPrice = msg.bid ? msg.bid.price : 0;
             _vAsk = msg.bid ? msg.bid.ask : 0;
+            _vClosing = false;
             sayAsk(msg, true);
         } else if (msg.bid && msg.bid.price === 0) {
             // Fishing for an opening bid: what moves is the auctioneer coming down.
@@ -3604,6 +3670,12 @@ function applyViewerMsg(msg) {
                 sayAsk(msg, false);
             }
             startViewerGavel(msg);
+            return;
+        } else if (msg.bid && msg.bid.closing && !_vClosing) {
+            _vClosing = true;
+            patchViewerBidding(msg);
+            startViewerGavel(msg);
+            sayGoing(msg.bid.price, 0);                 // "Going once… going twice…"
             return;
         } else {
             const priceUp = !!(msg.bid && msg.bid.price !== _vPrice);
@@ -3733,10 +3805,13 @@ function startViewerGavel(msg) {
         if (gl) {
             // …and once he has come down off the full rung, say what now takes it
             const price = vD && vD.bid ? vD.bid.price : 0;
+            const closing = !!(vD.bid && vD.bid.closing);
             const min = (!_vOpening && price) ? softMinRaise(price, (vD.bid && vD.bid.soft) || 0) : 0;
             const take = (min && min < raisesFor(price)[0]) ? ` — ${num(price + min)} takes it` : '';
             gl.textContent = _vOpening ? (left < 1800 ? 'coming down…' : '')
-                : left === 0 ? '' : stage === 2 ? 'going… GOING…' + take : stage === 1 ? 'going…' + take : '';
+                : left === 0 ? ''
+                : closing ? (frac > 0.5 ? 'GOING ONCE…' : 'GOING TWICE…')
+                : stage === 2 ? 'going… GOING…' + take : stage === 1 ? 'going…' + take : '';
             gl.classList.toggle('low', stage > 0);
         }
         musicUrgent = left > 0 && stage > 0;

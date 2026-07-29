@@ -233,6 +233,18 @@ invented**: if a price could not be verified from a live source, the item is not
   All of this is real auction practice, not invention (auctioneers genuinely fish down for an
   opening bid, and "passed in" is the trade's term) — see the research in
   `goinggoneplan-realitems.md`.
+- **His asks are ROUND PRICES.** `askLadderFor(price)` builds the rungs: each notional step (full
+  jump, half, quarter, floor) added to the price and then rounded UP to a unit that suits its
+  size, so 2,963 gives 3,250 → 3,100 → 3,050 → 3,000. **Step first, then tidy** — taking the next
+  multiple of the step instead collapses the opening ask whenever the price sits just under a
+  round number (at 2,963 the next multiple of 250 is 3,000, a jump of 37). A rung landing level
+  with the one above is nudged down a unit, and the host stops stepping when the ladder runs out,
+  because coming down twice to the same number reads as a stuck screen. The consequence worth
+  knowing: **the raise may exceed the nominal rung** — reaching a round number costs what it
+  costs.
+- **Out of rungs, he CLOSES the lot.** `CLOSE_MS` of going once / going twice before the hammer,
+  rather than the gavel simply falling when the last window empties. A bid at any point resets him
+  to the full jump and cancels the close.
 - **He calls the PRICE, never the increment.** With 140 bid and his ask reduced to 25 he says
   "I'll take one hundred and sixty-five" — the price it makes — not "I'll take 25", which is what
   he did at first and which means nothing to a room. In `P_SPLIT`, `{n}` is the resulting price

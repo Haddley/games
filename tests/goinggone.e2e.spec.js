@@ -131,7 +131,7 @@ test('TV-first: the ask, a bidding war, gavel, valuation, podium', async ({ brow
     expect(finalPrice).toBeGreaterThan(opened);
 
     // ── Going… going… GONE! ──
-    await expect(tv.locator('.tv-sold')).toBeVisible({ timeout: 15_000 });
+    await expect(tv.locator('.tv-sold')).toBeVisible({ timeout: 30_000 });   // 5s gavel + 3x3s steps + 4.6s close
     await expect(tv.locator('.tv-sold .who')).toContainText('Karen');
     await expect(karen.locator('text=YOU WON IT!')).toBeVisible({ timeout: 10_000 });
     await shot(tv, 'gavel-10-tv-sold');
@@ -338,7 +338,7 @@ test('paddles: unique two-digit numbers, drawn on screen, and the auctioneer sel
     await shot(eve, 'gavel-15-phone-paddle-up');
 
     // …and the sale is called to the NUMBER, not the name
-    await expect(tv.locator('.tv-sold')).toBeVisible({ timeout: 20_000 });
+    await expect(tv.locator('.tv-sold')).toBeVisible({ timeout: 30_000 });
     await expect(tv.locator('.tv-sold')).toContainText(`bidder number ${evePaddle}`);
     await expect(tv.locator('.tv-sold .paddle')).toBeVisible();
     await tv.waitForTimeout(2000);
@@ -378,7 +378,7 @@ test('rounds: net worth banks back into cash, and the podium waits for the last 
 
     // Buy one thing, then jump to the end of round 1
     await openBidding(ada, tv);
-    await expect(tv.locator('.tv-sold')).toBeVisible({ timeout: 20_000 });
+    await expect(tv.locator('.tv-sold')).toBeVisible({ timeout: 30_000 });
     const round1 = await tv.evaluate(() => {
         H.lotIndex = H.lotOrder.length - 1;
         return { spent: START_COINS - H.players.find(p => p.name === 'Ada').coins };
@@ -455,7 +455,7 @@ test('passed in: the auctioneer fishes all the way down and nobody bites', async
 
     // Run the ladder out: nobody has bid, so the lot must be passed in
     await tv.evaluate(() => { H.bid.askIdx = H.bid.ladder.length - 1; H.bid.endsAt = Date.now(); });
-    await expect(tv.locator('.tv-sold.passed .who')).toHaveText('PASSED IN', { timeout: 20_000 });
+    await expect(tv.locator('.tv-sold.passed .who')).toHaveText('PASSED IN', { timeout: 30_000 });
     await expect(tv.locator('.tv-sold .sub2')).toContainText('never made its reserve');
     // the card is staged — feather falls, PASSED IN stamps at .7s, the value lands at 1.7s
     await tv.waitForTimeout(2400);
@@ -913,7 +913,7 @@ test('phone-first: host phone + TV viewer, one bid takes the lot', async ({ brow
     // Jess takes the auctioneer's ask and lets the gavel fall
     const price = await openBidding(jess, neil);
     await expect(jess.locator('text=You\'re winning this lot!')).toBeVisible({ timeout: 10_000 });
-    await expect(tv.locator('.tv-sold')).toBeVisible({ timeout: 20_000 });
+    await expect(tv.locator('.tv-sold')).toBeVisible({ timeout: 30_000 });
     await expect(tv.locator('.tv-sold .who')).toContainText('Jess');
     expect(price).toBeGreaterThan(0);
     await shot(tv, 'gavel-41-tv-viewer-sold');
