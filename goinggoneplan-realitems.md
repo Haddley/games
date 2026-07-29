@@ -12,6 +12,16 @@ rather than re-litigating them.
 > against the real data — see "What the simulator says" below, and re-run it before changing any
 > of them.
 >
+> **UPDATE (29 July 2026) — THE AUCTIONEER'S RULES ARE NOW A DOCUMENT.** Everything he does, and
+> in particular **exactly how long a player gets to decide at every point**, is written up in
+> **`goinggone-rules.md`** — with the research it came from, four guarantees the unit tests
+> enforce, and a three-player three-round e2e (`tests/goinggone-auction.e2e.spec.js`) that records
+> the transcript of a real auction and judges the schedule the room actually experienced. Start
+> there before changing any timing. The headline change: he now **accelerates** as the room stays
+> quiet, **never sits in silence** (there is a mid-window re-ask), closes with **two announced
+> beats** of going once / going twice, and a lot nobody wants is now the **fastest** thing in the
+> game rather than, as it was at 38.5 s, the longest.
+>
 > **UPDATE (28 July 2026) — ROUNDS, THE ASK, AND PASSING IN.** Three changes that hang together;
 > see "The auctioneer" below.
 >

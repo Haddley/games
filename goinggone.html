@@ -630,10 +630,7 @@ const RAISE_FLOOR = 0.02;                 // past the last step: this share of t
 // them — a reflex test rather than a decision. He now comes down a step and WAITS, exactly as he
 // does when fishing for an opening bid, and the step is explicit state rather than something each
 // device works out from its own clock (which is also how the clock-skew grace went away).
-const SOFT_STEP_MS = 3000;
-// Once he has run out of round numbers to come down to, he does not simply hammer: he closes the
-// lot properly. Going once, going twice — the beat everybody in the room is waiting for.
-const CLOSE_MS = 4600;
+
 
 // ── HE ASKS FOR A ROUND NUMBER ──────────────────────────────────────────────
 // An auctioneer thinks in the PRICE, not the step, and the price he calls is one a person would
@@ -706,7 +703,6 @@ const RESERVE_FRAC = 0.25;              // the pass-in floor, as a share of true
 const ASK_HI = 1.9, ASK_LO = 0.85;      // opening ask as a share of true value — sometimes a gift
 const DROP_HI = 0.75, DROP_LO = 0.55;   // each "nobody? then who'll give me…" step
 const ASK_STEPS = 5;                    // most he will ever come down before passing it in
-const ASK_MS = 6000;                    // how long he waits at each ask before coming down
 const reserveFor = value => Math.round(value * RESERVE_FRAC);
 // Auctioneers ask for $48,000, never $47,318.
 function roundAsk(v) {
@@ -729,7 +725,38 @@ function askLadder(value) {
 }
 // REVEAL_MS paces the valuation: each card plays a staged reveal (card → true value → profit
 // stamp at STAMP_MS) and needs air after the stamp for the number to sink in from a sofa.
-const GAVEL_MS = 5000, INTRO_MS = 5000, SOLD_MS = 4500, PASSED_MS = 3500, REVEAL_MS = 5200;
+// ── THE CLOCK ───────────────────────────────────────────────────────────────
+// Every one of these is a DECISION WINDOW for a human holding a phone, and the whole feel of the
+// game lives in them. Two findings from how real salerooms work shape the numbers (see
+// goinggone-rules.md for the full reasoning):
+//
+//   1. FAST IS EXCITING. A working auctioneer's view — "faster-paced auctions generate better
+//      results; slower ones let bidders leave from fatigue, and quick decisions are more likely
+//      yes than no". Chattel sales run 80–100 lots an hour, i.e. 36–45 seconds a lot, all in.
+//   2. SILENCE IS FATAL. When a bid is not coming he does not wait quietly, he fires — "who'll
+//      give me six, do I hear six, who'll bid six". Our windows used to be dead air with a bar
+//      shrinking, which is the opposite of a saleroom.
+//
+// So: he ACCELERATES as the room stays quiet (each unanswered call is shorter than the last),
+// he RE-ASKS inside every window rather than waiting in silence, and the dullest outcome — a lot
+// nobody wants — is now the FASTEST rather than, as it was, the longest thing in the game.
+//
+// NOTHING may fall below MIN_DECIDE_MS. That is the floor for noticing a changed number on a
+// phone and acting on it, and it is what keeps "urgent" from becoming "unfair".
+const MIN_DECIDE_MS = 2500;
+const INTRO_MS = 4000;         // the lot on screen before he asks for anything
+const SOLD_MS = 4000;          // the payoff, worth its beat
+const PASSED_MS = 2600;        // the tumbleweed. Get on with it.
+const REVEAL_MS = 5200;        // one valuation card
+
+// Seeking an opening bid: he starts high and comes down, quicker each time nobody answers.
+const ASK_WINDOWS = [5000, 4000, 3200, 2800, 2500];
+// Bidding is running: the first window after a bid, then each reduced ask.
+const GAVEL_MS = 4500;
+const SOFT_WINDOWS = [3500, 3000, 2500];
+// …and the close: going once, going twice. Bids are still taken in both.
+const CLOSE_BEAT_MS = 1600;
+const CLOSE_BEATS = 2;
 const LOT_UNVEIL_MS = 800;     // when the intro unveils the item — must match the .tv-lot.intro CSS delay
 const SOLD_STAMP_MS = 700;     // when "SOLD to…" stamps in — must match the .tv-sold .who CSS delay
 const STAMP_MS = 2800;   // when the profit stamps in — must match the .val-card.live .profit CSS delay
@@ -2168,8 +2195,8 @@ function syncVoiceBtn() {
 // repo deliberately does not have. Web Speech reads whatever number the room has just reached.
 //
 // The vocabulary is real. Bid-calling is a chant of TWO numbers — what is bid, and what he wants
-// next — stitched together with the trade's own "filler words" ("dollar bid", "now", "will ya give
-// me", "I'm bid", "bid'em at"). Fishing DOWN for an opening bid is standard practice, and a lot
+// next — stitched together with the trade's own "filler words" ("dollar bid", "now", "who'll give
+// me", "do I hear", "I'm bid"). Fishing DOWN for an opening bid is standard practice, and a lot
 // that never makes its reserve is "passed in". Lines are assembled from banks rather than stored
 // whole, so a few dozen fragments give many hundreds of distinct calls.
 // ANY device that can speak is allowed to — the 🗣️ toggle decides, and it is on every screen,
@@ -2530,7 +2557,7 @@ const P_OPEN = [
     "Who'll start me at {}?", "I'll take {} to start.", "Can I get {}?",
     "{} to start it, who'll give me {}?", "Let's open at {}. {}, anyone?",
     "Start me at {}, {} dollar bid.", "What am I bid? {} to start.",
-    "Right then — {}. Who wants it at {}?", "I'm asking {}. {} dollar bid, will ya give me {}?",
+    "Right then — {}. Who wants it at {}?", "I'm asking {}. {} dollar bid — do I hear {}?",
 ];
 const P_DROP_LEAD = [
     "Nobody?", "No takers?", "Not one of you?", "Come on now.", "Don't be shy.",
@@ -2540,20 +2567,38 @@ const P_DROP_LEAD = [
 ];
 const P_DROP_BODY = [
     "Then who'll give me {}?", "How about {}?", "I'll take {}.", "{} then. {}?",
-    "Say {}. Will ya give me {}?", "{}. That's a gift at {}.", "Down to {}, {} dollar bid.",
-    "{}, and that's robbery.", "Make it {}. Anyone at {}?", "{}? {}? Will ya bid {}?",
+    "Say {}. Who'll give me {}?", "{}. That's a gift at {}.", "Down to {}, {} dollar bid.",
+    "{}, and that's robbery.", "Make it {}. Anyone at {}?", "{}? {}? Who'll bid {}?",
 ];
 const P_BID = [
-    "I'm bid {}, now {}, now {}, will ya give me {}?",
+    "I'm bid {}, now {}, now {}, who'll give me {}?",
     "{} dollar bid, now {}, {}, who'll give me {}?",
-    "I have {}. Looking for {}. {}, will ya bid {}?",
-    "{} bid'em at {}, {}, gimme {}!",
+    "I have {}. Looking for {}. {}, who'll bid {}?",
+    "{} I'm bid — and looking for {}. Do I hear {}?",
     "Thank you! {} dollar bid, now {}, now {}.",
     "{} I'm bid. {} anywhere? {}, {}?",
 ];
+// Fair warning, while he is still working the room for one more bid. NOT "going once" — that
+// belongs to the close and would spend the phrase before the moment it means something.
 const P_GOING = [
-    "Going once… going twice…", "Fair warning now!", "All done? All through?",
-    "Last call at {}.", "Fair warning — I'm selling at {}.", "Going… and going…",
+    "Fair warning now!", "All done? All through?", "Are we all done at {}?",
+    "Last call at {}.", "Fair warning — I'm selling at {}.", "Anybody else at {}?",
+];
+// He never stops talking. A window with nothing in it is a dead room, so partway through each
+// unanswered ask he fires the chant again rather than sitting out the beat in silence — which is
+// exactly what a real auctioneer does ("Will you go six? Will you give six? Will you buy 'em at six?").
+const P_CHANT = [
+    "Who'll give me {}?", "{}? Anywhere?", "Anybody at {}?", "{} — who'll bid it?",
+    "Who'll say {}?", "{}. {}. Do I hear {}?", "Let's have {}!",
+];
+// The close. Two beats, each announced, each still taking bids — this is the part everyone
+// knows, so it gets said plainly and never crowded with a fresh ask.
+const P_ONCE = [
+    "Going ONCE…", "I'm going once…", "Once…", "That's going once at {}…",
+];
+const P_TWICE = [
+    "Going TWICE…", "Twice… last chance…", "Going twice — last chance at {}…",
+    "Twice! Don't lose it now…",
 ];
 // …and when he has already come down off the full jump, he says so. This is the real thing:
 // an auctioneer who cannot get another whole increment splits it rather than dropping the hammer.
@@ -2567,7 +2612,7 @@ const P_SPLIT = [
     "I'm bid {}. I'll take {n} — only {r} more.",
     "I'll come down. {n}? Anybody at {n}?",
     "Don't lose it for {r}. {n}!",
-    "{n}. Will ya give me {n}?",
+    "{n}. Who'll give me {n}?",
 ];
 // The rostrum sells to the NUMBER, not the name — "{who}" is always "bidder number forty-two".
 const P_SOLD = [
@@ -2639,6 +2684,13 @@ function sayGoing(price, minRaise) {
             .replace(/\{r\}/g, words(minRaise))             // …and the step itself, sparingly
         : fill(pick(P_GOING), price);
     say(line, { rate: 1.15 });
+}
+// The mid-window re-ask — short, quick, and never the same shape as the line that opened it.
+function sayChant(amount) { say(fill(pick(P_CHANT), amount), { rate: 1.5 }); }
+
+// One beat of the close: 1 = going once, 2 = going twice.
+function sayClose(beat, price) {
+    say(fill(pick(beat >= 2 ? P_TWICE : P_ONCE), price), { rate: beat >= 2 ? 1.0 : 1.08, pitch: 1 });
 }
 function saySold(info) {
     // Never the name: an auctioneer sells to the paddle. (It also saves him mangling "Bux".)
@@ -2823,7 +2875,7 @@ function stateFor(p) {
             // The ask, and how many times he has already come down — never how far he WILL come
             // down. That number stays on the host; not knowing it is the whole game of nerve.
             ask: currentAsk(), drops: H.bid.drops,
-            soft: H.bid.soft, span: H.bid.span || GAVEL_MS, closing: !!H.bid.closing,
+            soft: H.bid.soft, span: H.bid.span || GAVEL_MS, closing: H.bid.closing || 0,
             leader: leader ? leader.name : null,
             leaderColor: leader ? leader.color : null,
             leaderPaddle: leader ? leader.paddle : null,
@@ -3133,15 +3185,31 @@ function startBidding() {
     // CURRENT ask and nothing else. How far he is willing to come down is the auctioneer's secret,
     // and it is the only thing making the wait frightening.
     H.bid = {
-        price: 0, leaderId: null, endsAt: Date.now() + ASK_MS, span: ASK_MS,
-        ladder: askLadder(lot.value), askIdx: 0, drops: 0, soft: 0, closing: false,
+        price: 0, leaderId: null, endsAt: 0, span: 0,
+        ladder: askLadder(lot.value), askIdx: 0, drops: 0, soft: 0, closing: 0,
     };
+    openWindow(windowFor(H.bid));
     broadcastState();
     clearInterval(_gavelTick);
     _gavelTick = setInterval(checkGavel, 120);
 }
 
 const currentAsk = () => H.bid && H.bid.price === 0 ? H.bid.ladder[H.bid.askIdx] : 0;
+
+// How long he waits at the beat the lot is currently on. One function so the rules document, the
+// tests and the game can never disagree about it.
+function windowFor(bid) {
+    if (!bid) return GAVEL_MS;
+    if (bid.closing) return CLOSE_BEAT_MS;
+    if (bid.price === 0) return ASK_WINDOWS[Math.min(bid.askIdx, ASK_WINDOWS.length - 1)];
+    if (bid.soft > 0) return SOFT_WINDOWS[Math.min(bid.soft - 1, SOFT_WINDOWS.length - 1)];
+    return GAVEL_MS;
+}
+// …and set it, in one move, so endsAt and span can never drift apart
+function openWindow(ms) {
+    H.bid.endsAt = Date.now() + ms;
+    H.bid.span = ms;
+}
 
 function hostBid(player, raise) {
     if (H.phase !== 'bidding' || !H.bid) return;
@@ -3153,10 +3221,9 @@ function hostBid(player, raise) {
         if (raise < ask || player.coins < ask) return;
         H.bid.price = ask;
         H.bid.leaderId = player.id;
-        H.bid.endsAt = Date.now() + GAVEL_MS;
-        H.bid.span = GAVEL_MS;
         H.bid.soft = 0;
-        H.bid.closing = false;
+        H.bid.closing = 0;
+        openWindow(GAVEL_MS);                  // a bid buys a full window, always
         broadcastState();
         return;
     }
@@ -3171,10 +3238,9 @@ function hostBid(player, raise) {
     if (player.coins < newPrice) return;                     // must be able to pay
     H.bid.price = newPrice;
     H.bid.leaderId = player.id;
-    H.bid.endsAt = Date.now() + GAVEL_MS;                    // gavel resets…
-    H.bid.span = GAVEL_MS;
-    H.bid.soft = 0;                                          // …and so does his ask
-    H.bid.closing = false;                                   // and the close is called off
+    H.bid.soft = 0;                                          // the gavel resets, and so does his ask
+    H.bid.closing = 0;                                       // and the close is called off
+    openWindow(GAVEL_MS);
     broadcastState();
 }
 
@@ -3188,8 +3254,7 @@ function checkGavel() {
         if (H.bid.askIdx < H.bid.ladder.length - 1) {
             H.bid.askIdx += 1;
             H.bid.drops += 1;
-            H.bid.endsAt = Date.now() + ASK_MS;
-            H.bid.span = ASK_MS;
+            openWindow(windowFor(H.bid));      // …and quicker each time nobody answers
             broadcastState();
             return;
         }
@@ -3210,17 +3275,15 @@ function checkGavel() {
     // stuck screen rather than an auctioneer.
     if (H.bid.soft < askLadderFor(H.bid.price).length - 1) {
         H.bid.soft += 1;
-        H.bid.endsAt = Date.now() + SOFT_STEP_MS;
-        H.bid.span = SOFT_STEP_MS;
+        openWindow(windowFor(H.bid));
         broadcastState();
         return;
     }
     // Out of round numbers to offer: close it properly rather than dropping the hammer the
     // instant the last window empties. Going once, going twice — then GONE.
-    if (!H.bid.closing) {
-        H.bid.closing = true;
-        H.bid.endsAt = Date.now() + CLOSE_MS;
-        H.bid.span = CLOSE_MS;
+    if (H.bid.closing < CLOSE_BEATS) {
+        H.bid.closing += 1;                    // 1 = going once, 2 = going twice
+        openWindow(windowFor(H.bid));
         broadcastState();
         return;
     }
@@ -3402,7 +3465,7 @@ function hostSet(patch) {
 // CLIENT (phone) MESSAGE HANDLING
 // ═══════════════════════════════════════════
 let _lastLotKey = '', _lastPrice = -1, _lastAsk = 0, _lastRevealIdx = -1, _goingStage = 0;
-let _cOpening = false, _cSpan = GAVEL_MS, _cSoft = -1, _cClosing = false;
+let _cOpening = false, _cSpan = GAVEL_MS, _cSoft = -1, _cClosing = 0, _cChant = '';
 function stopClientTick() { clearInterval(_gavelTickClient); _gavelTickClient = null; _goingStage = 0; musicUrgent = false; }
 
 function applyMsg(msg) {
@@ -3441,7 +3504,7 @@ function applyMsg(msg) {
                     _lastPrice = msg.bid ? msg.bid.price : 0;
                     _lastAsk = msg.bid ? msg.bid.ask : 0;
                     _cSoft = msg.bid ? (msg.bid.soft || 0) : 0;
-                    _cClosing = false;
+                    _cClosing = 0;
                     if (msg.bid && msg.bid.price === 0) sayAsk(msg, true);
                 } else if (msg.bid && msg.bid.price === 0) {
                     // Still fishing for an opening bid. Nothing has been bid, so there is no price
@@ -3457,12 +3520,14 @@ function applyMsg(msg) {
                         const pe = $id('p-price');
                         if (pe) { pe.classList.remove('drop'); void pe.offsetWidth; pe.classList.add('drop'); }
                     }
-                } else if (msg.bid && msg.bid.closing && !_cClosing) {
-            _cClosing = true;
-            patchBidding(msg);
-            startClientGavel(msg);
-            sayGoing(msg.bid.price, 0);                 // "Going once… going twice…"
-        } else if (msg.bid && msg.bid.price > 0 && (msg.bid.soft || 0) !== _cSoft) {
+                } else if (msg.bid && msg.bid.closing && msg.bid.closing !== _cClosing) {
+                    // going once… going twice… — bids are still taken through both
+                    _cClosing = msg.bid.closing;
+                    patchBidding(msg);
+                    startClientGavel(msg);
+                    sTick();
+                    sayClose(msg.bid.closing, msg.bid.price);
+                } else if (msg.bid && msg.bid.price > 0 && (msg.bid.soft || 0) !== _cSoft) {
                     // he has come down a step, and is now waiting again — re-offer at his ask
                     _cSoft = msg.bid.soft || 0;
                     patchBidding(msg);
@@ -3549,20 +3614,23 @@ function applyMsg(msg) {
 function startClientGavel(msg) {
     _localGavelEnd = Date.now() + (msg.bid ? msg.bid.endsIn : 0);
     _cOpening = !!(msg.bid && msg.bid.price === 0);
-    _cSpan = (msg.bid && msg.bid.span) || (_cOpening ? ASK_MS : GAVEL_MS);
+    _cSpan = (msg.bid && msg.bid.span) || GAVEL_MS;    // the host always says how long this beat is
+    _cChant = beatKey(msg);                            // a new beat re-arms the mid-window chant
     if (_gavelTickClient) return;
     _gavelTickClient = setInterval(() => {
         const left = Math.max(0, _localGavelEnd - Date.now());
         const frac = Math.min(1, left / _cSpan);
-        const stage = (_cOpening || left === 0) ? 0 : frac < 0.25 ? 2 : frac < 0.5 ? 1 : 0;
+        const closing = (D && D.bid && D.bid.closing) || 0;
+        // Through the close he says his two lines and nothing else — no fresh ask over the top.
+        const stage = (_cOpening || closing || left === 0) ? 0 : frac < 0.25 ? 2 : frac < 0.5 ? 1 : 0;
+        if (_cOpening && !closing && frac < 0.5 && _cChant) { const a = D && D.bid ? D.bid.ask : 0; _cChant = ''; if (a) sayChant(a); }
         const bar = $id('gavel-bar');
         if (bar) { bar.style.width = (frac * 100) + '%'; bar.classList.toggle('low', stage > 0); }
         const gl = $id('going-lbl');
         if (gl) {
-            const closing = !!(D && D.bid && D.bid.closing);
             gl.textContent = _cOpening ? (left < 1800 ? 'coming down…' : '')
                 : left === 0 ? ''
-                : closing ? (frac > 0.5 ? 'GOING ONCE…' : 'GOING TWICE…')
+                : closing ? (closing === 1 ? 'GOING ONCE…' : 'GOING TWICE…')
                 : stage === 2 ? 'going… GOING…' : stage === 1 ? 'going…' : '';
             gl.classList.toggle('low', stage > 0);
         }
@@ -3619,7 +3687,9 @@ function patchBidding(msg) {
 // VIEWER (TV) MESSAGE HANDLING
 // ═══════════════════════════════════════════
 let _vLotKey = '', _vPrice = -1, _vAsk = 0, _vRevealIdx = -1, _vGavelEnd = 0, _vGavelTick = null, _vGoingStage = 0;
-let _vOpening = false, _vSpan = GAVEL_MS, _vClosing = false;
+let _vOpening = false, _vSpan = GAVEL_MS, _vClosing = 0, _vChant = '';
+// Which beat of the auction this is — used to re-arm the mid-window chant exactly once per beat.
+const beatKey = m => m && m.bid ? [m.bid.price, m.bid.ask, m.bid.drops, m.bid.soft || 0, m.bid.closing || 0].join(':') : '';
 function stopViewerTick() { clearInterval(_vGavelTick); _vGavelTick = null; _vGoingStage = 0; musicUrgent = false; }
 
 function applyViewerMsg(msg) {
@@ -3656,7 +3726,7 @@ function applyViewerMsg(msg) {
             render();
             _vPrice = msg.bid ? msg.bid.price : 0;
             _vAsk = msg.bid ? msg.bid.ask : 0;
-            _vClosing = false;
+            _vClosing = 0;
             sayAsk(msg, true);
         } else if (msg.bid && msg.bid.price === 0) {
             // Fishing for an opening bid: what moves is the auctioneer coming down.
@@ -3671,11 +3741,11 @@ function applyViewerMsg(msg) {
             }
             startViewerGavel(msg);
             return;
-        } else if (msg.bid && msg.bid.closing && !_vClosing) {
-            _vClosing = true;
+        } else if (msg.bid && msg.bid.closing && msg.bid.closing !== _vClosing) {
+            _vClosing = msg.bid.closing;
             patchViewerBidding(msg);
             startViewerGavel(msg);
-            sayGoing(msg.bid.price, 0);                 // "Going once… going twice…"
+            sayClose(msg.bid.closing, msg.bid.price);
             return;
         } else {
             const priceUp = !!(msg.bid && msg.bid.price !== _vPrice);
@@ -3702,14 +3772,18 @@ function applyViewerMsg(msg) {
             const si = msg.soldInfo || {};
             if (si.passed) { sPassed(); saySold(si); }
             else {
-                sGavel();
-                // the burst belongs to the auctioneer's call, which stamps in at SOLD_STAMP_MS
+                // THE CALL COMES FIRST, and the decoration after it. Ordered the other way round —
+                // stinger, then burst, then the call — a single throw anywhere in the confetti
+                // silences the hammer, and the auction ends a lot with no voice at all. It is a
+                // one-in-three flake in the e2e and it would be a mystery on a television.
                 const wait = (typeof REDUCED !== 'undefined' && REDUCED) ? 0 : SOLD_STAMP_MS;
                 setTimeout(() => {
                     if (_vLotKey !== lotKey) return;
-                    burst(innerWidth / 2, innerHeight * 0.34, ['#e8b75a', '#f5d38a', '#f6eefb', '#b478e0'], 26);
                     saySold(si);
+                    // the burst belongs to the auctioneer's call, which stamps in at SOLD_STAMP_MS
+                    burst(innerWidth / 2, innerHeight * 0.34, ['#e8b75a', '#f5d38a', '#f6eefb', '#b478e0'], 26);
                 }, wait);
+                sGavel();
             }
         }
         return;
@@ -3790,27 +3864,29 @@ function applyViewerMsg(msg) {
 
 function startViewerGavel(msg) {
     _vGavelEnd = Date.now() + (msg.bid ? msg.bid.endsIn : 0);
-    // While he is still fishing for an opening bid the window is ASK_MS, not the gavel — and
-    // nothing is "going", because nothing has been bid.
+    // While he is still fishing for an opening bid nothing is "going", because nothing is bid.
+    // The length of the beat always comes from the host rather than being guessed at here.
     _vOpening = !!(msg.bid && msg.bid.price === 0);
-    _vSpan = (msg.bid && msg.bid.span) || (_vOpening ? ASK_MS : GAVEL_MS);
+    _vSpan = (msg.bid && msg.bid.span) || GAVEL_MS;
+    _vChant = beatKey(msg);
     if (_vGavelTick) return;
     _vGavelTick = setInterval(() => {
         const left = Math.max(0, _vGavelEnd - Date.now());
         const frac = Math.min(1, left / _vSpan);
-        const stage = (_vOpening || left === 0) ? 0 : frac < 0.25 ? 2 : frac < 0.5 ? 1 : 0;
+        const closing = (vD && vD.bid && vD.bid.closing) || 0;
+        const stage = (_vOpening || closing || left === 0) ? 0 : frac < 0.25 ? 2 : frac < 0.5 ? 1 : 0;
+        if (_vOpening && !closing && frac < 0.5 && _vChant) { const a = vD && vD.bid ? vD.bid.ask : 0; _vChant = ''; if (a) sayChant(a); }
         const bar = $id('v-gavel-bar');
         if (bar) { bar.style.width = (frac * 100) + '%'; bar.classList.toggle('low', stage > 0); }
         const gl = $id('v-going');
         if (gl) {
             // …and once he has come down off the full rung, say what now takes it
             const price = vD && vD.bid ? vD.bid.price : 0;
-            const closing = !!(vD.bid && vD.bid.closing);
             const min = (!_vOpening && price) ? softMinRaise(price, (vD.bid && vD.bid.soft) || 0) : 0;
             const take = (min && min < raisesFor(price)[0]) ? ` — ${num(price + min)} takes it` : '';
             gl.textContent = _vOpening ? (left < 1800 ? 'coming down…' : '')
                 : left === 0 ? ''
-                : closing ? (frac > 0.5 ? 'GOING ONCE…' : 'GOING TWICE…')
+                : closing ? (closing === 1 ? 'GOING ONCE…' : 'GOING TWICE…')
                 : stage === 2 ? 'going… GOING…' + take : stage === 1 ? 'going…' + take : '';
             gl.classList.toggle('low', stage > 0);
         }

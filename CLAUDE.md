@@ -377,6 +377,21 @@ invented**: if a price could not be verified from a live source, the item is not
   is preferred automatically without hard-coding names.
   Recorded clips were considered and rejected: the numbers come out of a live auction,
   so they cannot be pre-recorded, and files would need hosting and licensing this repo has not got.
+- **THE CLOCK is the game, and it is documented in `goinggone-rules.md`.** Every decision window,
+  what a player may do in it, and why it lasts as long as it does. The numbers live in one block in
+  `goinggone.html` and **one function — `windowFor(bid)` — decides which applies**; `openWindow(ms)`
+  is the only thing allowed to set a deadline, and a unit test fails if any branch sets
+  `H.bid.endsAt` by hand. Four guarantees, each a unit test: nothing under `MIN_DECIDE_MS` (2.5 s);
+  a bid always buys back the longest window on the board; he only ever *accelerates* while the room
+  stays quiet; and the dullest outcome — a lot nobody wants — is the **fastest** thing in the game
+  (it used to be the longest, at 38.5 s, which is exactly backwards). Two findings from how real
+  salerooms work drive all of it: **fast is exciting** (chattel sales run 80–100 lots an hour, and
+  quick decisions are more likely "yes" than "no") and **silence is fatal** (a real chant never
+  stops — so there is a mid-window re-ask, `P_CHANT`, and no beat is ever dead air). The close is
+  **two announced beats**, "going once" then "going twice", 1.6 s each, with bids still legal in
+  both — a snipe window, not a wait. `tests/goinggone-auction.e2e.spec.js` plays three players
+  through three real rounds, records the whole transcript off the host by wrapping `openWindow` and
+  `say`, and asserts the schedule the room actually experienced.
 - **Raises scale with the price** (`RAISE_LADDER`/`raisesFor`) — a fixed +10/+50/+100 needed
   seventy taps to reach a serious bid once lots ran to $10,000. The host validates the raise
   against the ladder *at the current price*; never trust the phone's number.

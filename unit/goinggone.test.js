@@ -59,7 +59,18 @@ const RAISE_SRC = (() => {
     return HTML.slice(a, b);
 })();
 const RAISE = new Function(RAISE_SRC +
-    '\nreturn { raisesFor, softMinRaise, softRaises, RAISE_FLOOR, SOFT_SHARE, SOFT_STEPS, SOFT_STEP_MS };')();
+    '\nreturn { raisesFor, softMinRaise, softRaises, RAISE_FLOOR, SOFT_SHARE, SOFT_STEPS };')();
+
+// THE CLOCK. Every number that decides how long a player has to think, in one block, so the rules
+// document (goinggone-rules.md), the game and these tests cannot drift apart.
+const CLOCK_SRC = (() => {
+    const a = HTML.indexOf('const MIN_DECIDE_MS =');
+    const b = HTML.indexOf('const CLOSE_BEATS', a);
+    assert.ok(a >= 0 && b > a, 'could not slice the clock block out of goinggone.html');
+    return HTML.slice(a, HTML.indexOf(';', b) + 1);
+})();
+const CLOCK = new Function(CLOCK_SRC + '\nreturn { MIN_DECIDE_MS, INTRO_MS, SOLD_MS, PASSED_MS, REVEAL_MS,' +
+    ' ASK_WINDOWS, GAVEL_MS, SOFT_WINDOWS, CLOSE_BEAT_MS, CLOSE_BEATS };')();
 
 // What the room is allowed to learn about everybody else's purse.
 const PURSE_SRC = (() => {
@@ -315,13 +326,104 @@ test('asks are round numbers a person would say out loud', () => {
     }
 });
 
-test('he waits at every step, so the whole descent is not one gavel long', () => {
+// ── THE CLOCK ───────────────────────────────────────────────────────────────────────────────
+// A window is a decision. Too short and it is a reflex test; too long and the room goes flat and
+// people stop watching. These are the guarantees the rules document makes to a player.
+
+test('no decision window is ever shorter than a person can decide in', () => {
+    const every = [...CLOCK.ASK_WINDOWS, CLOCK.GAVEL_MS, ...CLOCK.SOFT_WINDOWS];
+    for (const ms of every) {
+        assert.ok(ms >= CLOCK.MIN_DECIDE_MS, `${ms}ms is under the ${CLOCK.MIN_DECIDE_MS}ms floor`);
+    }
+});
+
+test('a bid always buys the longest window on the board', () => {
+    // Whatever pressure he had built, a bid resets the clock in full. Otherwise the player who
+    // just committed money is punished with less time than the one who sat still.
+    const other = [...CLOCK.ASK_WINDOWS.slice(1), ...CLOCK.SOFT_WINDOWS, CLOCK.CLOSE_BEAT_MS];
+    for (const ms of other) assert.ok(CLOCK.GAVEL_MS >= ms, `a bid buys ${CLOCK.GAVEL_MS}ms, but some beat runs ${ms}ms`);
+});
+
+test('he speeds up as the room stays silent — never slows down', () => {
+    // The whole feel of the fishing phase is impatience. Each unanswered ask must come quicker
+    // than the last, all the way down to the floor.
+    for (let i = 1; i < CLOCK.ASK_WINDOWS.length; i++) {
+        assert.ok(CLOCK.ASK_WINDOWS[i] < CLOCK.ASK_WINDOWS[i - 1],
+            `ask window ${i} (${CLOCK.ASK_WINDOWS[i]}ms) is not quicker than the one before it`);
+    }
+    for (let i = 1; i < CLOCK.SOFT_WINDOWS.length; i++) {
+        assert.ok(CLOCK.SOFT_WINDOWS[i] < CLOCK.SOFT_WINDOWS[i - 1],
+            `reduced ask ${i} (${CLOCK.SOFT_WINDOWS[i]}ms) is not quicker than the one before it`);
+    }
+});
+
+test('the close is short, and it is two beats', () => {
+    // "Going once, going twice" is the bit everyone knows. It only lands if it is quick and if
+    // both halves are actually said — one long window with a changing caption is not the same
+    // thing. Bids are still legal here, which is what makes it a snipe window rather than a wait.
+    assert.equal(CLOCK.CLOSE_BEATS, 2, 'once and twice: two beats, no more, no fewer');
+    assert.ok(CLOCK.CLOSE_BEAT_MS <= 2000, 'a slow close is a dead close');
+    assert.ok(CLOCK.CLOSE_BEAT_MS >= 1200, 'under 1.2s nobody can snipe it, and nobody hears the line');
+});
+
+test('the dullest outcome is never the longest to sit through', () => {
+    // A lot nobody wants used to take 38 seconds — longer than one that sold. That is exactly
+    // backwards: a dead lot should be got rid of, not endured.
+    const passedIn = CLOCK.INTRO_MS + CLOCK.ASK_WINDOWS.reduce((a, b) => a + b, 0) + CLOCK.PASSED_MS;
+    const oneBid = CLOCK.INTRO_MS + CLOCK.ASK_WINDOWS[0] + CLOCK.GAVEL_MS +
+        CLOCK.SOFT_WINDOWS.reduce((a, b) => a + b, 0) + CLOCK.CLOSE_BEATS * CLOCK.CLOSE_BEAT_MS + CLOCK.SOLD_MS;
+    assert.ok(passedIn <= oneBid, `a pass-in takes ${passedIn}ms but a sale takes only ${oneBid}ms`);
+    assert.ok(passedIn <= 30000, `${Math.round(passedIn / 1000)}s of nothing happening is too long`);
+});
+
+test('the descent is not one gavel long', () => {
     // The descent used to be derived from how much of a single five-second gavel had elapsed,
     // which left the cheapest ask on offer for well under a second — a reflex test, not a
     // decision. Each step now has its own window.
-    assert.ok(RAISE.SOFT_STEP_MS >= 2500, `${RAISE.SOFT_STEP_MS}ms is not long enough to react to`);
-    const total = RAISE.SOFT_STEPS * RAISE.SOFT_STEP_MS;
+    const total = CLOCK.SOFT_WINDOWS.reduce((a, b) => a + b, 0);
     assert.ok(total >= 8000, `the whole descent lasts only ${total}ms`);
+});
+
+test('the host has exactly one place that decides how long a beat lasts', () => {
+    // windowFor() is what the rules document describes. If a branch ever sets endsAt by hand
+    // again the documented table stops being true, so the game must go through openWindow().
+    assert.ok(/function windowFor\(/.test(HTML), 'windowFor() is the single source of the schedule');
+    const src = HTML.slice(HTML.indexOf('function startBidding'), HTML.indexOf('function startValuation'))
+        .replace(/function openWindow\([\s\S]*?\n\}/, '');   // …which is the one place allowed to set it
+    const hand = [...src.matchAll(/H\.bid\.endsAt\s*=/g)].length;
+    assert.equal(hand, 0, 'a beat sets H.bid.endsAt directly instead of calling openWindow()');
+});
+
+test('the close never talks over itself', () => {
+    // Both clients suppress the "going…" escalation while closing — otherwise the fair-warning
+    // chant fires on top of "GOING ONCE" and the two lines cancel each other in speechSynthesis.
+    const ticks = [...HTML.matchAll(/const stage = \(_[cv]Opening \|\| ([^)]*)\)/g)].map(m => m[1]);
+    assert.equal(ticks.length, 2, 'both the phone and the TV countdowns must be found');
+    for (const cond of ticks) assert.ok(/closing/.test(cond), `the close is not suppressing "going…": ${cond}`);
+});
+
+test('nothing decorative is allowed to swallow the hammer', () => {
+    // The TV called the sale from inside a setTimeout that ran the confetti FIRST. One throw
+    // anywhere in the particle code and the lot ends with no voice at all — which is a mystery
+    // from a sofa, and was a one-in-three flake in the auction e2e. The call comes first.
+    for (const [start, end, who] of [['function applyMsg', 'function startClientGavel', 'the phone'],
+                                     ['function applyViewerMsg', 'function startViewerGavel', 'the TV']]) {
+        const src = HTML.slice(HTML.indexOf(start), HTML.indexOf(end));
+        const sold = src.slice(src.indexOf("phase === 'sold'"), src.indexOf("phase === 'valuation'"));
+        // lastIndexOf, not indexOf: the passed-in case calls saySold first and would mask a sold
+        // case that had been ordered the wrong way round.
+        const call = sold.lastIndexOf('saySold(');
+        const fx = sold.lastIndexOf('burst(');
+        assert.ok(call >= 0, `${who} never calls the sale`);
+        if (fx >= 0) assert.ok(call < fx, `${who} runs its confetti before calling the sale`);
+    }
+});
+
+test('no window is ever silent — he re-asks partway through', () => {
+    // Real auctioneers never stop firing: "Will you go six? Will you give six? Will you buy 'em
+    // at six?" A quiet five seconds reads as a frozen screen, not as suspense.
+    assert.ok(/const P_CHANT = \[/.test(HTML), 'there is no mid-window chant');
+    assert.equal([...HTML.matchAll(/sayChant\(/g)].length, 3, 'the chant must fire on the phone and the TV (and be defined once)');
 });
 
 test('he says one line aloud and shows the rest', () => {
