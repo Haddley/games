@@ -107,6 +107,12 @@
         .kc-round { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; }
         .kc-turn { font-weight: 800; margin-top: 3px; font-size: .95rem; }
         .kc-turn.mine { color: var(--accent); }
+        .kc-draw-nudge { margin-top: 6px; font-size: .78rem; font-weight: 700; color: var(--accent); animation: kcNudge 1.4s ease-in-out infinite; }
+        @keyframes kcNudge { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
+        .kc-draw-btn { animation: kcDrawPulse 1.6s ease-in-out infinite; }
+        @keyframes kcDrawPulse { 0%, 100% { box-shadow: 0 0 0 0 var(--ag); } 50% { box-shadow: 0 0 0 7px var(--ag); } }
+        .kc-hand.locked { opacity: .5; }
+        .kc-hand.locked .kc-hcard { cursor: not-allowed; }
         .kc-opps { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; }
         .kc-opp { padding: 6px 11px; border-radius: 20px; background: var(--s2); border: 1px solid var(--border); font-size: .74rem; font-weight: 700; display: flex; gap: 6px; align-items: center; }
         .kc-opp.turn { border-color: var(--accent); color: var(--accent); background: var(--ag); }
@@ -840,8 +846,8 @@ function attemptPileMove(fromPileId, cardId, toPileId) {
 function kcHint() {
     if (!D) return;
     if (!canActNow()) {
-        showToast('Draw a card first — you\'ll see what you can play once you have.');
-        speak('Draw a card first, then I can suggest a move.');
+        showToast('Every turn starts with a draw — tap 🂠 Draw, then I can suggest a move.');
+        speak('Every turn starts with a draw. Tap Draw, then I can suggest a move.');
         return;
     }
     const sug = suggestMove(D.myHand, D.piles);
@@ -1101,6 +1107,9 @@ const BOARD_SLOTS = ['NW', 'N', 'NE', 'W', 'CENTER', 'E', 'SW', 'S', 'SE'];
 
 function renderPlaying() {
     if (!D) return renderSpinner('…');
+    const canDraw = D.isMyTurn && !D.hasDrawnThisTurn && D.stockCount > 0;
+    const canEnd = D.isMyTurn && (D.hasDrawnThisTurn || D.stockCount === 0);
+    const mustDrawFirst = canDraw;   // your turn, stock's not empty, you haven't drawn yet
     const playable = computePlayableHandIds();
     const glow = computeGlowPiles();
     const handHtml = (D.myHand || []).map(c => {
@@ -1116,19 +1125,18 @@ function renderPlaying() {
         <div class="kc-opp${p.isTurn ? ' turn' : ''}${p.spectating ? ' spec' : ''}">
             <span class="nm">${esc(p.name)}</span><span class="ct">${p.spectating ? '👀' : p.handCount}</span>
         </div>`).join('');
-    const canDraw = D.isMyTurn && !D.hasDrawnThisTurn && D.stockCount > 0;
-    const canEnd = D.isMyTurn && (D.hasDrawnThisTurn || D.stockCount === 0);
     return `
     <div class="kc-wrap">
         <div class="kc-top">
             <div class="kc-round">Round ${D.round} · first to ${D.roundsToWin}</div>
             <div class="kc-turn${D.isMyTurn ? ' mine' : ''}">${D.isMyTurn ? 'Your turn' : esc(D.turnPlayerName) + "'s turn"}</div>
+            ${mustDrawFirst ? `<div class="kc-draw-nudge">☝️ Draw a card to start your turn</div>` : ''}
         </div>
         <div class="kc-opps">${oppHtml}</div>
         <div class="kc-board">${boardHtml}</div>
-        <div class="kc-hand">${handHtml || '<div class="kc-empty">Your hand is empty!</div>'}</div>
+        <div class="kc-hand${mustDrawFirst ? ' locked' : ''}">${handHtml || '<div class="kc-empty">Your hand is empty!</div>'}</div>
         <div class="kc-actrow">
-            ${canDraw ? `<button class="btn btn-p" onclick="actDraw()">🂠 Draw</button>` : ''}
+            ${canDraw ? `<button class="btn btn-p kc-draw-btn" onclick="actDraw()">🂠 Draw</button>` : ''}
             ${D.isMyTurn && D.assistOn ? `<button class="btn btn-g" onclick="kcHint()">💡 Hint</button>` : ''}
             ${canEnd ? `<button class="btn btn-g" onclick="actEndTurn()">➡️ End turn</button>` : ''}
         </div>
