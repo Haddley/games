@@ -119,15 +119,16 @@
         .kc-opp.spec { opacity: .5; }
 
         .kc-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 10px 0 14px; }
-        .kc-pile { position: relative; background: var(--s2); border: 1px solid var(--border); border-radius: 11px; min-height: 76px; display: flex; align-items: center; justify-content: center; overflow: visible; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+        .kc-pile { position: relative; background: var(--s2); border: 1px solid var(--border); border-radius: 11px; min-height: 92px; display: flex; align-items: center; justify-content: center; overflow: visible; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
         .kc-pile.corner { border-style: dashed; }
         .kc-pile.glow { border-color: var(--accent); box-shadow: 0 0 0 2px var(--ag), 0 0 14px var(--ag); }
+        .kc-pile.selected { border-color: var(--accent); border-style: solid; box-shadow: 0 0 0 2px var(--accent); animation: kcPulse 1.1s ease-in-out infinite; }
         .kc-empty-pile { color: var(--muted); font-weight: 900; font-size: 1.15rem; font-family: 'Cinzel', serif; opacity: .6; }
         .kc-stack { position: relative; width: 38px; height: 52px; }
-        .kc-card { position: absolute; top: calc(var(--i, 0) * 2px); left: calc(var(--i, 0) * 1.4px); z-index: var(--i, 0); width: 38px; height: 52px; border-radius: 5px; background: #fdf8ec; border: 1px solid rgba(0,0,0,.22); display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; font-size: .72rem; line-height: 1.05; box-shadow: 0 1px 3px rgba(0,0,0,.35); cursor: pointer; }
+        .kc-card { position: absolute; top: calc(min(var(--i, 0), 5) * 8px); left: calc(min(var(--i, 0), 5) * 6px); z-index: var(--i, 0); width: 38px; height: 52px; border-radius: 5px; background: #fdf8ec; border: 1px solid rgba(0,0,0,.22); display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; font-size: .72rem; line-height: 1.05; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
         .kc-card.red { color: #b3261e; }
         .kc-card.black { color: #1a1a1a; }
-        .kc-card.sel { outline: 2px solid var(--accent); outline-offset: 1px; z-index: 50 !important; transform: translateY(-4px); }
+        .kc-pile-count { position: absolute; bottom: 3px; right: 5px; font-size: .6rem; font-weight: 800; color: var(--accent); background: rgba(0,0,0,.35); border-radius: 8px; padding: 1px 5px; z-index: 40; }
         .kc-center { display: flex; align-items: center; justify-content: center; }
         .kc-stock { text-align: center; }
         .kc-stock-cards { position: relative; width: 38px; height: 52px; margin: 0 auto; }
@@ -168,7 +169,7 @@
 
         /* pulsing hint highlight */
         @keyframes kcPulse { 0%,100% { box-shadow: 0 0 0 1px var(--accent), 0 0 0 rgba(212,175,55,.5); } 50% { box-shadow: 0 0 0 1px var(--accent), 0 0 18px rgba(212,175,55,.7); } }
-        .kc-hcard.sel, .kc-card.sel { animation: kcPulse 1.1s ease-in-out infinite; }
+        .kc-hcard.sel { animation: kcPulse 1.1s ease-in-out infinite; }
 
         /* ══════════════ VIEWER MODE ══════════════ */
         body.viewer-mode {
@@ -191,8 +192,9 @@
         .kc-board.v { flex: 1; padding: 0 clamp(16px,3vw,40px) clamp(16px,3vw,40px); min-height: 0; }
         .kc-board.v .kc-pile { min-height: 16vh; }
         .kc-board.v .kc-stack { width: clamp(60px, 6.4vw, 96px); height: clamp(82px, 8.8vw, 132px); }
-        .kc-board.v .kc-card { width: clamp(60px, 6.4vw, 96px); height: clamp(82px, 8.8vw, 132px); font-size: clamp(1.05rem, 2.1vw, 1.7rem); top: calc(var(--i, 0) * 3.4px); left: calc(var(--i, 0) * 2.4px); }
+        .kc-board.v .kc-card { width: clamp(60px, 6.4vw, 96px); height: clamp(82px, 8.8vw, 132px); font-size: clamp(1.05rem, 2.1vw, 1.7rem); top: calc(min(var(--i, 0), 5) * 1.4vh); left: calc(min(var(--i, 0), 5) * 1vw); }
         .kc-board.v .kc-empty-pile { font-size: clamp(1.8rem, 3.4vw, 2.8rem); }
+        .kc-board.v .kc-pile-count { font-size: clamp(.7rem, 1.2vw, .95rem); bottom: 6px; right: 8px; padding: 2px 8px; border-radius: 10px; }
         .kc-board.v .kc-stock-cards, .kc-board.v .kc-stock-empty { width: clamp(60px, 6.4vw, 96px); height: clamp(82px, 8.8vw, 132px); }
         .kc-board.v .kc-stock-empty { font-size: clamp(.75rem, 1.3vw, 1rem); }
         .kc-board.v .kc-stock-back:nth-child(2) { transform: translate(-5px, -5px); }
@@ -301,6 +303,23 @@ function legalPileMoves(piles) {
     return out;
 }
 function anyLegalMove(hand, piles) { return legalHandMoves(hand, piles).length > 0 || legalPileMoves(piles).length > 0; }
+
+// Given just a source pile and a destination pile — no specific card — work out which card
+// (and everything stacked on it) the player must have meant. This is well-defined, not a
+// guess: a pile is built by legal single-card drops, so ranks within it strictly decrease
+// with no repeats top to bottom — at most ONE card in `fromPile` can have the rank+colour a
+// non-empty `toPile` needs. The only real choice is an EMPTY non-corner destination (any
+// card could start it); there we default to the whole pile, since "move this stack over
+// there" is what selecting two piles (rather than one card) reads as.
+function resolvePileMove(fromPile, toPile) {
+    if (!fromPile || !toPile || !fromPile.cards.length) return null;
+    if (!toPile.cards.length) {
+        if (toPile.isCorner) return fromPile.cards[0].rank === 13 ? fromPile.cards[0] : null;
+        return fromPile.cards[0];
+    }
+    const top = pileTop(toPile);
+    return fromPile.cards.find(c => c.rank === top.rank - 1 && suitColor(c.suit) !== suitColor(top.suit)) || null;
+}
 
 // "explain rejection" half of the assistant — pure, mirrors canDropOnPile exactly so it can
 // never disagree with what the host will accept.
@@ -800,11 +819,10 @@ function computeGlowPiles() {
         return new Set(legalHandMoves([card], D.piles).map(m => m.pileId));
     }
     if (selFromPile) {
-        const from = D.piles[selFromPile.pileId];
-        const lead = from && from.cards.find(c => c.id === selFromPile.cardId);
-        if (!lead) return new Set();
+        const from = D.piles[selFromPile];
+        if (!from || !from.cards.length) return new Set();
         const out = new Set();
-        Object.keys(D.piles).forEach(pid => { if (pid !== selFromPile.pileId && canDropOnPile(lead, D.piles[pid])) out.add(pid); });
+        Object.keys(D.piles).forEach(pid => { if (pid !== selFromPile && resolvePileMove(from, D.piles[pid])) out.add(pid); });
         return out;
     }
     return new Set();
@@ -827,21 +845,22 @@ function attemptHandPlay(cardId, pileId) {
     sPlay();
     actPlayHand(cardId, pileId);
 }
-function attemptPileMove(fromPileId, cardId, toPileId) {
+// fromPileId/toPileId only — no specific card. resolvePileMove works out which card (and
+// everything on top of it) that has to mean; see its comment for why that's never a guess.
+function attemptPileMove(fromPileId, toPileId) {
     const from = D.piles[fromPileId], to = D.piles[toPileId];
-    if (!from || !to) return;
-    const lead = from.cards.find(c => c.id === cardId);
-    if (!lead) return;
+    if (!from || !to || fromPileId === toPileId) return;
     if (!canActNow()) { selFromPile = null; showToast('Draw a card first.'); speak('Draw a card first.'); render(); return; }
-    if (!canDropOnPile(lead, to)) {
-        showToast(explainReject(lead, to, rankName, cardLabel) || "That card can't go there.", 'bad');
-        speak(explainReject(lead, to, rankName, cardSpoken) || "That card can't go there.");
+    const lead = resolvePileMove(from, to);
+    if (!lead) {
+        showToast("Nothing in that pile can legally land there — check the colours and ranks.", 'bad');
+        speak("Nothing in that pile can legally land there.");
         sReject();
         return;
     }
     selFromPile = null;
     sPlay();
-    actMovePile(fromPileId, cardId, toPileId);
+    actMovePile(fromPileId, lead.id, toPileId);
 }
 function kcHint() {
     if (!D) return;
@@ -862,7 +881,7 @@ function kcHint() {
         showToast(`Try your ${card ? cardLabel(card) : ''} on the ${sug.pileId} pile.`);
         speak(`Try your ${card ? cardSpoken(card) : 'card'} on the ${pileSpoken(sug.pileId)} pile.`);
     } else {
-        selFromPile = { pileId: sug.fromPileId, cardId: sug.cardId };
+        selFromPile = sug.fromPileId; selHandCard = null;
         const card = D.piles[sug.fromPileId].cards.find(c => c.id === sug.cardId);
         showToast(`Try moving your ${card ? cardLabel(card) : ''} from ${sug.fromPileId} onto ${sug.toPileId}.`);
         speak(`Try moving your ${card ? cardSpoken(card) : 'card'} from the ${pileSpoken(sug.fromPileId)} pile onto the ${pileSpoken(sug.toPileId)} pile.`);
@@ -876,22 +895,21 @@ function kcClickHand(cardId) {
     selHandCard = (selHandCard === cardId) ? null : cardId;
     render();
 }
-function kcPileClick(pileId, cardId) {
+// One click selects a whole pile as the source (or destination, if a source is already
+// selected) — no need to land a tap on one specific card in a fanned stack. See
+// resolvePileMove() for how "this pile → that pile" turns into an actual card+run.
+function kcPileClick(pileId) {
     if (!D || !D.isMyTurn) return;
     if (selHandCard) { attemptHandPlay(selHandCard, pileId); return; }
     if (selFromPile) {
-        if (selFromPile.pileId === pileId) {
-            selFromPile = (cardId && selFromPile.cardId !== cardId) ? { pileId, cardId } : null;
-            render();
-            return;
-        }
-        attemptPileMove(selFromPile.pileId, selFromPile.cardId, pileId);
+        if (selFromPile === pileId) { selFromPile = null; render(); return; }   // tap it again to deselect
+        attemptPileMove(selFromPile, pileId);
         return;
     }
-    if (cardId) {
-        if (!canActNow()) { showToast('Draw a card first.'); speak('Draw a card first.'); return; }
-        selFromPile = { pileId, cardId }; render();
-    }
+    const pile = D.piles[pileId];
+    if (!pile || !pile.cards.length) return;   // nothing to pick up from an empty pile
+    if (!canActNow()) { showToast('Draw a card first.'); speak('Draw a card first.'); return; }
+    selFromPile = pileId; render();
 }
 
 // ── toasts (milestones + assistant feedback) ──
@@ -1082,16 +1100,19 @@ function pileHTML(pileId, pile, opts) {
     const isCorner = pile ? pile.isCorner : (pileId === 'NW' || pileId === 'NE' || pileId === 'SW' || pileId === 'SE');
     const cls = ['kc-pile', isCorner ? 'corner' : 'side'];
     if (opts.glowing) cls.push('glow');
-    const bgClick = opts.readonly ? '' : ` onclick="kcPileClick('${pileId}', null)"`;
+    if (!opts.readonly && selFromPile === pileId) cls.push('selected');
+    // The whole pile is ONE click target (selects/targets the pile as a unit — see
+    // kcPileClick) rather than each card having its own handler, so a card buried under the
+    // fan is exactly as easy to act on as the top one.
+    const click = opts.readonly ? '' : ` onclick="kcPileClick('${pileId}')"`;
     if (!cards.length) {
-        return `<div class="${cls.join(' ')}" data-pile="${pileId}"${bgClick}><div class="kc-empty-pile">${isCorner ? 'K' : '·'}</div></div>`;
+        return `<div class="${cls.join(' ')}" data-pile="${pileId}"${click}><div class="kc-empty-pile">${isCorner ? 'K' : '·'}</div></div>`;
     }
-    const stack = cards.map((c, i) => {
-        const sel = !opts.readonly && selFromPile && selFromPile.pileId === pileId && selFromPile.cardId === c.id;
-        const click = opts.readonly ? '' : ` onclick="event.stopPropagation();kcPileClick('${pileId}','${c.id}')"`;
-        return `<div class="kc-card ${suitColor(c.suit)}${sel ? ' sel' : ''}" data-card="${c.id}" style="--i:${i}"${click}>${cardHTML(c)}</div>`;
-    }).join('');
-    return `<div class="${cls.join(' ')}" data-pile="${pileId}"${bgClick}><div class="kc-stack" style="--n:${cards.length}">${stack}</div></div>`;
+    const stack = cards.map((c, i) =>
+        `<div class="kc-card ${suitColor(c.suit)}" data-card="${c.id}" style="--i:${i}">${cardHTML(c)}</div>`
+    ).join('');
+    const badge = cards.length > 1 ? `<div class="kc-pile-count">×${cards.length}</div>` : '';
+    return `<div class="${cls.join(' ')}" data-pile="${pileId}"${click}><div class="kc-stack" style="--n:${cards.length}">${stack}</div>${badge}</div>`;
 }
 function stockHTML(d) {
     const n = d.stockCount;

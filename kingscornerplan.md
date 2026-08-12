@@ -166,14 +166,30 @@ dealt in) at the start of the *next* round.
 Full `setHTML`-based re-render on every `lobby`/`state`/`viewer_state` message, exactly like
 `liarsdice.html`/`rockpaperscissors.html` — there is no host-driven timer tick here to
 protect with DOM-patch-by-id, so a full re-render is simplest and correct. Local UI-only
-selection state (`selHandCard`, `selFromPile`) is kept in top-level `let`s that survive the
-re-render and are re-applied as CSS classes (`.playable`, `.sel`, `.glow`) each time.
+selection state (`selHandCard`, a card id; `selFromPile`, a pile id — see below) is kept in
+top-level `let`s that survive the re-render and are re-applied as CSS classes (`.playable`,
+`.sel` on hand cards, `.selected`/`.glow` on piles) each time.
 
 The board is a 3×3 CSS grid: `NW N NE / W · E / SW S SE`, with the centre cell showing the
-stock count and the Draw button when it's legal. Each pile renders every card it holds as a
-small offset fan (not just the top card) — because a pile-to-pile move can pick up **any**
-card within a pile as the lead of the run above it, not only the exposed top card, so every
-card in a pile has to be individually clickable.
+stock count and the Draw button when it's legal. Each pile renders every card it holds as an
+offset fan (not just the top card), capped at 5 visible offset steps (`min(i, 5)` in the CSS)
+so a long run doesn't grow into the pile below it — a `×N` badge covers the count once a run
+is deep enough that the fan alone doesn't make it obvious.
+
+**Pile-to-pile selection is by PILE, not by card.** The first version made every card in a
+pile individually clickable, since a move can pick up any card within a pile as the lead of
+the run above it — but that meant landing a tap on a specific card buried under a 2px fan,
+which in practice meant only the top card was ever reliably tappable. `resolvePileMove(from,
+to)` removes the need to pick a card at all: a pile's ranks strictly decrease with no
+repeats (built entirely from legal single-card drops), so for any non-empty destination
+there is **at most one** card in the source pile with the right rank+colour — no guessing,
+just a lookup. The only real ambiguity is an EMPTY non-corner destination, where any card
+could start it; there the whole pile is moved by default, since "pile → pile" reads as "move
+this stack over there." `kcPileClick(pileId)` now takes a single argument: tap a pile to
+select it as the source (only the whole `.kc-pile` div is a click target — cards inside carry
+no handler of their own), tap a destination pile to send the move, tap the selected pile
+again to deselect. `computeGlowPiles` glows every pile `resolvePileMove` can legally reach
+from the current selection, the same function the move itself resolves against.
 
 ## The turn assistant (client-side only, no extra network round-trips)
 
