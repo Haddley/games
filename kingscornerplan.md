@@ -69,9 +69,11 @@ game defines simple, clearly-flagged house rules for those two gaps only (see be
   card. Some real-world house rules deal differently or allow drawing multiple cards to
   unstick a hand; none of that is here — this is the literal Bicycle rule set plus the two
   gap-fillers above, nothing else invented.
-- **No per-device voice/speech commentary.** The commentary feed (`H.milestones`) is short
-  toast text only — no Web Speech, no phrase banks, unlike Going, Going, GONE!'s auctioneer.
-  This is explicitly *not* a second instance of that subsystem.
+- **No spoken milestone commentary.** `H.milestones` (a corner opens, a hand drops to one
+  card, a round or match is won) stays short toast text only — no Web Speech there, no
+  phrase banks, unlike Going, Going, GONE!'s auctioneer. That subsystem is not duplicated
+  here. (The turn assistant's own hint/rejection lines ARE spoken — see below — but that is
+  a narrow, opt-out, single-utterance feature, not a second auctioneer.)
 
 ## Why no separate run-checker is needed
 
@@ -177,12 +179,24 @@ card in a pile has to be individually clickable.
 
 All computed locally off the same `state`/`viewer_state` payload every client already
 renders from, using the exact same pure functions (`canDropOnPile`, `legalHandMoves`,
-`legalPileMoves`, `explainReject`, `suggestMove`) the host uses to validate moves — so the
-assistant can never promise something the host will then refuse.
+`legalPileMoves`, `explainReject`, `suggestMove`) the host uses to validate moves.
 
-- **Highlight legal moves** — gated on `assistOn` and `isMyTurn`: every playable hand card
-  gets a `.playable` glow, and once a card (or a pile-run) is selected, its legal
-  destination piles glow too.
+**A found-in-testing correction worth recording**: `canDropOnPile` alone answers "does this
+card fit this pile," not "is it legal for me to move right now" — the host also enforces
+Bicycle's draw-then-play order (`hostPlayFromHand`/`hostMovePile` require
+`hasDrawnThisTurn || stock empty`) and, being fire-and-forget, silently drops a play that
+arrives before the draw rather than broadcasting a reason. The first shipped version of the
+assistant didn't know about that gate, so it happily glowed a card and a destination pile as
+legal *before* the draw — a real player selected one, tapped the glowing pile, and nothing
+happened, with no explanation, because the host had already thrown the message away. Every
+assistant entry point now runs through `canActNow()` (`isMyTurn && (hasDrawnThisTurn ||
+stockCount === 0)`) before it will glow, select, or hint anything, and a tap that arrives too
+early gets "Draw a card first" instead of silence. With that gate in place the assistant
+genuinely can never promise something the host will then refuse.
+
+- **Highlight legal moves** — gated on `assistOn`, `isMyTurn`, AND `canActNow()`: every
+  playable hand card gets a `.playable` glow, and once a card (or a pile-run) is selected,
+  its legal destination piles glow too. Nothing glows before the draw.
 - **Explain a rejected move** — tapping an illegal destination toasts a plain-English reason
   ("7♠ is the same colour as 8♣ — you need the opposite colour.", "Only a King can start a
   corner pile."). **Not gated on `assistOn`** — silently ignoring a tap is bad UX regardless
@@ -195,6 +209,18 @@ assistant can never promise something the host will then refuse.
   than the highest `seq` they'd already seen (so a rejoin never replays a backlog). This is
   deliberately lightweight — it is not a second instance of Going, Going, GONE!'s spoken
   auctioneer, just short toast text.
+- **Hint and rejection lines are also spoken aloud**, behind a per-device 🗣️ toggle in the
+  sound strip (`voiceOn`, `localStorage` key `kc-voice`, defaults on). `speak(text)` wraps
+  `SpeechSynthesisUtterance` directly — no phrase banks, no voice-picking heuristic, no
+  `bubble()`/mime fallback, none of Going, Going, GONE!'s machinery, because none of it is
+  needed here: both call sites (`kcHint`, and the rejection branch in `attemptHandPlay`/
+  `attemptPileMove`) run synchronously inside the tap that triggered them, so — unlike an
+  auctioneer's lines, which arrive later over the network, outside any user gesture — there
+  is no iOS "speech needs a live gesture" problem to prime around. Card names and pile ids
+  get spoken-friendly forms (`cardSpoken`: "six of hearts"; `pileSpoken`: "northwest
+  corner") distinct from the toast's short glyph form, so the toast and the voice can each
+  read naturally in their own medium. Milestone toasts are **not** spoken — that line is
+  still held at "no second auctioneer."
 
 ## Verification
 

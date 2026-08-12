@@ -124,8 +124,22 @@
         .kc-card.sel { outline: 2px solid var(--accent); outline-offset: 1px; z-index: 50 !important; transform: translateY(-4px); }
         .kc-center { display: flex; align-items: center; justify-content: center; }
         .kc-stock { text-align: center; }
-        .kc-stock-face { font-size: 1.7rem; }
-        .kc-stock-ct { font-size: .68rem; color: var(--muted); font-weight: 800; margin-top: 2px; }
+        .kc-stock-cards { position: relative; width: 38px; height: 52px; margin: 0 auto; }
+        .kc-stock-back {
+            position: absolute; inset: 0; border-radius: 5px;
+            background: linear-gradient(135deg, #7a1f2e, #3d0f17);
+            border: 1px solid var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,.4);
+        }
+        .kc-stock-back::after {
+            content: ''; position: absolute; inset: 4px; border-radius: 3px;
+            border: 1px solid rgba(212,175,55,.45);
+            background: repeating-linear-gradient(45deg, rgba(212,175,55,.14) 0 3px, transparent 3px 7px);
+        }
+        .kc-stock-back:nth-child(1) { z-index: 3; }
+        .kc-stock-back:nth-child(2) { transform: translate(-3px, -3px); z-index: 2; opacity: .82; }
+        .kc-stock-back:nth-child(3) { transform: translate(-6px, -6px); z-index: 1; opacity: .62; }
+        .kc-stock-empty { display: flex; align-items: center; justify-content: center; width: 38px; height: 52px; margin: 0 auto; border: 1px dashed var(--border); border-radius: 5px; color: var(--muted); font-size: .65rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; }
+        .kc-stock-ct { font-size: .68rem; color: var(--muted); font-weight: 800; margin-top: 4px; }
 
         .kc-hand { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 12px 0; min-height: 66px; }
         .kc-empty { color: var(--muted); font-size: .8rem; font-weight: 700; align-self: center; }
@@ -173,8 +187,11 @@
         .kc-board.v .kc-stack { width: clamp(60px, 6.4vw, 96px); height: clamp(82px, 8.8vw, 132px); }
         .kc-board.v .kc-card { width: clamp(60px, 6.4vw, 96px); height: clamp(82px, 8.8vw, 132px); font-size: clamp(1.05rem, 2.1vw, 1.7rem); top: calc(var(--i, 0) * 3.4px); left: calc(var(--i, 0) * 2.4px); }
         .kc-board.v .kc-empty-pile { font-size: clamp(1.8rem, 3.4vw, 2.8rem); }
-        .kc-board.v .kc-stock-face { font-size: clamp(2.6rem, 5vw, 4rem); }
-        .kc-board.v .kc-stock-ct { font-size: clamp(.8rem, 1.4vw, 1.1rem); }
+        .kc-board.v .kc-stock-cards, .kc-board.v .kc-stock-empty { width: clamp(60px, 6.4vw, 96px); height: clamp(82px, 8.8vw, 132px); }
+        .kc-board.v .kc-stock-empty { font-size: clamp(.75rem, 1.3vw, 1rem); }
+        .kc-board.v .kc-stock-back:nth-child(2) { transform: translate(-5px, -5px); }
+        .kc-board.v .kc-stock-back:nth-child(3) { transform: translate(-10px, -10px); }
+        .kc-board.v .kc-stock-ct { font-size: clamp(.85rem, 1.5vw, 1.15rem); margin-top: 8px; }
         .v-overlay { position: absolute; inset: 0; z-index: 50; background: radial-gradient(ellipse at 50% 40%, rgba(10,20,17,.86), rgba(2,8,6,.95)); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(12px,2.5vh,26px); padding: clamp(20px,4vw,60px); text-align: center; }
         .v-reveal-headline { font-family: 'Cinzel', serif; font-size: clamp(1.8rem,5vw,4rem); font-weight: 900; color: var(--accent); }
         .v-gameover-trophy { font-size: clamp(3rem,8vw,6rem); }
@@ -202,6 +219,7 @@
     <div id="sound-togs">
         <button id="tog-music" title="Music on/off" onclick="toggleMusic()">🎵</button>
         <button id="tog-sfx" title="Sound effects on/off" onclick="toggleSfx()">🔊</button>
+        <button id="tog-voice" title="Speak hints and rejections aloud" onclick="toggleVoice()">🗣️</button>
     </div>
 <script>
 'use strict';
@@ -213,10 +231,14 @@ typeof mountScene === 'function' && mountScene('royals');   // themed ambient sc
 const PFX = 'KGCRN-';
 const MIN_PLAYERS = 2, MAX_PLAYERS = 4;
 const SUIT_SYM = { S: '♠', H: '♥', D: '♦', C: '♣' };
+const SUIT_WORDS = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' };
 const RANK_WORDS = { 1: 'Ace', 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five', 6: 'Six', 7: 'Seven', 8: 'Eight', 9: 'Nine', 10: 'Ten', 11: 'Jack', 12: 'Queen', 13: 'King' };
 function rankName(n) { return RANK_WORDS[n] || String(n); }
 function rankShort(n) { return n === 1 ? 'A' : n === 11 ? 'J' : n === 12 ? 'Q' : n === 13 ? 'K' : String(n); }
 function cardLabel(c) { return rankShort(c.rank) + SUIT_SYM[c.suit]; }
+function cardSpoken(c) { return `${rankName(c.rank)} of ${SUIT_WORDS[c.suit]}`; }
+const PILE_WORDS = { N: 'north', E: 'east', S: 'south', W: 'west', NW: 'northwest corner', NE: 'northeast corner', SW: 'southwest corner', SE: 'southeast corner' };
+function pileSpoken(id) { return PILE_WORDS[id] || id; }
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 // ═══════════════════════════════════════════
@@ -753,12 +775,19 @@ function actEndTurn() {
 // ═══════════════════════════════════════════
 // TURN ASSISTANT (client-side only — no extra round trips)
 // ═══════════════════════════════════════════
+// Bicycle's rule is draw-THEN-play — the host enforces that (hostPlayFromHand/hostMovePile
+// both require hasDrawnThisTurn, unless the stock is empty) but silently reject rather than
+// broadcasting a reason. A card/pile that "looks" playable before the draw is a trap: the
+// assistant would glow it as legal, the tap would go nowhere, and the player would have no
+// idea why. Every entry point below checks this first so nothing ever glows, or gets
+// selected, before it's actually your move to make.
+function canActNow() { return !!(D && D.isMyTurn && (D.hasDrawnThisTurn || D.stockCount === 0)); }
 function computePlayableHandIds() {
-    if (!D || !D.isMyTurn || !D.assistOn || !D.myHand) return new Set();
+    if (!D || !D.assistOn || !D.myHand || !canActNow()) return new Set();
     return new Set(legalHandMoves(D.myHand, D.piles).map(m => m.cardId));
 }
 function computeGlowPiles() {
-    if (!D || !D.assistOn) return new Set();
+    if (!D || !D.assistOn || !canActNow()) return new Set();
     if (selHandCard) {
         const card = (D.myHand || []).find(c => c.id === selHandCard);
         if (!card) return new Set();
@@ -780,8 +809,11 @@ function attemptHandPlay(cardId, pileId) {
     const card = (D.myHand || []).find(c => c.id === cardId);
     const pile = D.piles[pileId];
     if (!card || !pile) return;
+    if (!canActNow()) { selHandCard = null; showToast('Draw a card first.'); speak('Draw a card first.'); render(); return; }
     if (!canDropOnPile(card, pile)) {
-        showToast(explainReject(card, pile, rankName, cardLabel) || "That card can't go there.", 'bad');
+        const why = explainReject(card, pile, rankName, cardLabel) || "That card can't go there.";
+        showToast(why, 'bad');
+        speak(explainReject(card, pile, rankName, cardSpoken) || "That card can't go there.");
         sReject();
         return;
     }
@@ -794,8 +826,10 @@ function attemptPileMove(fromPileId, cardId, toPileId) {
     if (!from || !to) return;
     const lead = from.cards.find(c => c.id === cardId);
     if (!lead) return;
+    if (!canActNow()) { selFromPile = null; showToast('Draw a card first.'); speak('Draw a card first.'); render(); return; }
     if (!canDropOnPile(lead, to)) {
         showToast(explainReject(lead, to, rankName, cardLabel) || "That card can't go there.", 'bad');
+        speak(explainReject(lead, to, rankName, cardSpoken) || "That card can't go there.");
         sReject();
         return;
     }
@@ -805,21 +839,33 @@ function attemptPileMove(fromPileId, cardId, toPileId) {
 }
 function kcHint() {
     if (!D) return;
+    if (!canActNow()) {
+        showToast('Draw a card first — you\'ll see what you can play once you have.');
+        speak('Draw a card first, then I can suggest a move.');
+        return;
+    }
     const sug = suggestMove(D.myHand, D.piles);
-    if (!sug) { showToast('No legal moves right now — draw or end your turn.'); return; }
+    if (!sug) {
+        showToast('No legal moves right now — draw or end your turn.');
+        speak('No legal moves right now — draw, or end your turn.');
+        return;
+    }
     if (sug.kind === 'hand') {
         selHandCard = sug.cardId; selFromPile = null;
         const card = (D.myHand || []).find(c => c.id === sug.cardId);
         showToast(`Try your ${card ? cardLabel(card) : ''} on the ${sug.pileId} pile.`);
+        speak(`Try your ${card ? cardSpoken(card) : 'card'} on the ${pileSpoken(sug.pileId)} pile.`);
     } else {
         selFromPile = { pileId: sug.fromPileId, cardId: sug.cardId };
         const card = D.piles[sug.fromPileId].cards.find(c => c.id === sug.cardId);
         showToast(`Try moving your ${card ? cardLabel(card) : ''} from ${sug.fromPileId} onto ${sug.toPileId}.`);
+        speak(`Try moving your ${card ? cardSpoken(card) : 'card'} from the ${pileSpoken(sug.fromPileId)} pile onto the ${pileSpoken(sug.toPileId)} pile.`);
     }
     render();
 }
 function kcClickHand(cardId) {
     if (!D || !D.isMyTurn) return;
+    if (!canActNow()) { showToast('Draw a card first.'); speak('Draw a card first.'); return; }
     selFromPile = null;
     selHandCard = (selHandCard === cardId) ? null : cardId;
     render();
@@ -836,7 +882,10 @@ function kcPileClick(pileId, cardId) {
         attemptPileMove(selFromPile.pileId, selFromPile.cardId, pileId);
         return;
     }
-    if (cardId) { selFromPile = { pileId, cardId }; render(); }
+    if (cardId) {
+        if (!canActNow()) { showToast('Draw a card first.'); speak('Draw a card first.'); return; }
+        selFromPile = { pileId, cardId }; render();
+    }
 }
 
 // ── toasts (milestones + assistant feedback) ──
@@ -1038,7 +1087,16 @@ function pileHTML(pileId, pile, opts) {
     }).join('');
     return `<div class="${cls.join(' ')}" data-pile="${pileId}"${bgClick}><div class="kc-stack" style="--n:${cards.length}">${stack}</div></div>`;
 }
-function stockHTML(d) { return `<div class="kc-stock"><div class="kc-stock-face">🂠</div><div class="kc-stock-ct">${d.stockCount}</div></div>`; }
+function stockHTML(d) {
+    const n = d.stockCount;
+    // A CSS-drawn card-back stack, not an emoji (🂠 is a low-coverage codepoint that tofus on
+    // plenty of devices — see CLAUDE.md's note on emoji font gaps — and it read as flat and
+    // tiny even where it did render). backs = how many layers show, capped at 3 regardless of
+    // the real count, so it always looks like "a pile," not a precise tally.
+    const backs = n > 0 ? Array.from({ length: Math.min(3, n) }, () => `<div class="kc-stock-back"></div>`).join('') : '';
+    const pile = n > 0 ? `<div class="kc-stock-cards">${backs}</div>` : `<div class="kc-stock-empty">Empty</div>`;
+    return `<div class="kc-stock">${pile}<div class="kc-stock-ct">${n} left</div></div>`;
+}
 const BOARD_SLOTS = ['NW', 'N', 'NE', 'W', 'CENTER', 'E', 'SW', 'S', 'SE'];
 
 function renderPlaying() {
@@ -1147,8 +1205,8 @@ function kcConfetti() {
 // ═══════════════════════════════════════════
 // AUDIO (ambient.js: pad + tone() + duck())
 // ═══════════════════════════════════════════
-let musicOn = true, sfxOn = true;
-try { musicOn = localStorage.getItem('kc-music') !== '0'; sfxOn = localStorage.getItem('kc-sfx') !== '0'; } catch (_) {}
+let musicOn = true, sfxOn = true, voiceOn = true;
+try { musicOn = localStorage.getItem('kc-music') !== '0'; sfxOn = localStorage.getItem('kc-sfx') !== '0'; voiceOn = localStorage.getItem('kc-voice') !== '0'; } catch (_) {}
 const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 // A quiet, regal drift — no key/mode drama, just a held chord under the table.
 const AMBIENT_CHORDS = [[196, 247, 294], [220, 262, 330], [175, 220, 262], [196, 233, 294]];
@@ -1160,6 +1218,23 @@ function sWinRound() { if (!sfxOn || !ac()) return; duck(1.2); const t = AC.curr
 function sWinMatch() { if (!sfxOn || !ac()) return; duck(1.6); const t = AC.currentTime; [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.34, 'triangle', t + i * 0.09, 0.3)); }
 function toggleMusic() { musicOn = !musicOn; try { localStorage.setItem('kc-music', musicOn ? '1' : '0'); } catch (_) {} const b = document.getElementById('tog-music'); if (b) b.classList.toggle('off', !musicOn); if (musicOn) startPad(); else stopPad(); }
 function toggleSfx() { sfxOn = !sfxOn; try { localStorage.setItem('kc-sfx', sfxOn ? '1' : '0'); } catch (_) {} const b = document.getElementById('tog-sfx'); if (b) b.classList.toggle('off', !sfxOn); }
+function toggleVoice() { voiceOn = !voiceOn; try { localStorage.setItem('kc-voice', voiceOn ? '1' : '0'); } catch (_) {} const b = document.getElementById('tog-voice'); if (b) b.classList.toggle('off', !voiceOn); if (!voiceOn && typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); }
+
+// ── Spoken hints/rejections — the turn assistant reading its own toasts aloud. Both call
+// sites (kcHint, attemptHandPlay/attemptPileMove's rejection branch) fire synchronously
+// inside the tap that triggered them, so — unlike Going, Going, GONE!'s auctioneer, whose
+// lines arrive later over the network — there's no iOS "speech needs a live gesture" problem
+// to work around here: every utterance IS the gesture.
+function canSpeak() { return voiceOn && typeof speechSynthesis !== 'undefined'; }
+function speak(text) {
+    if (!canSpeak() || !text) return;
+    try {
+        speechSynthesis.cancel();   // a fresh hint/rejection replaces whatever was still being read
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.02;
+        speechSynthesis.speak(u);
+    } catch (e) {}
+}
 document.addEventListener('pointerdown', () => { ac(); if (AC && AC.state === 'suspended') AC.resume(); if (musicOn) startPad(); }, { once: true });
 
 // ── Theme (day/night) ──
@@ -1241,6 +1316,7 @@ function simBotTurn() {
     const params = new URLSearchParams(location.search);
     if (!musicOn) { const b = document.getElementById('tog-music'); if (b) b.classList.add('off'); }
     if (!sfxOn) { const b = document.getElementById('tog-sfx'); if (b) b.classList.add('off'); }
+    if (!voiceOn) { const b = document.getElementById('tog-voice'); if (b) b.classList.add('off'); }
     const mode = (params.get('mode') || '').toLowerCase();
     const simPlayers = parseInt(params.get('players'), 10) || 4;
     if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }

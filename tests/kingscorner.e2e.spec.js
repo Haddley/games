@@ -168,11 +168,21 @@ test('phone-hosted table: legal-move highlighting, hint, and a rejection toast',
         const top = side.cards[side.cards.length - 1];
         const goodRank = top.rank - 1;
         const goodSuit = (top.suit === 'H' || top.suit === 'D') ? 'S' : 'H';
-        // a same-colour, wrong-rank card that can never legally land anywhere useful
-        const badRank = top.rank - 1 <= 1 ? top.rank : top.rank - 1;
-        const badSuit = (top.suit === 'H' || top.suit === 'D') ? 'H' : 'S';
-        const bad = { rank: badRank, suit: badSuit, id: 'bad' + badRank + badSuit };
         const good = { rank: goodRank, suit: goodSuit, id: 'good' + goodRank + goodSuit };
+        // A card that is illegal against EVERY pile currently on the board, not just `side` —
+        // picking "same colour, one rank below `side`'s top" isn't enough on its own, since
+        // that exact rank/colour can coincidentally be legal against a DIFFERENT pile in a
+        // freshly, randomly dealt game (this was flaky before this fix was added: it failed
+        // whenever the dealt board happened to give some other pile a matching top card).
+        const suits = ['S', 'H', 'D', 'C'];
+        let bad = null;
+        for (let r = 2; r <= 13 && !bad; r++) {
+            for (const s of suits) {
+                const cand = { rank: r, suit: s, id: 'bad' + r + s };
+                if (cand.id === good.id) continue;
+                if (legalHandMoves([cand], H.piles).length === 0) { bad = cand; break; }
+            }
+        }
         p.hand = [bad, good];
         H.hasDrawnThisTurn = true;
         broadcast();
