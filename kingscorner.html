@@ -169,9 +169,12 @@
         .v-kc-player .ct { font-size: clamp(.6rem,1.1vw,.8rem); color: var(--muted); margin-top: 2px; }
         .v-kc-player .rw { font-size: clamp(.6rem,1.1vw,.8rem); color: var(--accent); margin-top: 1px; }
         .kc-board.v { flex: 1; padding: 0 clamp(16px,3vw,40px) clamp(16px,3vw,40px); min-height: 0; }
-        .kc-board.v .kc-pile { min-height: 11vh; }
-        .kc-board.v .kc-stack { width: clamp(38px, 4vw, 60px); height: clamp(52px, 5.5vw, 82px); }
-        .kc-board.v .kc-card { width: clamp(38px, 4vw, 60px); height: clamp(52px, 5.5vw, 82px); font-size: clamp(.7rem, 1.3vw, 1.05rem); }
+        .kc-board.v .kc-pile { min-height: 16vh; }
+        .kc-board.v .kc-stack { width: clamp(60px, 6.4vw, 96px); height: clamp(82px, 8.8vw, 132px); }
+        .kc-board.v .kc-card { width: clamp(60px, 6.4vw, 96px); height: clamp(82px, 8.8vw, 132px); font-size: clamp(1.05rem, 2.1vw, 1.7rem); top: calc(var(--i, 0) * 3.4px); left: calc(var(--i, 0) * 2.4px); }
+        .kc-board.v .kc-empty-pile { font-size: clamp(1.8rem, 3.4vw, 2.8rem); }
+        .kc-board.v .kc-stock-face { font-size: clamp(2.6rem, 5vw, 4rem); }
+        .kc-board.v .kc-stock-ct { font-size: clamp(.8rem, 1.4vw, 1.1rem); }
         .v-overlay { position: absolute; inset: 0; z-index: 50; background: radial-gradient(ellipse at 50% 40%, rgba(10,20,17,.86), rgba(2,8,6,.95)); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(12px,2.5vh,26px); padding: clamp(20px,4vw,60px); text-align: center; }
         .v-reveal-headline { font-family: 'Cinzel', serif; font-size: clamp(1.8rem,5vw,4rem); font-weight: 900; color: var(--accent); }
         .v-gameover-trophy { font-size: clamp(3rem,8vw,6rem); }
@@ -712,25 +715,39 @@ function setupGuestConn(conn) {
 // ═══════════════════════════════════════════
 // CLIENT ACTIONS
 // ═══════════════════════════════════════════
+// A play/draw/end-turn sent over the wire gets no ack either way (the host only ever
+// broadcasts on SUCCESS — a silently-rejected or lost message looks identical to a tap that
+// did nothing). This watchdog turns that silence into a visible toast after a short wait,
+// instead of a card that looks selected forever with no explanation.
+let actionWatchdog = null;
+function armActionWatchdog() {
+    clearActionWatchdog();
+    actionWatchdog = setTimeout(() => {
+        actionWatchdog = null;
+        showToast("That didn't seem to reach the table — check your connection and try again.", 'bad');
+    }, 4000);
+}
+function clearActionWatchdog() { if (actionWatchdog) { clearTimeout(actionWatchdog); actionWatchdog = null; } }
+
 function guestCtl(action, value) {
     if (isHost && !isTvHost) { hostCtl(myId, action, value); return; }
-    if (hostConn) send(hostConn, { type: 'ctl', action, value });
+    if (hostConn) { send(hostConn, { type: 'ctl', action, value }); armActionWatchdog(); }
 }
 function actDraw() {
     if (isHost && !isTvHost) { hostDraw(myId); return; }
-    if (hostConn) send(hostConn, { type: 'draw' });
+    if (hostConn) { send(hostConn, { type: 'draw' }); armActionWatchdog(); }
 }
 function actPlayHand(cardId, pileId) {
     if (isHost && !isTvHost) { hostPlayFromHand(myId, cardId, pileId); return; }
-    if (hostConn) send(hostConn, { type: 'play_hand', cardId, pileId });
+    if (hostConn) { send(hostConn, { type: 'play_hand', cardId, pileId }); armActionWatchdog(); }
 }
 function actMovePile(fromPileId, cardId, toPileId) {
     if (isHost && !isTvHost) { hostMovePile(myId, fromPileId, cardId, toPileId); return; }
-    if (hostConn) send(hostConn, { type: 'move_pile', fromPileId, cardId, toPileId });
+    if (hostConn) { send(hostConn, { type: 'move_pile', fromPileId, cardId, toPileId }); armActionWatchdog(); }
 }
 function actEndTurn() {
     if (isHost && !isTvHost) { hostEndTurn(myId); return; }
-    if (hostConn) send(hostConn, { type: 'end_turn' });
+    if (hostConn) { send(hostConn, { type: 'end_turn' }); armActionWatchdog(); }
 }
 
 // ═══════════════════════════════════════════
@@ -856,6 +873,7 @@ function toastMilestones(list) {
 // ═══════════════════════════════════════════
 function applyMsg(msg) {
     if (!msg) return;
+    clearActionWatchdog();   // any traffic at all from the host proves the connection is alive
     if (msg.type === 'version') { if (typeof showStaleBuild === 'function') showStaleBuild(msg.host); return; }
     if (msg.type === 'full') { forgetRoom(); uiErr = `This table is full (${MAX_PLAYERS}/${MAX_PLAYERS}).`; ui = 'home'; D = null; if (hostConn) { try { hostConn.close(); } catch (_) {} } render(); return; }
     if (msg.type === 'lobby') { D = msg; ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g'; render(); return; }
