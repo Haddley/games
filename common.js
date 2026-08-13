@@ -10,6 +10,36 @@
 // otherwise still a self-contained file.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Google Analytics (GA4) — wired in ONCE, here, so every page that loads common.js (the
+// launcher and every game) reports in without editing 20+ HTML files individually. This is
+// the standard gtag.js pattern, just built dynamically instead of pasted as static <head>
+// tags. Everything stays inside the IIFE (nothing becomes a top-level name here except the
+// deliberate `window.gtag` export below), so it can't collide with a game's own globals —
+// see the common-names.test.js audit this repo runs before adding any top-level name to a
+// shared file.
+//
+// What this measures: standard GA4 automatic collection — a `page_view` per game (a proxy
+// for "this game was opened," not proof anyone actually started playing — a true
+// game-started signal would need a hook into each game's own state machine, which differs
+// per game and isn't part of this) and GA4's own `user_engagement` events, which its
+// reporting UI turns into "average engagement time" per page. Both come for free from the
+// base install below; no custom events are fired from this repo.
+// Guarded: the unit tests evaluate this whole file with `document`/`window` intentionally
+// absent (see unit/common-prefs.test.js), same as every other browser-only piece of
+// common.js — this must tolerate that instead of throwing at eval time.
+if (typeof document !== 'undefined' && typeof window !== 'undefined') (function () {
+    const GA_ID = 'G-63L52W2YE5';
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    window.gtag = gtag;
+    gtag('js', new Date());
+    gtag('config', GA_ID);
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
+    document.head.appendChild(s);
+})();
+
 // TURN relay (Metered) so players on restrictive / remote networks (symmetric
 // NAT, mobile carriers, corporate wifi) can connect — STUN alone only punches
 // through friendly NATs. Passed to EVERY `new Peer(...)`:
