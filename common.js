@@ -19,11 +19,17 @@
 // shared file.
 //
 // What this measures: standard GA4 automatic collection — a `page_view` per game (a proxy
-// for "this game was opened," not proof anyone actually started playing — a true
-// game-started signal would need a hook into each game's own state machine, which differs
-// per game and isn't part of this) and GA4's own `user_engagement` events, which its
-// reporting UI turns into "average engagement time" per page. Both come for free from the
-// base install below; no custom events are fired from this repo.
+// for "this game was opened," not proof anyone actually started playing) and GA4's own
+// `user_engagement` events, which its reporting UI turns into "average engagement time" per
+// page — both come for free from the base install below, no code needed. On top of that,
+// `trackEvent` (below) fires two custom events from p2p.js, the one place every game's
+// connection lifecycle actually runs: `room_created` when a host's room registers, and
+// `room_joined` the first time a guest's connection genuinely opens (not a mid-game
+// auto-rejoin — that isn't a new attempt). That's the real "was this game actually tried"
+// signal page views alone can't give, without needing a hook into 19 different state
+// machines. To see it broken down by game in GA4, mark `room_created`/`room_joined` as Key
+// Events (Admin → Events) and use Explore → break down by "Page title" or "Page path", which
+// every event already carries for free — no custom dimension registration required.
 // Guarded: the unit tests evaluate this whole file with `document`/`window` intentionally
 // absent (see unit/common-prefs.test.js), same as every other browser-only piece of
 // common.js — this must tolerate that instead of throwing at eval time.
@@ -39,6 +45,20 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined') (function 
     s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
     document.head.appendChild(s);
 })();
+
+// Fire a GA4 custom event. Safe to call even if the gtag script above never loaded (ad
+// blockers strip it often enough that every call site would otherwise need its own guard) or
+// if this whole file is evaluated with no DOM (unit tests) — both just no-op.
+function trackEvent(name, params) {
+    if (typeof gtag !== 'function') return;
+    gtag('event', name, params || {});
+}
+// Which game this page is, from its own filename — so a shared file (p2p.js) can label an
+// event without any per-game wiring. 'index' for the launcher itself.
+function gameSlug() {
+    if (typeof location === 'undefined') return '';
+    return (location.pathname.split('/').pop() || 'index').replace(/\.html$/, '') || 'index';
+}
 
 // TURN relay (Metered) so players on restrictive / remote networks (symmetric
 // NAT, mobile carriers, corporate wifi) can connect — STUN alone only punches

@@ -172,7 +172,11 @@ function p2pWatchRelay(conn) {
 function hostPeer(fullId, opts) {
     const o = opts || {};
     const p = new Peer(fullId, ICE_CFG);
-    p.on('open', id => { if (o.onOpen) o.onOpen(id); });
+    let tracked = false;   // 'open' can refire after a broker reconnect — count the room once
+    p.on('open', id => {
+        if (!tracked && typeof trackEvent === 'function') { tracked = true; trackEvent('room_created', { game: typeof gameSlug === 'function' ? gameSlug() : '' }); }
+        if (o.onOpen) o.onOpen(id);
+    });
     p.on('connection', conn => { p2pWatchRelay(conn); if (o.onConnection) o.onConnection(conn); });
     p.on('disconnected', () => { try { if (p && !p.destroyed) p.reconnect(); } catch (_) {} });
     p.on('error', e => {
@@ -239,6 +243,9 @@ function joinPeer(opts) {
         p.on('open', id => {
             const hc = p.connect(o.hostFullId, { reliable: true });
             hc.on('open', () => {
+                // fire on the FIRST genuine join only — a mid-game auto-rejoin (everLive
+                // already true) is recovering an existing attempt, not a new one
+                if (!everLive && typeof trackEvent === 'function') trackEvent('room_joined', { game: typeof gameSlug === 'function' ? gameSlug() : '' });
                 live = true; everLive = true; attempt = 1;
                 p2pCurtain(false);
                 p2pWatchRelay(hc);
