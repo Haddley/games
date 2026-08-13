@@ -181,6 +181,15 @@ alternates). A `×N` badge appears once there's actually something hidden (3+ ca
 so. Rendering only two cards also sidesteps the earlier fan-overflow problem (a long run
 growing into the pile below it) without needing to cap anything.
 
+**The base card still needs to actually be legible, not just present in the DOM.** The first
+version kept `cardHTML`'s rank+suit centered on the card face (fine for a lone card), which
+meant the base card's label sat squarely under the top card's centre regardless of how far
+apart they were offset — only an empty sliver of background ever showed. `.kc-card` now
+positions rank+suit as a top-left **corner index**, the way a real card does, specifically so
+identity survives being mostly covered: whatever sliver of the base card peeks out, its index
+is in it. (`.kc-hcard` — the hand tray, cards laid out side by side, never overlapping — keeps
+the original centred face; the corner index only matters where cards actually stack.)
+
 **Pile-to-pile selection is by PILE, not by card.** The first version made every card in a
 pile individually clickable, since a move can pick up any card within a pile as the lead of
 the run above it — but that meant landing a tap on a specific card buried under a 2px fan,
