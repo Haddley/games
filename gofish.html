@@ -239,6 +239,9 @@ let H = {
     matchStartIdx: 0,             // rotates who deals first across successive "Play again"s
     stock: [],
     booksClaimed: 0,
+    helpMode: true,                // captain-set table preference — fuller commentary for new
+                                    // players, spoken and shown; a table setting, not a
+                                    // per-match rule, so it deliberately survives "Play again"
     milestones: [], milestoneSeq: 0,
 };
 
@@ -288,17 +291,31 @@ function hostPlayAgain(fromId) {
     H.milestones = []; H.milestoneSeq = 0;
     broadcastLobby();
 }
-function hostCtl(fromId, action) {
+function hostCtl(fromId, action, value) {
     if (capPlayer()?.id !== fromId) return;
-    if (action === 'start') hostStartGame(fromId);
+    if (action === 'helpMode') { H.helpMode = !!value; if (H.phase === 'lobby') broadcastLobby(); else broadcast(); }
+    else if (action === 'start') hostStartGame(fromId);
     else if (action === 'again') hostPlayAgain(fromId);
 }
 
+// If `p` is about to hold (or keep) the turn but their hand is empty, this is the rules'
+// own forced move, not a real choice: auto-draw them one card (their only legal ask becomes
+// that card's own rank) if the stock has one, otherwise report they truly cannot act so the
+// caller can move the turn along instead. Shared by advanceTurn (handing the turn to a NEW
+// player) and hostAsk's two "go again" paths (the SAME player keeps the turn after a hit or
+// a matched fish) — a book completed by that same play can empty the hand either way, and
+// both cases need identical treatment or a player can be left holding their own turn with an
+// empty hand and no legal rank to ask for, which softlocks the room (found in testing).
+function refillIfEmpty(p) {
+    if (p.hand.length > 0) return true;
+    if (H.stock.length > 0) { p.hand.push(H.stock.pop()); return true; }
+    return false;
+}
+
 // Walks forward from fromIdx to the next player who can actually take a turn: skips
-// spectators outright, auto-draws a single card for anyone whose hand is empty (the rules'
-// own forced move, not a real choice), and skips entirely anyone left with an empty hand AND
-// an empty stock ("out of the game"). Guaranteed to land on somebody or end the match — by
-// card conservation, everyone empty-handed with an empty stock means all 52 cards are
+// spectators outright, and (via refillIfEmpty) skips entirely anyone left with an empty hand
+// AND an empty stock ("out of the game"). Guaranteed to land on somebody or end the match —
+// by card conservation, everyone empty-handed with an empty stock means all 52 cards are
 // already in books, i.e. the match is already over.
 function advanceTurn(fromIdx) {
     const n = H.players.length;
@@ -307,11 +324,7 @@ function advanceTurn(fromIdx) {
         idx = (idx + 1) % n;
         const p = H.players[idx];
         if (p.spectating) continue;
-        if (p.hand.length > 0) { H.turnIdx = idx; broadcast(); return; }
-        if (H.stock.length > 0) {
-            p.hand.push(H.stock.pop());   // their only legal ask is now this card's own rank
-            H.turnIdx = idx; broadcast(); return;
-        }
+        if (refillIfEmpty(p)) { H.turnIdx = idx; broadcast(); return; }
         // empty hand, empty stock — out of the game; keep walking
     }
     checkMatchOver() || broadcast();
@@ -333,30 +346,49 @@ function hostAsk(fromId, targetId, rank) {
         target.hand = target.hand.filter(c => c.rank !== rank);
         asker.hand.push(...hits);
         addMilestone(
-            `${asker.name} asked ${target.name} for ${RANK_PLURAL[rank]} and got ${hits.length}!`,
-            `${asker.name} asked ${target.name} for ${RANK_PLURAL[rank]} and got ${hits.length}.`
+            H.helpMode
+                ? `${asker.name} asked ${target.name} for ${RANK_PLURAL[rank]} and got ${hits.length}! ${asker.name} goes again.`
+                : `${asker.name} asked ${target.name} for ${RANK_PLURAL[rank]} and got ${hits.length}!`,
+            H.helpMode
+                ? `${asker.name} asked ${target.name} for ${RANK_PLURAL[rank]} and got ${hits.length}. A hit means ${asker.name} goes again.`
+                : `${asker.name} asked ${target.name} for ${RANK_PLURAL[rank]} and got ${hits.length}.`
         );
         layBooks(asker).forEach(r => {
             H.booksClaimed++;
-            addMilestone(`${asker.name} laid down a book of ${RANK_PLURAL[r]}!`);
+            addMilestone(H.helpMode
+                ? `${asker.name} laid down a book of ${RANK_PLURAL[r]} — all four in one hand!`
+                : `${asker.name} laid down a book of ${RANK_PLURAL[r]}!`);
         });
-        if (!checkMatchOver()) broadcast();   // asker goes again — turnIdx unchanged
+        if (checkMatchOver()) return;
+        // A book completed just now can empty the hand that's still mid-turn — same forced
+        // refill the rules require anywhere else, or this "go again" turn has nothing left
+        // to legally ask with (found in testing: the room softlocked here).
+        if (refillIfEmpty(asker)) broadcast();
+        else advanceTurn(H.turnIdx);
         return;
     }
 
-    // A miss — "Go Fish" is what the RESPONDER says, not the asker.
-    addMilestone(`${target.name} says "Go Fish!"`);
+    // A miss — "Go Fish" is what the RESPONDER says, not the asker. It means: nothing to
+    // hand over, so the asker draws the top card of the stock instead.
+    addMilestone(H.helpMode
+        ? `${target.name} says "Go Fish!" — ${asker.name} draws a card from the stock.`
+        : `${target.name} says "Go Fish!"`);
     if (H.stock.length === 0) { advanceTurn(H.turnIdx); return; }
     const drawn = H.stock.pop();
     asker.hand.push(drawn);
     layBooks(asker).forEach(r => {
         H.booksClaimed++;
-        addMilestone(`${asker.name} laid down a book of ${RANK_PLURAL[r]}!`);
+        addMilestone(H.helpMode
+            ? `${asker.name} laid down a book of ${RANK_PLURAL[r]} — all four in one hand!`
+            : `${asker.name} laid down a book of ${RANK_PLURAL[r]}!`);
     });
     if (checkMatchOver()) return;
     if (drawn.rank === rank) {
-        addMilestone(`${asker.name} fished up exactly what they asked for!`);
-        broadcast();   // go again — turnIdx unchanged
+        addMilestone(H.helpMode
+            ? `${asker.name} fished up exactly what they asked for — and goes again!`
+            : `${asker.name} fished up exactly what they asked for!`);
+        if (refillIfEmpty(asker)) broadcast();
+        else advanceTurn(H.turnIdx);
     } else {
         advanceTurn(H.turnIdx);
     }
@@ -370,6 +402,7 @@ function lobbyMsg() {
         type: 'lobby',
         players: H.players.filter(p => !p.spectating).map(p => ({ name: p.name })),
         roomCode, tvHost: isTvHost, captain: capPlayer()?.name || null,
+        helpMode: H.helpMode,
     };
 }
 // Another player's actual cards never enter this object at all — only their count — which is
@@ -388,6 +421,7 @@ function buildDisplay(playerId) {
             spectating: !!p.spectating, isTurn: i === H.turnIdx,
         })),
         stockCount: H.stock.length,
+        helpMode: H.helpMode,
         milestones: H.milestones.slice(-8),
         matchWinnerName: H.phase === 'match_over' ? (sorted[0] ? sorted[0].name : '') : '',
     };
@@ -542,7 +576,7 @@ function setupGuestConn(conn) {
                 if (H.phase === 'lobby') broadcastLobby(); else broadcast();
                 break;
             }
-            case 'ctl': if (capPlayer()?.id === conn.peer) hostCtl(conn.peer, msg.action); break;
+            case 'ctl': if (capPlayer()?.id === conn.peer) hostCtl(conn.peer, msg.action, msg.value); break;
             case 'ask': hostAsk(conn.peer, msg.targetId, msg.rank); break;
             case 'hb': break;
         }
@@ -574,9 +608,9 @@ function armActionWatchdog() {
 }
 function clearActionWatchdog() { if (actionWatchdog) { clearTimeout(actionWatchdog); actionWatchdog = null; } }
 
-function guestCtl(action) {
-    if (isHost && !isTvHost) { hostCtl(myId, action); return; }
-    if (hostConn) { send(hostConn, { type: 'ctl', action }); armActionWatchdog(); }
+function guestCtl(action, value) {
+    if (isHost && !isTvHost) { hostCtl(myId, action, value); return; }
+    if (hostConn) { send(hostConn, { type: 'ctl', action, value }); armActionWatchdog(); }
 }
 function actAsk(targetId, rank) {
     if (isHost && !isTvHost) { hostAsk(myId, targetId, rank); return; }
@@ -727,6 +761,13 @@ function renderHome() {
     </div>`;
 }
 
+function helpModeToggleHTML(on, disabled) {
+    return `<div class="tog-row">
+        <div><div class="tog-label">🎓 New player help</div><div class="tog-desc">Fuller commentary, spoken and shown, explaining what "Go Fish", a book and "goes again" actually mean — good for a table with a first-timer.</div></div>
+        <label class="tog"><input type="checkbox" ${on ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="guestCtl('helpMode', this.checked)"><span class="tog-track"></span></label>
+    </div>`;
+}
+
 function renderLobbyH() {
     const players = H.players.filter(p => !p.spectating);
     const chips = players.map(p => `<div class="chip${p.id === myId ? ' you' : ''}">${esc(p.name)}</div>`).join('');
@@ -741,6 +782,7 @@ function renderLobbyH() {
         <div class="slbl">Anglers (${players.length}/${MAX_PLAYERS})</div>
         <div class="chips">${chips}</div>
     </div>
+    <div class="card">${helpModeToggleHTML(H.helpMode, false)}</div>
     <button class="btn btn-p btn-full" ${enough ? '' : 'disabled'} onclick="guestCtl('start')">🎣 Deal the hands</button>
     ${enough ? '' : `<div class="hint">Waiting for at least ${MIN_PLAYERS} players…</div>`}
     ${typeof shareRoomHTML === 'function' ? shareRoomHTML(roomCode, joinURL()) : ''}`;
@@ -751,9 +793,11 @@ function renderLobbyG() {
     const iAmCaptain = !!(D && D.captain && D.captain === myName);
     const enough = players.length >= MIN_PLAYERS;
     const foot = iAmCaptain
-        ? `<button class="btn btn-p btn-full" ${enough ? '' : 'disabled'} onclick="guestCtl('start')">🎣 Deal the hands</button>
+        ? `${helpModeToggleHTML(!!(D && D.helpMode), false)}
+           <button class="btn btn-p btn-full" style="margin-top:10px" ${enough ? '' : 'disabled'} onclick="guestCtl('start')">🎣 Deal the hands</button>
            <div class="hint">👑 You're the captain${enough ? '' : ' — waiting for at least ' + MIN_PLAYERS + ' players…'}</div>`
-        : `<div class="hint">${D && D.captain ? `👑 ${esc(D.captain)} deals when ready` : 'Waiting for the host…'}</div>`;
+        : `${helpModeToggleHTML(!!(D && D.helpMode), true)}
+           <div class="hint">${D && D.captain ? `👑 ${esc(D.captain)} deals when ready` : 'Waiting for the host…'}</div>`;
     return `${hdrHTML("you're seated")}
     <div class="card" style="text-align:center">
         <div class="slbl">Room ${esc((D && D.roomCode) || roomCode)}</div>
@@ -796,13 +840,21 @@ function renderPlaying() {
         </button>`;
     }).join('');
     const handHtml = myHand.map(c => faceUpHTML(c)).join('') || '<div class="hint">Your hand is empty!</div>';
+    const turnHint = D.isMyTurn
+        ? (D.helpMode
+            ? `<div class="hint">Tap a rank you hold, then who to ask. You can only ask for a rank you already have — that's the rule.</div>`
+            : `<div class="hint">Tap a rank you hold, then who to ask</div>`)
+        : '';
+    const askForHint = D.helpMode
+        ? `<div class="hint" style="margin-top:-4px;margin-bottom:8px">Only your own ranks are tappable — the rest are greyed out</div>`
+        : '';
     return `
     <div class="card" style="text-align:center">
         <div class="slbl">${D.isMyTurn ? 'Your turn' : esc(D.turnPlayerName) + "'s turn"} · stock ${D.stockCount}</div>
-        ${D.isMyTurn ? `<div class="hint">Tap a rank you hold, then who to ask</div>` : ''}
+        ${turnHint}
     </div>
     <div class="card"><div class="slbl">Your hand</div><div class="gf-hand-row">${handHtml}</div>${booksHTML((D.players.find(p => p.id === myId) || {}).books)}</div>
-    ${D.isMyTurn ? `<div class="card"><div class="slbl">Ask for…</div><div class="gf-rankrow">${rankRow}</div></div>` : ''}
+    ${D.isMyTurn ? `<div class="card"><div class="slbl">Ask for…</div>${askForHint}<div class="gf-rankrow">${rankRow}</div></div>` : ''}
     <div class="card"><div class="slbl">${D.isMyTurn ? 'Ask whom?' : 'At the table'}</div><div class="gf-opps">${oppHtml}</div></div>`;
 }
 

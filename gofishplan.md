@@ -94,6 +94,50 @@ host logic thin" discipline — not its host/dealer split.
 - **Win condition**: all 13 books claimed → `match_over` immediately (can end mid-sequence,
   the instant the 13th book lays down). Podium via the shared `rankByScore` on `books.length`.
 
+## Bugfix: the mid-turn softlock (`refillIfEmpty`)
+
+Neil hit a real stuck room in testing: a player's turn began, they emptied their own hand by
+laying down their last book mid-ask (a "go again" hit or a matched-fish draw that happened to
+complete their final book), and the turn never moved on — the UI has nothing to offer an
+empty-handed player (no rank is tappable), and `hostAsk`'s two "go again" branches called
+`broadcast()` directly with no empty-hand check, because that check only ever lived in
+`advanceTurn`'s handoff-to-a-new-player path. A player could hold the turn with zero cards and
+no legal move: total softlock.
+
+Fixed by extracting the shared helper `refillIfEmpty(p)` (auto-draws one stock card into an
+empty hand, returns whether the player has a card to act with) and calling it from **three**
+places that can each leave a hand empty: `advanceTurn`'s existing handoff logic, and both of
+`hostAsk`'s go-again branches (a hit that completes the asker's last book; a fished card that
+completes it). Each go-again branch now does `refillIfEmpty(asker) ? broadcast() :
+advanceTurn(H.turnIdx)` — auto-draw and keep going if the stock can supply one, otherwise fall
+through to the normal handoff (which itself skips the player entirely if the stock is also dry,
+the pre-existing "out of the game" rule). Covered by `unit/gofish.test.js`: a hit that empties
+the hand with stock available (auto-draws, same turn continues), the same with an empty stock
+(turn passes cleanly instead of softlocking), and the matched-fish equivalent.
+
+## New player help (`helpMode`)
+
+A captain-configurable table setting — 🎓 **New player help** — toggled in the lobby (own
+screen always live; a guest's copy is shown but `disabled` unless they're captain), carried in
+both `lobbyMsg()` and `buildDisplay()` as `helpMode`, and set via `hostCtl(fromId, 'helpMode',
+value)` / `guestCtl('helpMode', value)`. It's a **table preference, not a per-match rule** — it
+deliberately survives "Play again" (unlike e.g. a round count), because the table's mix of
+experienced/new players doesn't change just because a match ended.
+
+Two things key off it:
+- **Milestone commentary** (spoken and shown) gets a fuller, more explanatory version when on —
+  e.g. a hit still says who fished what, but a miss spells out "says 'Go Fish!' — so-and-so
+  draws a card from the stock" rather than just "Go Fish!", and a completed book explains what
+  just happened ("all four in one hand!") instead of a bare exclamation.
+- **In-game hints** in `renderPlaying()` (`turnHint`, `askForHint`) directly address the
+  question Neil actually asked when testing — why only ranks already in hand are askable —
+  spelling out "You can only ask for a rank you already have — that's the rule" rather than the
+  terse default hint.
+
+Off by default would have been the "no behaviour change" choice, but the whole point is to help
+someone who doesn't yet know the rule, so it defaults **on**; an experienced table's captain
+switches it off once.
+
 ## What is deliberately NOT here
 
 - **No multi-round match.** Go Fish is naturally one complete deal-to-13-books game — there's
@@ -165,9 +209,10 @@ id-keyed, so a rejoin is just `zombie.id = conn.peer`.
 
 ## Verification
 
-1. `npm run test:unit` — `gofish.test.js` (12 tests: book detection incl. multi-book,
+1. `npm run test:unit` — `gofish.test.js` (16 tests: book detection incl. multi-book,
    ask-resolution hit/miss/match-on-fish, the empty-hand/empty-stock edge case, match-over on
-   the 13th book) passes; `common-names.test.js` and `presence.test.js` pass with no
+   the 13th book, plus the `refillIfEmpty` softlock regression tests covering both `hostAsk`
+   go-again paths) passes; `common-names.test.js` and `presence.test.js` pass with no
    special-casing needed.
 2. `npx playwright test tests/smoke.e2e.spec.js` — loads clean, `pond` scene builds.
 3. `npx playwright test tests/gofish.e2e.spec.js` — TV-hosted: a forced hit, a forced miss, a

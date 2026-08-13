@@ -24,7 +24,7 @@ function makeEngine() {
     const capPlayer = () => H.players[0] || null;
     const broadcast = () => {};
     const fn = new Function('capPlayer', 'broadcast',
-        SRC + '\nreturn { H, hostAddPlayer, hostStartGame, hostPlayAgain, hostCtl, advanceTurn, hostAsk, layBooks, makeCard, checkMatchOver };');
+        SRC + '\nreturn { H, hostAddPlayer, hostStartGame, hostPlayAgain, hostCtl, advanceTurn, hostAsk, layBooks, makeCard, checkMatchOver, refillIfEmpty };');
     return fn(capPlayer, broadcast);
 }
 
@@ -180,4 +180,80 @@ test('checkMatchOver: ends the match the instant the 13th book lands', () => {
     E.hostAsk('a', 'b', 7);   // this hit completes the 13th book
     assert.equal(E.H.booksClaimed, 13);
     assert.equal(E.H.phase, 'match_over');
+});
+
+// ── regression: a book completed mid-"go again" turn must never softlock the room ──
+// Found in testing: a player's hand can reach exactly 0 as a SIDE EFFECT of completing a
+// book on a turn they're still holding (a hit, or a matched fish) — not just when a fresh
+// turn is handed to them. Before the fix, that left `H.turnIdx` pointing at a player with an
+// empty hand and no legal rank to ask for; the UI disables every rank chip on an empty hand,
+// so they could never send another message and the room froze.
+
+test('hostAsk (hit): completing a book down to an empty hand auto-draws so the SAME turn can continue', () => {
+    const E = makeEngine();
+    E.H.phase = 'playing';
+    E.H.players = [
+        // Ann's entire hand is three 7s — a hit that completes the book empties her hand.
+        { id: 'a', name: 'Ann', hand: [c(7, 'S'), c(7, 'C'), c(7, 'D')], books: [], spectating: false },
+        { id: 'b', name: 'Bo', hand: [c(7, 'H'), c(2, 'C')], books: [], spectating: false },
+    ];
+    E.H.turnIdx = 0;
+    E.H.stock = [c(9, 'D')];   // a card left to auto-draw
+    E.hostAsk('a', 'b', 7);
+    assert.deepEqual(E.H.players[0].books, [7], 'the book of sevens laid down');
+    assert.equal(E.H.turnIdx, 0, "it is still Ann's turn — a hit never advances turnIdx");
+    assert.equal(E.H.players[0].hand.length, 1, 'her empty hand was auto-refilled from the stock');
+    assert.equal(E.H.players[0].hand[0].id, '9D');
+    assert.equal(E.H.stock.length, 0);
+});
+
+test('hostAsk (hit): completing a book with an empty stock and an empty hand passes the turn instead of softlocking', () => {
+    const E = makeEngine();
+    E.H.phase = 'playing';
+    E.H.players = [
+        { id: 'a', name: 'Ann', hand: [c(7, 'S'), c(7, 'C'), c(7, 'D')], books: [], spectating: false },
+        { id: 'b', name: 'Bo', hand: [c(7, 'H'), c(2, 'C')], books: [], spectating: false },
+    ];
+    E.H.turnIdx = 0;
+    E.H.stock = [];   // nothing to auto-draw
+    E.hostAsk('a', 'b', 7);
+    assert.deepEqual(E.H.players[0].books, [7]);
+    assert.equal(E.H.players[0].hand.length, 0, 'Ann genuinely has nothing left');
+    assert.equal(E.H.turnIdx, 1, 'the turn moved on to Bo rather than freezing on an unplayable hand');
+});
+
+test('hostAsk (matched fish): completing a book via the drawn card itself also refills instead of softlocking', () => {
+    const E = makeEngine();
+    E.H.phase = 'playing';
+    E.H.players = [
+        // Ann holds three 7s and asks Bo, who has none — a miss, so she fishes. The stock's
+        // top card happens to be the matching 7, completing the book AND emptying her hand
+        // in the same beat.
+        { id: 'a', name: 'Ann', hand: [c(7, 'S'), c(7, 'C'), c(7, 'D')], books: [], spectating: false },
+        { id: 'b', name: 'Bo', hand: [c(2, 'H')], books: [], spectating: false },
+    ];
+    E.H.turnIdx = 0;
+    E.H.stock = [c(9, 'D'), c(7, 'H')];   // pop() takes the 7H first — the match — then 9D remains
+    E.hostAsk('a', 'b', 7);
+    assert.deepEqual(E.H.players[0].books, [7]);
+    assert.equal(E.H.turnIdx, 0, 'matched the fish — still her turn');
+    assert.equal(E.H.players[0].hand.length, 1, 'auto-refilled rather than left empty');
+    assert.equal(E.H.players[0].hand[0].id, '9D');
+});
+
+test('refillIfEmpty: draws one card when the stock has one, reports false when it does not', () => {
+    const E = makeEngine();
+    const p1 = { hand: [], books: [] };
+    E.H.stock = [c(3, 'S')];
+    assert.equal(E.refillIfEmpty(p1), true);
+    assert.equal(p1.hand.length, 1);
+    const p2 = { hand: [], books: [] };
+    E.H.stock = [];
+    assert.equal(E.refillIfEmpty(p2), false);
+    assert.equal(p2.hand.length, 0);
+    const p3 = { hand: [c(5, 'H')], books: [] };
+    E.H.stock = [c(3, 'S')];
+    assert.equal(E.refillIfEmpty(p3), true, 'a non-empty hand is left untouched');
+    assert.equal(p3.hand.length, 1);
+    assert.equal(E.H.stock.length, 1, 'nothing drawn — the hand was never empty');
 });
