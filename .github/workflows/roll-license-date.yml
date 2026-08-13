@@ -1,0 +1,44 @@
+name: Roll BUSL Change Date
+
+# Keeps the Business Source License's Change Date (LICENSE) and the matching footer text
+# (index.html) rolling ~4 years ahead of every push to main, per scripts/roll-license-date.js.
+# Old commits are untouched — git history is immutable, so a past version's LICENSE snapshot
+# still shows whatever date was current when it was published, exactly the "may vary for each
+# version" rolling-license pattern BUSL 1.1 itself describes.
+
+on:
+  push:
+    branches: [main]
+
+# Never run two rolls at once and race each other's commits.
+concurrency:
+  group: roll-license-date
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  roll:
+    runs-on: ubuntu-latest
+    # Belt-and-suspenders: GITHUB_TOKEN pushes don't retrigger workflows on their own, but
+    # skip explicitly too rather than depend solely on that.
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Roll the Change Date forward if it's fallen behind today + 4 years
+        run: node scripts/roll-license-date.js
+
+      - name: Commit and push if anything changed
+        run: |
+          if git diff --quiet; then
+            echo "Change Date is already far enough out — nothing to commit."
+            exit 0
+          fi
+          NEW_DATE=$(grep -oE 'Change Date:[[:space:]]*[0-9-]+' LICENSE | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add LICENSE index.html
+          git commit -m "Roll BUSL Change Date forward to ${NEW_DATE}"
+          git push

@@ -7,12 +7,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Multiplayer browser games served by GitHub Pages at https://haddley.github.io/games/ — published straight from the `main` branch root (`.nojekyll`). **There is no build, lint, or bundle step.** Each game is one (almost) self-contained HTML file with all CSS/JS inline; the shared dependencies are CDN scripts (PeerJS 1.5.4, qrcode-generator 1.4.4), Google Fonts, a Metered TURN relay (see "Connection transport" below), and **six small first-party shared files** at the repo root — **`common.js`**, **`p2p.js`**, **`fx.js`**, **`dice.js`**, **`audio.js`** and **`ambient.js`** (see **Shared files** below). The core is **`common.js`**, which every P2P game loads via `<script src="common.js">`. It provides `ICE_CFG` (TURN config), the `rankByScore` podium helper (and `rankByElimination` for knockout games — RPS, Liar's Dice), the shared **day/night theme + player-name prefs** and the injected top-right **control strip** (⛶ fullscreen · 🌙 day/night · 🎵 music · 🔊 sound), the shared **TV "waiting for players" lobby** (`tvLobby`), and an **ambient-scene engine** (`mountScene(theme)` / `mountMeadow()`): a themed CSS scene of figures ambling along the bottom of the TV/viewer screen (shown only under `body.viewer-mode`). Each game opts in with one line — **always guarded**: `typeof mountScene === 'function' && mountScene('pirates');` (the call sits at the TOP of the game's inline script; without the guard, a browser serving a *stale cached common.js* without `mountScene` throws a ReferenceError that halts the whole script → blank page, no QR. Keep the guard on every `mountScene`/`mountMeadow` call). Themes live in `SCENE_THEMES` in common.js (`meadow` = the CSS-drawn woolly flock for the farm games; the rest are themed emoji casts — `pirates`, `night`, `letters`, `library`, `carnival`, `art`, `bingo`, `auction`, `masks`, `mystery`, `market`, `tictactoe`, `rps`). `bingo` and `cows` are CSS-drawn actors (not emoji), like `meadow`'s flock. The scene shows under `body.viewer-mode` **or** `body.tv-mode` (ticktacktoe uses the latter). ticktacktoe loads common.js for `mountScene`, the control strip and the reconnect helpers — but still uses its own inline `TTT_PEER_OPTS` for connections, not `ICE_CFG`/`rankByScore`. index.html doesn't load common.js.
 
 **Licence.** The repo is **Business Source License 1.1** (`LICENSE`) — source-available,
-non-commercial production use granted, converting to Apache 2.0 on 2030-07-26. `sprites/`
-is explicitly **carved out**: that art is Kenney's, CC0 1.0 public domain, and stays that
-way (`sprites/LICENSE`, `sprites/CREDITS.md`). Adding third-party assets means doing all
-four evidence steps in `llmwiki/sprites-and-licensing.md` — upstream licence verbatim, a
-local copy of the licence text, provenance with the source archive's SHA-256, and a script
-that reproduces our derived files byte-for-byte.
+non-commercial production use granted, converting to Apache 2.0 on a **rolling** Change
+Date. `sprites/` is explicitly **carved out**: that art is Kenney's, CC0 1.0 public domain,
+and stays that way (`sprites/LICENSE`, `sprites/CREDITS.md`). Adding third-party assets
+means doing all four evidence steps in `llmwiki/sprites-and-licensing.md` — upstream
+licence verbatim, a local copy of the licence text, provenance with the source archive's
+SHA-256, and a script that reproduces our derived files byte-for-byte.
+
+**The Change Date rolls forward on every push to `main`.** BUSL 1.1's own text (`LICENSE`
+lines 38–52) already says the license converts on "the Change Date, OR the fourth
+anniversary of first publication of *that version*, whichever comes first" and that "the
+Change Date may vary for each version" — this repo uses that rolling pattern on purpose,
+not by accident. `.github/workflows/roll-license-date.yml` runs `scripts/roll-license-date.js`
+on every push to `main`: it bumps `LICENSE`'s `Change Date:` and the matching sentence in
+`index.html`'s footer to (today + 4 years) *only if* that's later than what's already there,
+then commits back if anything changed. The effect: the **latest** commit's terms always show
+roughly four years out while the project stays active, but any **past** commit is untouched
+(git history is immutable) and still carries whatever Change Date was live when it was
+published — so if the project ever goes quiet, that last published version genuinely
+converts to Apache 2.0 four years after its own publication, exactly as promised. The script
+never moves the date backward, so a deliberate manual edit to ship the conversion early is
+never fought. Do not add prose inside `LICENSE` beyond the date value itself — BSL's
+Covenants of Licensor (item 4) require not modifying the license text any other way.
 
 `index.html` is the launcher grid — add a card there when adding a game. Each game has a companion plan (`letterstormplan.md`, `familytrivia.md`, …) written before the game was built; keep these as the reference for game rules and protocol design.
 
