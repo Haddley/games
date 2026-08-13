@@ -6,23 +6,25 @@ which events `p2p.js` and `index.html` fire and why). This page is the operation
 side: what's been done in the GA4 **UI** (not the repo), what's still open, and the Ads setup
 steps for whoever picks this back up.
 
-## ⏳ Open item: mark `room_created` / `room_joined` as GA4 Key Events
+## ✅ Done: `room_created` / `room_joined` / `bmc_click` marked as GA4 Key Events
 
-**Not done yet, as of 2026-08-13.** Both events are confirmed firing correctly in production
-(verified via a real host+join round-trip on the live site, and visible with real counts in a
-GA4 Explore "Event count by Event name" report), but they had not yet appeared in
-**Admin → Events → Recent events** — GA4's admin event-name list lags real reporting data by
-up to ~24–48h even though the underlying hits are already being counted.
+**Resolved 2026-08-13.** All three are now starred under Admin → Events → Recent events
+(confirmed by screenshot — the delay noted below turned out to be under an hour in practice,
+not the full 24–48h ceiling GA4's own UI warns about). They now feed GA4's "Key events"
+report card and are available to import as Google Ads conversions, if/when Ads gets set up —
+see below, including the standing recommendation to **hold off** given there's still nothing
+to sell on this site.
 
-**Before setting up Google Ads, come back and:**
-1. GA4 → **Admin → Events → Recent events** tab (not "Key events" — that tab only lists
-   events already starred) → find `room_created` and `room_joined` → click the star to mark
-   each as a Key Event. If they're still not listed, check the "Key events" tab for a
-   **"New key event"** manual-add option that may let you type the event name directly
-   without waiting for it to surface in Recent events.
-2. Confirm both show up under **Admin → Events → Key events** with real event counts.
-3. *Then* proceed to the Google Ads setup below — Ads conversion import (step 3 there) reads
-   from GA4 Key Events specifically, so it will show nothing to import until this is done.
+<details><summary>Original troubleshooting notes (kept for reference)</summary>
+
+Both events were confirmed firing correctly in production (verified via a real host+join
+round-trip on the live site, and visible with real counts in a GA4 Explore "Event count by
+Event name" report) before they appeared in Admin → Events → Recent events — GA4's admin
+event-name list can lag real reporting data by up to ~24–48h even though the underlying hits
+are already being counted. Fixed by: GA4 → Admin → Events → **Recent events** tab (not "Key
+events" — that tab only lists events already starred) → star each one.
+
+</details>
 
 ## `bmc_click`, and why it isn't GA4's `purchase`
 
@@ -73,9 +75,10 @@ If it does go ahead, the agreed setup is:
 1. **Create the Ads account** at ads.google.com, same Google account as the GA4 property.
    Use **Expert mode**, not the guided "Smart" setup.
 2. **Link Ads to GA4**: GA4 → Admin → Product Links → Google Ads Links → Link.
-3. **Import `room_created`/`room_joined` as Ads conversions** (only possible once the Key
-   Event item above is done): Ads → Tools & Settings → Conversions → Summary →
-   + New conversion action → Import → Google Analytics 4 properties.
+3. **Import `room_created`/`room_joined` as Ads conversions** (the Key Events prerequisite
+   above is already done, so this will actually show something to import): Ads → Tools &
+   Settings → Conversions → Summary → + New conversion action → Import → Google Analytics 4
+   properties.
 4. **Campaign**: Search only (uncheck Display Network + Search partners), objective
    "Website traffic" or no-goal Expert setup, budget **$5–10/day** to start, "Maximize
    clicks" with a capped max CPC (e.g. $0.50) or manual CPC.

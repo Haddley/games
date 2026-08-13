@@ -218,11 +218,10 @@ Cross-network play relies on a TURN relay from **Metered** (metered.ca — "Open
 ## Google Analytics (GA4) and Ads
 
 **Analytics is wired in and live; Ads is not set up.** Facts a future instance needs. For the
-**operational** side (steps done in the GA4/Ads web UI, not the repo) and the current open
-item, see [llmwiki/analytics-and-ads.md](llmwiki/analytics-and-ads.md) —
-**`room_created`/`room_joined` are not yet marked as GA4 Key Events; do that before setting
-up Google Ads**, since Ads' conversion import (below) reads from GA4 Key Events and has
-nothing to import until then.
+**operational** side (steps done in the GA4/Ads web UI, not the repo), see
+[llmwiki/analytics-and-ads.md](llmwiki/analytics-and-ads.md) — `room_created`/`room_joined`/
+`bmc_click` are already marked as GA4 Key Events, so Ads' conversion import (below) has
+something to import whenever Ads setup actually happens.
 
 - **Where it lives**: the whole install is ~10 lines in **`common.js`**, guarded behind
   `typeof document !== 'undefined' && typeof window !== 'undefined'` so the unit tests (which
@@ -278,11 +277,12 @@ nothing to import until then.
   event has shown up anywhere (Realtime, or an Explore/Events report), it's also listed under
   **Admin → Events → "Recent events"** tab (not "Key events" — that tab only shows events
   already starred) where the star toggle actually lives.
-- **Key events**: `room_created` and `room_joined` should be starred as GA4 Key Events
-  (Admin → Events → Recent events → star) — that's the "was this game actually tried" signal,
-  as opposed to a bounce. `bmc_click` is worth watching but is deliberately **not** suggested
-  as a Key Event here — see the note above on why it isn't a `purchase`. Break down by game in
-  Explore using "Page title" or "Page path", which GA4 attaches to every event automatically —
+- **Key events**: `room_created`, `room_joined`, and `bmc_click` are all starred as GA4 Key
+  Events (Admin → Events → Recent events → star) — `room_created`/`room_joined` are the "was
+  this game actually tried" signal, as opposed to a bounce; `bmc_click` measures intent to
+  support, not a completed donation (see the note above on why it isn't `purchase`) but is
+  still worth tracking as a key signal. Break down by game in Explore using "Page title" or
+  "Page path", which GA4 attaches to every event automatically —
   no custom dimension registration needed.
 - **Google Ads (AdWords)**: **not configured** — evaluated and deliberately not pursued so
   far. This is a free, non-commercial site (BUSL 1.1, no purchase funnel beyond a voluntary
