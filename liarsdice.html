@@ -1978,7 +1978,6 @@ document.addEventListener('pointerdown', () => {
 }, { capture: true });
 
 // ── Particle bursts + floating score text ──
-const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 function celebrate() {
     const cs = ['#e0a83a', '#d8443a', '#4bb98d', '#ffdca0'];
     const cx = window.innerWidth / 2;
@@ -2056,11 +2055,6 @@ document.getElementById('tog-sfx').classList.toggle('off', !sfxOn);
 // ═══════════════════════════════════════════════
 //  RENDER HELPERS
 // ═══════════════════════════════════════════════
-function esc(s) {
-    return String(s||'')
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
 
 function chipsHTML() {
     if (!D?.players) return '';

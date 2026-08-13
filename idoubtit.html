@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-    <script src="common.js?v=20260726-939098d"></script><script src="ambient.js?v=20260726-939098d"></script>
+    <script src="common.js?v=20260726-939098d"></script><script src="cards.js?v=20260726-939098d"></script><script src="ambient.js?v=20260726-939098d"></script>
     <script src="p2p.js?v=20260726-939098d"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -190,30 +190,10 @@ typeof mountScene === 'function' && mountScene('bluff');   // themed ambient sce
 const PFX = 'IDOUBT-';
 const MIN_PLAYERS = 2, MAX_PLAYERS = 8;
 const CHALLENGE_WINDOW_MS = 6000;   // long enough to read a claim and react, short enough to keep tension
-const SUIT_SYM = { S: '♠', H: '♥', D: '♦', C: '♣' };
-const SUIT_WORDS = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' };
-const RANK_WORDS = { 1: 'Ace', 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five', 6: 'Six', 7: 'Seven', 8: 'Eight', 9: 'Nine', 10: 'Ten', 11: 'Jack', 12: 'Queen', 13: 'King' };
-const RANK_PLURAL = { 1: 'aces', 2: 'twos', 3: 'threes', 4: 'fours', 5: 'fives', 6: 'sixes', 7: 'sevens', 8: 'eights', 9: 'nines', 10: 'tens', 11: 'jacks', 12: 'queens', 13: 'kings' };
-function rankShort(n) { return n === 1 ? 'A' : n === 11 ? 'J' : n === 12 ? 'Q' : n === 13 ? 'K' : String(n); }
-function cardLabel(c) { return rankShort(c.rank) + SUIT_SYM[c.suit]; }
-function cardSpoken(c) { return `${RANK_WORDS[c.rank] || c.rank} of ${SUIT_WORDS[c.suit]}`; }
-function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 // ═══════════════════════════════════════════
 // CARD MODEL (pure — no host/guest distinction, single JS scope)
 // ═══════════════════════════════════════════
-function makeCard(rank, suit) { return { rank, suit, id: rank + suit }; }
-function makeDeck() {
-    const suits = ['S', 'H', 'D', 'C'], out = [];
-    for (const s of suits) for (let r = 1; r <= 13; r++) out.push(makeCard(r, s));
-    return out;
-}
-function suitColor(suit) { return (suit === 'H' || suit === 'D') ? 'red' : 'black'; }
-function shuffled(deck) {
-    const a = deck.slice();
-    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
-    return a;
-}
 
 // ═══════════════════════════════════════════
 // HOST STATE
@@ -238,11 +218,6 @@ let H = {
     milestones: [], milestoneSeq: 0,
 };
 
-function addMilestone(text, speech) {
-    H.milestoneSeq++;
-    H.milestones.push({ seq: H.milestoneSeq, text, speech: speech || text });
-    if (H.milestones.length > 8) H.milestones = H.milestones.slice(-8);
-}
 
 // ═══════════════════════════════════════════
 // HOST LOGIC
@@ -469,11 +444,6 @@ function connectedPlayers() {
         return presentPlayers(H.players, guestConns, myId, isHost && !isTvHost);
     }
     return H.players.filter(p => (p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]));
-}
-function capPlayer() { return connectedPlayers()[0] || H.players[0] || null; }
-function capSync(prevId) {
-    if ((capPlayer()?.id || null) === prevId) return;
-    if (H.phase === 'lobby') broadcastLobby(); else broadcast();
 }
 
 function makeRoom(onOpen) {
@@ -807,7 +777,6 @@ function renderLobby() {
 }
 
 // ── card rendering (shared by phone and TV) ──
-function cardHTML(c) { return `<span class="rk">${rankShort(c.rank)}</span><span class="su">${SUIT_SYM[c.suit]}</span>`; }
 function handCardHTML(c) {
     const sel = selCardIds.has(c.id);
     return `<div class="id-card ${suitColor(c.suit)}${sel ? ' sel' : ''}" onclick="idToggleCard('${c.id}')">${cardHTML(c)}</div>`;
@@ -926,7 +895,6 @@ function idConfetti() {
 // ═══════════════════════════════════════════
 let musicOn = true, sfxOn = true, voicePref = null;
 try { musicOn = localStorage.getItem('id-music') !== '0'; sfxOn = localStorage.getItem('id-sfx') !== '0'; voicePref = localStorage.getItem('id-voice'); } catch (_) {}
-const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 // A smoky, suspicious drift.
 const AMBIENT_CHORDS = [[196, 233, 294], [175, 208, 262], [196, 247, 294], [220, 262, 311]];
 function sChallenge() { if (!sfxOn || !ac()) return; tone(360, 0.08, 'sawtooth', AC.currentTime, 0.22); }
@@ -942,20 +910,9 @@ function toggleVoice() {
     if (!voiceOn() && typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
 }
 function voiceOn() { return voicePref === null ? !!(isViewer || isTvHost) : voicePref !== '0'; }
-function syncVoiceBtn() { const b = document.getElementById('tog-voice'); if (b) b.classList.toggle('off', !voiceOn()); }
-function canSpeak() { return voiceOn() && typeof speechSynthesis !== 'undefined'; }
 function primeSpeech() {
     if (typeof speechSynthesis === 'undefined') return;
     try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {}
-}
-function speak(text) {
-    if (!canSpeak() || !text) return;
-    try {
-        speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.rate = 1.02;
-        speechSynthesis.speak(u);
-    } catch (e) {}
 }
 document.addEventListener('pointerdown', () => { ac(); if (AC && AC.state === 'suspended') AC.resume(); if (musicOn) startPad(); primeSpeech(); }, { once: true });
 

@@ -427,11 +427,6 @@ const AVATARS = ['🐝', '🦊', '🐼', '🦁', '🐸', '🐙', '🦄', '🐶',
 const ANSWER_SECS = 10, REVEAL_MS = 3800, PUZZLE_SECS = 75;
 
 function $id(id) { return document.getElementById(id); }
-function esc(s) {
-    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
-const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const CONFETTI_COLS = ['#ffd23f', '#ff8a3d', '#4ade80', '#fff7e2', '#c9a227'];
 
 // ── Fuzzy answer match: lowercase, strip punctuation, collapse spaces, drop leading the/a/an,
@@ -847,7 +842,6 @@ function connectedPlayers() {
 // whose phone drops mid-game must not stall the room. Their slot survives the drop
 // (zombie takeover by name), so when they rejoin they're first again and the crown
 // comes straight back.
-function capPlayer() { return isTvHost ? (connectedPlayers()[0] || H.players[0] || null) : null; }
 function capName() { return isTvHost ? (capPlayer()?.name || null) : null; }
 // The crown moved — re-sync the phones losing/gaining it, plus the TV. Deliberately
 // not a full broadcast: everyone else may be mid-interaction on their own screen.

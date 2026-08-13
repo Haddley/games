@@ -18,13 +18,26 @@ const SRC = (() => {
     return HTML.slice(a, b);
 })();
 
+// The card model (makeCard/makeDeck/shuffled/…) and addMilestone/speak/canSpeak now live in
+// the shared cards.js, not the game's own inline script — pull them in too, but WITHOUT
+// cards.js's own capPlayer/capSync: this test stubs `capPlayer` itself (below), and cards.js's
+// real one would shadow that stub (a `function capPlayer(){}` in the same function body wins
+// over a same-named parameter), silently breaking the stub.
+const CARDS_JS = (() => {
+    const full = fs.readFileSync(path.join(ROOT, 'cards.js'), 'utf8');
+    const a = full.indexOf('// ── Captain, host-can-also-play games');
+    const b = full.indexOf('// ── Milestone commentary');
+    assert.ok(a >= 0 && b > a, 'could not find the capPlayer/capSync section to exclude from cards.js');
+    return full.slice(0, a) + full.slice(b);
+})();
+
 // A fresh engine per test: `capPlayer` always says the first player may act as captain,
 // `broadcast` is a no-op (each test reads `H` directly afterward, same as the real host does).
 function makeEngine() {
     const capPlayer = () => H.players[0] || null;
     const broadcast = () => {};
     const fn = new Function('capPlayer', 'broadcast',
-        SRC + '\nreturn { H, hostAddPlayer, hostStartGame, hostPlayAgain, hostCtl, advanceTurn, hostAsk, layBooks, makeCard, checkMatchOver, refillIfEmpty };');
+        CARDS_JS + '\n' + SRC + '\nreturn { H, hostAddPlayer, hostStartGame, hostPlayAgain, hostCtl, advanceTurn, hostAsk, layBooks, makeCard, checkMatchOver, refillIfEmpty };');
     return fn(capPlayer, broadcast);
 }
 

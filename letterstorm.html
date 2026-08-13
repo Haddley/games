@@ -927,14 +927,6 @@ function wordScore(w) {
     return SCORES[len] ?? 0;
 }
 
-function shuffle(arr) {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-}
 
 // ── Easy words: common 3–4 letter words even a poor player should spot.
 //    Boards are re-rolled until at least MIN_EASY_WORDS of these are findable.
@@ -1027,9 +1019,6 @@ function rollBoard(n) {
     return best; // fallback: friendliest board seen
 }
 
-function esc(s) {
-    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
 const $id = id => document.getElementById(id);
 
 // ═══════════════════════════════════════════
@@ -1483,7 +1472,6 @@ function connectedPlayers() {
 // whose phone drops mid-game must not stall the room. Their slot survives the drop
 // (zombie takeover by name), so when they rejoin they're first again and the crown
 // comes straight back.
-function capPlayer() { return isTvHost ? (connectedPlayers()[0] || H.players[0] || null) : null; }
 function capName() { return isTvHost ? (capPlayer()?.name || null) : null; }
 // The crown moved — push the change out.
 function capSync(prevId) {

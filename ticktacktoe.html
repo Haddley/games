@@ -712,7 +712,6 @@
         //  trade call-and-response phrases. Gesture-started,
         //  music ~0.33 vol, SFX on top.)
         // ═══════════════════════════════════════════
-        const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         let AC = null, masterGain = null, musicGain = null, sfxGain = null, noiseBuf = null;
         let leadBus = null, musicDelay = null;
         let musicOn = localStorage.getItem('ttt-music') !== '0';

@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-    <script src="common.js?v=20260726-939098d"></script><script src="ambient.js?v=20260726-939098d"></script>
+    <script src="common.js?v=20260726-939098d"></script><script src="cards.js?v=20260726-939098d"></script><script src="ambient.js?v=20260726-939098d"></script>
     <script src="p2p.js?v=20260726-939098d"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -202,29 +202,10 @@ const PFX = 'BLKJK-';
 const MIN_PLAYERS = 1, MAX_PLAYERS = 7;
 const START_CHIPS = 500, MIN_BET = 10;
 const BET_CHIPS = [10, 25, 50, 100];
-const SUIT_SYM = { S: '♠', H: '♥', D: '♦', C: '♣' };
-const SUIT_WORDS = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' };
-const RANK_WORDS = { 1: 'Ace', 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five', 6: 'Six', 7: 'Seven', 8: 'Eight', 9: 'Nine', 10: 'Ten', 11: 'Jack', 12: 'Queen', 13: 'King' };
-function rankShort(n) { return n === 1 ? 'A' : n === 11 ? 'J' : n === 12 ? 'Q' : n === 13 ? 'K' : String(n); }
-function cardLabel(c) { return rankShort(c.rank) + SUIT_SYM[c.suit]; }
-function cardSpoken(c) { return `${RANK_WORDS[c.rank] || c.rank} of ${SUIT_WORDS[c.suit]}`; }
-function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 // ═══════════════════════════════════════════
 // CARD MODEL (pure — no host/guest distinction, single JS scope)
 // ═══════════════════════════════════════════
-function makeCard(rank, suit) { return { rank, suit, id: rank + suit }; }
-function makeDeck() {
-    const suits = ['S', 'H', 'D', 'C'], out = [];
-    for (const s of suits) for (let r = 1; r <= 13; r++) out.push(makeCard(r, s));
-    return out;
-}
-function suitColor(suit) { return (suit === 'H' || suit === 'D') ? 'red' : 'black'; }
-function shuffled(deck) {
-    const a = deck.slice();
-    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
-    return a;
-}
 
 // ═══════════════════════════════════════════
 // HAND VALUE / BUST / BLACKJACK / DEALER RULE / PAYOUT — pure functions, unit-tested
@@ -311,11 +292,6 @@ let H = {
     milestones: [], milestoneSeq: 0,
 };
 
-function addMilestone(text, speech) {
-    H.milestoneSeq++;
-    H.milestones.push({ seq: H.milestoneSeq, text, speech: speech || text });
-    if (H.milestones.length > 8) H.milestones = H.milestones.slice(-8);
-}
 
 // ═══════════════════════════════════════════
 // HOST LOGIC
@@ -632,11 +608,6 @@ function toggleCoach() {
 function connectedPlayers() {
     if (typeof presentPlayers === 'function') return presentPlayers(H.players, guestConns, myId, hostPlays);
     return H.players.filter(p => (p.id === myId ? hostPlays : !!guestConns[p.id]));
-}
-function capPlayer() { return connectedPlayers()[0] || H.players[0] || null; }
-function capSync(prevId) {
-    if ((capPlayer()?.id || null) === prevId) return;
-    if (H.phase === 'lobby') broadcastLobby(); else broadcast();
 }
 
 function makeRoom(onOpen) {
@@ -984,7 +955,6 @@ function renderLobby() {
 }
 
 // ── card rendering (shared by phone and TV) ──
-function cardHTML(c) { return `<span class="rk">${rankShort(c.rank)}</span><span class="su">${SUIT_SYM[c.suit]}</span>`; }
 function faceUpHTML(c, cls) { return `<div class="${cls || 'bj-card'} ${suitColor(c.suit)}">${cardHTML(c)}</div>`; }
 function faceDownHTML(cls) { return `<div class="${cls || 'bj-card'} back"></div>`; }
 function totalBadge(total, isBust, isBJ, soft, cls) {
@@ -1169,7 +1139,6 @@ function bjConfetti() {
 // ═══════════════════════════════════════════
 let musicOn = true, sfxOn = true, voicePref = null;
 try { musicOn = localStorage.getItem('bj-music') !== '0'; sfxOn = localStorage.getItem('bj-sfx') !== '0'; voicePref = localStorage.getItem('bj-voice'); } catch (_) {}
-const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 // A quiet lounge drift — no key/mode drama, just a held chord under the table.
 const AMBIENT_CHORDS = [[196, 247, 294], [175, 220, 262], [196, 233, 294], [220, 262, 330]];
 function sChip() { if (!sfxOn || !ac()) return; tone(340, 0.07, 'triangle', AC.currentTime, 0.2); }
@@ -1187,20 +1156,9 @@ function toggleVoice() {
 // TV-hosted) — the milestone feed broadcasts to everyone at once, so a flat default-on would
 // mean every phone at the table narrating "Alex hits blackjack!" in a chorus a beat apart.
 function voiceOn() { return voicePref === null ? !!(isViewer || isHost) : voicePref !== '0'; }
-function syncVoiceBtn() { const b = document.getElementById('tog-voice'); if (b) b.classList.toggle('off', !voiceOn()); }
-function canSpeak() { return voiceOn() && typeof speechSynthesis !== 'undefined'; }
 function primeSpeech() {
     if (typeof speechSynthesis === 'undefined') return;
     try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {}
-}
-function speak(text) {
-    if (!canSpeak() || !text) return;
-    try {
-        speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.rate = 1.02;
-        speechSynthesis.speak(u);
-    } catch (e) {}
 }
 document.addEventListener('pointerdown', () => { ac(); if (AC && AC.state === 'suspended') AC.resume(); if (musicOn) startPad(); primeSpeech(); }, { once: true });
 

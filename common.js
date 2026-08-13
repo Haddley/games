@@ -867,6 +867,16 @@ function presentPlayers(players, conns, selfId, selfPlays) {
     return (players || []).filter(p => (p.id === selfId ? !!selfPlays : isPresent(p, conns)));
 }
 
+// 👑 Captain = first CONNECTED player, driving Start/Next/settings via `ctl` messages —
+// but ONLY meaningful in a TV-hosted room. A phone-hosted room routes captain-gated actions
+// through its own `isHost && !isTvHost` local shortcut instead, so there's no separate
+// "captain phone" to report there; this returns null rather than pretending one exists.
+// Games with a host-can-also-play mode where the captain concept must ALSO work when
+// phone-hosted (the card games, liarsdice) deliberately override this with their own
+// inline, TV-gate-free version further down their own script — that's a genuine behavioral
+// difference, not duplication to remove (see CLAUDE.md).
+function capPlayer() { return isTvHost ? (connectedPlayers()[0] || H.players[0] || null) : null; }
+
 // ── rekeying a returning player ─────────────────────────────────────────────
 // A player IS their peer id, and a refresh mints a new one. Re-pointing their row in
 // `H.players` is the easy half; the id is usually ALSO a key somewhere else, and every one of
@@ -1039,6 +1049,23 @@ function _wireNameSave() {
         if (t && t.tagName === 'INPUT' && t.hasAttribute('data-save-name')) saveName(t.value);
     }, true);
 }
+
+// ── Small utilities every game was hand-copying byte-for-byte ──────────────────
+// HTML-escape untrusted text (player names, chat, anything rendered via innerHTML).
+// common.js already had the same logic privately as `_cxlEsc` for its own TV-lobby
+// rendering; this is that logic under the public name every game already used.
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+// Fisher-Yates, non-mutating (returns a new array).
+function shuffle(a) {
+    const r = a.slice();
+    for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; }
+    return r;
+}
+// `prefers-reduced-motion` — every decorative JS effect and the stylesheet's own
+// animations gate on this.
+const REDUCED = typeof window !== 'undefined' && !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 if (typeof document !== 'undefined') {
     _wireNameSave();
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountControls);

@@ -70,6 +70,11 @@ Loaded by every P2P game (and `index.html`). Provides:
      connection. Ask this, never `guestConns` directly.
    - **`presentPlayers(players, conns, selfId, selfPlays)`** — backs every game's
      `connectedPlayers()`, which used to be a byte-identical copy in all 18.
+   - **`capPlayer()`** — 👑 first connected player, gated on `isTvHost`: a phone-hosted party
+     game routes captain-gated `ctl` messages through its own `isHost && !isTvHost` local
+     shortcut, so there's no separate "captain phone" to report and this returns `null` there
+     on purpose. Used to be a byte-identical copy in 17 party games (one behavioral outlier —
+     see `cards.js` below for the games that needed something different, not this drifting).
    - **`claimSeat(players, msg, newId, conns, inLobby)`** — is this returning join the same
      person? A **cid** match wins outright (a device is in one place). A **name** match is
      weaker — two people really can both be called Ben — so mid-game it only reclaims a seat
@@ -89,6 +94,54 @@ Loaded by every P2P game (and `index.html`). Provides:
 9. **`setHTML(el, html)`** — the innerHTML swap every `render()` goes through. It blurs a
    focused input before the swap and restores focus + caret afterwards, so a phase change
    landing while you type can't strand the iOS keyboard over a destroyed field.
+10. **Small utilities every game used to hand-copy byte-for-byte**: `esc(s)` (HTML-escape —
+    common.js already had the same logic privately as `_cxlEsc` for its own TV-lobby
+    rendering; this is that logic under the public name every game already used), `shuffle(a)`
+    (Fisher-Yates, non-mutating), and `const REDUCED` (`prefers-reduced-motion` — `fx.js`,
+    `dice.js` and every game's stylesheet gate decorative animation on it). All three were
+    byte-identical copies in 15-20 games before this — see the July 2026 refactor note in
+    [connection-and-reconnect.md](connection-and-reconnect.md)'s spirit: a repo-wide audit
+    found them, not a game-by-game guess.
+
+## `cards.js` — the standard-deck card model
+
+Loaded only by the four standard-deck games (kingscorner, blackjack, gofish, idoubtit),
+narrowly scoped like `dice.js`/`bracket.js` rather than folded into common.js — a game that
+never touches a deck of cards pays nothing for loading it. Provides:
+
+- **The deck model**: `SUIT_SYM`/`SUIT_WORDS`/`RANK_WORDS`/`RANK_PLURAL` (the last two used by
+  Go Fish and I Doubt It's spoken commentary — "asked for jacks," "claims kings" — kingscorner
+  and blackjack don't reference `RANK_PLURAL` but harmlessly inherit it), `rankName`/
+  `rankShort`/`cardLabel`/`cardSpoken`/`cardHTML`, `makeCard`/`makeDeck`/`suitColor`/
+  `shuffled`. Was a byte-identical inline copy in all four games (kingscorner's `cardSpoken`
+  differed cosmetically — it called its own `rankName` wrapper instead of inlining the
+  `RANK_WORDS` lookup directly; unified on the `rankName`-based form since it's behaviorally
+  identical for every real rank and `rankName` is independently useful — kingscorner's
+  `explainReject()` takes it as a parameter).
+- **`capPlayer()` / `capSync(prevId)`** — **deliberately overrides common.js's version**
+  (loaded after it, and `function` redeclaration means the later one wins). These four games
+  have a host-can-also-play mode, so the captain concept must resolve identically whether
+  TV-hosted or phone-hosted — common.js's `isTvHost`-gated version would make every player's
+  `isCaptain` false in a phone-hosted room, which is a real, common mode for these games. See
+  CLAUDE.md's "👑 Captain" note for the full reasoning; **don't try to unify the two versions,
+  they answer genuinely different questions.**
+- **`addMilestone(text, speech)` / `speak(text)` / `canSpeak()` / `syncVoiceBtn()`** — the
+  milestone-commentary cluster (spoken + shown), byte-identical across all four. `voiceOn()`
+  itself stays per-game — its default fallback differs slightly (blackjack falls back to
+  `isHost`, the other three to `isTvHost`, reflecting blackjack's `hostGameAndPlay` split) —
+  `speak`/`canSpeak`/`syncVoiceBtn` just call whatever `voiceOn` is in scope, so sharing them
+  doesn't paper over that difference.
+- **Not shared**: `showToast` (each game's toast div uses its own themed id/class —
+  `kc-toasts`/`bj-toasts`/`gf-toasts`/`id-toasts` — so the bodies aren't actually identical,
+  just structurally similar; unifying it would mean parameterizing every call site, not a
+  mechanical extraction), and `toastMilestones`'s per-game sound-cue dispatch (genuinely
+  different content per game, only its ~6-line bootstrap shell is common and wasn't judged
+  worth a shared higher-order wrapper for that little).
+- Unit-tested indirectly: `unit/gofish.test.js` and `unit/idoubtit.test.js` prepend a
+  filtered slice of `cards.js` (everything except `capPlayer`/`capSync`, which those tests
+  stub themselves — `cards.js`'s real `capPlayer()` would otherwise shadow the test's stub
+  parameter, since a `function` declared in the same scope always wins over a same-named
+  parameter) to the game's own sliced host-logic block before evaluating it.
 
 ## `p2p.js` — PeerJS hardening
 
@@ -191,6 +244,10 @@ the guard — the page has already loaded by then.
 ## Who loads what
 
 - **plumptrek** additionally loads **`dice.js`** for its die.
+- **The four card games** (kingscorner, blackjack, gofish, idoubtit) load `common.js` +
+  **`cards.js`** + `p2p.js` + `ambient.js` — `cards.js` for the shared deck model and
+  milestone/commentary cluster, and note it deliberately **overrides** common.js's
+  `capPlayer()`/omits `capSync` rather than reusing them (see the `cards.js` section above).
 - **The 18 P2P party games** load `common.js` + `p2p.js` + `fx.js`, and one audio profile:
   bestguess, bingo, letterstorm, brokenpencil, buzzin, categoryclash, cornerthemarket,
   doodleparty, familytrivia, fibbers, goinggone, herdmind, lastlaugh, liarsdice,

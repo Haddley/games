@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-    <script src="common.js?v=20260726-939098d"></script><script src="ambient.js?v=20260726-939098d"></script>
+    <script src="common.js?v=20260726-939098d"></script><script src="cards.js?v=20260726-939098d"></script><script src="ambient.js?v=20260726-939098d"></script>
     <script src="p2p.js?v=20260726-939098d"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -242,32 +242,12 @@ typeof mountScene === 'function' && mountScene('royals');   // themed ambient sc
 // ═══════════════════════════════════════════
 const PFX = 'KGCRN-';
 const MIN_PLAYERS = 2, MAX_PLAYERS = 4;
-const SUIT_SYM = { S: '♠', H: '♥', D: '♦', C: '♣' };
-const SUIT_WORDS = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' };
-const RANK_WORDS = { 1: 'Ace', 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five', 6: 'Six', 7: 'Seven', 8: 'Eight', 9: 'Nine', 10: 'Ten', 11: 'Jack', 12: 'Queen', 13: 'King' };
-function rankName(n) { return RANK_WORDS[n] || String(n); }
-function rankShort(n) { return n === 1 ? 'A' : n === 11 ? 'J' : n === 12 ? 'Q' : n === 13 ? 'K' : String(n); }
-function cardLabel(c) { return rankShort(c.rank) + SUIT_SYM[c.suit]; }
-function cardSpoken(c) { return `${rankName(c.rank)} of ${SUIT_WORDS[c.suit]}`; }
 const PILE_WORDS = { N: 'north', E: 'east', S: 'south', W: 'west', NW: 'northwest corner', NE: 'northeast corner', SW: 'southwest corner', SE: 'southeast corner' };
 function pileSpoken(id) { return PILE_WORDS[id] || id; }
-function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 // ═══════════════════════════════════════════
 // CARD / BOARD MODEL (pure — no host/guest distinction, single JS scope)
 // ═══════════════════════════════════════════
-function makeCard(rank, suit) { return { rank, suit, id: rank + suit }; }
-function makeDeck() {
-    const suits = ['S', 'H', 'D', 'C'], out = [];
-    for (const s of suits) for (let r = 1; r <= 13; r++) out.push(makeCard(r, s));
-    return out;
-}
-function suitColor(suit) { return (suit === 'H' || suit === 'D') ? 'red' : 'black'; }
-function shuffled(deck) {
-    const a = deck.slice();
-    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
-    return a;
-}
 function freshPiles() {
     return {
         N: { id: 'N', isCorner: false, cards: [] }, E: { id: 'E', isCorner: false, cards: [] },
@@ -379,11 +359,6 @@ function nextTurnIdx(idx) {
 
 // `speech` is a natural-language variant for text-to-speech (e.g. "six of hearts" rather
 // than the toast's "6♥") — defaults to `text` for lines with no card in them.
-function addMilestone(text, speech) {
-    H.milestoneSeq++;
-    H.milestones.push({ seq: H.milestoneSeq, text, speech: speech || text });
-    if (H.milestones.length > 8) H.milestones = H.milestones.slice(-8);
-}
 
 // ═══════════════════════════════════════════
 // HOST LOGIC
@@ -644,11 +619,6 @@ function connectedPlayers() {
         return presentPlayers(H.players, guestConns, myId, isHost && !isTvHost);
     }
     return H.players.filter(p => (p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]));
-}
-function capPlayer() { return connectedPlayers()[0] || H.players[0] || null; }
-function capSync(prevId) {
-    if ((capPlayer()?.id || null) === prevId) return;
-    if (H.phase === 'lobby') broadcastLobby(); else broadcast();
 }
 
 function makeRoom(onOpen) {
@@ -1105,7 +1075,6 @@ function renderLobbyG() {
 }
 
 // ── board rendering (shared by the phone's own board and the read-only TV board) ──
-function cardHTML(c) { return `<span class="rk">${rankShort(c.rank)}</span><span class="su">${SUIT_SYM[c.suit]}</span>`; }
 function pileHTML(pileId, pile, opts) {
     opts = opts || {};
     const cards = pile ? pile.cards : [];
@@ -1256,7 +1225,6 @@ function kcConfetti() {
 // ═══════════════════════════════════════════
 let musicOn = true, sfxOn = true, voicePref = null;   // voicePref: null = unset (role decides), '0'/'1' = explicit
 try { musicOn = localStorage.getItem('kc-music') !== '0'; sfxOn = localStorage.getItem('kc-sfx') !== '0'; voicePref = localStorage.getItem('kc-voice'); } catch (_) {}
-const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 // A quiet, regal drift — no key/mode drama, just a held chord under the table.
 const AMBIENT_CHORDS = [[196, 247, 294], [220, 262, 330], [175, 220, 262], [196, 233, 294]];
 function sDraw() { if (!sfxOn || !ac()) return; tone(340, 0.08, 'triangle', AC.currentTime, 0.22); }
@@ -1281,8 +1249,6 @@ function toggleVoice() {
 // once; defaulting every phone's voice on too would mean the whole table narrating "Alex
 // won the round!" in a chorus a beat apart — the exact "bedlam" that default avoids there.
 function voiceOn() { return voicePref === null ? !!(isViewer || isTvHost) : voicePref !== '0'; }
-function syncVoiceBtn() { const b = document.getElementById('tog-voice'); if (b) b.classList.toggle('off', !voiceOn()); }
-function canSpeak() { return voiceOn() && typeof speechSynthesis !== 'undefined'; }
 // Hint/rejection speech fires synchronously inside the tap that triggered it, so no iOS
 // gesture-priming is needed there. Milestone speech does NOT — it arrives later, off a
 // network broadcast — so primeSpeech() spends one silent utterance on the first tap
@@ -1291,15 +1257,6 @@ function canSpeak() { return voiceOn() && typeof speechSynthesis !== 'undefined'
 function primeSpeech() {
     if (typeof speechSynthesis === 'undefined') return;
     try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {}
-}
-function speak(text) {
-    if (!canSpeak() || !text) return;
-    try {
-        speechSynthesis.cancel();   // a fresh line replaces whatever was still being read
-        const u = new SpeechSynthesisUtterance(text);
-        u.rate = 1.02;
-        speechSynthesis.speak(u);
-    } catch (e) {}
 }
 document.addEventListener('pointerdown', () => { ac(); if (AC && AC.state === 'suspended') AC.resume(); if (musicOn) startPad(); primeSpeech(); }, { once: true });
 

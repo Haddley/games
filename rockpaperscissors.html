@@ -216,9 +216,6 @@ const THROW_SECS = 10, REVEAL_MS = 3600, STALE_MS = 2200;
 const SYMS = { rock: { ico: '✊', lbl: 'Rock' }, paper: { ico: '✋', lbl: 'Paper' }, scissors: { ico: '✌️', lbl: 'Scissors' } };
 const BEATS = { rock: 'scissors', scissors: 'paper', paper: 'rock' };  // key beats value
 
-function esc(s) {
-    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
 function $id(x) { return document.getElementById(x); }
 
 // ═══════════════════════════════════════════
@@ -226,7 +223,6 @@ function $id(x) { return document.getElementById(x); }
 // ═══════════════════════════════════════════
 let musicOn = true, sfxOn = true;
 try { musicOn = localStorage.getItem('rps-music') !== '0'; sfxOn = localStorage.getItem('rps-sfx') !== '0'; } catch (_) {}
-const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 function sClick() { if (!sfxOn || !ac()) return; tone(520, 0.09, 'square', AC.currentTime, 0.28); }
 function sLock() { if (!sfxOn || !ac()) return; tone(300, 0.08, 'square', AC.currentTime, 0.3); tone(600, 0.1, 'square', AC.currentTime + 0.06, 0.28); }
 function sReveal() { if (!sfxOn || !ac()) return; const t = AC.currentTime; [400, 520, 660].forEach((f, i) => tone(f, 0.14, 'triangle', t + i * 0.05, 0.26)); }
@@ -299,7 +295,6 @@ function connectedPlayers() {
 // whose phone drops mid-game must not stall the room. Their slot survives the drop
 // (zombie takeover by name), so when they rejoin they're first again and the crown
 // comes straight back.
-function capPlayer() { return isTvHost ? (connectedPlayers()[0] || H.players[0] || null) : null; }
 function capName() { return isTvHost ? (capPlayer()?.name || null) : null; }
 // The crown moved — push the change out.
 function capSync(prevId) {
