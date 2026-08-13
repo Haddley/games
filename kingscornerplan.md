@@ -69,11 +69,12 @@ game defines simple, clearly-flagged house rules for those two gaps only (see be
   card. Some real-world house rules deal differently or allow drawing multiple cards to
   unstick a hand; none of that is here — this is the literal Bicycle rule set plus the two
   gap-fillers above, nothing else invented.
-- **No spoken milestone commentary.** `H.milestones` (a corner opens, a hand drops to one
-  card, a round or match is won) stays short toast text only — no Web Speech there, no
-  phrase banks, unlike Going, Going, GONE!'s auctioneer. That subsystem is not duplicated
-  here. (The turn assistant's own hint/rejection lines ARE spoken — see below — but that is
-  a narrow, opt-out, single-utterance feature, not a second auctioneer.)
+- **No phrase banks, voice-picking heuristic, or drawn narrator figure.** Milestones, hints,
+  and rejections are all spoken (see below), but through one plain `speak(text)` call — no
+  `P_OPEN`/`P_SOLD`-style template banks, no `voiceScore()` voice ranking, no on-screen
+  auctioneer with a mouth to animate. Going, Going, GONE!'s auctioneer earns that machinery
+  by speaking constantly, all evening; Kings Corner's narrator speaks rarely enough that a
+  single default-voice utterance is the right amount of engine, not a placeholder for more.
 
 ## Why no separate run-checker is needed
 
@@ -229,18 +230,38 @@ genuinely can never promise something the host will then refuse.
   than the highest `seq` they'd already seen (so a rejoin never replays a backlog). This is
   deliberately lightweight — it is not a second instance of Going, Going, GONE!'s spoken
   auctioneer, just short toast text.
-- **Hint and rejection lines are also spoken aloud**, behind a per-device 🗣️ toggle in the
-  sound strip (`voiceOn`, `localStorage` key `kc-voice`, defaults on). `speak(text)` wraps
-  `SpeechSynthesisUtterance` directly — no phrase banks, no voice-picking heuristic, no
-  `bubble()`/mime fallback, none of Going, Going, GONE!'s machinery, because none of it is
-  needed here: both call sites (`kcHint`, and the rejection branch in `attemptHandPlay`/
-  `attemptPileMove`) run synchronously inside the tap that triggered them, so — unlike an
-  auctioneer's lines, which arrive later over the network, outside any user gesture — there
-  is no iOS "speech needs a live gesture" problem to prime around. Card names and pile ids
-  get spoken-friendly forms (`cardSpoken`: "six of hearts"; `pileSpoken`: "northwest
-  corner") distinct from the toast's short glyph form, so the toast and the voice can each
-  read naturally in their own medium. Milestone toasts are **not** spoken — that line is
-  still held at "no second auctioneer."
+- **Hints, rejections, AND milestones are all spoken aloud**, behind one per-device 🗣️
+  toggle in the sound strip. `speak(text)` wraps `SpeechSynthesisUtterance` directly — no
+  phrase banks, no voice-picking heuristic, no `bubble()`/mime fallback; that machinery
+  exists in Going, Going, GONE! because its auctioneer speaks constantly, all evening, and
+  earns the investment. Kings Corner's narrator speaks rarely (a handful of milestones a
+  round, plus on-request hints), so the plain default voice and a single `speak()` call is
+  the right amount of engine for how often it's actually used.
+  - **The toggle's default is role-based, not a flat `true`**: `voiceOn()` resolves
+    `voicePref === null ? !!(isViewer || isTvHost) : voicePref !== '0'` — off on a phone,
+    on for the TV/viewer, exactly Going, Going, GONE!'s pattern, and for the same reason.
+    Hints/rejections alone would have been fine defaulting on everywhere (they only ever
+    fire on the one device that triggered them), but milestones broadcast to **every**
+    connected device at once — a flat default-on would mean every phone at the table AND
+    the TV all narrating "Alex won the round!" a beat apart. `voiceOn()` is a function
+    (not a cached value) so it re-resolves correctly even though role isn't known yet at
+    boot; `syncVoiceBtn()` re-syncs the 🗣️ button's `.off` class on every `render()`
+    rather than once at boot, since the resolved default can change (home → hosting a TV).
+  - **Milestone speech needs the iOS gesture-priming hint/rejection speech doesn't.**
+    Hint/rejection lines run synchronously inside the tap that triggered them — every
+    utterance IS the gesture, so nothing needs priming. Milestones arrive later, off a
+    network broadcast, same as an auctioneer's lines — so `primeSpeech()` spends one
+    silent utterance (`volume:0`) on the first tap anywhere (piggybacked on the same
+    `pointerdown` listener that already primes `ac()` for music), exactly Going, Going,
+    GONE!'s `primeSpeech()`, so the first real milestone isn't silently refused.
+  - **Multiple milestones in one batch are spoken as ONE utterance**, not one `speak()`
+    call per line — `speak()` cancels whatever's still being read before starting the
+    next, so N calls in the same tick collapse to just the last line. This is the same
+    lesson Going, Going, GONE! already learned for its own multi-line commentary.
+  - Card names and pile ids get spoken-friendly forms (`cardSpoken`: "six of hearts";
+    `pileSpoken`: "northwest corner") distinct from the toast's short glyph form, so the
+    toast and the voice can each read naturally in their own medium — `addMilestone(text,
+    speech)` carries both, generated together at the point a card is actually in scope.
 
 ## Verification
 
