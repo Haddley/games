@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Blackjack</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%232a1010' width='100' height='100' rx='20'/><text x='50' y='72' font-size='58' text-anchor='middle'>♠️</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="common.js?v=20260726-939098d"></script><script src="ambient.js?v=20260726-939098d"></script>
+    <script src="p2p.js?v=20260726-939098d"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        /* ── Casino red/black felt, gold trim (kingscorner's shell, blackjack's own palette) ── */
+        :root {
+            --bg: #1a0d0d; --surface: #2a1414; --s2: #3a1c1c; --border: #6b2f2f;
+            --text: #f5ecd9; --muted: #b89a9a; --accent: #d4af37; --ag: rgba(212,175,55,.22);
+            --danger: #c0392b; --dg: rgba(192,57,43,.2); --success: #2ecc71; --sg: rgba(46,204,113,.18);
+        }
+        body.day {
+            --bg: #f0e0c8; --surface: #fbf0e4; --s2: #f0dcbb; --border: #d8b48a;
+            --text: #2c1810; --muted: #7a5a4a; --accent: #a6791f; --ag: rgba(166,121,31,.16);
+            --danger: #a6342a; --dg: rgba(166,52,42,.14); --success: #1f7a4a; --sg: rgba(31,122,74,.14);
+        }
+        body {
+            font-family: 'JetBrains Mono', monospace; background: var(--bg); color: var(--text);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 20px 16px 40px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 60% 40% at 50% -6%, rgba(212,175,55,.14), transparent 60%),
+                radial-gradient(ellipse 70% 50% at 50% 116%, rgba(46,125,80,.10), transparent 65%);
+        }
+        #app { width: 100%; max-width: 480px; }
+        .hdr { text-align: center; margin-bottom: 16px; padding-top: 4px; }
+        .hdr h1.logo {
+            font-family: 'Cinzel', serif; font-weight: 900; letter-spacing: 1px;
+            font-size: clamp(1.7rem, 7vw, 2.4rem); line-height: 1.05;
+            color: var(--accent); text-shadow: 0 2px 14px rgba(212,175,55,.25);
+        }
+        .sub { color: var(--muted); font-size: .7rem; letter-spacing: 2px; text-transform: uppercase; margin: 6px 0 4px; text-align: center; font-weight: 700; }
+
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.28); }
+        .card.highlight { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 22px var(--ag); }
+        .slbl { font-size: .68rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); font-weight: 800; margin-bottom: 10px; }
+        .fg { margin-bottom: 12px; }
+        .fg label { display: block; font-size: .72rem; color: var(--muted); margin-bottom: 5px; font-weight: 700; }
+        .fg input {
+            width: 100%; padding: 12px 14px; font-size: 1rem; font-family: inherit; font-weight: 700;
+            background: var(--s2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); outline: none;
+            -webkit-appearance: none; appearance: none;
+        }
+        .fg input:focus { border-color: var(--accent); }
+        .btn {
+            font-family: inherit; font-weight: 800; font-size: .92rem; border: none; border-radius: 11px;
+            padding: 13px 18px; cursor: pointer; transition: transform .1s, filter .15s;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:active { transform: scale(.97); }
+        .btn:disabled { opacity: .4; cursor: default; }
+        .btn-full { width: 100%; }
+        .btn-p { background: linear-gradient(120deg, #b8891f, var(--accent)); color: #201200; box-shadow: 0 4px 14px var(--ag); }
+        .btn-g { background: var(--s2); color: var(--text); border: 1px solid var(--border); }
+        .btn-d { background: linear-gradient(120deg, #7a1f2e, var(--danger)); color: #fff; box-shadow: 0 4px 14px var(--dg); }
+        .btn-sm { padding: 9px 14px; font-size: .8rem; }
+        .hint { text-align: center; color: var(--muted); font-size: .76rem; font-weight: 700; margin-top: 8px; }
+        .err { background: var(--dg); border: 1px solid var(--danger); color: #ffb3a8; border-radius: 10px; padding: 10px 12px; font-size: .8rem; font-weight: 700; text-align: center; margin-bottom: 12px; }
+
+        .room-code { font-family: 'Cinzel', serif; font-weight: 900; font-size: 2.1rem; letter-spacing: 7px; text-align: center; color: var(--accent); background: var(--s2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin: 10px 0; }
+        .qr-box { width: min(210px, 58vw); aspect-ratio: 1; flex-shrink: 0; margin: 8px auto 10px; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.5), 0 0 0 3px var(--s2); background: #f5ecd9; }
+        .qr-box svg { display: block; width: 100%; height: auto; }
+
+        .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        .chip { background: var(--s2); border: 1px solid var(--border); border-radius: 999px; padding: 7px 14px; font-weight: 700; font-size: .84rem; }
+        .chip.you { border-color: var(--accent); color: var(--accent); }
+
+        .spin { width: 32px; height: 32px; border: 4px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin: 20px auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .connecting { text-align: center; color: var(--muted); font-weight: 800; padding: 26px 0; }
+
+        .trophy { text-align: center; padding: 10px 0; }
+        .trophy .icon { font-size: 3.4rem; margin-bottom: 8px; }
+        .trophy .w-name { font-family: 'Cinzel', serif; font-size: 1.4rem; font-weight: 900; color: var(--accent); letter-spacing: 2px; }
+        .trophy .w-sub { color: var(--muted); font-size: .74rem; margin-top: 5px; text-transform: uppercase; letter-spacing: 2px; }
+        .rankings { display: flex; flex-direction: column; gap: 7px; margin: 14px 0; }
+        .rank-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--s2); border-radius: 8px; border: 1px solid var(--border); font-size: .86rem; }
+        .rank-num { font-family: 'Cinzel', serif; font-size: .95rem; font-weight: 900; width: 24px; color: var(--muted); }
+
+        /* ── Blackjack cards (kingscorner's corner-indexed card face, renamed) ── */
+        .bj-card { position: relative; width: 44px; height: 60px; border-radius: 6px; background: #fdf8ec; border: 1px solid rgba(0,0,0,.22); display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: 4px 0 0 5px; font-weight: 800; font-size: .8rem; line-height: 1.05; box-shadow: 0 2px 6px rgba(0,0,0,.32); flex-shrink: 0; }
+        .bj-card.red { color: #b3261e; }
+        .bj-card.black { color: #1a1a1a; }
+        .bj-card.back { background: linear-gradient(135deg, #7a1f2e, #3d0f17); border: 1px solid var(--accent); }
+        .bj-card.back::after { content: ''; position: absolute; inset: 4px; border-radius: 3px; border: 1px solid rgba(212,175,55,.45); background: repeating-linear-gradient(45deg, rgba(212,175,55,.14) 0 3px, transparent 3px 7px); }
+        .bj-hand-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .bj-total { font-weight: 800; font-size: .82rem; background: var(--s2); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; margin-left: 4px; }
+        .bj-total.bust { color: #ffb3a8; border-color: var(--danger); }
+        .bj-total.bj21 { color: var(--accent); border-color: var(--accent); }
+
+        .bj-dealer { text-align: center; margin-bottom: 14px; }
+        .bj-dealer .bj-hand-row { justify-content: center; }
+        .bj-seat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+        .bj-seat.turn { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 16px var(--ag); }
+        .bj-seat.spec { opacity: .45; }
+        .bj-seat .nm-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: .82rem; font-weight: 800; }
+        .bj-seat .bet-tag { color: var(--accent); font-size: .74rem; font-weight: 700; }
+        .bj-outcome { font-size: .74rem; font-weight: 800; margin-top: 6px; }
+        .bj-outcome.win, .bj-outcome.blackjack { color: var(--success); }
+        .bj-outcome.lose { color: #ffb3a8; }
+        .bj-outcome.push { color: var(--muted); }
+
+        .bj-betrow { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 10px 0; }
+        .bj-chipbtn { background: radial-gradient(circle at 35% 30%, #fff2, transparent 60%), var(--s2); border: 2px dashed var(--accent); border-radius: 50%; width: 56px; height: 56px; color: var(--text); font-weight: 800; font-size: .78rem; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .bj-chipbtn:active { transform: scale(.94); }
+        .bj-chipbtn:disabled { opacity: .35; cursor: default; }
+        .bj-mybet { text-align: center; font-family: 'Cinzel', serif; font-size: 1.5rem; font-weight: 900; color: var(--accent); margin: 8px 0; }
+
+        .bj-actrow { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+        .bj-banner { font-family: 'Cinzel', serif; font-size: 1.15rem; font-weight: 800; text-align: center; }
+
+        #bj-toasts { position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%); z-index: 9500; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; width: min(90vw, 380px); }
+        .bj-toast { background: rgba(18,14,10,.92); color: #fff; padding: 9px 15px; border-radius: 20px; font-size: .76rem; font-weight: 700; box-shadow: 0 4px 14px rgba(0,0,0,.4); opacity: 1; transition: opacity .35s, transform .35s; max-width: 100%; text-align: center; }
+        .bj-toast.out { opacity: 0; transform: translateY(6px); }
+
+        .tog-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; }
+        .tog-label { font-size: .84rem; font-weight: 700; }
+        .tog { position: relative; width: 42px; height: 22px; flex-shrink: 0; }
+        .tog input { opacity: 0; width: 0; height: 0; }
+        .tog-track { position: absolute; inset: 0; background: var(--border); border-radius: 11px; cursor: pointer; transition: background .2s; }
+        .tog-track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: var(--muted); border-radius: 50%; transition: all .2s; }
+        .tog input:checked + .tog-track { background: var(--accent); }
+        .tog input:checked + .tog-track::after { transform: translateX(20px); background: #201200; }
+
+        /* ══════════════ VIEWER MODE (the dealer's own table — phone OR TV) ══════════════ */
+        body.viewer-mode {
+            padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw;
+            background: radial-gradient(ellipse 70% 50% at 50% -8%, rgba(212,175,55,.10) 0%, transparent 60%),
+                        radial-gradient(ellipse 80% 60% at 50% 120%, rgba(122,31,46,.14) 0%, transparent 65%), #150a0a;
+        }
+        body.viewer-mode #app { max-width: none; width: 100vw; height: 100dvh; }
+        .v-screen { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden auto; z-index: 1; }
+        .v-header { display: flex; align-items: center; justify-content: space-between; padding: clamp(10px,2vh,20px) clamp(16px,3vw,40px); flex-shrink: 0; }
+        .v-title { font-family: 'Cinzel', serif; font-size: clamp(1.8rem,4.5vw,3rem); font-weight: 900; color: var(--accent); text-shadow: 0 2px 10px rgba(0,0,0,.5); }
+        .v-header-code { font-size: clamp(.85rem,1.8vw,1.15rem); color: var(--muted); letter-spacing: 3px; text-transform: uppercase; }
+        .v-dealer { text-align: center; padding: 0 clamp(16px,3vw,40px) clamp(6px,1vh,14px); flex-shrink: 0; }
+        .v-dealer .lbl { font-size: clamp(.7rem,1.3vw,.95rem); color: var(--muted); text-transform: uppercase; letter-spacing: 2px; font-weight: 800; margin-bottom: 6px; }
+        .v-dealer .bj-hand-row { justify-content: center; }
+        .v-card { width: clamp(56px, 6vw, 88px); height: clamp(78px, 8.2vw, 122px); font-size: clamp(1rem, 2vw, 1.6rem); padding: clamp(4px, .6vw, 8px) 0 0 clamp(6px, .8vw, 10px); border-radius: 8px; }
+        .v-total { font-size: clamp(.9rem, 1.6vw, 1.3rem); padding: 5px 14px; }
+        .v-players { display: flex; gap: clamp(8px,1.5vw,18px); padding: clamp(6px,1vh,12px) clamp(16px,3vw,40px); overflow-x: auto; flex: 1; align-content: flex-start; flex-wrap: wrap; }
+        .v-seat { background: #241010; border: 1px solid #5a2626; border-radius: 12px; padding: 10px clamp(12px,1.6vw,20px); text-align: center; min-width: clamp(120px, 13vw, 190px); flex-shrink: 0; }
+        .v-seat.turn { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 20px rgba(212,175,55,.3); }
+        .v-seat.spec { opacity: .4; }
+        .v-seat .nm { font-weight: 800; font-size: clamp(.75rem,1.4vw,1.05rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
+        .v-seat .chp { font-size: clamp(.65rem,1.15vw,.85rem); color: var(--accent); margin-bottom: 6px; }
+        .v-seat .bj-hand-row { justify-content: center; }
+        .v-overlay { position: absolute; inset: 0; z-index: 50; background: radial-gradient(ellipse at 50% 40%, rgba(20,10,10,.86), rgba(4,2,2,.95)); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(12px,2.5vh,26px); padding: clamp(20px,4vw,60px); text-align: center; }
+        .v-reveal-headline { font-family: 'Cinzel', serif; font-size: clamp(1.6rem,4.4vw,3.4rem); font-weight: 900; color: var(--accent); }
+        .v-gameover-trophy { font-size: clamp(3rem,8vw,6rem); }
+        .v-gameover-winner { font-family: 'Cinzel', serif; font-size: clamp(2rem,6vw,5rem); font-weight: 900; color: var(--accent); }
+        .v-gameover-sub { font-size: clamp(.8rem,2vw,1.3rem); color: var(--muted); text-transform: uppercase; letter-spacing: 4px; }
+
+        @keyframes cardIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+        #app.fresh .card { animation: cardIn .35s cubic-bezier(.2,.8,.3,1) both; }
+        #app.fresh .hdr { animation: cardIn .3s ease-out both; }
+        @keyframes trophyBounce { 0% { transform: scale(0) rotate(-20deg); opacity: 0; } 60% { transform: scale(1.15) rotate(5deg); opacity: 1; } 100% { transform: scale(1) rotate(0deg); } }
+        #app.fresh .trophy .icon { animation: trophyBounce .8s cubic-bezier(.34,1.56,.64,1) both; }
+
+        #sound-togs { position: fixed; top: 10px; right: 10px; z-index: 80; display: flex; gap: 6px; }
+        #sound-togs button { background: var(--surface); border: 1px solid var(--border); color: var(--text); width: 34px; height: 34px; border-radius: 9px; font-size: 1rem; cursor: pointer; }
+        #sound-togs button.off { opacity: .4; }
+        body.viewer-mode #sound-togs { top: auto; bottom: 14px; right: 14px; opacity: .6; }
+
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <div id="sound-togs">
+        <button id="tog-music" title="Music on/off" onclick="toggleMusic()">🎵</button>
+        <button id="tog-sfx" title="Sound effects on/off" onclick="toggleSfx()">🔊</button>
+        <button id="tog-voice" title="Speak milestones aloud" onclick="toggleVoice()">🗣️</button>
+    </div>
+<script>
+'use strict';
+typeof mountScene === 'function' && mountScene('casino');   // themed ambient scene along the bottom of the TV
+
+// ═══════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════
+const PFX = 'BLKJK-';
+const MIN_PLAYERS = 1, MAX_PLAYERS = 7;
+const START_CHIPS = 500, MIN_BET = 10;
+const BET_CHIPS = [10, 25, 50, 100];
+const SUIT_SYM = { S: '♠', H: '♥', D: '♦', C: '♣' };
+const SUIT_WORDS = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' };
+const RANK_WORDS = { 1: 'Ace', 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five', 6: 'Six', 7: 'Seven', 8: 'Eight', 9: 'Nine', 10: 'Ten', 11: 'Jack', 12: 'Queen', 13: 'King' };
+function rankShort(n) { return n === 1 ? 'A' : n === 11 ? 'J' : n === 12 ? 'Q' : n === 13 ? 'K' : String(n); }
+function cardLabel(c) { return rankShort(c.rank) + SUIT_SYM[c.suit]; }
+function cardSpoken(c) { return `${RANK_WORDS[c.rank] || c.rank} of ${SUIT_WORDS[c.suit]}`; }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+// ═══════════════════════════════════════════
+// CARD MODEL (pure — no host/guest distinction, single JS scope)
+// ═══════════════════════════════════════════
+function makeCard(rank, suit) { return { rank, suit, id: rank + suit }; }
+function makeDeck() {
+    const suits = ['S', 'H', 'D', 'C'], out = [];
+    for (const s of suits) for (let r = 1; r <= 13; r++) out.push(makeCard(r, s));
+    return out;
+}
+function suitColor(suit) { return (suit === 'H' || suit === 'D') ? 'red' : 'black'; }
+function shuffled(deck) {
+    const a = deck.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+}
+
+// ═══════════════════════════════════════════
+// HAND VALUE / BUST / BLACKJACK / DEALER RULE / PAYOUT — pure functions, unit-tested
+// ═══════════════════════════════════════════
+// Ace counts 11 until that would bust the hand, then as many aces as needed drop to 1 one at
+// a time. `soft` is true while at least one ace is still being counted as 11 (a "soft" total
+// can still take another card without the player choosing to risk it the way a hard total
+// nearer 21 would).
+function handValue(cards) {
+    let total = 0, acesAs11 = 0;
+    for (const c of cards) {
+        if (c.rank === 1) { total += 11; acesAs11++; }
+        else total += Math.min(c.rank, 10);
+    }
+    while (total > 21 && acesAs11 > 0) { total -= 10; acesAs11--; }
+    return { total, soft: acesAs11 > 0, isBust: total > 21 };
+}
+function isBlackjack(cards) { return cards.length === 2 && handValue(cards).total === 21; }
+// Stand on all 17s (hard or soft) — the simplest common house rule, and the only one that
+// doesn't need a second "is this dealer 17 soft" branch anywhere else in the game.
+function dealerShouldHit(cards) { return handValue(cards).total < 17; }
+// The chips actually credited back to a player's stack — their stake is already OUT of
+// `chips` by the time a hand resolves (deducted at bet placement, see hostBet), so a loss
+// credits nothing, a push returns the stake, a win returns stake+stake, blackjack 2.5x.
+function resolveHand(playerCards, dealerCards, bet) {
+    const p = handValue(playerCards), d = handValue(dealerCards);
+    const pBJ = isBlackjack(playerCards), dBJ = isBlackjack(dealerCards);
+    if (p.isBust) return { outcome: 'lose', payout: 0 };
+    if (pBJ && dBJ) return { outcome: 'push', payout: bet };
+    if (pBJ) return { outcome: 'blackjack', payout: Math.round(bet * 2.5) };
+    if (dBJ) return { outcome: 'lose', payout: 0 };
+    if (d.isBust) return { outcome: 'win', payout: bet * 2 };
+    if (p.total > d.total) return { outcome: 'win', payout: bet * 2 };
+    if (p.total === d.total) return { outcome: 'push', payout: bet };
+    return { outcome: 'lose', payout: 0 };
+}
+
+// ═══════════════════════════════════════════
+// HOST STATE
+// ═══════════════════════════════════════════
+// The host is the DEALER — never a seated player, whether it's a phone or a TV running it.
+// H.players holds only guests; the dealer's hand lives on H.dealer, which belongs to nobody's
+// id. This is closer to Going, Going, GONE!'s auctioneer (host never holds a paddle) than to
+// Kings Corner's isTvHost-doubles-as-a-seat split.
+let H = {
+    phase: 'lobby',              // 'lobby' | 'betting' | 'playing' | 'dealer' | 'round_over' | 'session_over'
+    players: [],                 // [{ id, cid, name, chips, bet, hand:[Card], standing, busted, doubled, spectating, lastOutcome, lastDelta }]
+    dealer: { cards: [], holeHidden: true },
+    turnIdx: 0,                  // INDEX into players[] of whoever is deciding hit/stand/double
+    deck: [],
+    milestones: [], milestoneSeq: 0,
+};
+
+function addMilestone(text, speech) {
+    H.milestoneSeq++;
+    H.milestones.push({ seq: H.milestoneSeq, text, speech: speech || text });
+    if (H.milestones.length > 8) H.milestones = H.milestones.slice(-8);
+}
+
+// ═══════════════════════════════════════════
+// HOST LOGIC
+// ═══════════════════════════════════════════
+function hostAddPlayer(id, name, cid) {
+    if (H.players.find(p => p.id === id)) return;
+    const spectating = H.phase !== 'lobby';
+    if (!spectating && H.players.length >= MAX_PLAYERS) return;
+    H.players.push({
+        id, cid, name, chips: START_CHIPS, bet: 0, hand: [],
+        standing: false, busted: false, doubled: false, spectating,
+        lastOutcome: null, lastDelta: 0,
+    });
+}
+
+function canAct(p) { return !!p && !p.spectating && p.bet > 0 && !p.standing && !p.busted; }
+// Walks from fromIdx (exclusive) once all the way round; -1 means "nobody left to act" —
+// the (fromIdx + k + n) form keeps the very first dealt-in scan (fromIdx = -1) correct
+// without relying on how a particular JS engine handles a negative left operand of %.
+function nextActingIdx(fromIdx) {
+    const n = H.players.length; if (!n) return -1;
+    for (let k = 1; k <= n; k++) { const i = (fromIdx + k + n) % n; if (canAct(H.players[i])) return i; }
+    return -1;
+}
+function advanceTurn(fromIdx) {
+    const idx = nextActingIdx(fromIdx);
+    if (idx < 0) { H.turnIdx = -1; hostPlayDealer(); return; }
+    H.turnIdx = idx;
+    broadcast();
+}
+
+function beginBetting() {
+    H.players.forEach(p => {
+        p.bet = 0; p.hand = []; p.standing = false; p.busted = false; p.doubled = false;
+        p.lastOutcome = null; p.lastDelta = 0;
+    });
+    H.dealer = { cards: [], holeHidden: true };
+    H.turnIdx = 0;
+    H.phase = 'betting';
+    broadcast();
+}
+function hostStartTable(fromId) {
+    if (capPlayer()?.id !== fromId) return;
+    if (H.phase !== 'lobby') return;
+    if (H.players.length < MIN_PLAYERS) return;
+    H.players.forEach(p => { p.spectating = false; p.chips = START_CHIPS; });
+    H.milestones = []; H.milestoneSeq = 0;
+    beginBetting();
+}
+function hostNextHand(fromId) {
+    if (capPlayer()?.id !== fromId) return;
+    if (H.phase !== 'round_over') return;
+    // A player who was benched for going broke is only welcomed back once they can actually
+    // afford the table minimum again — "Play again" is what resets chips, not a new hand.
+    H.players.forEach(p => { if (p.spectating && p.chips >= MIN_BET) p.spectating = false; });
+    beginBetting();
+}
+function hostPlayAgain(fromId) {
+    if (capPlayer()?.id !== fromId) return;
+    if (H.phase !== 'session_over') return;
+    H.phase = 'lobby';
+    H.players.forEach(p => {
+        p.spectating = false; p.chips = START_CHIPS; p.bet = 0; p.hand = [];
+        p.standing = false; p.busted = false; p.doubled = false; p.lastOutcome = null; p.lastDelta = 0;
+    });
+    H.dealer = { cards: [], holeHidden: true };
+    H.milestones = []; H.milestoneSeq = 0;
+    broadcastLobby();
+}
+function hostEndSession(fromId) {
+    if (capPlayer()?.id !== fromId) return;
+    if (!['lobby', 'betting', 'round_over'].includes(H.phase)) return;
+    H.phase = 'session_over';
+    broadcast();
+}
+function hostCtl(fromId, action) {
+    if (capPlayer()?.id !== fromId) return;
+    if (action === 'start') hostStartTable(fromId);
+    else if (action === 'deal') hostDealCards(fromId);
+    else if (action === 'next_hand') hostNextHand(fromId);
+    else if (action === 'again') hostPlayAgain(fromId);
+    else if (action === 'end_session') hostEndSession(fromId);
+}
+
+// A bet is deducted the moment it's placed (not at Deal time), so a phone that drops mid-
+// betting doesn't lose the table's accounting — re-betting first refunds whatever was there.
+function hostBet(fromId, amount) {
+    if (H.phase !== 'betting') return;
+    const p = H.players.find(x => x.id === fromId);
+    if (!p || p.spectating) return;
+    if (p.bet > 0) { p.chips += p.bet; p.bet = 0; }
+    const n = Math.floor(Number(amount) || 0);
+    if (n <= 0) { broadcast(); return; }
+    const clamped = Math.max(MIN_BET, Math.min(n, p.chips));
+    if (clamped > p.chips) { broadcast(); return; }
+    p.chips -= clamped;
+    p.bet = clamped;
+    broadcast();
+}
+
+// Deals everyone who has actually bet so far — nobody stalls the table waiting for a bet
+// from a player who's away. Classic one-card-round-robin-twice order, dealer included.
+function hostDealCards(fromId) {
+    if (capPlayer()?.id !== fromId) return;
+    if (H.phase !== 'betting') return;
+    const bettors = H.players.filter(p => !p.spectating && p.bet > 0);
+    if (!bettors.length) return;
+    H.deck = shuffled(makeDeck());
+    H.dealer = { cards: [], holeHidden: true };
+    bettors.forEach(p => { p.hand = []; p.standing = false; p.busted = false; p.doubled = false; });
+    for (let round = 0; round < 2; round++) {
+        bettors.forEach(p => p.hand.push(H.deck.pop()));
+        H.dealer.cards.push(H.deck.pop());
+    }
+    bettors.forEach(p => { if (isBlackjack(p.hand)) p.standing = true; });
+    H.phase = 'playing';
+    advanceTurn(-1);
+}
+function hostHit(fromId) {
+    if (H.phase !== 'playing') return;
+    const p = H.players[H.turnIdx];
+    if (!p || p.id !== fromId || !canAct(p)) return;
+    p.hand.push(H.deck.pop());
+    const v = handValue(p.hand);
+    if (v.isBust) { p.busted = true; addMilestone(p.name + ' busts with ' + v.total); advanceTurn(H.turnIdx); return; }
+    if (v.total === 21) { p.standing = true; advanceTurn(H.turnIdx); return; }
+    broadcast();
+}
+function hostStand(fromId) {
+    if (H.phase !== 'playing') return;
+    const p = H.players[H.turnIdx];
+    if (!p || p.id !== fromId || !canAct(p)) return;
+    p.standing = true;
+    advanceTurn(H.turnIdx);
+}
+function hostDouble(fromId) {
+    if (H.phase !== 'playing') return;
+    const p = H.players[H.turnIdx];
+    if (!p || p.id !== fromId || !canAct(p)) return;
+    if (p.hand.length !== 2 || p.chips < p.bet) return;
+    p.chips -= p.bet;
+    p.doubled = true;
+    p.bet *= 2;
+    p.hand.push(H.deck.pop());
+    const v = handValue(p.hand);
+    if (v.isBust) { p.busted = true; addMilestone(p.name + ' doubles down and busts with ' + v.total); }
+    p.standing = true;
+    advanceTurn(H.turnIdx);
+}
+
+let dealerTimer = null;
+function clearDealerTimer() { if (dealerTimer) { clearTimeout(dealerTimer); dealerTimer = null; } }
+// A table that's entirely bust has nothing left to decide — the dullest outcome is the
+// fastest one, the same taste call Going, Going, GONE! makes for a lot nobody wants.
+function hostPlayDealer() {
+    H.phase = 'dealer';
+    const bettors = H.players.filter(p => !p.spectating && p.bet > 0);
+    const anyLive = bettors.some(p => !p.busted);
+    H.dealer.holeHidden = false;
+    broadcast();
+    if (!anyLive) { hostResolve(); return; }
+    dealerTimer = setTimeout(dealerStep, 900);
+}
+function dealerStep() {
+    dealerTimer = null;
+    if (dealerShouldHit(H.dealer.cards)) {
+        H.dealer.cards.push(H.deck.pop());
+        broadcast();
+        dealerTimer = setTimeout(dealerStep, 900);
+        return;
+    }
+    hostResolve();
+}
+function hostResolve() {
+    clearDealerTimer();
+    const dv = handValue(H.dealer.cards);
+    if (dv.isBust) addMilestone('Dealer busts with ' + dv.total + ' — the table collects');
+    H.players.forEach(p => {
+        if (p.spectating || p.bet <= 0) return;
+        const r = resolveHand(p.hand, H.dealer.cards, p.bet);
+        p.chips += r.payout;
+        p.lastOutcome = r.outcome;
+        p.lastDelta = r.payout - p.bet;
+        if (r.outcome === 'blackjack') addMilestone(p.name + ' hits blackjack!');
+    });
+    H.players.forEach(p => { if (!p.spectating && p.chips < MIN_BET) p.spectating = true; });
+    H.phase = 'round_over';
+    broadcast();
+}
+
+// ═══════════════════════════════════════════
+// MESSAGES / DISPLAY
+// ═══════════════════════════════════════════
+function lobbyMsg() {
+    return {
+        type: 'lobby',
+        players: H.players.filter(p => !p.spectating).map(p => ({ name: p.name })),
+        roomCode, tvHost: isTvHost, captain: capPlayer()?.name || null,
+    };
+}
+function playerView(p) {
+    const v = handValue(p.hand);
+    return {
+        id: p.id, name: p.name, chips: p.chips, bet: p.bet, hand: p.hand,
+        total: v.total, soft: v.soft, isBust: p.busted, isBlackjack: isBlackjack(p.hand),
+        standing: p.standing, doubled: p.doubled, spectating: !!p.spectating,
+        isTurn: H.phase === 'playing' && H.players[H.turnIdx] === p,
+        lastOutcome: p.lastOutcome, lastDelta: p.lastDelta,
+    };
+}
+// The dealer's hole card literally never leaves the host while it's hidden — only the up
+// card is ever put into the array that gets sent, the same "withheld on the host" principle
+// Going, Going, GONE! uses for purses and mystery lots.
+function dealerView() {
+    const shown = H.dealer.holeHidden ? H.dealer.cards.slice(0, 1) : H.dealer.cards;
+    const v = H.dealer.holeHidden ? null : handValue(H.dealer.cards);
+    return {
+        cards: shown, holeHidden: H.dealer.holeHidden,
+        total: v ? v.total : null, isBust: v ? v.isBust : false,
+        isBlackjack: !H.dealer.holeHidden && isBlackjack(H.dealer.cards),
+    };
+}
+function buildDisplay(playerId) {
+    const me = H.players.find(p => p.id === playerId);
+    const turnP = H.phase === 'playing' ? H.players[H.turnIdx] : null;
+    return {
+        type: 'state', phase: H.phase, roomCode, isCaptain: capPlayer()?.id === playerId,
+        dealer: dealerView(),
+        players: H.players.map(playerView),
+        turnPlayerName: turnP ? turnP.name : '',
+        isMyTurn: !!turnP && turnP.id === playerId,
+        myChips: me ? me.chips : 0, myBet: me ? me.bet : 0,
+        canDouble: !!(me && turnP === me && me.hand.length === 2 && me.chips >= me.bet),
+        milestones: H.milestones.slice(-8),
+    };
+}
+function buildViewerDisplay() { return { ...buildDisplay(null), type: 'viewer_state' }; }
+function phaseUi(phase) {
+    if (phase === 'betting') return 'betting';
+    if (phase === 'playing' || phase === 'dealer') return 'playing';
+    if (phase === 'round_over') return 'round_over';
+    if (phase === 'session_over') return 'session_over';
+    return 'lobby';
+}
+
+function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('send err', e); } }
+
+function broadcastLobby() {
+    const msg = lobbyMsg();
+    H.players.forEach(p => { const c = guestConns[p.id]; if (c) send(c, msg); });
+    Object.values(viewerConns).forEach(c => send(c, { ...msg, type: 'viewer_lobby' }));
+    if (isHost) { vD = { ...msg, type: 'viewer_lobby' }; ui = 'viewer'; render(); }
+}
+function broadcast() {
+    H.players.forEach(p => { const c = guestConns[p.id]; if (c) send(c, buildDisplay(p.id)); });
+    Object.values(viewerConns).forEach(c => send(c, buildViewerDisplay()));
+    if (isHost) {
+        const nd = buildViewerDisplay();
+        const entering = nd.phase === 'session_over' && vD?.phase !== 'session_over';
+        vD = nd; ui = 'viewer'; render();
+        toastMilestones(nd.milestones);
+        if (entering) setTimeout(bjConfetti, 200);
+    }
+}
+
+// ═══════════════════════════════════════════
+// CONNECTION / PRESENCE
+// ═══════════════════════════════════════════
+let peer = null, myId = '', myName = '', isHost = false, isTvHost = false, isViewer = false, roomCode = '';
+let hostConn = null, guestConns = {}, viewerConns = {};
+let ui = 'home', uiErr = '';
+let fName = (typeof savedName === 'function' ? savedName() : ''), fCode = '', fVCode = '';
+let D = null, vD = null;
+let _lastKey = '';
+
+// The dealer is never in H.players, so connectedPlayers()/capPlayer() only ever look at
+// guests — the captain is always the first CONNECTED player, exactly the repo's usual rule,
+// it just never happens to be the host here.
+function connectedPlayers() {
+    if (typeof presentPlayers === 'function') return presentPlayers(H.players, guestConns, myId, false);
+    return H.players.filter(p => !!guestConns[p.id]);
+}
+function capPlayer() { return connectedPlayers()[0] || H.players[0] || null; }
+function capSync(prevId) {
+    if ((capPlayer()?.id || null) === prevId) return;
+    if (H.phase === 'lobby') broadcastLobby(); else broadcast();
+}
+
+function makeRoom(onOpen) {
+    forgetRoom();
+    roomCode = makeRoomCode();
+    peer = hostPeer(PFX + roomCode, {
+        onOpen: id => { myId = id; isHost = true; onOpen(); },
+        onConnection: conn => setupGuestConn(conn),
+        onFatalError: e => {
+            uiErr = 'Connection error: ' + e.message; isHost = false; isTvHost = false;
+            document.body.classList.remove('viewer-mode'); ui = 'home'; render();
+        },
+    });
+}
+// Hosting never seats a player — the hosting device (phone OR TV) is always just the table,
+// so it renders through the same 'viewer' path either way (see render()). Nobody types a
+// name to host; only joining players do.
+function hostGame() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => { document.body.classList.add('viewer-mode'); vD = { ...lobbyMsg(), type: 'viewer_lobby' }; ui = 'viewer'; render(); });
+}
+function hostOnTV() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => { isTvHost = true; document.body.classList.add('viewer-mode'); vD = { ...lobbyMsg(), type: 'viewer_lobby' }; ui = 'viewer'; render(); });
+}
+function joinGame(code, name) {
+    myName = name.trim().slice(0, 16) || 'Player';
+    try { saveName(myName); } catch (_) {}
+    uiErr = ''; ui = 'connecting'; render();
+    let connected = false;
+    joinPeer({
+        hostFullId: PFX + code.trim().toUpperCase(),
+        attempts: 3, delayMs: 700,
+        isConnected: () => connected,
+        onReady: (p, id, hc) => {
+            peer = p; myId = id; isHost = false; hostConn = hc;
+            hostConn.on('open', () => {
+                connected = true; rememberRoom(code.trim().toUpperCase(), 'player');
+                send(hostConn, { type: 'join', cid: clientId(), build: typeof BUILD !== 'undefined' ? BUILD : null, name: myName });
+                if (typeof startHeartbeat === 'function') startHeartbeat(() => { try { send(hostConn, { type: 'hb' }); } catch (e) {} });
+            });
+            hostConn.on('data', msg => applyMsg(msg));
+        },
+        onLost: () => { connected = false; },
+        onGiveUp: wasIn => { forgetRoom(); uiErr = wasIn ? 'Lost connection to the table — tap Join to get back in.' : 'Could not reach table "' + code.toUpperCase() + '". Check the code and try again.'; ui = 'home'; D = null; render(); },
+    });
+}
+function joinAsViewer(code) {
+    isViewer = true;
+    uiErr = ''; ui = 'connecting'; render();
+    let connected = false;
+    joinPeer({
+        hostFullId: PFX + code.trim().toUpperCase(),
+        attempts: 2, delayMs: 600,
+        isConnected: () => connected,
+        onReady: (p, id, hc) => {
+            peer = p; myId = id; hostConn = hc;
+            hostConn.on('open', () => { connected = true; rememberRoom(code.trim().toUpperCase(), 'viewer'); send(hostConn, { type: 'join_viewer' }); });
+            hostConn.on('data', msg => applyViewerMsg(msg));
+        },
+        onLost: () => { connected = false; },
+        onGiveUp: wasIn => { forgetRoom(); uiErr = wasIn ? 'Lost connection to the table.' : 'Could not reach table "' + code.toUpperCase() + '". Check the code and try again.'; isViewer = false; vD = null; document.body.classList.remove('viewer-mode'); ui = 'home'; render(); },
+    });
+}
+function setupGuestConn(conn) {
+    conn.on('open', () => { conn._role = null; });
+    conn.on('data', msg => {
+        {
+            const alive = H.players.find(p => p.id === conn.peer);
+            if (alive && typeof notePresence === 'function') notePresence(alive);
+        }
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer'; viewerConns[conn.peer] = conn; send(conn, H.phase === 'lobby' ? { ...lobbyMsg(), type: 'viewer_lobby' } : buildViewerDisplay());
+            return;
+        }
+        if (conn._role === null) { conn._role = 'player'; guestConns[conn.peer] = conn; }
+        switch (msg.type) {
+            case 'join': {
+                if (typeof warnIfStale === 'function') warnIfStale(conn, msg, send);
+                const prevCap = capPlayer()?.id || null;
+                setTimeout(() => capSync(prevCap), 0);
+                const name = String(msg.name || 'Player').slice(0, 16);
+                const zombie = typeof claimSeat === 'function'
+                    ? claimSeat(H.players, msg, conn.peer, guestConns, H.phase === 'lobby')
+                    : H.players.find(p => msg.cid && p.cid === msg.cid && p.id !== conn.peer);
+                if (zombie) { zombie.id = conn.peer; }
+                else hostAddPlayer(conn.peer, name, msg.cid);
+                const me2 = H.players.find(p => p.id === conn.peer);
+                if (!me2 && H.phase === 'lobby') { send(conn, { type: 'full' }); break; }
+                if (me2 && msg.cid) me2.cid = msg.cid;
+                if (me2 && typeof notePresence === 'function') notePresence(me2);
+                if (H.phase === 'lobby') broadcastLobby(); else broadcast();
+                break;
+            }
+            case 'ctl': if (capPlayer()?.id === conn.peer) hostCtl(conn.peer, msg.action); break;
+            case 'bet': hostBet(conn.peer, msg.amount); break;
+            case 'hit': hostHit(conn.peer); break;
+            case 'stand': hostStand(conn.peer); break;
+            case 'double': hostDouble(conn.peer); break;
+            case 'hb': break;
+        }
+    });
+    conn.on('close', () => {
+        const prevCap = capPlayer()?.id || null;
+        setTimeout(() => capSync(prevCap), 0);
+        delete guestConns[conn.peer]; delete viewerConns[conn.peer];
+        // H.players is never spliced once a hand is under way (turnIdx is an index into it) —
+        // only safe to remove someone while still in the lobby.
+        if (H.phase === 'lobby') {
+            const pi = H.players.findIndex(p => p.id === conn.peer);
+            if (pi >= 0) { H.players.splice(pi, 1); broadcastLobby(); }
+        }
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+// ═══════════════════════════════════════════
+// CLIENT ACTIONS — the host is never also a guest here, so every action always round-trips
+// over the wire (no local-shortcut branch the way kingscorner's host-doubling-as-player has).
+// ═══════════════════════════════════════════
+let actionWatchdog = null;
+function armActionWatchdog() {
+    clearActionWatchdog();
+    actionWatchdog = setTimeout(() => {
+        actionWatchdog = null;
+        showToast("That didn't seem to reach the table — check your connection and try again.");
+    }, 4000);
+}
+function clearActionWatchdog() { if (actionWatchdog) { clearTimeout(actionWatchdog); actionWatchdog = null; } }
+
+function guestCtl(action) { if (hostConn) { send(hostConn, { type: 'ctl', action }); armActionWatchdog(); } }
+function actBet(amount) { if (hostConn) { send(hostConn, { type: 'bet', amount }); armActionWatchdog(); } }
+function actHit() { if (hostConn) { sChip(); send(hostConn, { type: 'hit' }); armActionWatchdog(); } }
+function actStand() { if (hostConn) { send(hostConn, { type: 'stand' }); armActionWatchdog(); } }
+function actDouble() { if (hostConn) { sChip(); send(hostConn, { type: 'double' }); armActionWatchdog(); } }
+
+// ── toasts (milestones) ──
+function showToast(text) {
+    let host = document.getElementById('bj-toasts');
+    if (!host) { host = document.createElement('div'); host.id = 'bj-toasts'; document.body.appendChild(host); }
+    const el = document.createElement('div');
+    el.className = 'bj-toast';
+    el.textContent = text;
+    host.appendChild(el);
+    setTimeout(() => el.classList.add('out'), 2600);
+    setTimeout(() => el.remove(), 3000);
+}
+let lastMilestoneSeq = -1, seenFirstMilestones = false;
+function toastMilestones(list) {
+    if (!list) return;
+    if (!seenFirstMilestones) {
+        lastMilestoneSeq = list.length ? Math.max(...list.map(m => m.seq)) : -1;
+        seenFirstMilestones = true;
+        return;
+    }
+    const fresh = list.filter(m => m.seq > lastMilestoneSeq);
+    fresh.forEach(m => {
+        showToast(m.text);
+        if (/blackjack/i.test(m.text)) sBlackjack();
+        else if (/busts/i.test(m.text)) sBust();
+    });
+    // One utterance for the whole batch — speak() cancels whatever's still reading, so N
+    // separate calls in the same tick would clip to just the last line.
+    if (fresh.length) speak(fresh.map(m => m.speech).join(' '));
+    if (list.length) lastMilestoneSeq = Math.max(lastMilestoneSeq, ...list.map(m => m.seq));
+}
+
+// ═══════════════════════════════════════════
+// CLIENT APPLY
+// ═══════════════════════════════════════════
+function applyMsg(msg) {
+    if (!msg) return;
+    clearActionWatchdog();
+    if (msg.type === 'version') { if (typeof showStaleBuild === 'function') showStaleBuild(msg.host); return; }
+    if (msg.type === 'full') { forgetRoom(); uiErr = `This table is full (${MAX_PLAYERS}/${MAX_PLAYERS}).`; ui = 'home'; D = null; if (hostConn) { try { hostConn.close(); } catch (_) {} } render(); return; }
+    if (msg.type === 'lobby') { D = msg; ui = 'lobby'; render(); return; }
+    if (msg.type === 'state') { D = msg; ui = phaseUi(msg.phase); toastMilestones(msg.milestones); render(); }
+}
+function applyViewerMsg(msg) {
+    if (!msg) return;
+    if (msg.type === 'version') { if (typeof showStaleBuild === 'function') showStaleBuild(msg.host); return; }
+    const entering = msg.type === 'viewer_state' && msg.phase === 'session_over' && vD?.phase !== 'session_over';
+    vD = msg; ui = 'viewer';
+    if (msg.type === 'viewer_state') toastMilestones(msg.milestones);
+    render();
+    if (entering) setTimeout(bjConfetti, 200);
+}
+
+// ═══════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════
+function render() {
+    const app = document.getElementById('app');
+    if (isHost || isViewer) ui = 'viewer';
+    if (typeof syncVoiceBtn === 'function') syncVoiceBtn();
+    let html = '';
+    switch (ui) {
+        case 'home': html = renderHome(); break;
+        case 'creating': html = renderSpinner('Setting up the table…'); break;
+        case 'connecting': html = renderSpinner('Joining the table…'); break;
+        case 'lobby': html = renderLobby(); break;
+        case 'betting': html = renderBetting(); break;
+        case 'playing': html = renderPlaying(); break;
+        case 'round_over': html = renderRoundOver(); break;
+        case 'session_over': html = renderSessionOver(); break;
+        case 'viewer': html = renderViewer(); break;
+        default: html = renderHome();
+    }
+    if (typeof setHTML === 'function') setHTML(app, html); else app.innerHTML = html;
+    const key = ui + ':' + (ui === 'viewer' ? (vD?.type || '') + ':' + (vD?.phase || '') : '');
+    app.classList.toggle('fresh', key !== _lastKey);
+    _lastKey = key;
+}
+
+function hdrHTML(sub) {
+    return `<div class="hdr"><h1 class="logo">♠️ Blackjack</h1></div><div class="sub">${esc(sub || 'beat the dealer without going over 21')}</div>`;
+}
+function renderSpinner(msg) { return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`; }
+function errHTML() { return uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''; }
+
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2; let rects = '';
+        for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg"><rect width="${size}" height="${size}" fill="#f5ecd9"/><g fill="#3d0f17">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+
+function renderHome() {
+    const fromQR = !!fCode;
+    return `${hdrHTML()}${errHTML()}
+    <div class="card">
+        <div class="slbl">Who are you?</div>
+        <div class="fg"><label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}" ${fromQR ? 'autofocus' : ''} data-save-name oninput="fName=this.value"></div>
+    </div>
+    <div class="card${fromQR ? ' highlight' : ''}">
+        <div class="slbl">Join a Table</div>
+        <div class="fg"><label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fCode)}"
+                oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()"></div>
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">🂡 Join with your phone</button>
+    </div>
+    <div class="card">
+        <div class="slbl">Start a Table</div>
+        <button class="btn btn-p btn-full" onclick="hostGame()">🂡 Deal on this phone</button>
+        <div class="hint">The host is the DEALER — it never holds a hand. Everyone plays from their own phone.</div>
+        <button class="btn btn-g btn-full" style="margin-top:12px" onclick="hostOnTV()">📺 Deal on the big screen</button>
+        <div class="hint">Shows a big QR — the first phone to join becomes 👑 Captain</div>
+        <div class="fg" style="margin-top:12px"><label>…or open the table for an existing room</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"></div>
+        <button class="btn btn-g btn-full btn-sm" onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code for the table.';render()}">📺 Open Table</button>
+    </div>`;
+}
+
+function renderLobby() {
+    const players = (D && D.players) || [];
+    const chips = players.map(p => `<div class="chip${p.name === myName ? ' you' : ''}">${esc(p.name)}</div>`).join('');
+    const iAmCaptain = !!(D && D.captain && D.captain === myName);
+    const enough = players.length >= MIN_PLAYERS;
+    const foot = iAmCaptain
+        ? `<button class="btn btn-p btn-full" ${enough ? '' : 'disabled'} onclick="guestCtl('start')">🂡 Open the table</button>
+           <div class="hint">👑 You're the captain${enough ? '' : ' — waiting for at least ' + MIN_PLAYERS + ' player…'}</div>`
+        : `<div class="hint">${D && D.captain ? `👑 ${esc(D.captain)} opens the table when ready` : 'Waiting for the dealer…'}</div>`;
+    const endBtn = iAmCaptain ? `<button class="btn btn-g btn-full" style="margin-top:8px" onclick="guestCtl('end_session')">🏁 End session</button>` : '';
+    return `${hdrHTML("you're seated")}
+    <div class="card" style="text-align:center">
+        <div class="slbl">Room ${esc((D && D.roomCode) || roomCode)}</div>
+        <div class="chips">${chips}</div>
+    </div>
+    <div class="card">${foot}${endBtn}</div>
+    ${typeof shareRoomHTML === 'function' ? shareRoomHTML((D && D.roomCode) || roomCode, joinURL()) : ''}`;
+}
+
+// ── card rendering (shared by phone and TV) ──
+function cardHTML(c) { return `<span class="rk">${rankShort(c.rank)}</span><span class="su">${SUIT_SYM[c.suit]}</span>`; }
+function faceUpHTML(c, cls) { return `<div class="${cls || 'bj-card'} ${suitColor(c.suit)}">${cardHTML(c)}</div>`; }
+function faceDownHTML(cls) { return `<div class="${cls || 'bj-card'} back"></div>`; }
+function totalBadge(total, isBust, isBJ, soft, cls) {
+    if (total == null) return '';
+    const c = [cls || 'bj-total']; if (isBust) c.push('bust'); if (isBJ) c.push('bj21');
+    const label = isBust ? 'BUST' : isBJ ? 'BLACKJACK' : (soft ? 'soft ' + total : String(total));
+    return `<div class="${c.join(' ')}">${label}</div>`;
+}
+function handRowHTML(hand, opts) {
+    opts = opts || {};
+    return `<div class="bj-hand-row">${(hand || []).map(c => faceUpHTML(c, opts.cardCls)).join('')}</div>`;
+}
+function dealerRowHTML(d, cardCls) {
+    const cards = (d.cards || []).map(c => faceUpHTML(c, cardCls)).join('') + (d.holeHidden ? faceDownHTML(cardCls) : '');
+    return `<div class="bj-hand-row">${cards}</div>` + totalBadge(d.total, d.isBust, d.isBlackjack, false);
+}
+
+function betChipsHTML(myChips, myBet) {
+    const chips = BET_CHIPS.map(v =>
+        `<button class="bj-chipbtn" ${v > myChips ? 'disabled' : ''} onclick="actBet(${myBet + v})">+${v}</button>`
+    ).join('');
+    return `<div class="bj-betrow">${chips}
+    <button class="bj-chipbtn" ${myChips <= 0 ? 'disabled' : ''} onclick="actBet(${myBet + myChips})">MAX</button>
+    <button class="bj-chipbtn" ${myBet <= 0 ? 'disabled' : ''} onclick="actBet(0)">✖️</button>
+    </div>`;
+}
+
+function renderBetting() {
+    if (!D) return renderSpinner('…');
+    const iAmCaptain = D.isCaptain;
+    const anyBets = (D.players || []).some(p => p.bet > 0);
+    const rows = (D.players || []).map(p => `
+        <div class="bj-seat${p.spectating ? ' spec' : ''}">
+            <div class="nm-row"><span>${esc(p.name)}${p.spectating ? ' 👀' : ''}</span><span class="bet-tag">${p.bet > 0 ? '🪙' + p.bet : (p.spectating ? 'sitting out' : 'no bet yet')}</span></div>
+        </div>`).join('');
+    return `${hdrHTML('place your bet')}
+    <div class="card" style="text-align:center">
+        <div class="slbl">Your chips: ${D.myChips}</div>
+        <div class="bj-mybet">🪙 ${D.myBet}</div>
+        ${betChipsHTML(D.myChips, D.myBet)}
+        <div class="hint">Tap chips to stack a bet — table minimum is ${MIN_BET}</div>
+    </div>
+    <div class="card"><div class="slbl">At the table</div>${rows}</div>
+    ${iAmCaptain
+        ? `<button class="btn btn-p btn-full" ${anyBets ? '' : 'disabled'} onclick="guestCtl('deal')">🂡 Deal</button>
+           <div class="hint">👑 Deals everyone who's bet so far — nobody has to wait on a slow bettor</div>
+           <button class="btn btn-g btn-full" style="margin-top:8px" onclick="guestCtl('end_session')">🏁 End session</button>`
+        : `<div class="hint">Waiting for the captain to deal…</div>`}`;
+}
+
+function renderPlaying() {
+    if (!D) return renderSpinner('…');
+    const canDouble = D.isMyTurn && D.canDouble;
+    const seats = (D.players || []).map(p => `
+        <div class="bj-seat${p.isTurn ? ' turn' : ''}${p.spectating ? ' spec' : ''}">
+            <div class="nm-row"><span>${esc(p.name)}</span><span class="bet-tag">🪙${p.bet}${p.doubled ? ' (doubled)' : ''}</span></div>
+            ${handRowHTML(p.hand)}
+            ${totalBadge(p.total, p.isBust, p.isBlackjack, p.soft)}
+        </div>`).join('');
+    return `
+    <div class="bj-dealer">
+        <div class="slbl">Dealer</div>
+        ${dealerRowHTML(D.dealer)}
+    </div>
+    <div class="card" style="text-align:center">
+        <div class="bj-banner">${D.isMyTurn ? 'Your move' : esc(D.turnPlayerName) + "'s move"}</div>
+    </div>
+    ${seats}
+    ${D.isMyTurn ? `<div class="bj-actrow">
+        <button class="btn btn-p" onclick="actHit()">🂠 Hit</button>
+        <button class="btn btn-g" onclick="actStand()">✋ Stand</button>
+        ${canDouble ? `<button class="btn btn-d" onclick="actDouble()">✌️ Double</button>` : ''}
+    </div>` : ''}`;
+}
+
+function outcomeLabel(o, delta) {
+    if (!o) return '';
+    const words = { win: 'Won', lose: 'Lost', push: 'Push', blackjack: 'Blackjack!' };
+    const sign = delta > 0 ? '+' : '';
+    return `<div class="bj-outcome ${o}">${words[o] || o} ${delta ? sign + delta : ''}</div>`;
+}
+function renderRoundOver() {
+    if (!D) return renderSpinner('…');
+    const seats = (D.players || []).map(p => `
+        <div class="bj-seat${p.spectating ? ' spec' : ''}">
+            <div class="nm-row"><span>${esc(p.name)}</span><span class="bet-tag">🪙${p.chips}</span></div>
+            ${handRowHTML(p.hand)}
+            ${totalBadge(p.total, p.isBust, p.isBlackjack, p.soft)}
+            ${outcomeLabel(p.lastOutcome, p.lastDelta)}
+        </div>`).join('');
+    return `
+    <div class="bj-dealer">
+        <div class="slbl">Dealer</div>
+        ${dealerRowHTML(D.dealer)}
+    </div>
+    ${seats}
+    ${D.isCaptain
+        ? `<button class="btn btn-p btn-full" onclick="guestCtl('next_hand')">➡️ Next hand</button>
+           <button class="btn btn-g btn-full" style="margin-top:8px" onclick="guestCtl('end_session')">🏁 End session</button>`
+        : `<div class="hint">Waiting for the captain…</div>`}`;
+}
+
+function renderSessionOver() {
+    if (!D) return renderSpinner('…');
+    const sorted = (D.players || []).map(p => ({ ...p, score: p.chips })).sort((a, b) => b.score - a.score);
+    const ranks = typeof rankByScore === 'function' ? rankByScore(sorted, 'score') : sorted.map((_, i) => i);
+    const rows = sorted.map((p, i) => `<div class="rank-item"><span class="rank-num">${ranks[i] + 1}</span><span>${esc(p.name)}</span><span style="margin-left:auto">🪙${p.score}</span></div>`).join('');
+    const winner = sorted[0];
+    return `${hdrHTML()}
+    <div class="trophy"><div class="icon">🏆</div><div class="w-name">${esc(winner ? winner.name : '')}</div><div class="w-sub">leaves the table richest</div></div>
+    <div class="rankings">${rows}</div>
+    ${D.isCaptain ? `<button class="btn btn-p btn-full" onclick="guestCtl('again')">🔄 Play again</button>` : `<div class="hint">Waiting for the captain…</div>`}`;
+}
+
+function renderViewer() {
+    if (!vD) return renderSpinner('…');
+    if (vD.type === 'viewer_lobby') {
+        return typeof tvLobby === 'function' ? tvLobby({
+            title: 'BLACKJACK', roomCode: vD.roomCode, isTvHost: vD.tvHost, captainName: vD.captain,
+            settings: `Dealer stands on 17 · ${MIN_BET} minimum bet`,
+            players: (vD.players || []).map(p => ({ name: p.name })),
+        }) : '';
+    }
+    const seats = (vD.players || []).map(p => `
+        <div class="v-seat${p.isTurn ? ' turn' : ''}${p.spectating ? ' spec' : ''}">
+            <div class="nm">${esc(p.name)}</div>
+            <div class="chp">🪙 ${p.chips}${vD.phase === 'betting' || vD.phase === 'playing' || vD.phase === 'dealer' ? (p.bet > 0 ? ' · bet ' + p.bet : '') : ''}</div>
+            ${handRowHTML(p.hand, { cardCls: 'v-card' })}
+            ${totalBadge(p.total, p.isBust, p.isBlackjack, p.soft, 'bj-total v-total')}
+            ${vD.phase === 'round_over' ? outcomeLabel(p.lastOutcome, p.lastDelta) : ''}
+        </div>`).join('');
+    let overlay = '';
+    if (vD.phase === 'session_over') {
+        const sorted = (vD.players || []).map(p => ({ ...p, score: p.chips })).sort((a, b) => b.score - a.score);
+        const winner = sorted[0];
+        overlay = `<div class="v-overlay"><div class="v-gameover-trophy">🏆</div><div class="v-gameover-winner">${esc(winner ? winner.name : '')}</div><div class="v-gameover-sub">leaves the table richest</div></div>`;
+    }
+    return `<div class="v-screen">
+        <div class="v-header"><div class="v-title">BLACKJACK</div><div class="v-header-code">Room ${esc(vD.roomCode)}</div></div>
+        <div class="v-dealer">
+            <div class="lbl">Dealer</div>
+            ${dealerRowHTML(vD.dealer, 'v-card')}
+        </div>
+        <div class="v-players">${seats}</div>
+        ${overlay}
+    </div>`;
+}
+
+function bjConfetti() {
+    if (REDUCED) return;
+    for (let i = 0; i < 36; i++) {
+        setTimeout(() => {
+            const el = document.createElement('div');
+            el.textContent = ['♠️', '♥️', '♦️', '♣️', '🪙', '🏆'][Math.floor(Math.random() * 6)];
+            el.style.cssText = `position:fixed;top:-6vmin;left:${Math.random() * 96}%;font-size:${2 + Math.random() * 2.5}vmin;z-index:940;pointer-events:none;transition:transform 3.2s linear,opacity 3.2s;`;
+            document.body.appendChild(el);
+            requestAnimationFrame(() => { el.style.transform = `translateY(112vh) rotate(${(Math.random() - .5) * 720}deg)`; el.style.opacity = '0.2'; });
+            setTimeout(() => el.remove(), 3400);
+        }, i * 60);
+    }
+}
+
+// ═══════════════════════════════════════════
+// AUDIO (ambient.js: pad + tone() + duck())
+// ═══════════════════════════════════════════
+let musicOn = true, sfxOn = true, voicePref = null;
+try { musicOn = localStorage.getItem('bj-music') !== '0'; sfxOn = localStorage.getItem('bj-sfx') !== '0'; voicePref = localStorage.getItem('bj-voice'); } catch (_) {}
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// A quiet lounge drift — no key/mode drama, just a held chord under the table.
+const AMBIENT_CHORDS = [[196, 247, 294], [175, 220, 262], [196, 233, 294], [220, 262, 330]];
+function sChip() { if (!sfxOn || !ac()) return; tone(340, 0.07, 'triangle', AC.currentTime, 0.2); }
+function sBust() { if (!sfxOn || !ac()) return; tone(160, 0.16, 'sawtooth', AC.currentTime, 0.22); }
+function sBlackjack() { if (!sfxOn || !ac()) return; duck(1.2); const t = AC.currentTime; [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.26, 'triangle', t + i * 0.08, 0.28)); }
+function toggleMusic() { musicOn = !musicOn; try { localStorage.setItem('bj-music', musicOn ? '1' : '0'); } catch (_) {} const b = document.getElementById('tog-music'); if (b) b.classList.toggle('off', !musicOn); if (musicOn) startPad(); else stopPad(); }
+function toggleSfx() { sfxOn = !sfxOn; try { localStorage.setItem('bj-sfx', sfxOn ? '1' : '0'); } catch (_) {} const b = document.getElementById('tog-sfx'); if (b) b.classList.toggle('off', !sfxOn); }
+function toggleVoice() {
+    voicePref = voiceOn() ? '0' : '1';
+    try { localStorage.setItem('bj-voice', voicePref); } catch (_) {}
+    syncVoiceBtn();
+    if (!voiceOn() && typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
+}
+// Any device may speak, defaulting off on a phone and on for the dealer view (phone-hosted OR
+// TV-hosted) — the milestone feed broadcasts to everyone at once, so a flat default-on would
+// mean every phone at the table narrating "Alex hits blackjack!" in a chorus a beat apart.
+function voiceOn() { return voicePref === null ? !!(isViewer || isHost) : voicePref !== '0'; }
+function syncVoiceBtn() { const b = document.getElementById('tog-voice'); if (b) b.classList.toggle('off', !voiceOn()); }
+function canSpeak() { return voiceOn() && typeof speechSynthesis !== 'undefined'; }
+function primeSpeech() {
+    if (typeof speechSynthesis === 'undefined') return;
+    try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {}
+}
+function speak(text) {
+    if (!canSpeak() || !text) return;
+    try {
+        speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.02;
+        speechSynthesis.speak(u);
+    } catch (e) {}
+}
+document.addEventListener('pointerdown', () => { ac(); if (AC && AC.state === 'suspended') AC.resume(); if (musicOn) startPad(); primeSpeech(); }, { once: true });
+
+// ── Theme (day/night) ──
+typeof applySavedTheme === 'function' && applySavedTheme();
+
+// ═══════════════════════════════════════════
+// SIMULATION — ?mode=tvsimulation | ?mode=playersimulation  (&players=N)
+// Self-driving demo: no PeerJS, no real people. The host is ALWAYS the dealer here (never a
+// bot's seat), so both simulation modes just differ in whether the dealer view is styled as
+// a TV (isTvHost) or a phone (plain hostGame-style) — bots always fill H.players.
+// ═══════════════════════════════════════════
+const SIM_NAMES = ['Ace', 'Bea', 'Cy', 'Dot', 'Eli', 'Fay', 'Gus'];
+let simTimer = null;
+function startSimulation(nPlayers) {
+    const n = Math.max(MIN_PLAYERS, Math.min(nPlayers || 4, MAX_PLAYERS));
+    roomCode = 'DEMO';
+    H = { phase: 'lobby', players: [], dealer: { cards: [], holeHidden: true }, turnIdx: 0, deck: [], milestones: [], milestoneSeq: 0 };
+    guestConns = {}; viewerConns = {};
+    isHost = true; isTvHost = true; myId = '__sim_host__'; myName = '';
+    document.body.classList.add('viewer-mode');
+    for (let i = 0; i < n; i++) {
+        const id = '__bot_' + i;
+        guestConns[id] = { send() {}, _sim: true };
+        hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length], id);
+    }
+    broadcastLobby();
+    simTimer = setTimeout(simBegin, 2000);
+}
+function simBegin() {
+    hostStartTable(capPlayer()?.id);
+    simTimer = setTimeout(simStep, 1200);
+}
+function simRestart() { startSimulation(H.players.length); }
+function simStep() {
+    simTimer = null;
+    if (H.phase === 'session_over') { simTimer = setTimeout(simRestart, 6000); return; }
+    if (H.phase === 'round_over') { simTimer = setTimeout(() => { hostNextHand(capPlayer()?.id); simTimer = setTimeout(simStep, 1200); }, 2400); return; }
+    if (H.phase === 'betting') { simBotBets(); simTimer = setTimeout(() => { hostDealCards(capPlayer()?.id); simTimer = setTimeout(simStep, 1200); }, 1400); return; }
+    if (H.phase === 'playing') { simBotTurn(); simTimer = setTimeout(simStep, 700 + Math.random() * 500); return; }
+    simTimer = setTimeout(simStep, 800);
+}
+function simBotBets() {
+    H.players.forEach(p => { if (!p.spectating && p.chips >= MIN_BET) hostBet(p.id, MIN_BET + Math.floor(Math.random() * 4) * MIN_BET); });
+}
+function simBotTurn() {
+    const p = H.players[H.turnIdx];
+    if (!p) return;
+    const v = handValue(p.hand);
+    // Simple basic-strategy-flavoured bot: hit under 17, otherwise stand.
+    if (v.total < 17 && Math.random() < 0.85) hostHit(p.id);
+    else hostStand(p.id);
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    if (!musicOn) { const b = document.getElementById('tog-music'); if (b) b.classList.add('off'); }
+    if (!sfxOn) { const b = document.getElementById('tog-sfx'); if (b) b.classList.add('off'); }
+    syncVoiceBtn();
+    const mode = (params.get('mode') || '').toLowerCase();
+    const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (mode === 'tvsimulation' || mode === 'simulation' || mode === 'playersimulation') { startSimulation(simPlayers); return; }
+    const viewParam = params.get('view');
+    if (viewParam) { joinAsViewer(viewParam); return; }
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
+    const back = typeof savedRoom === 'function' ? savedRoom() : null;
+    if (back && (!room || room === back.code)) {
+        if (back.role === 'viewer') { joinAsViewer(back.code); return; }
+        joinGame(back.code, (typeof savedName === 'function' && savedName()) || 'Player');
+        return;
+    }
+    render();
+})();
+</script>
+</body>
+</html>

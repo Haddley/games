@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Go Fish</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230a2434' width='100' height='100' rx='20'/><text x='50' y='72' font-size='56' text-anchor='middle'>🎣</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="common.js?v=20260726-939098d"></script><script src="ambient.js?v=20260726-939098d"></script>
+    <script src="p2p.js?v=20260726-939098d"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        /* ── Lake-at-dusk blue, warm gold trim ── */
+        :root {
+            --bg: #0d2b3e; --surface: #123c52; --s2: #1a4d68; --border: #2f7a9a;
+            --text: #eaf6fa; --muted: #9dc3d4; --accent: #f2c14e; --ag: rgba(242,193,78,.22);
+            --danger: #c0392b; --dg: rgba(192,57,43,.2); --success: #2ecc71; --sg: rgba(46,204,113,.18);
+        }
+        body.day {
+            --bg: #e3f2f7; --surface: #f3fbfd; --s2: #dcf0f5; --border: #a9d6e5;
+            --text: #0d2b3e; --muted: #4a7a8c; --accent: #b5860a; --ag: rgba(181,134,10,.16);
+            --danger: #a6342a; --dg: rgba(166,52,42,.14); --success: #1f7a4a; --sg: rgba(31,122,74,.14);
+        }
+        body {
+            font-family: 'JetBrains Mono', monospace; background: var(--bg); color: var(--text);
+            min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+            padding: 20px 16px 40px; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background:
+                radial-gradient(ellipse 60% 40% at 50% -6%, rgba(242,193,78,.12), transparent 60%),
+                radial-gradient(ellipse 70% 50% at 50% 116%, rgba(94,200,216,.14), transparent 65%);
+        }
+        #app { width: 100%; max-width: 480px; }
+        .hdr { text-align: center; margin-bottom: 16px; padding-top: 4px; }
+        .hdr h1.logo {
+            font-family: 'Cinzel', serif; font-weight: 900; letter-spacing: 1px;
+            font-size: clamp(1.7rem, 7vw, 2.4rem); line-height: 1.05;
+            color: var(--accent); text-shadow: 0 2px 14px rgba(242,193,78,.25);
+        }
+        .sub { color: var(--muted); font-size: .7rem; letter-spacing: 2px; text-transform: uppercase; margin: 6px 0 4px; text-align: center; font-weight: 700; }
+
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.28); }
+        .card.highlight { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 22px var(--ag); }
+        .slbl { font-size: .68rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); font-weight: 800; margin-bottom: 10px; }
+        .fg { margin-bottom: 12px; }
+        .fg label { display: block; font-size: .72rem; color: var(--muted); margin-bottom: 5px; font-weight: 700; }
+        .fg input {
+            width: 100%; padding: 12px 14px; font-size: 1rem; font-family: inherit; font-weight: 700;
+            background: var(--s2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); outline: none;
+            -webkit-appearance: none; appearance: none;
+        }
+        .fg input:focus { border-color: var(--accent); }
+        .btn {
+            font-family: inherit; font-weight: 800; font-size: .92rem; border: none; border-radius: 11px;
+            padding: 13px 18px; cursor: pointer; transition: transform .1s, filter .15s;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:active { transform: scale(.97); }
+        .btn:disabled { opacity: .4; cursor: default; }
+        .btn-full { width: 100%; }
+        .btn-p { background: linear-gradient(120deg, #c99a2e, var(--accent)); color: #201400; box-shadow: 0 4px 14px var(--ag); }
+        .btn-g { background: var(--s2); color: var(--text); border: 1px solid var(--border); }
+        .btn-sm { padding: 9px 14px; font-size: .8rem; }
+        .hint { text-align: center; color: var(--muted); font-size: .76rem; font-weight: 700; margin-top: 8px; }
+        .err { background: var(--dg); border: 1px solid var(--danger); color: #ffb3a8; border-radius: 10px; padding: 10px 12px; font-size: .8rem; font-weight: 700; text-align: center; margin-bottom: 12px; }
+
+        .room-code { font-family: 'Cinzel', serif; font-weight: 900; font-size: 2.1rem; letter-spacing: 7px; text-align: center; color: var(--accent); background: var(--s2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin: 10px 0; }
+        .qr-box { width: min(210px, 58vw); aspect-ratio: 1; flex-shrink: 0; margin: 8px auto 10px; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.5), 0 0 0 3px var(--s2); background: #eaf6fa; }
+        .qr-box svg { display: block; width: 100%; height: auto; }
+
+        .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        .chip { background: var(--s2); border: 1px solid var(--border); border-radius: 999px; padding: 7px 14px; font-weight: 700; font-size: .84rem; }
+        .chip.you { border-color: var(--accent); color: var(--accent); }
+
+        .spin { width: 32px; height: 32px; border: 4px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin: 20px auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .connecting { text-align: center; color: var(--muted); font-weight: 800; padding: 26px 0; }
+
+        .trophy { text-align: center; padding: 10px 0; }
+        .trophy .icon { font-size: 3.4rem; margin-bottom: 8px; }
+        .trophy .w-name { font-family: 'Cinzel', serif; font-size: 1.4rem; font-weight: 900; color: var(--accent); letter-spacing: 2px; }
+        .trophy .w-sub { color: var(--muted); font-size: .74rem; margin-top: 5px; text-transform: uppercase; letter-spacing: 2px; }
+        .rankings { display: flex; flex-direction: column; gap: 7px; margin: 14px 0; }
+        .rank-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--s2); border-radius: 8px; border: 1px solid var(--border); font-size: .86rem; }
+        .rank-num { font-family: 'Cinzel', serif; font-size: .95rem; font-weight: 900; width: 24px; color: var(--muted); }
+
+        /* ── Go Fish cards (the same corner-indexed card face lineage as kingscorner/blackjack) ── */
+        .gf-card { position: relative; width: 42px; height: 58px; border-radius: 6px; background: #fdf8ec; border: 1px solid rgba(0,0,0,.22); display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: 4px 0 0 5px; font-weight: 800; font-size: .78rem; line-height: 1.05; box-shadow: 0 2px 6px rgba(0,0,0,.32); flex-shrink: 0; }
+        .gf-card.red { color: #b3261e; }
+        .gf-card.black { color: #1a1a1a; }
+        .gf-card.back { background: linear-gradient(135deg, #123c52, #0a2434); border: 1px solid var(--accent); }
+        .gf-card.back::after { content: ''; position: absolute; inset: 4px; border-radius: 3px; border: 1px solid rgba(242,193,78,.4); background: repeating-linear-gradient(45deg, rgba(242,193,78,.14) 0 3px, transparent 3px 7px); }
+        .gf-hand-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+
+        .gf-rankrow { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 10px 0; }
+        .gf-rankbtn { background: var(--s2); border: 2px solid var(--border); border-radius: 10px; width: 40px; height: 40px; color: var(--text); font-weight: 800; font-size: .9rem; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .gf-rankbtn.sel { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 12px var(--ag); }
+        .gf-rankbtn:disabled { opacity: .3; cursor: default; }
+
+        .gf-opps { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 10px 0; }
+        .gf-opp { padding: 8px 14px; border-radius: 12px; background: var(--s2); border: 1px solid var(--border); font-size: .78rem; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .gf-opp.turn { border-color: var(--accent); color: var(--accent); background: var(--ag); }
+        .gf-opp.spec { opacity: .45; cursor: default; }
+        .gf-opp:disabled, .gf-opp.inert { opacity: .5; cursor: default; }
+
+        .gf-books { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 6px; }
+        .gf-book { font-size: .7rem; font-weight: 800; background: var(--ag); color: var(--accent); border-radius: 999px; padding: 2px 8px; }
+        .gf-seat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; }
+        .gf-seat.turn { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 16px var(--ag); }
+        .gf-seat .nm-row { display: flex; align-items: center; justify-content: space-between; font-size: .82rem; font-weight: 800; }
+
+        #gf-toasts { position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%); z-index: 9500; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; width: min(90vw, 380px); }
+        .gf-toast { background: rgba(10,20,26,.92); color: #fff; padding: 9px 15px; border-radius: 20px; font-size: .76rem; font-weight: 700; box-shadow: 0 4px 14px rgba(0,0,0,.4); opacity: 1; transition: opacity .35s, transform .35s; max-width: 100%; text-align: center; }
+        .gf-toast.out { opacity: 0; transform: translateY(6px); }
+
+        .tog-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; }
+        .tog-label { font-size: .84rem; font-weight: 700; }
+        .tog { position: relative; width: 42px; height: 22px; flex-shrink: 0; }
+        .tog input { opacity: 0; width: 0; height: 0; }
+        .tog-track { position: absolute; inset: 0; background: var(--border); border-radius: 11px; cursor: pointer; transition: background .2s; }
+        .tog-track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: var(--muted); border-radius: 50%; transition: all .2s; }
+        .tog input:checked + .tog-track { background: var(--accent); }
+        .tog input:checked + .tog-track::after { transform: translateX(20px); background: #201400; }
+
+        /* ══════════════ VIEWER MODE ══════════════ */
+        body.viewer-mode {
+            padding: 0; overflow: hidden; display: block; height: 100dvh; width: 100vw;
+            background: radial-gradient(ellipse 70% 50% at 50% -8%, rgba(242,193,78,.10) 0%, transparent 60%),
+                        radial-gradient(ellipse 80% 60% at 50% 120%, rgba(94,200,216,.12) 0%, transparent 65%), #071b26;
+        }
+        body.viewer-mode #app { max-width: none; width: 100vw; height: 100dvh; }
+        .v-screen { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; z-index: 1; }
+        .v-header { display: flex; align-items: center; justify-content: space-between; padding: clamp(10px,2vh,20px) clamp(16px,3vw,40px); flex-shrink: 0; }
+        .v-title { font-family: 'Cinzel', serif; font-size: clamp(1.8rem,4.5vw,3rem); font-weight: 900; color: var(--accent); text-shadow: 0 2px 10px rgba(0,0,0,.5); }
+        .v-header-code { font-size: clamp(.85rem,1.8vw,1.15rem); color: var(--muted); letter-spacing: 3px; text-transform: uppercase; }
+        .v-gf-players { display: flex; gap: clamp(10px,1.8vw,22px); padding: 0 clamp(16px,3vw,40px); flex: 1; align-content: flex-start; flex-wrap: wrap; overflow-y: auto; }
+        .v-gf-player { background: #0e2b3a; border: 1px solid #1f5a72; border-radius: 12px; padding: 12px clamp(14px,1.8vw,22px); text-align: center; min-width: clamp(130px, 14vw, 200px); }
+        .v-gf-player.turn { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 20px rgba(242,193,78,.3); }
+        .v-gf-player.spec { opacity: .4; }
+        .v-gf-player .nm { font-weight: 800; font-size: clamp(.8rem,1.5vw,1.1rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
+        .v-gf-player .ct { font-size: clamp(.7rem,1.2vw,.95rem); color: var(--muted); margin-bottom: 6px; }
+        .v-stock { text-align: center; padding: clamp(6px,1vh,14px); }
+        .v-stock .lbl { font-size: clamp(.7rem,1.3vw,.95rem); color: var(--muted); text-transform: uppercase; letter-spacing: 2px; font-weight: 800; }
+        .v-overlay { position: absolute; inset: 0; z-index: 50; background: radial-gradient(ellipse at 50% 40%, rgba(8,20,28,.86), rgba(2,8,12,.95)); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(12px,2.5vh,26px); padding: clamp(20px,4vw,60px); text-align: center; }
+        .v-gameover-trophy { font-size: clamp(3rem,8vw,6rem); }
+        .v-gameover-winner { font-family: 'Cinzel', serif; font-size: clamp(2rem,6vw,5rem); font-weight: 900; color: var(--accent); }
+        .v-gameover-sub { font-size: clamp(.8rem,2vw,1.3rem); color: var(--muted); text-transform: uppercase; letter-spacing: 4px; }
+
+        @keyframes cardIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+        #app.fresh .card { animation: cardIn .35s cubic-bezier(.2,.8,.3,1) both; }
+        #app.fresh .hdr { animation: cardIn .3s ease-out both; }
+        @keyframes trophyBounce { 0% { transform: scale(0) rotate(-20deg); opacity: 0; } 60% { transform: scale(1.15) rotate(5deg); opacity: 1; } 100% { transform: scale(1) rotate(0deg); } }
+        #app.fresh .trophy .icon { animation: trophyBounce .8s cubic-bezier(.34,1.56,.64,1) both; }
+
+        #sound-togs { position: fixed; top: 10px; right: 10px; z-index: 80; display: flex; gap: 6px; }
+        #sound-togs button { background: var(--surface); border: 1px solid var(--border); color: var(--text); width: 34px; height: 34px; border-radius: 9px; font-size: 1rem; cursor: pointer; }
+        #sound-togs button.off { opacity: .4; }
+        body.viewer-mode #sound-togs { top: auto; bottom: 14px; right: 14px; opacity: .6; }
+
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <div id="sound-togs">
+        <button id="tog-music" title="Music on/off" onclick="toggleMusic()">🎵</button>
+        <button id="tog-sfx" title="Sound effects on/off" onclick="toggleSfx()">🔊</button>
+        <button id="tog-voice" title="Speak milestones aloud" onclick="toggleVoice()">🗣️</button>
+    </div>
+<script>
+'use strict';
+typeof mountScene === 'function' && mountScene('pond');   // themed ambient scene along the bottom of the TV
+
+// ═══════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════
+const PFX = 'GOFISH-';
+const MIN_PLAYERS = 2, MAX_PLAYERS = 6;
+const HAND_SIZE = n => n <= 3 ? 7 : 5;   // Bicycle: 7 each for 2-3 players, 5 each for 4+
+const SUIT_SYM = { S: '♠', H: '♥', D: '♦', C: '♣' };
+const SUIT_WORDS = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' };
+const RANK_WORDS = { 1: 'Ace', 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five', 6: 'Six', 7: 'Seven', 8: 'Eight', 9: 'Nine', 10: 'Ten', 11: 'Jack', 12: 'Queen', 13: 'King' };
+const RANK_PLURAL = { 1: 'aces', 2: 'twos', 3: 'threes', 4: 'fours', 5: 'fives', 6: 'sixes', 7: 'sevens', 8: 'eights', 9: 'nines', 10: 'tens', 11: 'jacks', 12: 'queens', 13: 'kings' };
+function rankShort(n) { return n === 1 ? 'A' : n === 11 ? 'J' : n === 12 ? 'Q' : n === 13 ? 'K' : String(n); }
+function cardLabel(c) { return rankShort(c.rank) + SUIT_SYM[c.suit]; }
+function cardSpoken(c) { return `${RANK_WORDS[c.rank] || c.rank} of ${SUIT_WORDS[c.suit]}`; }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+// ═══════════════════════════════════════════
+// CARD MODEL (pure — no host/guest distinction, single JS scope)
+// ═══════════════════════════════════════════
+function makeCard(rank, suit) { return { rank, suit, id: rank + suit }; }
+function makeDeck() {
+    const suits = ['S', 'H', 'D', 'C'], out = [];
+    for (const s of suits) for (let r = 1; r <= 13; r++) out.push(makeCard(r, s));
+    return out;
+}
+function suitColor(suit) { return (suit === 'H' || suit === 'D') ? 'red' : 'black'; }
+function shuffled(deck) {
+    const a = deck.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+}
+
+// ═══════════════════════════════════════════
+// BOOK LOGIC (pure) — the instant all four of a rank sit in one hand, it lays down.
+// Runs after every hand-changing event: a successful ask, a Go Fish draw, or the deal.
+// ═══════════════════════════════════════════
+function layBooks(player) {
+    const laid = [];
+    for (let r = 1; r <= 13; r++) {
+        if (player.hand.filter(c => c.rank === r).length === 4) {
+            player.hand = player.hand.filter(c => c.rank !== r);
+            player.books.push(r);
+            laid.push(r);
+        }
+    }
+    return laid;
+}
+
+// ═══════════════════════════════════════════
+// HOST STATE
+// ═══════════════════════════════════════════
+// Unlike Blackjack, Go Fish has no ongoing "house" role once the deal is done — the host CAN
+// also hold a hand, same as Kings Corner. `H.players` is never spliced or reordered once a
+// game is under way, so `H.turnIdx` staying valid needs no rekeying, same reasoning as both
+// existing card games.
+let H = {
+    phase: 'lobby',              // 'lobby' | 'playing' | 'match_over'
+    players: [],                 // [{ id, cid, name, hand:[Card], books:[rank,...], spectating }]
+    turnIdx: 0,
+    matchStartIdx: 0,             // rotates who deals first across successive "Play again"s
+    stock: [],
+    booksClaimed: 0,
+    milestones: [], milestoneSeq: 0,
+};
+
+function addMilestone(text, speech) {
+    H.milestoneSeq++;
+    H.milestones.push({ seq: H.milestoneSeq, text, speech: speech || text });
+    if (H.milestones.length > 8) H.milestones = H.milestones.slice(-8);
+}
+
+// ═══════════════════════════════════════════
+// HOST LOGIC
+// ═══════════════════════════════════════════
+function hostAddPlayer(id, name, cid) {
+    if (H.players.find(p => p.id === id)) return;
+    const spectating = H.phase !== 'lobby';
+    if (!spectating && H.players.length >= MAX_PLAYERS) return;
+    H.players.push({ id, cid, name, hand: [], books: [], spectating });
+}
+
+function checkMatchOver() {
+    if (H.booksClaimed >= 13) { H.phase = 'match_over'; broadcast(); return true; }
+    return false;
+}
+
+function hostStartGame(fromId) {
+    if (capPlayer()?.id !== fromId) return;
+    if (H.phase !== 'lobby') return;
+    if (H.players.length < MIN_PLAYERS) return;
+    H.players.forEach(p => { p.spectating = false; p.hand = []; p.books = []; });
+    const n = H.players.length;
+    H.stock = shuffled(makeDeck());
+    for (let r = 0; r < HAND_SIZE(n); r++) for (const p of H.players) p.hand.push(H.stock.pop());
+    H.players.forEach(p => layBooks(p));   // a book dealt straight off the top is rare, but real
+    H.booksClaimed = H.players.reduce((s, p) => s + p.books.length, 0);
+    H.turnIdx = H.matchStartIdx % n;
+    H.matchStartIdx = (H.matchStartIdx + 1) % n;
+    H.milestones = []; H.milestoneSeq = 0;
+    H.phase = 'playing';
+    if (!checkMatchOver()) broadcast();
+}
+function hostPlayAgain(fromId) {
+    if (capPlayer()?.id !== fromId) return;
+    if (H.phase !== 'match_over') return;
+    H.phase = 'lobby';
+    H.players.forEach(p => { p.spectating = false; p.hand = []; p.books = []; });
+    H.stock = []; H.booksClaimed = 0;
+    H.milestones = []; H.milestoneSeq = 0;
+    broadcastLobby();
+}
+function hostCtl(fromId, action) {
+    if (capPlayer()?.id !== fromId) return;
+    if (action === 'start') hostStartGame(fromId);
+    else if (action === 'again') hostPlayAgain(fromId);
+}
+
+// Walks forward from fromIdx to the next player who can actually take a turn: skips
+// spectators outright, auto-draws a single card for anyone whose hand is empty (the rules'
+// own forced move, not a real choice), and skips entirely anyone left with an empty hand AND
+// an empty stock ("out of the game"). Guaranteed to land on somebody or end the match — by
+// card conservation, everyone empty-handed with an empty stock means all 52 cards are
+// already in books, i.e. the match is already over.
+function advanceTurn(fromIdx) {
+    const n = H.players.length;
+    let idx = fromIdx;
+    for (let k = 0; k < n; k++) {
+        idx = (idx + 1) % n;
+        const p = H.players[idx];
+        if (p.spectating) continue;
+        if (p.hand.length > 0) { H.turnIdx = idx; broadcast(); return; }
+        if (H.stock.length > 0) {
+            p.hand.push(H.stock.pop());   // their only legal ask is now this card's own rank
+            H.turnIdx = idx; broadcast(); return;
+        }
+        // empty hand, empty stock — out of the game; keep walking
+    }
+    checkMatchOver() || broadcast();
+}
+
+// Resolves a WHOLE ask in one call — there is no separate player-facing "draw" message,
+// because in Go Fish drawing on a miss isn't a choice, just what the rules say happens next.
+function hostAsk(fromId, targetId, rank) {
+    if (H.phase !== 'playing') return;
+    const asker = H.players[H.turnIdx];
+    if (!asker || asker.id !== fromId) return;
+    rank = Number(rank);
+    if (!asker.hand.some(c => c.rank === rank)) return;   // illegal — must hold at least one
+    const target = H.players.find(p => p.id === targetId && !p.spectating && p.id !== asker.id);
+    if (!target) return;
+
+    const hits = target.hand.filter(c => c.rank === rank);
+    if (hits.length) {
+        target.hand = target.hand.filter(c => c.rank !== rank);
+        asker.hand.push(...hits);
+        addMilestone(
+            `${asker.name} asked ${target.name} for ${RANK_PLURAL[rank]} and got ${hits.length}!`,
+            `${asker.name} asked ${target.name} for ${RANK_PLURAL[rank]} and got ${hits.length}.`
+        );
+        layBooks(asker).forEach(r => {
+            H.booksClaimed++;
+            addMilestone(`${asker.name} laid down a book of ${RANK_PLURAL[r]}!`);
+        });
+        if (!checkMatchOver()) broadcast();   // asker goes again — turnIdx unchanged
+        return;
+    }
+
+    // A miss — "Go Fish" is what the RESPONDER says, not the asker.
+    addMilestone(`${target.name} says "Go Fish!"`);
+    if (H.stock.length === 0) { advanceTurn(H.turnIdx); return; }
+    const drawn = H.stock.pop();
+    asker.hand.push(drawn);
+    layBooks(asker).forEach(r => {
+        H.booksClaimed++;
+        addMilestone(`${asker.name} laid down a book of ${RANK_PLURAL[r]}!`);
+    });
+    if (checkMatchOver()) return;
+    if (drawn.rank === rank) {
+        addMilestone(`${asker.name} fished up exactly what they asked for!`);
+        broadcast();   // go again — turnIdx unchanged
+    } else {
+        advanceTurn(H.turnIdx);
+    }
+}
+
+// ═══════════════════════════════════════════
+// MESSAGES / DISPLAY
+// ═══════════════════════════════════════════
+function lobbyMsg() {
+    return {
+        type: 'lobby',
+        players: H.players.filter(p => !p.spectating).map(p => ({ name: p.name })),
+        roomCode, tvHost: isTvHost, captain: capPlayer()?.name || null,
+    };
+}
+// Another player's actual cards never enter this object at all — only their count — which is
+// what makes the hidden information real rather than just hidden by rendering.
+function buildDisplay(playerId) {
+    const me = H.players.find(p => p.id === playerId);
+    const turnP = H.phase === 'playing' ? H.players[H.turnIdx] : null;
+    const sorted = H.players.slice().sort((a, b) => b.books.length - a.books.length);
+    return {
+        type: 'state', phase: H.phase, roomCode, isCaptain: capPlayer()?.id === playerId,
+        myHand: me ? me.hand : [],
+        isMyTurn: !!turnP && turnP.id === playerId,
+        turnPlayerName: turnP ? turnP.name : '',
+        players: H.players.map((p, i) => ({
+            id: p.id, name: p.name, handCount: p.hand.length, books: p.books.slice(),
+            spectating: !!p.spectating, isTurn: i === H.turnIdx,
+        })),
+        stockCount: H.stock.length,
+        milestones: H.milestones.slice(-8),
+        matchWinnerName: H.phase === 'match_over' ? (sorted[0] ? sorted[0].name : '') : '',
+    };
+}
+function buildViewerDisplay() {
+    const { myHand, isMyTurn, ...rest } = buildDisplay(null);
+    return { ...rest, type: 'viewer_state' };
+}
+function phaseUi(phase) {
+    if (phase === 'playing') return 'playing';
+    if (phase === 'match_over') return 'match_over';
+    return 'lobby_h';
+}
+
+function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('send err', e); } }
+
+function broadcastLobby() {
+    const msg = lobbyMsg();
+    H.players.forEach(p => { if (p.id === myId) return; const c = guestConns[p.id]; if (c) send(c, msg); });
+    Object.values(viewerConns).forEach(c => send(c, { ...msg, type: 'viewer_lobby' }));
+    if (isTvHost) { vD = { ...msg, type: 'viewer_lobby' }; ui = 'viewer'; render(); }
+    else if (isHost) { D = msg; ui = 'lobby_h'; render(); }
+}
+function broadcast() {
+    H.players.forEach(p => { if (p.id === myId) return; const c = guestConns[p.id]; if (c) send(c, buildDisplay(p.id)); });
+    Object.values(viewerConns).forEach(c => send(c, buildViewerDisplay()));
+    if (isTvHost) {
+        const nd = buildViewerDisplay();
+        const entering = nd.phase === 'match_over' && vD?.phase !== 'match_over';
+        vD = nd; ui = 'viewer'; render();
+        toastMilestones(nd.milestones);
+        if (entering) setTimeout(gfConfetti, 200);
+    } else if (isHost) {
+        const d = buildDisplay(myId);
+        if (!d.isMyTurn) { selRank = null; }
+        D = d; ui = phaseUi(H.phase); render();
+        toastMilestones(d.milestones);
+    }
+}
+
+// ═══════════════════════════════════════════
+// CONNECTION / PRESENCE
+// ═══════════════════════════════════════════
+let peer = null, myId = '', myName = '', isHost = false, isTvHost = false, isViewer = false, roomCode = '';
+let hostConn = null, guestConns = {}, viewerConns = {};
+let ui = 'home', uiErr = '';
+let fName = (typeof savedName === 'function' ? savedName() : ''), fCode = '', fVCode = '';
+let D = null, vD = null;
+let selRank = null;
+let _lastKey = '';
+
+function connectedPlayers() {
+    if (typeof presentPlayers === 'function') {
+        return presentPlayers(H.players, guestConns, myId, isHost && !isTvHost);
+    }
+    return H.players.filter(p => (p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]));
+}
+function capPlayer() { return connectedPlayers()[0] || H.players[0] || null; }
+function capSync(prevId) {
+    if ((capPlayer()?.id || null) === prevId) return;
+    if (H.phase === 'lobby') broadcastLobby(); else broadcast();
+}
+
+function makeRoom(onOpen) {
+    forgetRoom();
+    roomCode = makeRoomCode();
+    peer = hostPeer(PFX + roomCode, {
+        onOpen: id => { myId = id; isHost = true; onOpen(); },
+        onConnection: conn => setupGuestConn(conn),
+        onFatalError: e => {
+            uiErr = 'Connection error: ' + e.message; isHost = false; isTvHost = false;
+            document.body.classList.remove('viewer-mode'); ui = 'home'; render();
+        },
+    });
+}
+function hostGame(name) {
+    myName = name.trim().slice(0, 16) || 'Host';
+    try { saveName(myName); } catch (_) {}
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => { hostAddPlayer(myId, myName, clientId()); ui = 'lobby_h'; render(); });
+}
+function hostOnTV() {
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => { isTvHost = true; document.body.classList.add('viewer-mode'); vD = { ...lobbyMsg(), type: 'viewer_lobby' }; ui = 'viewer'; render(); });
+}
+function joinGame(code, name) {
+    myName = name.trim().slice(0, 16) || 'Player';
+    try { saveName(myName); } catch (_) {}
+    uiErr = ''; ui = 'connecting'; render();
+    let connected = false;
+    joinPeer({
+        hostFullId: PFX + code.trim().toUpperCase(),
+        attempts: 3, delayMs: 700,
+        isConnected: () => connected,
+        onReady: (p, id, hc) => {
+            peer = p; myId = id; isHost = false; hostConn = hc;
+            hostConn.on('open', () => {
+                connected = true; rememberRoom(code.trim().toUpperCase(), 'player');
+                send(hostConn, { type: 'join', cid: clientId(), build: typeof BUILD !== 'undefined' ? BUILD : null, name: myName });
+                if (typeof startHeartbeat === 'function') startHeartbeat(() => { try { send(hostConn, { type: 'hb' }); } catch (e) {} });
+            });
+            hostConn.on('data', msg => applyMsg(msg));
+        },
+        onLost: () => { connected = false; },
+        onGiveUp: wasIn => { forgetRoom(); uiErr = wasIn ? 'Lost connection to the table — tap Join to get back in.' : 'Could not reach table "' + code.toUpperCase() + '". Check the code and try again.'; ui = 'home'; D = null; render(); },
+    });
+}
+function joinAsViewer(code) {
+    isViewer = true;
+    uiErr = ''; ui = 'connecting'; render();
+    let connected = false;
+    joinPeer({
+        hostFullId: PFX + code.trim().toUpperCase(),
+        attempts: 2, delayMs: 600,
+        isConnected: () => connected,
+        onReady: (p, id, hc) => {
+            peer = p; myId = id; hostConn = hc;
+            hostConn.on('open', () => { connected = true; rememberRoom(code.trim().toUpperCase(), 'viewer'); send(hostConn, { type: 'join_viewer' }); });
+            hostConn.on('data', msg => applyViewerMsg(msg));
+        },
+        onLost: () => { connected = false; },
+        onGiveUp: wasIn => { forgetRoom(); uiErr = wasIn ? 'Lost connection to the table.' : 'Could not reach table "' + code.toUpperCase() + '". Check the code and try again.'; isViewer = false; vD = null; document.body.classList.remove('viewer-mode'); ui = 'home'; render(); },
+    });
+}
+function setupGuestConn(conn) {
+    conn.on('open', () => { conn._role = null; });
+    conn.on('data', msg => {
+        {
+            const alive = H.players.find(p => p.id === conn.peer);
+            if (alive && typeof notePresence === 'function') notePresence(alive);
+        }
+        if (conn._role === null && msg.type === 'join_viewer') {
+            conn._role = 'viewer'; viewerConns[conn.peer] = conn; send(conn, H.phase === 'lobby' ? { ...lobbyMsg(), type: 'viewer_lobby' } : buildViewerDisplay());
+            return;
+        }
+        if (conn._role === null) { conn._role = 'player'; guestConns[conn.peer] = conn; }
+        switch (msg.type) {
+            case 'join': {
+                if (typeof warnIfStale === 'function') warnIfStale(conn, msg, send);
+                const prevCap = capPlayer()?.id || null;
+                setTimeout(() => capSync(prevCap), 0);
+                const name = String(msg.name || 'Player').slice(0, 16);
+                const zombie = typeof claimSeat === 'function'
+                    ? claimSeat(H.players, msg, conn.peer, guestConns, H.phase === 'lobby')
+                    : H.players.find(p => msg.cid && p.cid === msg.cid && p.id !== conn.peer);
+                if (zombie) { zombie.id = conn.peer; }
+                else hostAddPlayer(conn.peer, name, msg.cid);
+                const me2 = H.players.find(p => p.id === conn.peer);
+                if (!me2 && H.phase === 'lobby') { send(conn, { type: 'full' }); break; }
+                if (me2 && msg.cid) me2.cid = msg.cid;
+                if (me2 && typeof notePresence === 'function') notePresence(me2);
+                if (H.phase === 'lobby') broadcastLobby(); else broadcast();
+                break;
+            }
+            case 'ctl': if (capPlayer()?.id === conn.peer) hostCtl(conn.peer, msg.action); break;
+            case 'ask': hostAsk(conn.peer, msg.targetId, msg.rank); break;
+            case 'hb': break;
+        }
+    });
+    conn.on('close', () => {
+        const prevCap = capPlayer()?.id || null;
+        setTimeout(() => capSync(prevCap), 0);
+        delete guestConns[conn.peer]; delete viewerConns[conn.peer];
+        // H.players is never spliced once a game is under way (turnIdx is an index into it) —
+        // only safe to remove someone while still in the lobby.
+        if (H.phase === 'lobby') {
+            const pi = H.players.findIndex(p => p.id === conn.peer);
+            if (pi >= 0) { H.players.splice(pi, 1); broadcastLobby(); }
+        }
+    });
+    conn.on('error', e => console.warn('conn err', e));
+}
+
+// ═══════════════════════════════════════════
+// CLIENT ACTIONS
+// ═══════════════════════════════════════════
+let actionWatchdog = null;
+function armActionWatchdog() {
+    clearActionWatchdog();
+    actionWatchdog = setTimeout(() => {
+        actionWatchdog = null;
+        showToast("That didn't seem to reach the table — check your connection and try again.");
+    }, 4000);
+}
+function clearActionWatchdog() { if (actionWatchdog) { clearTimeout(actionWatchdog); actionWatchdog = null; } }
+
+function guestCtl(action) {
+    if (isHost && !isTvHost) { hostCtl(myId, action); return; }
+    if (hostConn) { send(hostConn, { type: 'ctl', action }); armActionWatchdog(); }
+}
+function actAsk(targetId, rank) {
+    if (isHost && !isTvHost) { hostAsk(myId, targetId, rank); return; }
+    if (hostConn) { send(hostConn, { type: 'ask', targetId, rank }); armActionWatchdog(); }
+}
+
+// ── rank/opponent picker (client-side only) ──
+function gfPickRank(rank) {
+    if (!D || !D.isMyTurn) return;
+    const have = (D.myHand || []).some(c => c.rank === rank);
+    if (!have) return;
+    selRank = (selRank === rank) ? null : rank;
+    render();
+}
+function gfPickOpp(targetId) {
+    if (!D || !D.isMyTurn || selRank == null) return;
+    sAsk();
+    const rank = selRank;
+    selRank = null;
+    actAsk(targetId, rank);
+}
+
+// ── toasts (milestones) ──
+function showToast(text) {
+    let host = document.getElementById('gf-toasts');
+    if (!host) { host = document.createElement('div'); host.id = 'gf-toasts'; document.body.appendChild(host); }
+    const el = document.createElement('div');
+    el.className = 'gf-toast';
+    el.textContent = text;
+    host.appendChild(el);
+    setTimeout(() => el.classList.add('out'), 2600);
+    setTimeout(() => el.remove(), 3000);
+}
+let lastMilestoneSeq = -1, seenFirstMilestones = false;
+function toastMilestones(list) {
+    if (!list) return;
+    if (!seenFirstMilestones) {
+        lastMilestoneSeq = list.length ? Math.max(...list.map(m => m.seq)) : -1;
+        seenFirstMilestones = true;
+        return;
+    }
+    const fresh = list.filter(m => m.seq > lastMilestoneSeq);
+    fresh.forEach(m => {
+        showToast(m.text);
+        if (/laid down a book/.test(m.text)) sBook();
+        else if (/Go Fish/.test(m.text)) sFish();
+        else if (/got \d/.test(m.text)) sHit();
+    });
+    if (fresh.length) speak(fresh.map(m => m.speech).join(' '));
+    if (list.length) lastMilestoneSeq = Math.max(lastMilestoneSeq, ...list.map(m => m.seq));
+}
+
+// ═══════════════════════════════════════════
+// CLIENT APPLY
+// ═══════════════════════════════════════════
+function applyMsg(msg) {
+    if (!msg) return;
+    clearActionWatchdog();
+    if (msg.type === 'version') { if (typeof showStaleBuild === 'function') showStaleBuild(msg.host); return; }
+    if (msg.type === 'full') { forgetRoom(); uiErr = `This table is full (${MAX_PLAYERS}/${MAX_PLAYERS}).`; ui = 'home'; D = null; if (hostConn) { try { hostConn.close(); } catch (_) {} } render(); return; }
+    if (msg.type === 'lobby') { D = msg; ui = (isHost && !isTvHost) ? 'lobby_h' : 'lobby_g'; render(); return; }
+    if (msg.type === 'state') {
+        if (!msg.isMyTurn) { selRank = null; }
+        D = msg;
+        ui = phaseUi(msg.phase) === 'lobby_h' ? 'lobby_g' : phaseUi(msg.phase);
+        toastMilestones(msg.milestones);
+        render();
+    }
+}
+function applyViewerMsg(msg) {
+    if (!msg) return;
+    if (msg.type === 'version') { if (typeof showStaleBuild === 'function') showStaleBuild(msg.host); return; }
+    const entering = msg.type === 'viewer_state' && msg.phase === 'match_over' && vD?.phase !== 'match_over';
+    vD = msg; ui = 'viewer';
+    if (msg.type === 'viewer_state') toastMilestones(msg.milestones);
+    render();
+    if (entering) setTimeout(gfConfetti, 200);
+}
+
+// ═══════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════
+function render() {
+    const app = document.getElementById('app');
+    if (isTvHost || isViewer) ui = 'viewer';
+    if (typeof syncVoiceBtn === 'function') syncVoiceBtn();
+    let html = '';
+    switch (ui) {
+        case 'home': html = renderHome(); break;
+        case 'creating': html = renderSpinner('Shuffling the deck…'); break;
+        case 'connecting': html = renderSpinner('Joining the table…'); break;
+        case 'lobby_h': html = renderLobbyH(); break;
+        case 'lobby_g': html = renderLobbyG(); break;
+        case 'playing': html = renderPlaying(); break;
+        case 'match_over': html = renderMatchOver(); break;
+        case 'viewer': html = renderViewer(); break;
+        default: html = renderHome();
+    }
+    if (typeof setHTML === 'function') setHTML(app, html); else app.innerHTML = html;
+    const key = ui + ':' + (ui === 'viewer' ? (vD?.type || '') : '');
+    app.classList.toggle('fresh', key !== _lastKey);
+    _lastKey = key;
+}
+
+function hdrHTML(sub) {
+    return `<div class="hdr"><h1 class="logo">🎣 Go Fish</h1></div><div class="sub">${esc(sub || 'collect all four of a rank to lay down a book')}</div>`;
+}
+function renderSpinner(msg) { return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`; }
+function errHTML() { return uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''; }
+
+function qrSVG(url) {
+    try {
+        const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+        const n = qr.getModuleCount(), m = 2, size = n + m * 2; let rects = '';
+        for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg"><rect width="${size}" height="${size}" fill="#eaf6fa"/><g fill="#0a2434">${rects}</g></svg>`;
+    } catch (e) { return ''; }
+}
+function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
+
+function renderHome() {
+    const fromQR = !!fCode;
+    return `${hdrHTML()}${errHTML()}
+    <div class="card">
+        <div class="slbl">Who are you?</div>
+        <div class="fg"><label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}" ${fromQR ? 'autofocus' : ''} data-save-name oninput="fName=this.value"></div>
+    </div>
+    <div class="card${fromQR ? ' highlight' : ''}">
+        <div class="slbl">Join a Table</div>
+        <div class="fg"><label>Room Code</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fCode)}"
+                oninput="fCode=this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()"></div>
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
+            onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">🎣 Join with your phone</button>
+    </div>
+    <div class="card">
+        <div class="slbl">Start a Table</div>
+        <button class="btn btn-p btn-full" onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">🎣 Host on this phone</button>
+        <div class="hint">2–6 players</div>
+        <button class="btn btn-g btn-full" style="margin-top:12px" onclick="hostOnTV()">📺 Host the party on this screen</button>
+        <div class="hint">Shows a big QR — the first phone to join becomes 👑 Captain</div>
+        <div class="fg" style="margin-top:12px"><label>…or open the table for an existing room</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"></div>
+        <button class="btn btn-g btn-full btn-sm" onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code for the table.';render()}">📺 Open Table</button>
+    </div>`;
+}
+
+function renderLobbyH() {
+    const players = H.players.filter(p => !p.spectating);
+    const chips = players.map(p => `<div class="chip${p.id === myId ? ' you' : ''}">${esc(p.name)}</div>`).join('');
+    const enough = players.length >= MIN_PLAYERS;
+    return `${hdrHTML('you are the host')}${errHTML()}
+    <div class="card highlight" style="text-align:center">
+        <div class="slbl">Scan to join</div>
+        <div class="qr-box">${qrSVG(joinURL())}</div>
+        <div class="room-code">${roomCode}</div>
+    </div>
+    <div class="card">
+        <div class="slbl">Anglers (${players.length}/${MAX_PLAYERS})</div>
+        <div class="chips">${chips}</div>
+    </div>
+    <button class="btn btn-p btn-full" ${enough ? '' : 'disabled'} onclick="guestCtl('start')">🎣 Deal the hands</button>
+    ${enough ? '' : `<div class="hint">Waiting for at least ${MIN_PLAYERS} players…</div>`}
+    ${typeof shareRoomHTML === 'function' ? shareRoomHTML(roomCode, joinURL()) : ''}`;
+}
+function renderLobbyG() {
+    const players = (D && D.players) || [];
+    const chips = players.map(p => `<div class="chip${p.name === myName ? ' you' : ''}">${esc(p.name)}</div>`).join('');
+    const iAmCaptain = !!(D && D.captain && D.captain === myName);
+    const enough = players.length >= MIN_PLAYERS;
+    const foot = iAmCaptain
+        ? `<button class="btn btn-p btn-full" ${enough ? '' : 'disabled'} onclick="guestCtl('start')">🎣 Deal the hands</button>
+           <div class="hint">👑 You're the captain${enough ? '' : ' — waiting for at least ' + MIN_PLAYERS + ' players…'}</div>`
+        : `<div class="hint">${D && D.captain ? `👑 ${esc(D.captain)} deals when ready` : 'Waiting for the host…'}</div>`;
+    return `${hdrHTML("you're seated")}
+    <div class="card" style="text-align:center">
+        <div class="slbl">Room ${esc((D && D.roomCode) || roomCode)}</div>
+        <div class="chips">${chips}</div>
+    </div>
+    <div class="card">${foot}</div>
+    ${typeof shareRoomHTML === 'function' ? shareRoomHTML((D && D.roomCode) || roomCode, joinURL()) : ''}`;
+}
+
+// ── card rendering (shared by phone and TV) ──
+function cardHTML(c) { return `<span class="rk">${rankShort(c.rank)}</span><span class="su">${SUIT_SYM[c.suit]}</span>`; }
+function faceUpHTML(c, cls) { return `<div class="${cls || 'gf-card'} ${suitColor(c.suit)}">${cardHTML(c)}</div>`; }
+function backsHTML(n, cls) {
+    // capped visual stack, not a precise per-card render — same taste call Kings Corner
+    // makes for its stock pile.
+    const k = Math.min(3, n);
+    return Array.from({ length: k }, () => `<div class="${cls || 'gf-card'} back"></div>`).join('');
+}
+function booksHTML(books) {
+    if (!books || !books.length) return '';
+    return `<div class="gf-books">${books.map(r => `<span class="gf-book">${rankShort(r)}s</span>`).join('')}</div>`;
+}
+
+function renderPlaying() {
+    if (!D) return renderSpinner('…');
+    const myHand = (D.myHand || []).slice().sort((a, b) => a.rank - b.rank || a.suit.localeCompare(b.suit));
+    const myRanks = new Set(myHand.map(c => c.rank));
+    const rankRow = Array.from({ length: 13 }, (_, i) => i + 1).map(r => {
+        const have = myRanks.has(r);
+        return `<button class="gf-rankbtn${selRank === r ? ' sel' : ''}" ${have && D.isMyTurn ? '' : 'disabled'} onclick="gfPickRank(${r})">${rankShort(r)}</button>`;
+    }).join('');
+    const oppHtml = (D.players || []).filter(p => p.id !== myId).map(p => {
+        const cls = ['gf-opp'];
+        if (p.isTurn) cls.push('turn');
+        if (p.spectating) cls.push('spec');
+        const canAsk = D.isMyTurn && selRank != null && !p.spectating && p.handCount > 0;
+        if (!canAsk) cls.push('inert');
+        return `<button class="${cls.join(' ')}" ${canAsk ? '' : 'disabled'} onclick="gfPickOpp('${p.id}')">
+            ${esc(p.name)} · ${p.spectating ? '👀' : p.handCount + ' 🂠'}${booksHTML(p.books)}
+        </button>`;
+    }).join('');
+    const handHtml = myHand.map(c => faceUpHTML(c)).join('') || '<div class="hint">Your hand is empty!</div>';
+    return `
+    <div class="card" style="text-align:center">
+        <div class="slbl">${D.isMyTurn ? 'Your turn' : esc(D.turnPlayerName) + "'s turn"} · stock ${D.stockCount}</div>
+        ${D.isMyTurn ? `<div class="hint">Tap a rank you hold, then who to ask</div>` : ''}
+    </div>
+    <div class="card"><div class="slbl">Your hand</div><div class="gf-hand-row">${handHtml}</div>${booksHTML((D.players.find(p => p.id === myId) || {}).books)}</div>
+    ${D.isMyTurn ? `<div class="card"><div class="slbl">Ask for…</div><div class="gf-rankrow">${rankRow}</div></div>` : ''}
+    <div class="card"><div class="slbl">${D.isMyTurn ? 'Ask whom?' : 'At the table'}</div><div class="gf-opps">${oppHtml}</div></div>`;
+}
+
+function renderMatchOver() {
+    if (!D) return renderSpinner('…');
+    const sorted = (D.players || []).map(p => ({ ...p, score: p.books.length })).sort((a, b) => b.score - a.score);
+    const ranks = typeof rankByScore === 'function' ? rankByScore(sorted, 'score') : sorted.map((_, i) => i);
+    const rows = sorted.map((p, i) => `<div class="rank-item"><span class="rank-num">${ranks[i] + 1}</span><span>${esc(p.name)}</span><span style="margin-left:auto">${p.score} 📗</span></div>`).join('');
+    return `${hdrHTML()}
+    <div class="trophy"><div class="icon">🏆</div><div class="w-name">${esc(D.matchWinnerName)}</div><div class="w-sub">most books</div></div>
+    <div class="rankings">${rows}</div>
+    ${D.isCaptain ? `<button class="btn btn-p btn-full" onclick="guestCtl('again')">🔄 Play again</button>` : `<div class="hint">Waiting for the captain…</div>`}`;
+}
+
+function renderViewer() {
+    if (!vD) return renderSpinner('…');
+    if (vD.type === 'viewer_lobby') {
+        return typeof tvLobby === 'function' ? tvLobby({
+            title: 'GO FISH', roomCode: vD.roomCode, isTvHost: vD.tvHost, captainName: vD.captain,
+            settings: `2–6 anglers · ${MIN_PLAYERS}+ to start`,
+            players: (vD.players || []).map(p => ({ name: p.name })),
+        }) : '';
+    }
+    const rail = (vD.players || []).map(p => `<div class="v-gf-player${p.isTurn ? ' turn' : ''}${p.spectating ? ' spec' : ''}">
+        <div class="nm">${esc(p.name)}</div>
+        <div class="ct">${p.spectating ? '👀 watching' : p.handCount + ' cards'}</div>
+        ${booksHTML(p.books)}
+    </div>`).join('');
+    let overlay = '';
+    if (vD.phase === 'match_over') {
+        overlay = `<div class="v-overlay"><div class="v-gameover-trophy">🏆</div><div class="v-gameover-winner">${esc(vD.matchWinnerName)}</div><div class="v-gameover-sub">most books</div></div>`;
+    }
+    return `<div class="v-screen">
+        <div class="v-header"><div class="v-title">GO FISH</div><div class="v-header-code">Room ${esc(vD.roomCode)}</div></div>
+        <div class="v-stock"><div class="lbl">Stock</div><div style="font-size:clamp(1.2rem,2.4vw,2rem);font-weight:900">${vD.stockCount} left</div></div>
+        <div class="v-gf-players">${rail}</div>
+        ${overlay}
+    </div>`;
+}
+
+function gfConfetti() {
+    if (REDUCED) return;
+    for (let i = 0; i < 36; i++) {
+        setTimeout(() => {
+            const el = document.createElement('div');
+            el.textContent = ['🎣', '🐟', '🐠', '📗', '🏆'][Math.floor(Math.random() * 5)];
+            el.style.cssText = `position:fixed;top:-6vmin;left:${Math.random() * 96}%;font-size:${2 + Math.random() * 2.5}vmin;z-index:940;pointer-events:none;transition:transform 3.2s linear,opacity 3.2s;`;
+            document.body.appendChild(el);
+            requestAnimationFrame(() => { el.style.transform = `translateY(112vh) rotate(${(Math.random() - .5) * 720}deg)`; el.style.opacity = '0.2'; });
+            setTimeout(() => el.remove(), 3400);
+        }, i * 60);
+    }
+}
+
+// ═══════════════════════════════════════════
+// AUDIO (ambient.js: pad + tone() + duck())
+// ═══════════════════════════════════════════
+let musicOn = true, sfxOn = true, voicePref = null;
+try { musicOn = localStorage.getItem('gf-music') !== '0'; sfxOn = localStorage.getItem('gf-sfx') !== '0'; voicePref = localStorage.getItem('gf-voice'); } catch (_) {}
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// A gentle, watery drift.
+const AMBIENT_CHORDS = [[196, 247, 294], [220, 262, 330], [175, 220, 262], [196, 233, 294]];
+function sAsk() { if (!sfxOn || !ac()) return; tone(360, 0.08, 'triangle', AC.currentTime, 0.22); }
+function sHit() { if (!sfxOn || !ac()) return; tone(520, 0.1, 'square', AC.currentTime, 0.24); }
+function sFish() { if (!sfxOn || !ac()) return; tone(180, 0.14, 'sawtooth', AC.currentTime, 0.18); }
+function sBook() { if (!sfxOn || !ac()) return; duck(1.0); const t = AC.currentTime; [523, 659, 784].forEach((f, i) => tone(f, 0.18, 'triangle', t + i * 0.06, 0.26)); }
+function sWinMatch() { if (!sfxOn || !ac()) return; duck(1.6); const t = AC.currentTime; [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.3, 'triangle', t + i * 0.09, 0.28)); }
+function toggleMusic() { musicOn = !musicOn; try { localStorage.setItem('gf-music', musicOn ? '1' : '0'); } catch (_) {} const b = document.getElementById('tog-music'); if (b) b.classList.toggle('off', !musicOn); if (musicOn) startPad(); else stopPad(); }
+function toggleSfx() { sfxOn = !sfxOn; try { localStorage.setItem('gf-sfx', sfxOn ? '1' : '0'); } catch (_) {} const b = document.getElementById('tog-sfx'); if (b) b.classList.toggle('off', !sfxOn); }
+function toggleVoice() {
+    voicePref = voiceOn() ? '0' : '1';
+    try { localStorage.setItem('gf-voice', voicePref); } catch (_) {}
+    syncVoiceBtn();
+    if (!voiceOn() && typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
+}
+function voiceOn() { return voicePref === null ? !!(isViewer || isTvHost) : voicePref !== '0'; }
+function syncVoiceBtn() { const b = document.getElementById('tog-voice'); if (b) b.classList.toggle('off', !voiceOn()); }
+function canSpeak() { return voiceOn() && typeof speechSynthesis !== 'undefined'; }
+function primeSpeech() {
+    if (typeof speechSynthesis === 'undefined') return;
+    try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {}
+}
+function speak(text) {
+    if (!canSpeak() || !text) return;
+    try {
+        speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.02;
+        speechSynthesis.speak(u);
+    } catch (e) {}
+}
+document.addEventListener('pointerdown', () => { ac(); if (AC && AC.state === 'suspended') AC.resume(); if (musicOn) startPad(); primeSpeech(); }, { once: true });
+
+// ── Theme (day/night) ──
+typeof applySavedTheme === 'function' && applySavedTheme();
+
+// ═══════════════════════════════════════════
+// SIMULATION — ?mode=tvsimulation | ?mode=playersimulation  (&players=N)
+// ═══════════════════════════════════════════
+const SIM_NAMES = ['Ace', 'Bea', 'Cy', 'Dot', 'Eli', 'Fay'];
+let simTimer = null, simMode = 'tv';
+function startSimulation(nPlayers, mode) {
+    simMode = mode === 'player' ? 'player' : 'tv';
+    const n = Math.max(MIN_PLAYERS, Math.min(nPlayers || 4, MAX_PLAYERS));
+    roomCode = 'DEMO';
+    H = { phase: 'lobby', players: [], turnIdx: 0, matchStartIdx: 0, stock: [], booksClaimed: 0, milestones: [], milestoneSeq: 0 };
+    guestConns = {}; viewerConns = {};
+    isHost = true;
+    if (simMode === 'tv') {
+        isTvHost = true; myId = '__sim_host__'; myName = '';
+        document.body.classList.add('viewer-mode');
+        for (let i = 0; i < n; i++) {
+            const id = '__bot_' + i;
+            guestConns[id] = { send() {}, _sim: true };
+            hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length], id);
+        }
+    } else {
+        isTvHost = false; myName = 'You'; myId = '__you__';
+        hostAddPlayer(myId, myName, myId);
+        for (let i = 1; i < n; i++) {
+            const id = '__bot_' + i;
+            guestConns[id] = { send() {}, _sim: true };
+            hostAddPlayer(id, SIM_NAMES[i % SIM_NAMES.length], id);
+        }
+        ui = 'lobby_h';
+    }
+    broadcastLobby();
+    simTimer = setTimeout(simBegin, 2200);
+}
+function simBegin() {
+    hostStartGame(capPlayer()?.id);
+    simTimer = setTimeout(simStep, 1200);
+}
+function simRestart() { startSimulation(H.players.length, simMode); }
+function simStep() {
+    simTimer = null;
+    if (H.phase === 'match_over') { simTimer = setTimeout(simRestart, 6000); return; }
+    if (H.phase === 'playing') { simBotTurn(); simTimer = setTimeout(simStep, 700 + Math.random() * 500); return; }
+    simTimer = setTimeout(simStep, 800);
+}
+function simBotTurn() {
+    const p = H.players[H.turnIdx];
+    if (!p || !p.hand.length) return;
+    const ranks = [...new Set(p.hand.map(c => c.rank))];
+    const rank = ranks[Math.floor(Math.random() * ranks.length)];
+    const others = H.players.filter(x => x.id !== p.id && !x.spectating);
+    if (!others.length) return;
+    const target = others[Math.floor(Math.random() * others.length)];
+    hostAsk(p.id, target.id, rank);
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+(function boot() {
+    const params = new URLSearchParams(location.search);
+    if (!musicOn) { const b = document.getElementById('tog-music'); if (b) b.classList.add('off'); }
+    if (!sfxOn) { const b = document.getElementById('tog-sfx'); if (b) b.classList.add('off'); }
+    syncVoiceBtn();
+    const mode = (params.get('mode') || '').toLowerCase();
+    const simPlayers = parseInt(params.get('players'), 10) || 4;
+    if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
+    if (mode === 'playersimulation') { startSimulation(simPlayers, 'player'); return; }
+    const viewParam = params.get('view');
+    if (viewParam) { joinAsViewer(viewParam); return; }
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (room) fCode = room;
+    const back = typeof savedRoom === 'function' ? savedRoom() : null;
+    if (back && (!room || room === back.code)) {
+        if (back.role === 'viewer') { joinAsViewer(back.code); return; }
+        joinGame(back.code, (typeof savedName === 'function' && savedName()) || 'Player');
+        return;
+    }
+    render();
+})();
+</script>
+</body>
+</html>

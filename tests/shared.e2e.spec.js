@@ -16,7 +16,7 @@ const GAMES = [
     'letterstorm', 'familytrivia', 'fibbers', 'doodleparty', 'oddsheep', 'herdmind',
     'categoryclash', 'bestguess', 'brokenpencil', 'moonlightvillage', 'goinggone',
     'bingo', 'liarsdice', 'cornerthemarket', 'ticktacktoe', 'rockpaperscissors',
-    'lastlaugh', 'buzzin', 'plumptrek', 'kingscorner',
+    'lastlaugh', 'buzzin', 'plumptrek', 'kingscorner', 'blackjack', 'gofish',
 ];
 // noise we don't care about (offline broker, missing favicon, …)
 const IGNORE = /favicon|net::ERR|Failed to load resource|PeerJS|peerjs|ERR_INTERNET/i;
