@@ -704,7 +704,19 @@ const SOFT_STEPS = SOFT_SHARE.length;     // …after which the hammer really do
 // Holding out for the next drop is therefore a game of nerve: wait, and somebody else takes it,
 // or it leaves the room entirely.
 const RESERVE_FRAC = 0.25;              // the pass-in floor, as a share of true value
-const ASK_HI = 1.9, ASK_LO = 0.85;      // opening ask as a share of true value — sometimes a gift
+// The opening ask is drawn from one of three MOODS, chosen fresh per lot and never revealed —
+// not a single band with noise on it. A single band is a formula in disguise: simulated against
+// the real 983-lot catalogue, a repeat player who just learns "true value ≈ ask ÷ 1.3" lands
+// within 25% of the truth 58% of the time. Splitting the ask into a mood that always undersells,
+// one that always oversells, and the old honest band cuts that to 25% while an ask still means
+// *something* — see sim output referenced in llmwiki. ASK_LO/ASK_HI are the outer bounds, used
+// only for sanity checks elsewhere.
+const ASK_MOODS = [
+    { lo: 0.45, hi: 0.85 },   // undersells — a gift, every time
+    { lo: 0.85, hi: 1.9 },    // roughly honest — the whole of the old band
+    { lo: 1.9, hi: 3.2 },     // oversells — a swindle, every time
+];
+const ASK_LO = 0.45, ASK_HI = 3.2;
 const DROP_HI = 0.75, DROP_LO = 0.55;   // each "nobody? then who'll give me…" step
 const ASK_STEPS = 5;                    // most he will ever come down before passing it in
 const reserveFor = value => Math.round(value * RESERVE_FRAC);
@@ -715,10 +727,12 @@ function roundAsk(v) {
     return Math.round(v / mag) * mag;
 }
 // The whole descending ladder for one lot, drawn up front: [opening ask, …, last ask]. Random per
-// lot, so the same item never plays the same way twice.
+// lot, so the same item never plays the same way twice — and which mood is in play is never sent
+// to a device, so there is nothing to read off the wire either.
 function askLadder(value) {
     const floor = value * RESERVE_FRAC;
-    let a = value * (ASK_LO + Math.random() * (ASK_HI - ASK_LO));
+    const mood = ASK_MOODS[Math.floor(Math.random() * ASK_MOODS.length)];
+    let a = value * (mood.lo + Math.random() * (mood.hi - mood.lo));
     const out = [];
     while (out.length < ASK_STEPS && a >= floor) {
         const r = roundAsk(a);
@@ -823,6 +837,22 @@ const LOTS = [
     { emoji: '🚒', name: 'A 2015 Pierce Velocity Rescue Pumper', desc: 'A fire engine. Ladders down both sides and a pump that will empty a swimming pool.', value: 150000, src: 'Firetrucks Unlimited', on: '2026-07-28' },
     { emoji: '🥇', name: 'One Kilogram of Gold', desc: 'A single poured Swiss bar, 999.9 fine. It fits in a coat pocket and destroys the coat.', value: 153309, src: 'GoldPrice', on: '2026-07-28' },
     { emoji: '🎹', name: 'A Steinway Model D Concert Grand', desc: 'Nine feet of Hamburg spruce and cast iron. The one that lives on the concert stage.', value: 246900, src: 'Lindeblad Piano', on: '2026-07-28' },
+    { emoji: '🦷', name: 'Real Fossil Spinosaurus Tooth', desc: 'A genuine fossilised tooth from a river-hunting dinosaur bigger than a T. rex, dug from riverbed clay in Morocco.', value: 39, src: 'fossilera.com', on: '2026-08-12' },
+    { emoji: '🧱', name: 'Authentic Berlin Wall Fragment', desc: 'A chunk of concrete, still wearing a smear of spray paint, chiselled from the wall that split a city for decades.', value: 46, src: 'ebay.com', on: '2026-08-12' },
+    { emoji: '🛡️', name: 'Wearable Suit of Armor', desc: 'Eighteen-gauge steel, hand-forged into a complete gothic knight\'s suit you can actually put on and clank around in.', value: 699, src: 'artizanshub.com', on: '2026-08-12' },
+    { emoji: '💎', name: '1-Carat Lab-Grown Diamond', desc: 'A round brilliant stone, graded and certified, cut in a lab rather than dug from the ground.', value: 520, src: 'bluenile.com', on: '2026-08-12' },
+    { emoji: '☄️', name: 'Genuine Iron Meteorite Fragment', desc: 'An etched, hand-sized slice of nickel-iron that fell onto the Argentine plains thousands of years ago.', value: 123, src: 'meteoritemarket.com', on: '2026-08-12' },
+    { emoji: '🪙', name: 'One Gram Gold Bar', desc: 'A tiny stamped bar of pure gold, small enough to lose down the back of a sofa cushion.', value: 140, src: 'findbullionprices.com', on: '2026-08-12' },
+    { emoji: '🚁', name: 'Micro FPV Racing Drone', desc: 'A palm-sized quadcopter built to be flown flat-out through gates and trees by someone wearing video goggles.', value: 131, src: 'racedayquads.com', on: '2026-08-12' },
+    { emoji: '🏎️', name: 'Off-Road Racing Go-Kart', desc: 'A real petrol-powered kart with a roll cage and knobby tyres, built to be thrashed rather than pedalled.', value: 2949, src: 'gokartsusa.com', on: '2026-08-12' },
+    { emoji: '🏰', name: 'Commercial-Grade Bounce House', desc: 'A full inflatable castle with a slide, the rental-grade kind built to survive birthday parties every weekend for years.', value: 2795, src: 'kidwise.com', on: '2026-08-12' },
+    { emoji: '🦖', name: 'Life-Size Animatronic T-Rex', desc: 'Nine feet long and eight feet tall, with a moving head and jaws and a roar, built for museum and theme-park displays.', value: 7980, src: 'distortionsunlimited.com', on: '2026-08-12' },
+    { emoji: '🚤', name: 'New Sea-Doo Spark Jet Ski', desc: 'A genuine brand-new personal watercraft, ready to be trailered to the lake this weekend.', value: 6999, src: 'sea-doo.brp.com', on: '2026-08-12' },
+    { emoji: '🛷', name: 'New Ski-Doo MXZ Neo+ Snowmobile', desc: 'A brand-new trail snowmobile with a 600cc engine, ready to be unloaded straight onto snow.', value: 7849, src: 'ski-doo.brp.com', on: '2026-08-12' },
+    { emoji: '⛳', name: 'New EZ-GO Valor Golf Cart', desc: 'A brand-new electric golf cart, ready to be driven straight off the dealer\'s lot.', value: 9400, src: '3guysgolfcarts.com', on: '2026-08-12' },
+    { emoji: '🏗️', name: 'Used 5,000lb Warehouse Forklift', desc: 'A working LPG forklift with a sixteen-foot triple mast, off a warehouse floor and ready for its next job.', value: 10995, src: 'equipmenttrader.com', on: '2026-08-12' },
+    { emoji: '🐎', name: 'Unraced Thoroughbred Yearling', desc: 'An unraced, unbroken young racehorse straight off the sales grounds, pedigree papers included.', value: 80000, src: 'keeneland.com', on: '2026-08-12' },
+    { emoji: '🪖', name: 'Surplus Military Humvee', desc: 'A real decommissioned military four-by-four, off-road only unless it has been re-titled, delivered on a flatbed.', value: 6600, src: 'classic.com', on: '2026-08-12' },
     { emoji: '🔩', name: 'Corner Bolt & Nut for a Square Sign Post', desc: 'One bolt. One nut. This is the whole lot.', value: 2, src: 'Traffic Safety Store', on: '2026-07-27' },
     { emoji: '🛑', name: 'Official STOP Sign (R1-1, 30in aluminium)', desc: 'The real thing, federal spec, reflective.', value: 58, img: 'https://media.trafficsafetystore.com/image/upload/c_limit,dpr_3.0,f_auto,q_auto:best,w_600/i/stop-signs-r1-1-30in-by-solid-080-gauge-aluminum-roll-up-sign.webp', src: 'Traffic Safety Store', on: '2026-07-27' },
     { emoji: '📏', name: '12ft Steel Sign Post, Highway Green', desc: 'The pole the sign goes on. Sign not included.', value: 61, src: 'Traffic Safety Store', on: '2026-07-27' },

@@ -665,6 +665,173 @@
       "confidence": "medium",
       "confidenceNote": "Steinway does not publish prices; dealers quote $235,000–$246,900 for the 2026 Model D in satin ebony. Spirio player systems and exotic finishes add much more.",
       "capturedOn": "2026-07-28"
+    },
+    {
+      "emoji": "🦷",
+      "name": "Real Fossil Spinosaurus Tooth",
+      "desc": "A genuine fossilised tooth from a river-hunting dinosaur bigger than a T. rex, dug from riverbed clay in Morocco.",
+      "value": 39,
+      "source": "FossilEra.com",
+      "url": "https://www.fossilera.com/fossils-for-sale/spinosaurus-dinosaur-teeth",
+      "capturedOn": "2026-08-12",
+      "confidence": "high"
+    },
+    {
+      "emoji": "🧱",
+      "name": "Authentic Berlin Wall Fragment",
+      "desc": "A chunk of concrete, still wearing a smear of spray paint, chiselled from the wall that split a city for decades.",
+      "value": 46,
+      "source": "eBay listing",
+      "url": "https://www.ebay.com/itm/147415697151",
+      "capturedOn": "2026-08-12",
+      "confidence": "medium",
+      "confidenceNote": "figure was read from the live eBay listing via search; a direct re-fetch of the page timed out twice, so spot-check before shipping"
+    },
+    {
+      "emoji": "🛡️",
+      "name": "Wearable Suit of Armor",
+      "desc": "Eighteen-gauge steel, hand-forged into a complete gothic knight's suit you can actually put on and clank around in.",
+      "value": 699,
+      "source": "Artisans Hub",
+      "url": "https://artizanshub.com/products/medieval-knight-wearable-armor-suit-18g-steel-full-body-artisans-hub",
+      "capturedOn": "2026-08-12",
+      "confidence": "high"
+    },
+    {
+      "emoji": "💎",
+      "name": "1-Carat Lab-Grown Diamond",
+      "desc": "A round brilliant stone, graded and certified, cut in a lab rather than dug from the ground.",
+      "value": 520,
+      "source": "Blue Nile (formerly James Allen)",
+      "url": "https://www.bluenile.com/diamonds/1-carat-lab-grown-diamonds?jaRedirect=true",
+      "capturedOn": "2026-08-12",
+      "confidence": "high",
+      "confidenceNote": "price is for the least expensive in-stock stone at this carat weight on the day captured; individual stones vary by grade and inventory turns over"
+    },
+    {
+      "emoji": "☄️",
+      "name": "Genuine Iron Meteorite Fragment",
+      "desc": "An etched, hand-sized slice of nickel-iron that fell onto the Argentine plains thousands of years ago.",
+      "value": 123,
+      "source": "Meteorite Market",
+      "url": "https://www.meteoritemarket.com/CC.htm",
+      "capturedOn": "2026-08-12",
+      "confidence": "high"
+    },
+    {
+      "emoji": "🪙",
+      "name": "One Gram Gold Bar",
+      "desc": "A tiny stamped bar of pure gold, small enough to lose down the back of a sofa cushion.",
+      "value": 140,
+      "source": "Money Metals Exchange (via live price-comparison aggregator)",
+      "url": "https://findbullionprices.com/p/1-gram-Gold-Bar-Secondary-Market/",
+      "capturedOn": "2026-08-12",
+      "confidence": "medium",
+      "confidenceNote": "bullion-dealer sites (APMEX, JM Bullion) blocked direct automated fetches, so the figure is read from a live aggregator quoting a named dealer; gold-bar prices move daily with the spot price"
+    },
+    {
+      "emoji": "🚁",
+      "name": "Micro FPV Racing Drone",
+      "desc": "A palm-sized quadcopter built to be flown flat-out through gates and trees by someone wearing video goggles.",
+      "value": 131,
+      "source": "RaceDayQuads",
+      "url": "https://www.racedayquads.com/collections/all-pre-built-quads-wings",
+      "capturedOn": "2026-08-12",
+      "confidence": "high"
+    },
+    {
+      "emoji": "🏎️",
+      "name": "Off-Road Racing Go-Kart",
+      "desc": "A real petrol-powered kart with a roll cage and knobby tyres, built to be thrashed rather than pedalled.",
+      "value": 2949,
+      "source": "GoKartsUSA.com",
+      "url": "https://gokartsusa.com/Road-Rat-Racer-Race-Karts-Gokarts.aspx",
+      "capturedOn": "2026-08-12",
+      "confidence": "high"
+    },
+    {
+      "emoji": "🏰",
+      "name": "Commercial-Grade Bounce House",
+      "desc": "A full inflatable castle with a slide, the rental-grade kind built to survive birthday parties every weekend for years.",
+      "value": 2795,
+      "source": "KidWise Outdoors",
+      "url": "https://kidwise.com/collections/commercial-bouncers",
+      "capturedOn": "2026-08-12",
+      "confidence": "high"
+    },
+    {
+      "emoji": "🦖",
+      "name": "Life-Size Animatronic T-Rex",
+      "desc": "Nine feet long and eight feet tall, with a moving head and jaws and a roar, built for museum and theme-park displays.",
+      "value": 7980,
+      "source": "Distortions Unlimited",
+      "url": "https://distortionsunlimited.com/products/t-rex-animatronic",
+      "capturedOn": "2026-08-12",
+      "confidence": "high"
+    },
+    {
+      "emoji": "🚤",
+      "name": "New Sea-Doo Spark Jet Ski",
+      "desc": "A genuine brand-new personal watercraft, ready to be trailered to the lake this weekend.",
+      "value": 6999,
+      "source": "BRP / Sea-Doo official pricing",
+      "url": "https://sea-doo.brp.com/us/en/models/personal-watercrafts/rec-lite/spark.html",
+      "capturedOn": "2026-08-12",
+      "confidence": "high"
+    },
+    {
+      "emoji": "🛷",
+      "name": "New Ski-Doo MXZ Neo+ Snowmobile",
+      "desc": "A brand-new trail snowmobile with a 600cc engine, ready to be unloaded straight onto snow.",
+      "value": 7849,
+      "source": "BRP / Ski-Doo official pricing",
+      "url": "https://ski-doo.brp.com/us/en/models/previous-models/2026/mxz-neo.html",
+      "capturedOn": "2026-08-12",
+      "confidence": "high"
+    },
+    {
+      "emoji": "⛳",
+      "name": "New EZ-GO Valor Golf Cart",
+      "desc": "A brand-new electric golf cart, ready to be driven straight off the dealer's lot.",
+      "value": 9400,
+      "source": "3 Guys Golf Carts (dealer listing)",
+      "url": "https://www.3guysgolfcarts.com/collections/ez-go",
+      "capturedOn": "2026-08-12",
+      "confidence": "medium",
+      "confidenceNote": "a single dealer's specific in-stock unit; new golf cart prices vary widely by trim and dealer, roughly $9,000-$19,000"
+    },
+    {
+      "emoji": "🏗️",
+      "name": "Used 5,000lb Warehouse Forklift",
+      "desc": "A working LPG forklift with a sixteen-foot triple mast, off a warehouse floor and ready for its next job.",
+      "value": 10995,
+      "source": "Equipment Trader (Somerset Equipment Sales listing)",
+      "url": "https://www.equipmenttrader.com/Toyota-5000-Lb-Lp-Forklift/equipment-for-sale?make=Toyota%7C2322810&model=5000+lb+LP+forklift%7C0",
+      "capturedOn": "2026-08-12",
+      "confidence": "medium",
+      "confidenceNote": "figure read from a live marketplace search listing (dealer, hours and specs all named); a direct page fetch was blocked by the site (403), the same issue the existing pool's Amazon-sourced items ran into"
+    },
+    {
+      "emoji": "🐎",
+      "name": "Unraced Thoroughbred Yearling",
+      "desc": "An unraced, unbroken young racehorse straight off the sales grounds, pedigree papers included.",
+      "value": 80000,
+      "source": "Keeneland (official 2025 September Yearling Sale results)",
+      "url": "https://www.keeneland.com/media/news/record-keeneland-september-yearling-sale-reflects-global-confidence-us-thoroughbred",
+      "capturedOn": "2026-08-12",
+      "confidence": "medium",
+      "confidenceNote": "this is the MEDIAN price across the record 2025 sale (3,078 horses), not one cherry-picked animal — the sale's average was more than double this figure at $172,755"
+    },
+    {
+      "emoji": "🪖",
+      "name": "Surplus Military Humvee",
+      "desc": "A real decommissioned military four-by-four, off-road only unless it has been re-titled, delivered on a flatbed.",
+      "value": 6600,
+      "source": "Classic.com market data (recorded sale)",
+      "url": "https://www.classic.com/m/am-general/humvee/",
+      "capturedOn": "2026-08-12",
+      "confidence": "low",
+      "confidenceNote": "a single recorded sale price (AM General Humvee M997, recorded June 2026) tracked by Classic.com's market data; direct fetch of the page was blocked (403), and surplus Humvee prices swing widely by condition and title status, roughly $5,000-$30,000"
     }
   ],
   "researchLog": [

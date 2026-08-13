@@ -226,15 +226,31 @@ invented**: if a price could not be verified from a live source, the item is not
   lot tiers **climb with the round** (`roundBands`) so a table that has tripled its money is shown
   lots it can now afford; `H.usedLots` spans the whole game so nothing is ever sold twice. Awards
   come from `H.gameReveals` (every round), not the round that just ended.
-- **The auctioneer asks; he does not wait for zero.** Bidding opens at his *ask* — a randomised
-  0.85×–1.9× of true value, so it is a clue with a lie in it. Nobody bites → he comes down a rung
-  (`checkGavel`) and asks again, up to 5 rungs, floored at the 25% reserve; past that the lot is
-  **passed in** and its true value is revealed. **The ladder and the reserve never leave the
-  host** — `stateFor` sends only the current ask and the number of drops so far. Not knowing how
-  far he will go is the entire game of nerve; leak it and there is no reason ever to bid early.
-  All of this is real auction practice, not invention (auctioneers genuinely fish down for an
-  opening bid, and "passed in" is the trade's term) — see the research in
+- **The auctioneer asks; he does not wait for zero.** Bidding opens at his *ask* — so it is a clue
+  with a lie in it. Nobody bites → he comes down a rung (`checkGavel`) and asks again, up to 5
+  rungs, floored at the 25% reserve; past that the lot is **passed in** and its true value is
+  revealed. **The ladder and the reserve never leave the host** — `stateFor` sends only the
+  current ask and the number of drops so far. Not knowing how far he will go is the entire game of
+  nerve; leak it and there is no reason ever to bid early. All of this is real auction practice,
+  not invention (auctioneers genuinely fish down for an opening bid, and "passed in" is the
+  trade's term) — see the research in
   `goinggoneplan-realitems.md`.
+- **The opening ask is drawn from a MOOD, not one noisy band around the value.** It used to be a
+  single 0.85×–1.9× multiplier, which family testers learned to decode within a session: divide
+  the opening ask by about 1.3 and you're usually close. Simulated against the real 983-lot
+  catalogue, that single band let a repeat player land within 25% of true value **58%** of the
+  time. `ASK_MOODS` in `goinggone.html` (mirrored in `sim/goinggone.js`, so they must move
+  together like the other duplicated constants) picks one of three bands per lot — undersells
+  (0.45×–0.85×, always a gift), roughly honest (0.85×–1.9×, the old band), oversells
+  (1.9×–3.2×, always a swindle) — with no tell as to which is in play. That drops the same
+  decode rate to **25%**, while an ask still means *something* (far better than the ~0% a random
+  guess would manage against this catalogue's spread). Widening the band alone was tried first and
+  only got to 39% — a wider single band is still one learnable formula, just noisier; what
+  actually defeats calibration is having no single formula to learn. A stronger version (wider
+  extremes too, 17%) was rejected: it starts to feel like the ask is arbitrary rather than a lie
+  worth reading, which loses the "read the auctioneer" mechanic rather than just slowing down
+  mastery of it. The mood is never sent to a device — `askLadder()` runs host-side only, same as
+  the ladder and reserve.
 - **His asks are ROUND PRICES.** `askLadderFor(price)` builds the rungs: each notional step (full
   jump, half, quarter, floor) added to the price and then rounded UP to a unit that suits its
   size, so 2,963 gives 3,250 → 3,100 → 3,050 → 3,000. **Step first, then tidy** — taking the next

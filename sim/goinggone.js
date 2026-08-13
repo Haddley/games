@@ -45,7 +45,15 @@ const RESERVE_FRAC = 0.25;      // the withdrawal floor: the ask never drops bel
 // for the next drop is a game of nerve: wait too long and somebody else takes it, or it is
 // wheeled off the stage entirely.
 const REACH = 0.45;             // a lot's reserve may not demand more than this share of the richest bankroll
-const ASK_HI = 1.9, ASK_LO = 0.85;      // opening ask as a share of true value — sometimes a gift
+// Three MOODS, not one noisy band — see goinggone.html for why (a single band lets a repeat
+// player learn "value ≈ ask ÷ k" and be right within 25% over half the time; three moods with no
+// tell drops that to a quarter). ASK_LO/ASK_HI stay as the outer bounds for sanity checks.
+const ASK_MOODS = [
+    { lo: 0.45, hi: 0.85 },
+    { lo: 0.85, hi: 1.9 },
+    { lo: 1.9, hi: 3.2 },
+];
+const ASK_HI = 3.2, ASK_LO = 0.45;      // opening ask as a share of true value — sometimes a gift
 const DROP_HI = 0.75, DROP_LO = 0.55;   // each "nobody? then who'll give me…" step
 const ASK_STEPS = 5;                    // most he will ever come down before withdrawing
 
@@ -59,7 +67,8 @@ const roundAsk = v => {
 // The whole descending ladder for one lot, computed up front: [opening ask, …, last ask].
 function askLadder(value, rnd) {
     const floor = value * RESERVE_FRAC;
-    let a = value * (ASK_LO + rnd() * (ASK_HI - ASK_LO));
+    const mood = ASK_MOODS[Math.floor(rnd() * ASK_MOODS.length)];
+    let a = value * (mood.lo + rnd() * (mood.hi - mood.lo));
     const out = [];
     while (out.length < ASK_STEPS && a >= floor) {
         const r = roundAsk(a);
