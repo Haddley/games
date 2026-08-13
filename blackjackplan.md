@@ -37,17 +37,27 @@ betting uses a **virtual chip stack wagered per hand**, and rules go to
 
 ## What's new (not in Kings Corner)
 
-- **Dealer-only host.** `H.dealer` is a hand belonging to nobody's `id` — the hosting device
-  (whether opened via "Deal on this phone" or "Deal on the big screen") always renders the
-  dealer's table, never a player's own cards. This is closer to Going, Going, GONE!'s
-  auctioneer (host never holds a paddle) than to Kings Corner's `isTvHost`-doubles-as-a-seat
-  split. **The host is never also a guest here**, so — unlike Kings Corner — there is no
-  local-shortcut branch for player actions; every bet/hit/stand/double always round-trips
-  over the wire, and a phone-hosted table genuinely needs a *second* phone to actually play
-  (a solo human vs. the house needs two devices: one dealer, one player). Since the host
-  never has player-specific UI, `render()` collapses hosting (phone OR TV) onto the exact
-  same `'viewer'` path — no separate `lobby_h`/`playing_h` render functions the way Kings
-  Corner needs for its dual host role.
+- **Dealer-only host, by default — plus an opt-in "Host & play" mode for solo play.**
+  `H.dealer` is a hand belonging to nobody's `id` — "Deal on this phone" / "Deal on the big
+  screen" always render the dealer's table, never a player's own cards, closer to Going,
+  Going, GONE!'s auctioneer (host never holds a paddle) than to Kings Corner's
+  `isTvHost`-doubles-as-a-seat split. But a THIRD hosting path, **"🎲 Deal me in"**
+  (`hostGameAndPlay`), sets `hostPlays = true` and seats the host as a real player via
+  `hostAddPlayer(myId, ...)` — the only way to play genuinely solo on one device, since a
+  real dealer otherwise means a solo human needs two devices (one dealer, one player).
+  `hostPlays` is the one flag every other branch in the file checks to tell "Deal me in"
+  apart from dealer-only hosting, which is otherwise identical (`isHost && !isTvHost` is true
+  for both): `render()`'s `(isHost && !hostPlays) || isViewer` forces the dealer/TV `'viewer'`
+  path only for the two dealer-only modes; `connectedPlayers()` passes `hostPlays` straight
+  through to `presentPlayers()`'s "does the host count as present" argument; `broadcast()`/
+  `broadcastLobby()` branch on `hostPlays` before falling back to `isHost`, rendering the
+  host's own screen as an ordinary player view (`buildDisplay(myId)`) instead of the viewer
+  table; and `guestCtl`/`actBet`/`actHit`/`actStand`/`actDouble` gained the local-shortcut
+  branch back that Kings Corner's host-doubling-as-player already has (`if (hostPlays) {
+  hostX(myId, ...); return; }`), since a "Deal me in" host has no `hostConn` to send to.
+  Because a normal player's own screen already renders the dealer's row as part of
+  `renderPlaying()`/`renderBetting()`/`renderRoundOver()`, no separate "host who also plays"
+  UI was needed — the existing player views already show everything a dealer-view would.
 - **Chip economy**: `p.chips`, `START_CHIPS = 500`, `MIN_BET = 10`. Bet is deducted at
   placement (so a mid-round drop doesn't lose the accounting; re-betting first refunds
   whatever was already staked), credited back on resolve. Going broke (`chips < MIN_BET`)
@@ -69,6 +79,29 @@ betting uses a **virtual chip stack wagered per hand**, and rules go to
   per-player masking needed there, same as Kings Corner's fully public piles.
 - **New ambient scene theme**: `casino` in `common.js`'s `SCENE_THEMES` (small object-literal
   addition, not a new top-level name). Walk cast `🎰 🂡 💰 🎲 🥂`, props `♠️ ♥️ ♦️ ♣️`.
+- **Full-round commentary, not just bust/blackjack.** Every meaningful beat gets a milestone
+  now (`addMilestone`, same feed both existing card games use): a hit and its new total, a
+  stand and its final total, a double-down, the dealer turning over the hole card, each
+  dealer hit (with "must hit again" when still under 17), the dealer standing, and — new —
+  every player's actual resolve outcome (`win`/`push`/`lose`/`blackjack`), not just the
+  blackjack case. Previously a plain win or loss was completely silent; now the table hears
+  who actually won.
+- **🎓 Coach — a basic-strategy hint, spoken and shown, for players new to the game.**
+  `suggestAction(total, soft, dealerUpRank, canDouble)` is a pure function (simplified
+  teaching chart, not tournament-precision strategy — a few close soft-total cases are
+  collapsed so the advice fits one spoken sentence) computed **client-side** from the same
+  `state` payload the screen already renders — no extra round trip, no host involvement at
+  all. `currentHint()` (read-only, safe to call from render) drives the visible hint card;
+  `hintSpeechIfChanged()` wraps it with dedup tracking (`lastHintKey`) so the SAME suggestion
+  isn't re-spoken every time an unrelated broadcast updates `D` (another player's move still
+  refreshes it). **Hint speech rides in the same `speak()` call as any fresh milestone
+  commentary** — `speak()` always cancels whatever's still being read, so calling it a second
+  time right after `toastMilestones` would clip a "Ann stands on 19" line down to just the
+  hint; `toastMilestones(list, hintSpeech)` now takes the hint text as a second argument and
+  appends it to the SAME utterance instead. Coach defaults ON, is a per-device
+  `localStorage` preference (`bj-coach`, not a captain/table setting — different players want
+  different amounts of help), and speaking it still respects the ordinary 🗣️ voice toggle;
+  turned off, the hint card and its speech simply don't appear.
 - **No natural "win the match" condition.** Unlike Kings Corner's best-of-1/3/5, Blackjack is
   open-ended like a real casino night — the captain can end the session any time
   ("End session", available from the lobby, betting, and round-over screens — matching
@@ -149,9 +182,10 @@ Host-authoritative PeerJS, room peer id `BLKJK-XXXX`.
 
 ## Rendering notes
 
-- `render()`: `if (isHost || isViewer) ui = 'viewer';` — the one-line simplification that lets
-  a phone-hosted "table" and a TV-hosted "table" share literally the same render path, since
-  neither ever needs player-specific controls.
+- `render()`: `if ((isHost && !hostPlays) || isViewer) ui = 'viewer';` — the two dealer-only
+  hosting modes (phone or TV) share literally the same render path, since neither ever needs
+  player-specific controls; `hostPlays` is the one flag that opts a hosting device back into
+  the normal player views instead.
 - Dealer's hand rendered via `dealerRowHTML` (shared by phone and TV), hole card as a face-
   down `.bj-card.back` until reveal.
 - Each seat shows a running total badge (`totalBadge`) — `soft N` / plain total / `BUST` /
@@ -163,15 +197,22 @@ Host-authoritative PeerJS, room peer id `BLKJK-XXXX`.
 
 ## Verification
 
-1. `npm run test:unit` — `blackjack.test.js` (16 tests: hand value incl. multi-ace soft
-   totals, blackjack detection, dealer S17 rule, full payout table) passes; `common-names.test.js`
+1. `npm run test:unit` — `blackjack.test.js` (24 tests: hand value incl. multi-ace soft
+   totals, blackjack detection, dealer S17 rule, full payout table, and `suggestAction`
+   checked against unambiguous textbook basic-strategy calls) passes; `common-names.test.js`
    and `presence.test.js` pass with no special-casing needed for this game.
 2. `npx playwright test tests/smoke.e2e.spec.js` — loads clean, `casino` scene builds.
-3. `npx playwright test tests/blackjack.e2e.spec.js` — TV-hosted: bet → deal → stand/hit/bust
-   → dealer reveal → next hand → end session → podium, plus an explicit assertion that the
-   dealer's hole card is a 1-card array (not just hidden by rendering) on a non-turn player's
-   own wire payload. Phone-hosted: solo player vs. the house, double-down doubles the bet,
-   deals exactly one more card, forces a stand, and the final chip delta is cross-checked
-   against the real `resolveHand()` function run in-browser (not reimplemented in the test).
+3. `npx playwright test tests/blackjack.e2e.spec.js` — three specs. TV-hosted: bet → deal →
+   stand/hit/bust → dealer reveal → next hand → end session → podium, plus an explicit
+   assertion that the dealer's hole card is a 1-card array (not just hidden by rendering) on a
+   non-turn player's own wire payload. Phone-hosted (dealer-only): double-down doubles the
+   bet, deals exactly one more card, forces a stand, and the final chip delta is cross-checked
+   against the real `resolveHand()` function run in-browser. "Deal me in": one device hosts
+   AND plays — `H.players.length === 1` immediately after hosting, `hostPlays === true`, and a
+   full bet → deal → stand → resolve cycle completes with no second device involved.
 4. `npx playwright test tests/shared.e2e.spec.js` — control strip, shared prefs, focus
    survival, the self-playing demo, and the launcher card all pass with blackjack added.
+5. Manual play-through: toggling 🎓 Coach off removes both the hint card and its speech;
+   commentary for a plain win/loss/push (not just blackjack/bust) is now audible; a hint and a
+   fresh commentary line landing in the same broadcast are heard as one sentence, not one
+   cutting the other off.

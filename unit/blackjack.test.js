@@ -18,7 +18,7 @@ const SRC = (() => {
     assert.ok(a >= 0 && b > a, 'could not slice the hand-value/payout block out of blackjack.html');
     return HTML.slice(a, b);
 })();
-const BJ = new Function(SRC + '\nreturn { handValue, isBlackjack, dealerShouldHit, resolveHand };')();
+const BJ = new Function(SRC + '\nreturn { handValue, isBlackjack, dealerShouldHit, resolveHand, suggestAction };')();
 
 const c = (rank, suit) => ({ rank, suit, id: rank + suit });
 const A = s => c(1, s || 'S');
@@ -126,4 +126,42 @@ test('resolveHand: a double-down bet pays out on the doubled amount', () => {
     const r = BJ.resolveHand([N(10), N(9)], [N(10), N(6)], 100);   // 100 = an original 50 doubled
     assert.equal(r.outcome, 'win');
     assert.equal(r.payout, 200);
+});
+
+// ── suggestAction: the 🎓 Coach hint. A simplified teaching chart (not tournament-precision
+// strategy) — these assertions check it against well-known, unambiguous basic-strategy
+// textbook calls, not every edge case.
+test('suggestAction: always stands on a hard 17 or more', () => {
+    assert.equal(BJ.suggestAction(17, false, 10, false).action, 'stand');
+    assert.equal(BJ.suggestAction(20, false, 6, false).action, 'stand');
+});
+test('suggestAction: always hits a hard total of 8 or less', () => {
+    assert.equal(BJ.suggestAction(8, false, 6, false).action, 'hit');
+    assert.equal(BJ.suggestAction(5, false, 10, false).action, 'hit');
+});
+test('suggestAction: stands on hard 13-16 against a weak dealer card, hits against a strong one', () => {
+    assert.equal(BJ.suggestAction(14, false, 5, false).action, 'stand', 'dealer 5 is weak — let them bust');
+    assert.equal(BJ.suggestAction(14, false, 10, false).action, 'hit', "dealer 10 is strong — 14 won't survive standing");
+    assert.equal(BJ.suggestAction(16, false, 1, false).action, 'hit', 'dealer Ace is strong too');
+});
+test('suggestAction: 11 is the textbook double, hits if doubling is unavailable', () => {
+    assert.equal(BJ.suggestAction(11, false, 6, true).action, 'double');
+    assert.equal(BJ.suggestAction(11, false, 6, false).action, 'hit', 'same hand, but can no longer double');
+});
+test('suggestAction: soft totals never bust on a hit, so low soft totals just hit', () => {
+    assert.equal(BJ.suggestAction(15, true, 10, false).action, 'hit');
+});
+test('suggestAction: soft 19 and up always stands', () => {
+    assert.equal(BJ.suggestAction(19, true, 6, false).action, 'stand');
+    assert.equal(BJ.suggestAction(21, true, 6, false).action, 'stand');
+});
+test('suggestAction: soft 18 stands against a weak dealer card, hits against a strong one', () => {
+    assert.equal(BJ.suggestAction(18, true, 6, false).action, 'stand');
+    assert.equal(BJ.suggestAction(18, true, 10, false).action, 'hit');
+    assert.equal(BJ.suggestAction(18, true, 1, false).action, 'hit', "dealer's Ace is the strongest up-card");
+});
+test('suggestAction: every suggestion carries a plain-English reason', () => {
+    for (const a of [BJ.suggestAction(12, false, 5, false), BJ.suggestAction(18, true, 9, false), BJ.suggestAction(9, false, 4, true)]) {
+        assert.ok(a.why && a.why.length > 0, 'no suggestion is left unexplained');
+    }
 });

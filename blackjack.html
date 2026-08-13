@@ -130,6 +130,10 @@
 
         .tog-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; }
         .tog-label { font-size: .84rem; font-weight: 700; }
+        .tog-desc { font-size: .68rem; color: var(--muted); margin-top: 2px; }
+        .bj-hintcard { text-align: center; }
+        .bj-hintcard .verb { font-family: 'Cinzel', serif; font-weight: 900; font-size: 1.1rem; color: var(--accent); }
+        .bj-hintcard .why { font-size: .78rem; color: var(--muted); margin-top: 4px; }
         .tog { position: relative; width: 42px; height: 22px; flex-shrink: 0; }
         .tog input { opacity: 0; width: 0; height: 0; }
         .tog-track { position: absolute; inset: 0; background: var(--border); border-radius: 11px; cursor: pointer; transition: background .2s; }
@@ -256,6 +260,39 @@ function resolveHand(playerCards, dealerCards, bet) {
     if (p.total > d.total) return { outcome: 'win', payout: bet * 2 };
     if (p.total === d.total) return { outcome: 'push', payout: bet };
     return { outcome: 'lose', payout: 0 };
+}
+
+// ═══════════════════════════════════════════
+// BASIC-STRATEGY HINT (pure) — for the optional 🎓 Coach mode, computed CLIENT-SIDE from the
+// same `state` payload the screen already renders, so it costs no extra round trip. This is a
+// simplified teaching chart (dealer stands on all 17s, single-line hit/stand/double calls),
+// not a tournament-precision strategy table — a few close soft-total cases are collapsed to
+// keep the advice explainable in one spoken sentence, which is the point for a beginner.
+// ═══════════════════════════════════════════
+function suggestAction(total, soft, dealerUpRank, canDouble) {
+    const d = dealerUpRank === 1 ? 11 : Math.min(dealerUpRank, 10);   // Ace plays as the strongest card
+    const dName = dealerUpRank === 1 ? 'Ace' : String(Math.min(dealerUpRank, 10));
+    if (soft) {
+        if (total >= 19) return { action: 'stand', why: `Soft ${total} is already strong.` };
+        if (total === 18) {
+            return (d >= 9) ? { action: 'hit', why: `Soft 18 against the dealer's ${dName} needs improving.` }
+                             : { action: 'stand', why: `Soft 18 holds against the dealer's ${dName}.` };
+        }
+        if (canDouble && d >= 4 && d <= 6) return { action: 'double', why: `Soft ${total} against a weak ${dName} is a good double.` };
+        return { action: 'hit', why: `Soft ${total} is safe to hit — an ace can't bust it.` };
+    }
+    if (total >= 17) return { action: 'stand', why: `${total} is strong enough to stand.` };
+    if (total >= 13) return (d <= 6) ? { action: 'stand', why: `The dealer's ${dName} is weak — let them risk busting.` }
+                                      : { action: 'hit', why: `The dealer's ${dName} is strong — you need to improve.` };
+    if (total === 12) return (d >= 4 && d <= 6) ? { action: 'stand', why: `The dealer's ${dName} is weak enough to stand on 12.` }
+                                                 : { action: 'hit', why: `12 against a ${dName} is too risky to stand on.` };
+    if (total === 11) return (canDouble && d !== 11) ? { action: 'double', why: `11 is the best total to double down on.` }
+                                                       : { action: 'hit', why: `11 — hit (or double if you still can).` };
+    if (total === 10) return (canDouble && d <= 9) ? { action: 'double', why: `10 against a ${dName} is a good double.` }
+                                                     : { action: 'hit', why: `10 — hit (or double if you still can).` };
+    if (total === 9) return (canDouble && d >= 3 && d <= 6) ? { action: 'double', why: `9 against a weak ${dName} is worth doubling.` }
+                                                              : { action: 'hit', why: `9 is too low to stand on.` };
+    return { action: 'hit', why: `${total} is too low to stand on.` };
 }
 
 // ═══════════════════════════════════════════
@@ -403,8 +440,9 @@ function hostHit(fromId) {
     if (!p || p.id !== fromId || !canAct(p)) return;
     p.hand.push(H.deck.pop());
     const v = handValue(p.hand);
-    if (v.isBust) { p.busted = true; addMilestone(p.name + ' busts with ' + v.total); advanceTurn(H.turnIdx); return; }
-    if (v.total === 21) { p.standing = true; advanceTurn(H.turnIdx); return; }
+    if (v.isBust) { p.busted = true; addMilestone(p.name + ' hits and busts with ' + v.total); advanceTurn(H.turnIdx); return; }
+    if (v.total === 21) { p.standing = true; addMilestone(p.name + ' hits up to 21!'); advanceTurn(H.turnIdx); return; }
+    addMilestone(p.name + ' hits — now ' + (v.soft ? 'soft ' : '') + v.total);
     broadcast();
 }
 function hostStand(fromId) {
@@ -412,6 +450,8 @@ function hostStand(fromId) {
     const p = H.players[H.turnIdx];
     if (!p || p.id !== fromId || !canAct(p)) return;
     p.standing = true;
+    const v = handValue(p.hand);
+    addMilestone(p.name + ' stands on ' + (v.soft ? 'soft ' : '') + v.total);
     advanceTurn(H.turnIdx);
 }
 function hostDouble(fromId) {
@@ -425,6 +465,7 @@ function hostDouble(fromId) {
     p.hand.push(H.deck.pop());
     const v = handValue(p.hand);
     if (v.isBust) { p.busted = true; addMilestone(p.name + ' doubles down and busts with ' + v.total); }
+    else addMilestone(p.name + ' doubles down — one card, now ' + (v.soft ? 'soft ' : '') + v.total);
     p.standing = true;
     advanceTurn(H.turnIdx);
 }
@@ -438,6 +479,10 @@ function hostPlayDealer() {
     const bettors = H.players.filter(p => !p.spectating && p.bet > 0);
     const anyLive = bettors.some(p => !p.busted);
     H.dealer.holeHidden = false;
+    if (anyLive) {
+        const v = handValue(H.dealer.cards);
+        addMilestone('Dealer turns over the hole card — showing ' + (v.soft ? 'soft ' : '') + v.total);
+    }
     broadcast();
     if (!anyLive) { hostResolve(); return; }
     dealerTimer = setTimeout(dealerStep, 900);
@@ -446,10 +491,14 @@ function dealerStep() {
     dealerTimer = null;
     if (dealerShouldHit(H.dealer.cards)) {
         H.dealer.cards.push(H.deck.pop());
+        const v = handValue(H.dealer.cards);
+        addMilestone('Dealer draws — now ' + (v.soft ? 'soft ' : '') + v.total + (v.total < 17 ? ', must hit again' : ''));
         broadcast();
         dealerTimer = setTimeout(dealerStep, 900);
         return;
     }
+    const v = handValue(H.dealer.cards);
+    if (!v.isBust) addMilestone('Dealer stands on ' + (v.soft ? 'soft ' : '') + v.total);
     hostResolve();
 }
 function hostResolve() {
@@ -463,6 +512,9 @@ function hostResolve() {
         p.lastOutcome = r.outcome;
         p.lastDelta = r.payout - p.bet;
         if (r.outcome === 'blackjack') addMilestone(p.name + ' hits blackjack!');
+        else if (r.outcome === 'win') addMilestone(p.name + ' wins!');
+        else if (r.outcome === 'push') addMilestone(p.name + ' pushes — bet returned');
+        else if (r.outcome === 'lose' && !p.busted) addMilestone(p.name + ' loses to the dealer');
     });
     H.players.forEach(p => { if (!p.spectating && p.chips < MIN_BET) p.spectating = true; });
     H.phase = 'round_over';
@@ -528,14 +580,19 @@ function send(conn, msg) { try { conn.send(msg); } catch (e) { console.warn('sen
 
 function broadcastLobby() {
     const msg = lobbyMsg();
-    H.players.forEach(p => { const c = guestConns[p.id]; if (c) send(c, msg); });
+    H.players.forEach(p => { if (p.id === myId) return; const c = guestConns[p.id]; if (c) send(c, msg); });
     Object.values(viewerConns).forEach(c => send(c, { ...msg, type: 'viewer_lobby' }));
-    if (isHost) { vD = { ...msg, type: 'viewer_lobby' }; ui = 'viewer'; render(); }
+    if (hostPlays) { D = msg; ui = 'lobby'; render(); }
+    else if (isHost) { vD = { ...msg, type: 'viewer_lobby' }; ui = 'viewer'; render(); }
 }
 function broadcast() {
-    H.players.forEach(p => { const c = guestConns[p.id]; if (c) send(c, buildDisplay(p.id)); });
+    H.players.forEach(p => { if (p.id === myId) return; const c = guestConns[p.id]; if (c) send(c, buildDisplay(p.id)); });
     Object.values(viewerConns).forEach(c => send(c, buildViewerDisplay()));
-    if (isHost) {
+    if (hostPlays) {
+        const d = buildDisplay(myId);
+        D = d; ui = phaseUi(H.phase); render();
+        toastMilestones(d.milestones, hintSpeechIfChanged());
+    } else if (isHost) {
         const nd = buildViewerDisplay();
         const entering = nd.phase === 'session_over' && vD?.phase !== 'session_over';
         vD = nd; ui = 'viewer'; render();
@@ -553,13 +610,28 @@ let ui = 'home', uiErr = '';
 let fName = (typeof savedName === 'function' ? savedName() : ''), fCode = '', fVCode = '';
 let D = null, vD = null;
 let _lastKey = '';
+// True only for "Host & play" — the one hosting mode where the dealer's device is ALSO a
+// seated player (the only way to play genuinely solo on a single device). Never true for
+// TV hosting or the dealer-only "Deal on this phone" path.
+let hostPlays = false;
+// 🎓 Coach — per-device, defaults ON, for players new to basic strategy. Computed entirely
+// client-side from the same `state` payload the screen already renders (see suggestAction),
+// so turning it on costs no extra round trip. Text always shows when on; SPEAKING the hint
+// additionally respects the normal 🗣️ voice toggle, same as every other spoken line.
+let coachOn = true;
+try { coachOn = localStorage.getItem('bj-coach') !== '0'; } catch (_) {}
+function toggleCoach() {
+    coachOn = !coachOn;
+    try { localStorage.setItem('bj-coach', coachOn ? '1' : '0'); } catch (_) {}
+    lastHintKey = null;
+    render();
+}
 
-// The dealer is never in H.players, so connectedPlayers()/capPlayer() only ever look at
-// guests — the captain is always the first CONNECTED player, exactly the repo's usual rule,
-// it just never happens to be the host here.
+// The dealer is never in H.players UNLESS hostPlays — in dealer-only mode (phone or TV),
+// connectedPlayers()/capPlayer() only ever look at guests.
 function connectedPlayers() {
-    if (typeof presentPlayers === 'function') return presentPlayers(H.players, guestConns, myId, false);
-    return H.players.filter(p => !!guestConns[p.id]);
+    if (typeof presentPlayers === 'function') return presentPlayers(H.players, guestConns, myId, hostPlays);
+    return H.players.filter(p => (p.id === myId ? hostPlays : !!guestConns[p.id]));
 }
 function capPlayer() { return connectedPlayers()[0] || H.players[0] || null; }
 function capSync(prevId) {
@@ -574,14 +646,14 @@ function makeRoom(onOpen) {
         onOpen: id => { myId = id; isHost = true; onOpen(); },
         onConnection: conn => setupGuestConn(conn),
         onFatalError: e => {
-            uiErr = 'Connection error: ' + e.message; isHost = false; isTvHost = false;
+            uiErr = 'Connection error: ' + e.message; isHost = false; isTvHost = false; hostPlays = false;
             document.body.classList.remove('viewer-mode'); ui = 'home'; render();
         },
     });
 }
-// Hosting never seats a player — the hosting device (phone OR TV) is always just the table,
-// so it renders through the same 'viewer' path either way (see render()). Nobody types a
-// name to host; only joining players do.
+// Dealer-only hosting seats no player — the hosting device (phone OR TV) is always just the
+// table, so it renders through the same 'viewer' path either way (see render()). Nobody
+// types a name to host this way; only joining players (and hostGameAndPlay, below) do.
 function hostGame() {
     uiErr = ''; ui = 'creating'; render();
     makeRoom(() => { document.body.classList.add('viewer-mode'); vD = { ...lobbyMsg(), type: 'viewer_lobby' }; ui = 'viewer'; render(); });
@@ -589,6 +661,20 @@ function hostGame() {
 function hostOnTV() {
     uiErr = ''; ui = 'creating'; render();
     makeRoom(() => { isTvHost = true; document.body.classList.add('viewer-mode'); vD = { ...lobbyMsg(), type: 'viewer_lobby' }; ui = 'viewer'; render(); });
+}
+// The one hosting mode where the dealer's device is ALSO seated as a player — the only way
+// to play genuinely solo on a single device (the dealer logic and your own hand both run
+// here). `hostPlays` is what every other branch in this file checks to tell this apart from
+// `hostGame()`'s dealer-only path, which is otherwise identical (isHost && !isTvHost).
+function hostGameAndPlay(name) {
+    myName = name.trim().slice(0, 16) || 'Player';
+    try { saveName(myName); } catch (_) {}
+    uiErr = ''; ui = 'creating'; render();
+    makeRoom(() => {
+        hostPlays = true;
+        hostAddPlayer(myId, myName, clientId());
+        broadcastLobby();
+    });
 }
 function joinGame(code, name) {
     myName = name.trim().slice(0, 16) || 'Player';
@@ -682,8 +768,9 @@ function setupGuestConn(conn) {
 }
 
 // ═══════════════════════════════════════════
-// CLIENT ACTIONS — the host is never also a guest here, so every action always round-trips
-// over the wire (no local-shortcut branch the way kingscorner's host-doubling-as-player has).
+// CLIENT ACTIONS — dealer-only hosting is never also a guest, so those actions round-trip
+// over the wire; `hostPlays` mode is the one exception, acting on local state directly
+// exactly like Kings Corner's host-doubling-as-player does.
 // ═══════════════════════════════════════════
 let actionWatchdog = null;
 function armActionWatchdog() {
@@ -695,11 +782,28 @@ function armActionWatchdog() {
 }
 function clearActionWatchdog() { if (actionWatchdog) { clearTimeout(actionWatchdog); actionWatchdog = null; } }
 
-function guestCtl(action) { if (hostConn) { send(hostConn, { type: 'ctl', action }); armActionWatchdog(); } }
-function actBet(amount) { if (hostConn) { send(hostConn, { type: 'bet', amount }); armActionWatchdog(); } }
-function actHit() { if (hostConn) { sChip(); send(hostConn, { type: 'hit' }); armActionWatchdog(); } }
-function actStand() { if (hostConn) { send(hostConn, { type: 'stand' }); armActionWatchdog(); } }
-function actDouble() { if (hostConn) { sChip(); send(hostConn, { type: 'double' }); armActionWatchdog(); } }
+function guestCtl(action) {
+    if (hostPlays) { hostCtl(myId, action); return; }
+    if (hostConn) { send(hostConn, { type: 'ctl', action }); armActionWatchdog(); }
+}
+function actBet(amount) {
+    if (hostPlays) { hostBet(myId, amount); return; }
+    if (hostConn) { send(hostConn, { type: 'bet', amount }); armActionWatchdog(); }
+}
+function actHit() {
+    sChip();
+    if (hostPlays) { hostHit(myId); return; }
+    if (hostConn) { send(hostConn, { type: 'hit' }); armActionWatchdog(); }
+}
+function actStand() {
+    if (hostPlays) { hostStand(myId); return; }
+    if (hostConn) { send(hostConn, { type: 'stand' }); armActionWatchdog(); }
+}
+function actDouble() {
+    sChip();
+    if (hostPlays) { hostDouble(myId); return; }
+    if (hostConn) { send(hostConn, { type: 'double' }); armActionWatchdog(); }
+}
 
 // ── toasts (milestones) ──
 function showToast(text) {
@@ -713,7 +817,10 @@ function showToast(text) {
     setTimeout(() => el.remove(), 3000);
 }
 let lastMilestoneSeq = -1, seenFirstMilestones = false;
-function toastMilestones(list) {
+// `hintSpeech` (from hintSpeechIfChanged(), see the Coach section) rides in the SAME
+// utterance as any fresh commentary — speak() cancels whatever's still being read, so calling
+// it a second time right after would clip the commentary down to just the hint.
+function toastMilestones(list, hintSpeech) {
     if (!list) return;
     if (!seenFirstMilestones) {
         lastMilestoneSeq = list.length ? Math.max(...list.map(m => m.seq)) : -1;
@@ -726,10 +833,33 @@ function toastMilestones(list) {
         if (/blackjack/i.test(m.text)) sBlackjack();
         else if (/busts/i.test(m.text)) sBust();
     });
-    // One utterance for the whole batch — speak() cancels whatever's still reading, so N
-    // separate calls in the same tick would clip to just the last line.
-    if (fresh.length) speak(fresh.map(m => m.speech).join(' '));
+    const parts = fresh.map(m => m.speech);
+    if (hintSpeech) parts.push(hintSpeech);
+    if (parts.length) speak(parts.join(' '));
     if (list.length) lastMilestoneSeq = Math.max(lastMilestoneSeq, ...list.map(m => m.seq));
+}
+
+// ── 🎓 Coach: a basic-strategy suggestion for whoever's turn it is, computed purely from the
+// same `state` payload the screen already renders — no extra round trip. `currentHint()` is
+// read-only (safe to call from render()); `hintSpeechIfChanged()` wraps it with the dedup
+// tracking that keeps the SAME suggestion from being re-spoken on every unrelated broadcast
+// (another player's move still updates `D`, and would otherwise repeat the line each time).
+function currentHint() {
+    if (!coachOn || !D || !D.isMyTurn) return null;
+    const me = (D.players || []).find(p => p.id === myId);
+    if (!me || !D.dealer || !D.dealer.cards || !D.dealer.cards.length) return null;
+    return suggestAction(me.total, me.soft, D.dealer.cards[0].rank, !!D.canDouble);
+}
+let lastHintKey = null;
+function hintSpeechIfChanged() {
+    const sug = currentHint();
+    if (!sug) { lastHintKey = null; return null; }
+    const me = D.players.find(p => p.id === myId);
+    const key = me.total + '|' + me.soft + '|' + D.dealer.cards[0].rank + '|' + D.canDouble + '|' + me.hand.length;
+    if (key === lastHintKey) return null;
+    lastHintKey = key;
+    const verb = { hit: 'Hit', stand: 'Stand', double: 'Double down' }[sug.action] || sug.action;
+    return `Coach says: ${verb}. ${sug.why}`;
 }
 
 // ═══════════════════════════════════════════
@@ -741,7 +871,7 @@ function applyMsg(msg) {
     if (msg.type === 'version') { if (typeof showStaleBuild === 'function') showStaleBuild(msg.host); return; }
     if (msg.type === 'full') { forgetRoom(); uiErr = `This table is full (${MAX_PLAYERS}/${MAX_PLAYERS}).`; ui = 'home'; D = null; if (hostConn) { try { hostConn.close(); } catch (_) {} } render(); return; }
     if (msg.type === 'lobby') { D = msg; ui = 'lobby'; render(); return; }
-    if (msg.type === 'state') { D = msg; ui = phaseUi(msg.phase); toastMilestones(msg.milestones); render(); }
+    if (msg.type === 'state') { D = msg; ui = phaseUi(msg.phase); toastMilestones(msg.milestones, hintSpeechIfChanged()); render(); }
 }
 function applyViewerMsg(msg) {
     if (!msg) return;
@@ -758,7 +888,7 @@ function applyViewerMsg(msg) {
 // ═══════════════════════════════════════════
 function render() {
     const app = document.getElementById('app');
-    if (isHost || isViewer) ui = 'viewer';
+    if ((isHost && !hostPlays) || isViewer) ui = 'viewer';
     if (typeof syncVoiceBtn === 'function') syncVoiceBtn();
     let html = '';
     switch (ui) {
@@ -812,8 +942,13 @@ function renderHome() {
         <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
             onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">🂡 Join with your phone</button>
     </div>
+    <div class="card highlight">
+        <div class="slbl">Play Solo, or Host &amp; Play</div>
+        <button class="btn btn-p btn-full" onclick="if(fName.trim()){hostGameAndPlay(fName)}else{uiErr='Enter your name first.';render()}">🎲 Deal me in</button>
+        <div class="hint">This phone is BOTH the dealer and your own hand — the only way to play solo on one device. Others can still scan in and join the table.</div>
+    </div>
     <div class="card">
-        <div class="slbl">Start a Table</div>
+        <div class="slbl">Start a Table (dealer only)</div>
         <button class="btn btn-p btn-full" onclick="hostGame()">🂡 Deal on this phone</button>
         <div class="hint">The host is the DEALER — it never holds a hand. Everyone plays from their own phone.</div>
         <button class="btn btn-g btn-full" style="margin-top:12px" onclick="hostOnTV()">📺 Deal on the big screen</button>
@@ -835,9 +970,13 @@ function renderLobby() {
            <div class="hint">👑 You're the captain${enough ? '' : ' — waiting for at least ' + MIN_PLAYERS + ' player…'}</div>`
         : `<div class="hint">${D && D.captain ? `👑 ${esc(D.captain)} opens the table when ready` : 'Waiting for the dealer…'}</div>`;
     const endBtn = iAmCaptain ? `<button class="btn btn-g btn-full" style="margin-top:8px" onclick="guestCtl('end_session')">🏁 End session</button>` : '';
+    // Only hostPlays reaches this screen as the room's creator — a plain joining guest
+    // already knows the code they typed in, so the QR is only useful here.
+    const qr = isHost ? `<div class="qr-box">${qrSVG(joinURL())}</div>` : '';
     return `${hdrHTML("you're seated")}
     <div class="card" style="text-align:center">
         <div class="slbl">Room ${esc((D && D.roomCode) || roomCode)}</div>
+        ${qr}
         <div class="chips">${chips}</div>
     </div>
     <div class="card">${foot}${endBtn}</div>
@@ -873,6 +1012,13 @@ function betChipsHTML(myChips, myBet) {
     </div>`;
 }
 
+function coachToggleHTML() {
+    return `<div class="tog-row">
+        <div><div class="tog-label">🎓 Coach</div><div class="tog-desc">Suggests hit / stand / double on your turn — spoken and shown, good for new players</div></div>
+        <label class="tog"><input type="checkbox" ${coachOn ? 'checked' : ''} onchange="toggleCoach()"><span class="tog-track"></span></label>
+    </div>`;
+}
+
 function renderBetting() {
     if (!D) return renderSpinner('…');
     const iAmCaptain = D.isCaptain;
@@ -888,12 +1034,20 @@ function renderBetting() {
         ${betChipsHTML(D.myChips, D.myBet)}
         <div class="hint">Tap chips to stack a bet — table minimum is ${MIN_BET}</div>
     </div>
+    <div class="card">${coachToggleHTML()}</div>
     <div class="card"><div class="slbl">At the table</div>${rows}</div>
     ${iAmCaptain
         ? `<button class="btn btn-p btn-full" ${anyBets ? '' : 'disabled'} onclick="guestCtl('deal')">🂡 Deal</button>
            <div class="hint">👑 Deals everyone who's bet so far — nobody has to wait on a slow bettor</div>
            <button class="btn btn-g btn-full" style="margin-top:8px" onclick="guestCtl('end_session')">🏁 End session</button>`
         : `<div class="hint">Waiting for the captain to deal…</div>`}`;
+}
+
+function hintCardHTML() {
+    const sug = currentHint();
+    if (!sug) return '';
+    const verb = { hit: '🂠 Hit', stand: '✋ Stand', double: '✌️ Double down' }[sug.action] || sug.action;
+    return `<div class="card bj-hintcard"><div class="tog-desc" style="margin-bottom:4px">🎓 COACH SUGGESTS</div><div class="verb">${verb}</div><div class="why">${esc(sug.why)}</div></div>`;
 }
 
 function renderPlaying() {
@@ -913,12 +1067,14 @@ function renderPlaying() {
     <div class="card" style="text-align:center">
         <div class="bj-banner">${D.isMyTurn ? 'Your move' : esc(D.turnPlayerName) + "'s move"}</div>
     </div>
+    ${D.isMyTurn ? hintCardHTML() : ''}
     ${seats}
     ${D.isMyTurn ? `<div class="bj-actrow">
         <button class="btn btn-p" onclick="actHit()">🂠 Hit</button>
         <button class="btn btn-g" onclick="actStand()">✋ Stand</button>
         ${canDouble ? `<button class="btn btn-d" onclick="actDouble()">✌️ Double</button>` : ''}
-    </div>` : ''}`;
+    </div>` : ''}
+    ${D.isMyTurn ? `<div class="card">${coachToggleHTML()}</div>` : ''}`;
 }
 
 function outcomeLabel(o, delta) {

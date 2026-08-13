@@ -176,3 +176,44 @@ test('phone-hosted table (dealer never plays): double down doubles the bet and f
     expect(errors, errors.join('\n')).toEqual([]);
     for (const p of [neil, jess]) await p.close();
 });
+
+test('"Deal me in": one device is both the dealer and a seated player — genuine solo play', async ({ browser }) => {
+    const errors = [];
+    const solo = await browser.newPage({ viewport: PHONE });
+    solo.on('pageerror', e => errors.push('solo: ' + e.message));
+    await solo.goto('/blackjack.html');
+    await solo.locator('input[placeholder="Enter name"]').fill('Robin');
+    await solo.getByRole('button', { name: /Deal me in/ }).click();
+    // Unlike dealer-only hosting (which lands on the shared tvLobby() component and its
+    // `.cxl-code`), hostGameAndPlay renders through the normal player lobby — its own
+    // `.qr-box`, since this player is also the room's creator and needs to show it.
+    await expect(solo.locator('.qr-box')).toBeVisible({ timeout: 30_000 });
+
+    // Unlike dealer-only hosting, this seats the host as a real player immediately.
+    expect(await solo.evaluate(() => H.players.length)).toBe(1);
+    expect(await solo.evaluate(() => H.players[0].name)).toBe('Robin');
+    expect(await solo.evaluate(() => hostPlays)).toBe(true);
+    // And they're automatically their own captain — no second device required to start.
+    await solo.getByRole('button', { name: /Open the table/ }).click();
+    await expect.poll(() => solo.evaluate(() => H.phase), { timeout: 10_000 }).toBe('betting');
+
+    await solo.getByRole('button', { name: '+50', exact: true }).click();
+    await expect.poll(() => solo.evaluate(() => H.players[0].bet), { timeout: 10_000 }).toBe(50);
+    await solo.getByRole('button', { name: /Deal$/ }).click();
+    await expect.poll(() => solo.evaluate(() => H.phase), { timeout: 10_000 }).toBe('playing');
+    expect(await solo.evaluate(() => H.players[0].hand.length)).toBe(2);
+    expect(await solo.evaluate(() => H.dealer.cards.length)).toBe(2);
+
+    // Force a clean stand so the round resolves deterministically without needing a hit.
+    await solo.evaluate(() => {
+        H.players[0].hand = [{ rank: 10, suit: 'S', id: '10S' }, { rank: 9, suit: 'H', id: '9H' }];
+        broadcast();
+    });
+    await expect.poll(() => solo.evaluate(() => D.players[0].total), { timeout: 10_000 }).toBe(19);
+    await solo.getByRole('button', { name: /Stand/ }).click();
+    await expect.poll(() => solo.evaluate(() => H.phase), { timeout: 20_000 }).toBe('round_over');
+    expect(await solo.evaluate(() => typeof H.players[0].lastOutcome)).toBe('string');
+
+    expect(errors, errors.join('\n')).toEqual([]);
+    await solo.close();
+});
