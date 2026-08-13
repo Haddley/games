@@ -252,6 +252,25 @@ nothing to import until then.
     phone hiccups.
   - Both carry `{ game: gameSlug() }`, read off `location.pathname` (e.g. `gofish`,
     `kingscorner`), so a shared file can label the event without knowing which game called it.
+  - **`bmc_click`** — fired on the Buy Me a Coffee text link, its QR image, and a phone
+    actually scanning that QR, each labelled separately (`{ source: 'link' | 'qr' | 'qr_scan'
+    }`) so it's visible which one people actually use. **Deliberately not named `purchase`** —
+    GA4 ships a default suggested `purchase` Key Event on every property (that's the one
+    showing "No stream data detected" in Admin → Events before anything wires it up; this repo
+    never touched it), and it implies a completed transaction with `currency`/`value`/
+    `transaction_id`. A static site with no callback from Buy Me a Coffee can only ever observe
+    the *click*, never whether someone actually paid — naming that `purchase` would silently
+    claim real revenue data this site cannot see. Check the actual Buy Me a Coffee dashboard
+    for real donations; `bmc_click` only measures intent.
+  - **Why a scan needs its own page (`bmc.html`)**: a phone camera reads a QR code's encoded
+    URL directly and opens it — it never touches the page the image is embedded in, so an
+    `onclick` on the `<a>` wrapping the image only fires for an on-page *click*, not a *scan*.
+    The QR's own encoded payload is `bmc.html` (not the Buy Me a Coffee URL directly);
+    `bmc.html` fires `trackEvent('bmc_click', {source:'qr_scan'})` then
+    `location.replace(...)` on to Buy Me a Coffee — `.replace`, not `.href`, so the redirect
+    page never sits in the phone's history. The on-page `<a>` itself still points straight at
+    Buy Me a Coffee (already tracked via its own `onclick`), so a click stays exactly as fast
+    as before — only a scan detours through `bmc.html`.
 - **Seeing it**: GA4's **Realtime** report (left sidebar) shows events within seconds of a
   real page load — the right place to confirm a deploy actually shipped, rather than the
   Admin → Events list, which can lag up to 24–48h before a *new event name* first appears
@@ -261,8 +280,10 @@ nothing to import until then.
   already starred) where the star toggle actually lives.
 - **Key events**: `room_created` and `room_joined` should be starred as GA4 Key Events
   (Admin → Events → Recent events → star) — that's the "was this game actually tried" signal,
-  as opposed to a bounce. Break down by game in Explore using "Page title" or "Page path",
-  which GA4 attaches to every event automatically — no custom dimension registration needed.
+  as opposed to a bounce. `bmc_click` is worth watching but is deliberately **not** suggested
+  as a Key Event here — see the note above on why it isn't a `purchase`. Break down by game in
+  Explore using "Page title" or "Page path", which GA4 attaches to every event automatically —
+  no custom dimension registration needed.
 - **Google Ads (AdWords)**: **not configured** — evaluated and deliberately not pursued so
   far. This is a free, non-commercial site (BUSL 1.1, no purchase funnel beyond a voluntary
   Buy Me a Coffee link), so paid search has no conversion to recoup spend against; cheaper

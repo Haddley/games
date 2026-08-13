@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Buy me a coffee</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'JetBrains Mono', monospace; background: #07030f; color: #fff;
+            min-height: 100dvh; display: flex; align-items: center; justify-content: center;
+            text-align: center; padding: 24px;
+        }
+        p { color: #8f86b8; font-size: .85rem; line-height: 1.7; }
+        a { color: #22d3ee; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <p>Redirecting to Buy Me a Coffee&hellip;<br>
+        <a href="https://buymeacoffee.com/iJ4rgz3gY0">Tap here if nothing happens</a></p>
+    <script src="common.js?v=20260813-50b0c1b"></script>
+    <script>
+        'use strict';
+        // Reached only by someone scanning the QR code with a phone camera — a click on the
+        // rendered <a> in index.html goes straight to Buy Me a Coffee and is tracked by its own
+        // onclick (source: 'link'/'qr'). A camera reads the SVG's encoded URL directly, bypassing
+        // any onclick entirely, so THIS page exists purely to capture that scan as bmc_click
+        // before forwarding on. location.replace (not .href) so this page never sits in history —
+        // hitting "back" after the redirect returns to wherever the scan came from, not here.
+        typeof trackEvent === 'function' && trackEvent('bmc_click', { source: 'qr_scan' });
+        location.replace('https://buymeacoffee.com/iJ4rgz3gY0');
+    </script>
+</body>
+</html>
