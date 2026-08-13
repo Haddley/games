@@ -171,10 +171,14 @@ top-level `let`s that survive the re-render and are re-applied as CSS classes (`
 `.sel` on hand cards, `.selected`/`.glow` on piles) each time.
 
 The board is a 3×3 CSS grid: `NW N NE / W · E / SW S SE`, with the centre cell showing the
-stock count and the Draw button when it's legal. Each pile renders every card it holds as an
-offset fan (not just the top card), capped at 5 visible offset steps (`min(i, 5)` in the CSS)
-so a long run doesn't grow into the pile below it — a `×N` badge covers the count once a run
-is deep enough that the fan alone doesn't make it obvious.
+stock count and the Draw button when it's legal. Each pile shows only its **base and its
+exposed top card**, offset in a small two-card fan — not every card it holds. This is
+lossless, not a simplification that loses information: a pile is built entirely from legal
+drops, so its ranks strictly decrease with no repeats between those two ends, meaning the
+run in between is fully determined by them (rank counts down one at a time, colour
+alternates). A `×N` badge appears once there's actually something hidden (3+ cards) to say
+so. Rendering only two cards also sidesteps the earlier fan-overflow problem (a long run
+growing into the pile below it) without needing to cap anything.
 
 **Pile-to-pile selection is by PILE, not by card.** The first version made every card in a
 pile individually clickable, since a move can pick up any card within a pile as the lead of
