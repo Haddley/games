@@ -9,7 +9,7 @@ const GAMES = [
     'letterstorm', 'familytrivia', 'fibbers', 'doodleparty', 'oddsheep', 'herdmind',
     'categoryclash', 'bestguess', 'brokenpencil', 'moonlightvillage', 'goinggone',
     'bingo', 'liarsdice', 'cornerthemarket', 'ticktacktoe', 'rockpaperscissors', 'lastlaugh',
-    'buzzin', 'plumptrek', 'kingscorner', 'blackjack', 'gofish',
+    'buzzin', 'plumptrek', 'kingscorner', 'blackjack', 'gofish', 'idoubtit',
 ];
 
 // noise we don't care about (offline broker, missing favicon, etc.)
