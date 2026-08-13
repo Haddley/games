@@ -214,6 +214,62 @@ Cross-network play relies on a TURN relay from **Metered** (metered.ca — "Open
 - **Credentials**: a Metered username + credential, **hardcoded in cleartext** in `common.js`'s `ICE_CFG` (and, separately, ticktacktoe's inline `TTT_PEER_OPTS`). Current username: `35410ce7572a64d0dad7b813`. They're public (visible in page source) — acceptable for family games, but anyone can burn the quota. **To rotate** (new key from the Metered dashboard): change the username+credential in **`common.js`** — **one place, and only one**: ticktacktoe used to keep its own copy inside `TTT_PEER_OPTS` and no longer does (it composes `ICE_CFG` instead), and a unit test fails if the credentials ever reappear in a second file. Then verify (`common.js` parses; a game page loads it and `typeof ICE_CFG === 'object'`).
 - **No backend**: because the games are static HTML with no server, credentials are long-lived and embedded rather than minted per-session. A credential-vending endpoint would be the "correct" hardening but is overkill unless quota abuse actually happens.
 
+## Google Analytics (GA4) and Ads
+
+**Analytics is wired in and live; Ads is not set up.** Facts a future instance needs. For the
+**operational** side (steps done in the GA4/Ads web UI, not the repo) and the current open
+item, see [llmwiki/analytics-and-ads.md](llmwiki/analytics-and-ads.md) —
+**`room_created`/`room_joined` are not yet marked as GA4 Key Events; do that before setting
+up Google Ads**, since Ads' conversion import (below) reads from GA4 Key Events and has
+nothing to import until then.
+
+- **Where it lives**: the whole install is ~10 lines in **`common.js`**, guarded behind
+  `typeof document !== 'undefined' && typeof window !== 'undefined'` so the unit tests (which
+  evaluate common.js with no DOM) don't crash on it. Because it's in a shared file, every page
+  that loads `common.js` — every game plus `index.html` — reports in automatically; nothing
+  is pasted into individual `<head>` tags.
+- **Property**: GA4 property "Game Night", Measurement ID `G-63L52W2YE5`, hardcoded as `GA_ID`
+  in `common.js` next to the analytics block (same "public, embedded, no backend to hide it
+  behind" tradeoff as the TURN credentials above — acceptable for a family-games site with no
+  login). **To point at a different GA4 property**: change `GA_ID` in `common.js` — one place.
+- **What's automatic, no code needed**: GA4's own base collection — a `page_view` per game
+  (which page was opened) and `user_engagement` events, which GA4's reporting UI turns into
+  "average engagement time" per page. That alone answers "which games get opened" and "how
+  long do people stay."
+- **What's custom, and why**: a page view only proves a game was *opened*, not that anyone
+  actually played it. `trackEvent(name, params)` and `gameSlug()` in `common.js` (guarded,
+  no-op if `gtag` never loaded — ad blockers strip the GA script often enough that every call
+  site would otherwise need its own check) let `p2p.js` fire two events from the **one place
+  every game's connection lifecycle already passes through**, so no per-game wiring was
+  needed across 19 files:
+  - **`room_created`** — a host's room actually registered with the PeerJS broker (fired once
+    per `hostPeer` call even across a broker reconnect — see `p2p.js`'s `tracked` flag, since
+    `'open'` can refire after `p.reconnect()`).
+  - **`room_joined`** — a guest's connection genuinely opened, but **only the first time**
+    (`!everLive`) — a mid-game auto-rejoin after a dropped connection is recovering an
+    existing attempt, not a new one, and would otherwise inflate the count every time someone's
+    phone hiccups.
+  - Both carry `{ game: gameSlug() }`, read off `location.pathname` (e.g. `gofish`,
+    `kingscorner`), so a shared file can label the event without knowing which game called it.
+- **Seeing it**: GA4's **Realtime** report (left sidebar) shows events within seconds of a
+  real page load — the right place to confirm a deploy actually shipped, rather than the
+  Admin → Events list, which can lag up to 24–48h before a *new event name* first appears
+  there (already-flowing data itself isn't delayed, just that specific admin page). Once an
+  event has shown up anywhere (Realtime, or an Explore/Events report), it's also listed under
+  **Admin → Events → "Recent events"** tab (not "Key events" — that tab only shows events
+  already starred) where the star toggle actually lives.
+- **Key events**: `room_created` and `room_joined` should be starred as GA4 Key Events
+  (Admin → Events → Recent events → star) — that's the "was this game actually tried" signal,
+  as opposed to a bounce. Break down by game in Explore using "Page title" or "Page path",
+  which GA4 attaches to every event automatically — no custom dimension registration needed.
+- **Google Ads (AdWords)**: **not configured** — evaluated and deliberately not pursued so
+  far. This is a free, non-commercial site (BUSL 1.1, no purchase funnel beyond a voluntary
+  Buy Me a Coffee link), so paid search has no conversion to recoup spend against; cheaper
+  levers (direct sharing, community posts, basic SEO) were recommended instead. If it's ever
+  set up, point its conversion tracking at the GA4 key events above (Ads → Tools →
+  Conversions → Import from Google Analytics) rather than raw clicks, and treat it as a
+  small, capped experiment, not an ongoing spend.
+
 ## Going, Going, GONE! — real items
 
 The lots are **real purchasable objects with verified prices**, not invented ones — 137 of them,

@@ -15,6 +15,7 @@ session doesn't have to re-research it. Each file is one topic.
 - [simulation-modes.md](simulation-modes.md) — the `?mode=tvsimulation` / `?mode=playersimulation` self-playing demos on every game: URLs, the bot-driver pattern, coverage
 - [animation-conventions.md](animation-conventions.md) — the "house style" for animation & graphics: themed ambient backgrounds, entrance FX, win moments, the hard rules that keep tests green
 - [sprites-and-licensing.md](sprites-and-licensing.md) — the **only third-party art in the repo** (Plump Trek's player pieces, Kenney, **CC0 1.0**): why we may use it, the four kinds of **compliance evidence** kept in `sprites/`, and how the sprite flipbook / piece-picking / stacking system works
+- [analytics-and-ads.md](analytics-and-ads.md) — the GA4/Ads **operational** side (setup steps done in the Google UI, not the repo): the open item to mark `room_created`/`room_joined` as GA4 Key Events, and the full Google Ads setup checklist for when that's done. Code-level facts (where `trackEvent`/`gameSlug` live, what the events measure) are in CLAUDE.md's "Google Analytics (GA4) and Ads" section
 
 **Pit (trading game)**
 - [trading-hand-signals.md](trading-hand-signals.md) — open-outcry hand signals in London, New York & Chicago pits (buy/sell, quantity, price, months)
