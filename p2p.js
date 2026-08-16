@@ -194,6 +194,8 @@ function hostPeer(fullId, opts) {
 //   hostFullId        — room peer id to connect to (PREFIX + code)
 //   attempts (3), delayMs (700)      — budget for the FIRST join
 //   rejoinAttempts (10)              — budget after a mid-game drop (backs off to 4s)
+//   connectTimeoutMs (10000)         — how long one attempt waits for the data channel to
+//                       open before it's treated as failed (see the watchdog note below)
 //   onReady(peer, id, hostConn, fail) — assign your globals + wire
 //                       hostConn.on('open'/'data') and send your join msg; pass
 //                       `fail` to hostConn.on('error') to funnel into the retry.
@@ -230,11 +232,13 @@ function joinPeer(opts) {
     const run = () => {
         if (stopped) return;
         let done = false;                       // this attempt is over
+        let watchdog = null;
         const p = new Peer(undefined, ICE_CFG);
 
         const fail = () => {
             if (done || stopped || live || (o.isConnected && o.isConnected())) return;
             done = true;
+            if (watchdog) clearTimeout(watchdog);
             try { p.destroy(); } catch (_) {}
             if (attempt < maxAttempts()) { attempt++; setTimeout(run, waitMs()); return; }
             giveUp();
@@ -242,7 +246,16 @@ function joinPeer(opts) {
 
         p.on('open', id => {
             const hc = p.connect(o.hostFullId, { reliable: true });
+            // A room whose host is genuinely gone (tab closed, not just silent) can leave
+            // `hc` sitting in 'connecting' forever: PeerJS's DataConnection has no built-in
+            // timeout, and a broker that hasn't yet noticed the host's socket dropped won't
+            // report the id as unavailable either — so neither 'open' nor 'close' ever
+            // fires, and a join can hang on a silent spinner indefinitely with no route back
+            // to "try again". Bound one attempt ourselves so a dead room fails like any other
+            // failed attempt instead.
+            watchdog = setTimeout(() => { if (!live) fail(); }, o.connectTimeoutMs || 10_000);
             hc.on('open', () => {
+                clearTimeout(watchdog);
                 // fire on the FIRST genuine join only — a mid-game auto-rejoin (everLive
                 // already true) is recovering an existing attempt, not a new one
                 if (!everLive && typeof trackEvent === 'function') trackEvent('room_joined', { game: typeof gameSlug === 'function' ? gameSlug() : '' });
@@ -251,6 +264,7 @@ function joinPeer(opts) {
                 p2pWatchRelay(hc);
             });
             hc.on('close', () => {
+                clearTimeout(watchdog);
                 if (stopped || !canRejoin) return;
                 if (!live) { fail(); return; }   // never became usable → normal retry
                 live = false; done = true;

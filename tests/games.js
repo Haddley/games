@@ -35,6 +35,21 @@ const GAMES = [
     { g: 'ticktacktoe', noTvJoin: true, hostBtn: '#tv-host-btn', code: () => App.roomCode,
       nameSel: '#player-name-input', joinSel: '#join-game-btn',
       seats: () => (App.tour ? App.tour.seats.map(s => s.name) : []) },
+    // The four host-can-also-play card games share the exact "Host on this phone" /
+    // "Host the party on this screen" / "Join with your phone" / "Open Table" wording every
+    // other game above uses — no per-game hooks needed.
+    { g: 'kingscorner', hostPhone: /Host on this phone/, openTv: /Host the party on this screen/, join: /Join with your phone/ },
+    { g: 'gofish', hostPhone: /Host on this phone/, openTv: /Host the party on this screen/, join: /Join with your phone/ },
+    { g: 'idoubtit', hostPhone: /Host on this phone/, openTv: /Host the party on this screen/, join: /Join with your phone/ },
+    { g: 'lastcard', hostPhone: /Host on this phone/, openTv: /Host the party on this screen/, join: /Join with your phone/ },
+    // blackjack is the one card game with a real dealer-only host role: its plain
+    // "Deal on this phone" does NOT seat the host as a player, which would break the
+    // "the host IS a player" assumption in phone-host-room.e2e.spec.js — so this points at
+    // its host-AND-play button instead ("Deal me in" → hostGameAndPlay), which does.
+    // hostBtn is ALSO needed (openRoom() in this file, used by openRoom-based specs, reads
+    // hostBtn/a text locator for TV-hosts-from-scratch — a different helper from openTv,
+    // which only the viewer-attaches-to-an-existing-room path reads).
+    { g: 'blackjack', hostPhone: /Deal me in/, hostBtn: 'text=Deal on the big screen', openTv: /Deal on the big screen/, join: /Join with your phone/ },
 ];
 
 // open a TV-hosted room and return its code
@@ -78,19 +93,29 @@ const minSeats = tv => tv.evaluate(() => {
 });
 
 // Get the room out of the lobby, however this game spells it. There is no single entry point:
-// most games have hostStartGame, letterstorm and cornerthemarket have hostStartRound, and
-// goinggone has hostStartAuction. Calling a name that does not exist is a silent no-op inside
-// page.evaluate, so a test built on one guess passes while never starting anything.
+// most games have hostStartGame, letterstorm and cornerthemarket have hostStartRound,
+// goinggone has hostStartAuction, and blackjack has hostStartTable. Calling a name that does
+// not exist is a silent no-op inside page.evaluate, so a test built on one guess passes while
+// never starting anything.
+//
+// The card games (kingscorner/gofish/idoubtit/lastcard/blackjack) additionally gate their
+// start function on `capPlayer()?.id !== fromId` — a captain check baked directly into the
+// function itself, unlike the party games where the equivalent check lives one layer up (in
+// whatever wraps this). Calling `fn()` with no argument makes `fromId` `undefined`, which
+// never equals a real peer id, so the guard silently rejects it. Passing `capPlayer()`'s id as
+// the one argument fixes those without affecting any game whose start function ignores extra
+// arguments (which is all of them — JS silently drops params a function never declared).
 // Returns which function worked and the phase it produced, so a failure can say so out loud.
 const hostStart = tv => tv.evaluate(() => {
     const phase = () => (typeof H !== 'undefined' && H) ? H.phase : null;
+    const captainId = () => { try { return typeof capPlayer === 'function' ? capPlayer()?.id : undefined; } catch (e) { return undefined; } };
     const tried = [];
-    for (const name of ['hostStartGame', 'hostStartRound', 'hostStartAuction']) {
+    for (const name of ['hostStartGame', 'hostStartRound', 'hostStartAuction', 'hostStartTable']) {
         let fn = null;
         try { fn = eval(`typeof ${name} === 'function' ? ${name} : null`); } catch (e) {}
         if (!fn) continue;
         tried.push(name);
-        try { fn(); } catch (e) { /* a game that refuses is a phase check below, not a throw */ }
+        try { fn(captainId()); } catch (e) { /* a game that refuses is a phase check below, not a throw */ }
         if (phase() && phase() !== 'lobby') return { fn: name, phase: phase(), tried };
     }
     return { fn: null, phase: phase(), tried };

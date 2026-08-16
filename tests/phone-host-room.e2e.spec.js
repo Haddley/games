@@ -19,7 +19,7 @@
 // Run:  npx playwright test tests/phone-host-room.e2e.spec.js
 
 const { test, expect } = require('@playwright/test');
-const { GAMES, PHONE, TV } = require('./games');
+const { GAMES, PHONE, TV, minSeats, hostStart } = require('./games');
 
 // Each test opens a phone host, two guests and a TV — four peers in a few seconds. The public
 // broker throttles bursts like that; one retry covers it.
@@ -128,6 +128,61 @@ for (const spec of GAMES.filter(g => !g.noTvJoin)) {
         // the host still holds the game — a viewer must never take it over
         expect(await hostPlayers(host.page), `${spec.g}: the viewer changed the roster`)
             .toEqual(['Neil', 'Ava', 'Ben']);
+
+        for (const o of open) await o.ctx.close();
+    });
+}
+
+// Every case above attaches the TV while the room is still in the LOBBY — before anyone has
+// even joined. The scenario that never gets exercised: people are already PLAYING (phone
+// host-and-play, mid-game), and only THEN does someone bring a TV in, purely as a scoreboard,
+// to a room it did not create. This is that.
+for (const spec of GAMES.filter(g => !g.noTvJoin)) {
+    test(`${spec.g}: a TV attaches to a room that is already mid-gameplay, not just the lobby`, async ({ browser }) => {
+        const open = [];
+        const host = await hostOnPhone(browser, spec, 'Neil');
+        open.push(host);
+
+        const need = Math.max(2, await minSeats(host.page));
+        const extras = ['Ava', 'Ben', 'Cam', 'Dee', 'Eli'].slice(0, need - 1);
+        for (const who of extras) open.push(await joinByCode(browser, spec, host.code, who));
+        const seated = ['Neil', ...extras];
+        await expect.poll(() => hostPlayers(host.page), { timeout: 30_000 }).toEqual(seated);
+
+        // leave the lobby however this game spells it (hostStartGame/hostStartRound/…)
+        const started = await hostStart(host.page);
+        if (started.phase !== null) {
+            expect(started.phase,
+                `${spec.g}: still in the lobby with ${need} players — tried ${started.tried.join(', ') || 'nothing'}`)
+                .not.toBe('lobby');
+        }
+
+        // ONLY NOW does a TV turn up, asking to watch a room that is already under way
+        const tv = await tvWatches(browser, spec, host.code);
+        open.push(tv);
+        await expect.poll(() => tv.page.evaluate(() => {
+            const el = document.getElementById('app');
+            return el ? el.innerHTML.length : 0;
+        }), { timeout: 30_000, message: `${spec.g}: the TV must be shown the room it asked for` })
+            .toBeGreaterThan(200);
+        expect(await tv.page.evaluate(() => (typeof ui === 'string' ? ui : '')),
+            `${spec.g}: the TV must not be stuck connecting`).not.toBe('connecting');
+
+        // the point of this test: the snapshot the TV was handed reflects the game IN
+        // PROGRESS, not a lobby it never saw form
+        const phase = await tv.page.evaluate(() => {
+            const d = (typeof vD !== 'undefined' && vD) || (typeof D !== 'undefined' && D) || null;
+            return d ? (d.phase || d.ui || null) : null;
+        });
+        if (phase !== null) {
+            expect(phase, `${spec.g}: the TV attached mid-game but was shown phase/ui "${phase}"`)
+                .not.toBe('lobby');
+        } else {
+            test.info().annotations.push({ type: 'partial',
+                description: `${spec.g}: no phase/ui field on the viewer snapshot to assert on — only the render was checked` });
+        }
+        // and the room itself is unaffected — the host still holds exactly who it started with
+        expect(await hostPlayers(host.page), `${spec.g}: the TV joining changed the roster`).toEqual(seated);
 
         for (const o of open) await o.ctx.close();
     });

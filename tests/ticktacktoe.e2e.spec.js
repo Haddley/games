@@ -187,6 +187,31 @@ test('phone room: the host holds the board while the guest reconnects', async ({
     for (const p of [neil, jess]) await p.close();
 });
 
+// Every other join in this file goes through `?room=`, which prefills the code field —
+// the QR-scan / shared-link path. Someone dictating a room code down an actual phone call is
+// typing the same 4 letters by hand into a bare page, which is a different code path (the
+// field starts empty and `oninput` uppercases whatever they type) and had no coverage.
+test('a phone types the room code in by hand, no ?room= link involved', async ({ browser }) => {
+    const host = await browser.newPage({ viewport: PHONE });
+    await host.goto('/ticktacktoe.html');
+    await host.locator('#player-name-input').fill('Neil');
+    await host.locator('#create-game-btn').click();
+    await expect(host.locator('#room-code-text')).not.toBeEmpty({ timeout: 30_000 });
+    const code = await host.evaluate(() => App.roomCode);
+
+    const guest = await browser.newPage({ viewport: PHONE });
+    await guest.goto('/ticktacktoe.html');   // bare — no ?room= this time
+    await guest.locator('#player-name-input').fill('Jess');
+    await guest.locator('#room-code-input').fill(code.toLowerCase());   // as a person would type it
+    await guest.locator('#join-game-btn').click();
+
+    await expect(host.locator('#game-screen')).toHaveClass(/active/, { timeout: 30_000 });
+    await expect(guest.locator('#game-screen')).toHaveClass(/active/, { timeout: 30_000 });
+    expect(await guest.evaluate(() => App.roomCode)).toBe(code);
+
+    for (const p of [host, guest]) await p.close();
+});
+
 // Rematch: the "Accept" button used to fall through to leaveGame(), so accepting a
 // rematch quit the game and the requester waited forever.
 test('rematch: one asks, the other accepts, a fresh board for both', async ({ browser }) => {
