@@ -217,11 +217,11 @@ Cross-network play relies on a TURN relay from **Metered** (metered.ca — "Open
 
 ## Google Analytics (GA4) and Ads
 
-**Analytics is wired in and live; Ads is not set up.** Facts a future instance needs. For the
-**operational** side (steps done in the GA4/Ads web UI, not the repo), see
-[llmwiki/analytics-and-ads.md](llmwiki/analytics-and-ads.md) — `room_created`/`room_joined`/
-`bmc_click` are already marked as GA4 Key Events, so Ads' conversion import (below) has
-something to import whenever Ads setup actually happens.
+**Analytics is wired in and live; a small first Google Ads test campaign is live too.** Facts
+a future instance needs. For the **operational** side (steps done in the GA4/Ads web UI, not
+the repo — the live campaign's actual settings, and what's still open: negative keywords,
+importing conversions), see [llmwiki/analytics-and-ads.md](llmwiki/analytics-and-ads.md) —
+`room_created`/`room_joined`/`bmc_click` are already marked as GA4 Key Events.
 
 - **Where it lives**: the whole install is ~10 lines in **`common.js`**, guarded behind
   `typeof document !== 'undefined' && typeof window !== 'undefined'` so the unit tests (which
