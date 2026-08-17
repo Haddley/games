@@ -48,7 +48,7 @@ test('TV + 3 phones: hands, submit, judge pick, rotation, podium', async ({ brow
     tv.on('pageerror', e => errors.push('TV: ' + e.message));
     await tv.goto('/lastlaugh.html');
     await shot(tv, 'lastlaugh-01-home');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);

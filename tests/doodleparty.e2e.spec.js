@@ -50,7 +50,7 @@ test('TV-first: pick, stroke streaming, guesses, turn end, podium', async ({ bro
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/doodleparty.html');
     await shot(tv, 'doodle-01-home');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);
@@ -136,7 +136,7 @@ test('phone-first: host phone + TV viewer, stroke + correct guess', async ({ bro
     const neil = await browser.newPage({ viewport: PHONE });
     await neil.goto('/doodleparty.html');
     await neil.locator('input[placeholder="Enter name"]').fill('Neil');
-    await neil.getByRole('button', { name: /Host on this phone/ }).click();
+    await neil.getByRole('button', { name: /Host & play on this phone/ }).click();
     await expect(neil.locator('.room-code')).toBeVisible({ timeout: 30_000 });
     const code = await neil.evaluate(() => roomCode);
     await shot(neil, 'doodle-20-host-lobby');
@@ -144,7 +144,7 @@ test('phone-first: host phone + TV viewer, stroke + correct guess', async ({ bro
     // ── TV joins as a viewer ──
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/doodleparty.html');
-    await tv.locator('input[placeholder="4-letter code"]').last().fill(code);
+    await tv.locator('.card', { hasText: 'TV / Big Screen' }).locator('input[placeholder="4-letter code"]').fill(code);
     await tv.getByRole('button', { name: /Open TV screen/ }).click();
     await expect(tv.locator('.cxl-code')).toHaveText(code, { timeout: 30_000 });
 

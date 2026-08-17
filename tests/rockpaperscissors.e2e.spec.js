@@ -44,7 +44,7 @@ test('TV showdown: a losing symbol is wiped out, last hand standing wins', async
     const tv = await browser.newPage({ viewport: TV });
     tv.on('pageerror', e => pageErrors.push('tv: ' + e.message));
     await tv.goto('/rockpaperscissors.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 
@@ -94,7 +94,7 @@ test('TV showdown: a losing symbol is wiped out, last hand standing wins', async
 test('in a TV room the captain actually gets the Play again button', async ({ browser }) => {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/rockpaperscissors.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 
@@ -128,7 +128,7 @@ test('phone-first: a host phone runs it without a TV at all', async ({ browser }
     const neil = await browser.newPage({ viewport: PHONE });
     await neil.goto('/rockpaperscissors.html');
     await neil.locator('input[placeholder="Enter name"]').first().fill('Neil');
-    await neil.getByRole('button', { name: /Host on this phone/ }).click();
+    await neil.getByRole('button', { name: /Host & play on this phone/ }).click();
     await expect(neil.locator('.room-code')).toBeVisible({ timeout: 30_000 });
     const code = await neil.evaluate(() => roomCode);
 
@@ -159,7 +159,7 @@ test('phone-first: a host phone runs it without a TV at all', async ({ browser }
 async function rpsRoom(browser, names) {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/rockpaperscissors.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     const pages = {};
@@ -313,7 +313,7 @@ test('knockout: the captain picks it, and a bracket decides the champion', async
     test.setTimeout(120_000);   // six throws, each with a 3.6s reveal
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/rockpaperscissors.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 
@@ -371,7 +371,7 @@ test('knockout: one unlucky throw does not end your tournament', async ({ browse
     // A match is first to TWO. Losing a bracket place to a single throw would be arbitrary.
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/rockpaperscissors.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     const pages = { Ava: await joinPhone(browser, code, 'Ava'), Ben: await joinPhone(browser, code, 'Ben') };

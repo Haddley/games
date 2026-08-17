@@ -32,7 +32,7 @@ test('TV-hosted table: deal, a hit (go again), a miss (Go Fish, turn passes), a 
     tv.on('pageerror', e => errors.push('tv: ' + e.message));
     await tv.goto('/gofish.html');
     await shot(tv, 'gf-01-home');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);
@@ -126,8 +126,8 @@ test('phone-hosted table: the host can play too, and an empty-handed player auto
     neil.on('pageerror', e => errors.push('host: ' + e.message));
     await neil.goto('/gofish.html');
     await neil.locator('input[placeholder="Enter name"]').fill('Neil');
-    await neil.getByRole('button', { name: /Host on this phone/ }).click();
-    await expect(neil.locator('.room-code')).toBeVisible({ timeout: 30_000 });
+    await neil.getByRole('button', { name: /Host & play on this phone/ }).click();
+    await expect(neil.locator('.qr-box')).toBeVisible({ timeout: 30_000 });
     // Unlike Blackjack, the host itself is a seated player here.
     expect(await neil.evaluate(() => H.players.length)).toBe(1);
     const code = await neil.evaluate(() => roomCode);

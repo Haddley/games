@@ -798,6 +798,7 @@
 <div id="sound-togs">
     <button id="tog-music" title="Music on/off" onclick="toggleMusic()">🎵</button>
     <button id="tog-sfx" title="Sound effects on/off" onclick="toggleSfx()">🔊</button>
+    <button id="tog-voice" title="Speak the Coach's suggestion aloud" onclick="toggleVoice()">🗣️</button>
 </div>
 <div id="ld-bg" aria-hidden="true"></div>
 <div id="app"></div>
@@ -832,6 +833,35 @@ let fVCode = '';   // viewer room-code input
 // meeting Liar's Dice for the first time should learn 'a 3 is a 3' before 'a 1 is a 3'.
 // The captain turns them on in the lobby.
 let fWild  = false;
+// 🎓 Coach — per-device, defaults ON, for pirates new to reading the odds. Computed entirely
+// client-side from the same `D` the screen already renders (see suggestBid), so turning it
+// on costs no extra round trip.
+let coachOn = true;
+try { coachOn = localStorage.getItem('ld-coach') !== '0'; } catch (_) {}
+function toggleCoach() {
+    coachOn = !coachOn;
+    try { localStorage.setItem('ld-coach', coachOn ? '1' : '0'); } catch (_) {}
+    render();
+}
+function coachToggleHTML() {
+    return `<div class="tog-row">
+      <div><div class="tog-label">🎓 Coach</div><div class="tog-desc">Suggests a wager or a challenge, spoken and shown — good for new pirates</div></div>
+      <label class="tog"><input type="checkbox" ${coachOn ? 'checked' : ''} onchange="toggleCoach()"><span class="tog-track"></span></label>
+    </div>`;
+}
+// Any device may speak — defaults off on a phone (five pirates all narrating their own
+// coach hint a beat apart would be bedlam) and on for a TV/viewer, matching the rest of
+// the repo's convention (see blackjack.html / cards.js for the same reasoning).
+let voicePref = null;
+try { voicePref = localStorage.getItem('ld-voice'); } catch (_) {}
+function voiceOn() { return voicePref === null ? !!isViewer : voicePref !== '0'; }
+function toggleVoice() {
+    voicePref = voiceOn() ? '0' : '1';
+    try { localStorage.setItem('ld-voice', voicePref); } catch (_) {}
+    if (typeof syncVoiceBtn === 'function') syncVoiceBtn();
+    if (!voiceOn() && typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
+    render();
+}
 
 // ── Viewer client state ──
 let isViewer = false;
@@ -917,7 +947,16 @@ function aceMarkHTML(ink, socket) {
     <rect x="41.5" y="41" width="5" height="6" rx="2" fill="${socket}"/>`;
 }
 
-function dieSVG(face, {size=64, hi=false, dim=false, anim=false}={}) {
+// A held-but-unrevealed die: nobody, not even the table, knows this face — used only for a
+// COUNT of dice a pirate still holds. Drawn (not text) so it takes the same hi/dim ink as
+// every real pip, rather than looking like a stray label bolted onto the die.
+function questionMarkHTML(ink) {
+    return `<g fill="none" stroke="${ink}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M31 32c0-9 6-16 15-16s15 6 15 15c0 8-6 11-10 15-3 3-5 6-5 11"/>
+    </g>
+    <circle cx="46" cy="72" r="5.5" fill="${ink}"/>`;
+}
+function dieSVG(face, {size=64, hi=false, dim=false, anim=false, blank=false}={}) {
     const r     = size <= 48 ? 4 : 6;
     const body  = hi ? '#f2c451' : (dim ? '#565b4e' : '#e9dcbe');
     const shade = hi ? '#c8922a' : (dim ? '#3c4037' : '#cdbd91');
@@ -932,7 +971,10 @@ function dieSVG(face, {size=64, hi=false, dim=false, anim=false}={}) {
     // Drawn rather than an emoji: it has to sit at 28px inside a 40-dice reveal and take the
     // same hi/dim treatment as every other face (see the note in CLAUDE.md about why this
     // game keeps its own flat SVG dice).
-    const pips = face === 1
+    // `blank` draws a "?" instead of a real face — for a COUNT of dice still held (nobody,
+    // not even the table, knows what those dice show), as opposed to a real roll. Rendering a
+    // fixed face (it used to always draw face 1, the skull) implied a value nobody has seen.
+    const pips = blank ? questionMarkHTML(pip) : face === 1
         ? aceMarkHTML(pip, body)
         : PIP_MAP[face].map(k => `<circle cx="${PIP_POS[k][0]}" cy="${PIP_POS[k][1]}" r="${r}" fill="${pip}"/>`).join('');
     return `<svg${cls} width="${size}" height="${size}" viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg">
@@ -977,6 +1019,67 @@ function countFace(allDice, face, wild) {
         else if (wild && face !== 1 && d === 1) n++;
     }
     return n;
+}
+
+// ── 🎓 Coach: a probability-grounded suggestion, computed purely from D ────────
+// P(X ≥ k) for a binomial(n, p) — used to ask "given the hidden dice, how likely is the
+// current wager true?" n is always the OTHER pirates' dice (unknown to us), p is 1/6 per
+// face, or 2/6 when aces are wild and the face isn't 1 itself. Built as a running ratio
+// rather than n-choose-k factorials, which overflow well before a table's dice count would.
+function binomialAtLeast(n, p, k) {
+    if (k <= 0) return 1;
+    if (k > n) return 0;
+    let pmf = Math.pow(1 - p, n), prob = 0;
+    for (let i = 0; i <= n; i++) {
+        if (i >= k) prob += pmf;
+        if (i < n) pmf *= (n - i) / (i + 1) * (p / (1 - p));
+    }
+    return Math.min(1, Math.max(0, prob));
+}
+function suggestBid() {
+    if (!coachOn || !D || !D.isMyTurn || D.phase !== 'bidding') return null;
+    const myDice = D.myDice || [];
+    const wild = !!D.wildOnes;
+    const unknown = Math.max(0, (D.totalDice || 0) - myDice.length);
+    const pFace = f => (wild && f !== 1) ? 2 / 6 : 1 / 6;
+    const pTrue = (qty, face) => {
+        const known = countFace(myDice, face, wild);
+        return binomialAtLeast(unknown, pFace(face), qty - known);
+    };
+    const bid = D.currentBid;
+    if (!bid) {
+        let bestFace = 1, bestCount = -1;
+        for (let f = 1; f <= 6; f++) {
+            const c = countFace(myDice, f, wild);
+            if (c > bestCount) { bestCount = c; bestFace = f; }
+        }
+        const qty = Math.max(1, bestCount);
+        return { action: 'raise', qty, face: bestFace,
+            why: `You hold ${bestCount} of face ${bestFace} yourself — a safe opener.`,
+            say: `Open with ${qty} of face ${bestFace} — you hold ${bestCount} yourself.` };
+    }
+    const pBidTrue = pTrue(bid.qty, bid.face);
+    if (pBidTrue < 0.4) {
+        const pct = Math.round(pBidTrue * 100);
+        return { action: 'challenge',
+            why: `Even generously, the table likely doesn't have ${bid.qty}× face ${bid.face} (~${pct}% it's true).`,
+            say: `Call LIAR — only about a ${pct} percent chance that wager is true.` };
+    }
+    const candidates = [{ qty: bid.qty + 1, face: bid.face }];
+    for (let f = bid.face + 1; f <= 6; f++) candidates.push({ qty: bid.qty, face: f });
+    let best = null;
+    for (const c of candidates) {
+        const p = pTrue(c.qty, c.face);
+        if (!best || p > best.p) best = { ...c, p };
+    }
+    if (best && best.p >= 0.4) {
+        const known = countFace(myDice, best.face, wild);
+        const pct = Math.round(best.p * 100);
+        return { action: 'raise', qty: best.qty, face: best.face,
+            why: `You hold ${known} of face ${best.face} — the other ${unknown} hidden bones should cover the rest (~${pct}% likely true).`,
+            say: `Raise to ${best.qty} of face ${best.face} — you hold ${known} yourself, about ${pct} percent likely.` };
+    }
+    return { action: 'challenge', why: 'No safe raise left — time to call LIAR.', say: 'No safe raise left — call LIAR.' };
 }
 
 function bidHigher(newB, cur) {
@@ -1975,6 +2078,7 @@ document.addEventListener('pointerdown', () => {
     if (_audioUnlocked) return;
     _audioUnlocked = true;
     if (ac()) startMusicLoop();
+    primeSpeech();
 }, { capture: true });
 
 // ── Particle bursts + floating score text ──
@@ -2028,7 +2132,11 @@ function fxOnState(prev, next) {
         const bb = document.getElementById('bid-now');
         if (bb) bb.classList.add('bump');
     }
-    if (nPhase === 'bidding' && next.isMyTurn && !(prev && prev.isMyTurn)) sTurn();
+    if (nPhase === 'bidding' && next.isMyTurn && !(prev && prev.isMyTurn)) {
+        sTurn();
+        const sug = suggestBid();
+        if (sug && sug.say) speak(sug.say);
+    }
     if (nPhase === 'reveal' && pPhase !== 'reveal' && next.challengeResult) {
         const r = next.challengeResult;
         const loserOut = !!(next.players || []).find(p => p.name === r.loserName && !p.active);
@@ -2051,6 +2159,7 @@ function fxOnState(prev, next) {
 // Reflect persisted mute state on the static toggle buttons
 document.getElementById('tog-music').classList.toggle('off', !musicOn);
 document.getElementById('tog-sfx').classList.toggle('off', !sfxOn);
+syncVoiceBtn();
 
 // ═══════════════════════════════════════════════
 //  RENDER HELPERS
@@ -2147,36 +2256,9 @@ function screenHome() {
 
     return `
     <div class="hdr"><h1>Liar's Dice</h1><div class="sub">A wager aboard the Flying Dutchman</div></div>
-    <div class="card">
-      <form onsubmit="createGame(fName,fWild);return false">
-      <div class="slbl">Start a game on yer phone</div>
-      <div class="fg"><label>Yer name</label>
-        <input id="cn" type="text" placeholder="e.g. Bootstrap Bill" value="${esc(fName)}" maxlength="16" data-save-name oninput="fName=this.value">
-      </div>
-      <div class="tog-row" style="margin-bottom:14px">
-        <div><div class="tog-label">Aces Wild</div><div class="tog-desc">1s count as any face (recommended)</div></div>
-        <label class="tog"><input type="checkbox" ${fWild?'checked':''} onchange="fWild=this.checked"><span class="tog-track"></span></label>
-      </div>
-      <button type="submit" class="btn btn-p btn-full">🎲 Roll out the barrel</button>
-      </form>
-    </div>
-    <div class="card">
-      <form onsubmit="joinGame(fCode,fName);return false">
-      <div class="slbl">Join a crew</div>
-      <div class="fg"><label>Room code</label>
-        <input id="jc" type="text" placeholder="e.g. ABCD" value="${esc(fCode)}" maxlength="4"
-          oninput="fCode=this.value=this.value.toUpperCase()" autocomplete="off" autocapitalize="characters" style="letter-spacing:4px;font-size:1.1rem;text-transform:uppercase">
-      </div>
-      <div class="fg"><label>Yer name</label>
-        <input type="text" placeholder="e.g. Will Turner" value="${esc(fName)}" maxlength="16" data-save-name oninput="fName=this.value">
-      </div>
-      <button type="submit" class="btn btn-g btn-full">☠️ Take a seat</button>
-      ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
-      </form>
-    </div>
     <div class="card" style="margin-top:8px">
       <div class="slbl">TV / Big Screen</div>
-      <button class="btn btn-p btn-full" onclick="hostOnTV()">📺 Host the party on this screen</button>
+      <button class="btn btn-p btn-full" style="padding:16px" onclick="hostOnTV()">📺 Host the party on this TV</button>
       <div style="font-size:.72rem;color:var(--muted);margin:7px 0 12px">Shows a big QR code to join — the first pirate aboard becomes 🧭 Captain and gets the Start.</div>
       <hr>
       <form onsubmit="joinAsViewer(fVCode);return false">
@@ -2186,6 +2268,33 @@ function screenHome() {
           oninput="fVCode=this.value=this.value.toUpperCase()">
       </div>
       <button type="submit" class="btn btn-g btn-full">📺 Open Scoreboard</button>
+      </form>
+    </div>
+    <div class="card">
+      <div class="slbl">Who be ye?</div>
+      <div class="fg"><label>Yer name</label>
+        <input id="cn" type="text" placeholder="e.g. Bootstrap Bill" value="${esc(fName)}" maxlength="16"
+          ${auto ? 'autofocus' : ''} data-save-name oninput="fName=this.value">
+      </div>
+    </div>
+    <div class="card">
+      <form onsubmit="joinGame(fCode,fName);return false">
+      <div class="slbl">Join a crew</div>
+      <div class="fg"><label>Room code</label>
+        <input id="jc" type="text" placeholder="e.g. ABCD" value="${esc(fCode)}" maxlength="4"
+          oninput="fCode=this.value=this.value.toUpperCase()" autocomplete="off" autocapitalize="characters" style="letter-spacing:4px;font-size:1.1rem;text-transform:uppercase">
+      </div>
+      <button type="submit" class="btn btn-g btn-full">☠️ Take a seat</button>
+      ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
+      </form>
+    </div>
+    <div class="card">
+      <form onsubmit="createGame(fName,fWild);return false">
+      <div class="slbl">Start a game on yer phone</div>
+      <button type="submit" class="btn btn-g btn-full">🎲 Roll out the barrel</button>
+      <div style="font-size:.72rem;color:var(--muted);text-align:center;margin-top:8px">
+        No ship's screen? This phone captains the crew and still takes a seat.
+      </div>
       </form>
     </div>`;
 }
@@ -2240,6 +2349,7 @@ function screenLobbyHost() {
         <div><div class="tog-label">Aces Wild</div><div class="tog-desc">1s count as any face</div></div>
         <label class="tog"><input type="checkbox" ${fWild?'checked':''} onchange="setWild(this.checked)"><span class="tog-track"></span></label>
       </div>
+      ${coachToggleHTML()}
       <button class="btn btn-p btn-full" onclick="if(H.players.length>=2){ui='game';hostStartGame()}else{alert('Need at least 2 pirates')}"
         ${count>=2?'':'disabled'}>
         🎲 Roll the bones ${count<2?'(need 2+)':'('+count+' aboard)'}
@@ -2273,6 +2383,7 @@ function screenLobbyGuest() {
         <div><div class="tog-label">Aces Wild</div><div class="tog-desc">1s count as any face</div></div>
         <label class="tog"><input type="checkbox" ${D?.wildOnes?'checked':''} onchange="setWild(this.checked)"><span class="tog-track"></span></label>
       </div>` : (D?.wildOnes ? `<div style="text-align:center;color:var(--muted);font-size:.72rem;margin-top:8px">☠️ Aces are wild this game</div>` : '')}
+      ${coachToggleHTML()}
       ${typeof shareRoomHTML === 'function' ? shareRoomHTML(code, (location.origin + location.pathname + '?join=' + code)) : ''}
       ${startBtn}
     </div>`;
@@ -2308,6 +2419,18 @@ function screenGame() {
       ${bidBoxHTML()}
       ${isMyTurn ? bidBuilderHTML() : `<div style="text-align:center;color:var(--muted);font-size:.82rem">Bide yer time, matey…</div>`}
       ${histHTML()}
+    </div>
+    ${coachHintHTML()}`;
+}
+
+function coachHintHTML() {
+    const sug = suggestBid();
+    if (!sug) return '';
+    const verb = sug.action === 'challenge' ? '☠️ Call LIAR' : `☝ Wager ${sug.qty}×${sug.face}`;
+    return `<div class="card" style="text-align:center">
+      <div class="slbl">🎓 Coach suggests</div>
+      <div style="font-weight:700;font-size:1.05rem;margin:2px 0 6px">${verb}</div>
+      <div style="font-size:.78rem;color:var(--muted)">${esc(sug.why)}</div>
     </div>`;
 }
 
@@ -2418,7 +2541,7 @@ function screenViewer() {
     // Player cards
     const playerCards = (vD.players ?? []).map((p, pi) => {
         const diceIcons = Array.from({length: p.diceCount}, () =>
-            dieSVG(1, {size: 28})
+            dieSVG(null, {size: 28, blank: true})
         ).join('');
         const isBidding = p.isBidding && vD.phase === 'bidding';
         const isElim = !p.active;

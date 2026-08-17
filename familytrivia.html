@@ -111,8 +111,6 @@
         .btn:active { transform: scale(.97); }
         .btn-p { background: linear-gradient(180deg, #ff9a4d, #ff7847); color: #3a1400; box-shadow: 0 5px 0 #b34322, 0 10px 22px rgba(255,120,71,.35); }
         .btn-p:active { box-shadow: 0 2px 0 #b34322; transform: translateY(3px); }
-        .btn-c { background: linear-gradient(180deg, #ffd58a, #ffc16b); color: #4a2c00; box-shadow: 0 5px 0 #b58032, 0 10px 22px rgba(255,193,107,.3); }
-        .btn-c:active { box-shadow: 0 2px 0 #b58032; transform: translateY(3px); }
         .btn-g { background: rgba(59,42,28,.12); color: inherit; box-shadow: inset 0 0 0 2px rgba(120,90,50,.35); }
         .card.dark .btn-g, body.viewer-mode .btn-g { box-shadow: inset 0 0 0 2px rgba(255,193,107,.3); }
         .btn-full { width: 100%; }
@@ -1693,7 +1691,7 @@ function renderHome() {
                 oninput="fCode=this.value=this.value.toUpperCase()"
                 onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
         </div>
-        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-c'} btn-full"
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
             onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">
             📱 Join with your phone
         </button>
@@ -1701,18 +1699,18 @@ function renderHome() {
     const hostCard = `
     <div class="card">
         <div class="slbl">Start a Game</div>
-        <button class="btn btn-p btn-full"
+        <button class="btn btn-g btn-full"
             onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
-            📖 Host on this phone
+            📖 Host & play on this phone
         </button>
         <div style="font-size:.68rem;color:var(--ink-soft);text-align:center;margin-top:8px">
-            You play too — put a TV on the big screen with the room code
+            No TV handy? This phone hosts the story and joins in as a player.
         </div>
     </div>`;
     const tvCard = `
     <div class="card dark">
         <div class="slbl">TV / Big Screen</div>
-        <button class="btn btn-p btn-full" onclick="hostOnTV()">📺 Host the party on this screen</button>
+        <button class="btn btn-p btn-full" style="padding:16px" onclick="hostOnTV()">📺 Host the party on this TV</button>
         <div style="font-size:.68rem;color:var(--muted);text-align:center;margin:6px 0 10px">
             Shows a big QR code — the first phone to join becomes 👑 Captain
         </div>
@@ -1731,7 +1729,7 @@ function renderHome() {
     return `
     ${hdrHTML('2–12 players · read the story · answer in secret')}
     ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
-    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+    ${tvCard}${youCard}${joinCard}${hostCard}`;
 }
 
 function renderCustomEditorHTML() {

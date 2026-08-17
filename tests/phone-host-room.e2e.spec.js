@@ -47,8 +47,11 @@ async function joinByCode(browser, spec, code, who) {
     const page = await ctx.newPage();
     await page.goto(`/${spec.g}.html`);
     await page.locator(nameSel(spec)).first().fill(who);
+    // The TV card's own "existing room" code field sits first on the home screen now, so the
+    // JOIN card's field — the one this function actually wants — is the second one, not the
+    // first. Exactly two such fields exist on every game's home screen (TV's and Join's).
     const codeBox = spec.codeSel ? page.locator(spec.codeSel)
-        : page.locator('input[placeholder="4-letter code"]').first();
+        : page.locator('input[placeholder="4-letter code"]').nth(1);
     await codeBox.fill(code);
     await page.getByRole('button', { name: spec.join }).first().click();
     return { ctx, page };
@@ -59,11 +62,11 @@ async function tvWatches(browser, spec, code) {
     const ctx = await browser.newContext({ viewport: TV });
     const page = await ctx.newPage();
     await page.goto(`/${spec.g}.html`);
-    // The viewer code box is normally the LAST 4-letter field on the home screen (the join
-    // one comes first). liarsdice labels its differently, hence the per-game hook.
+    // The viewer code box lives in the "TV / Big Screen" card on every game's home screen.
+    // liarsdice labels its differently, hence the per-game hook.
     const box = spec.tvCodeSel
         ? page.locator(spec.tvCodeSel)
-        : page.locator('input[placeholder="4-letter code"]').last();
+        : page.locator('.card', { hasText: 'TV / Big Screen' }).locator('input[placeholder="4-letter code"]');
     await box.fill(code);
     await page.getByRole('button', { name: spec.openTv }).first().click();
     return { ctx, page };

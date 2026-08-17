@@ -33,7 +33,7 @@ test('TV-hosted table: deal, action cards, Wild + colour, Wild Draw Four (both o
     tv.on('pageerror', e => errors.push('tv: ' + e.message));
     await tv.goto('/lastcard.html');
     await shot(tv, 'lc-01-home');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);
@@ -183,7 +183,7 @@ test('phone-hosted table: the host can play too', async ({ browser }) => {
     neil.on('pageerror', e => errors.push('host: ' + e.message));
     await neil.goto('/lastcard.html');
     await neil.locator('input[placeholder="Enter name"]').fill('Neil');
-    await neil.getByRole('button', { name: /Host on this phone/ }).click();
+    await neil.getByRole('button', { name: /Host & play on this phone/ }).click();
     await expect(neil.locator('.qr-box')).toBeVisible({ timeout: 30_000 });
     expect(await neil.evaluate(() => H.players.length)).toBe(1);
     expect(await neil.evaluate(() => H.players[0].name)).toBe('Neil');

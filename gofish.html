@@ -71,7 +71,6 @@
         .hint { text-align: center; color: var(--muted); font-size: .76rem; font-weight: 700; margin-top: 8px; }
         .err { background: var(--dg); border: 1px solid var(--danger); color: #ffb3a8; border-radius: 10px; padding: 10px 12px; font-size: .8rem; font-weight: 700; text-align: center; margin-bottom: 12px; }
 
-        .room-code { font-family: 'Cinzel', serif; font-weight: 900; font-size: 2.1rem; letter-spacing: 7px; text-align: center; color: var(--accent); background: var(--s2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin: 10px 0; }
         .qr-box { width: min(210px, 58vw); aspect-ratio: 1; flex-shrink: 0; margin: 8px auto 10px; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 22px rgba(0,0,0,.5), 0 0 0 3px var(--s2); background: #eaf6fa; }
         .qr-box svg { display: block; width: 100%; height: auto; }
 
@@ -629,7 +628,7 @@ function toastMilestones(list) {
         else if (/Go Fish/.test(m.text)) sFish();
         else if (/got \d/.test(m.text)) sHit();
     });
-    if (fresh.length) speak(fresh.map(m => m.speech).join(' '));
+    if (fresh.length) speak(joinSpeech(fresh.map(m => m.speech)));
     if (list.length) lastMilestoneSeq = Math.max(lastMilestoneSeq, ...list.map(m => m.seq));
 }
 
@@ -705,6 +704,15 @@ function renderHome() {
     const fromQR = !!fCode;
     return `${hdrHTML()}${errHTML()}
     <div class="card">
+        <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-p btn-full" style="padding:16px" onclick="hostOnTV()">📺 Host the party on this TV</button>
+        <div class="hint">Shows a big QR — the first phone to join becomes 👑 Captain</div>
+        <div class="fg" style="margin-top:12px"><label>…or open the table for an existing room</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"></div>
+        <button class="btn btn-g btn-full btn-sm" onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code for the table.';render()}">📺 Open Table</button>
+    </div>
+    <div class="card">
         <div class="slbl">Who are you?</div>
         <div class="fg"><label>Your Name</label>
             <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}" ${fromQR ? 'autofocus' : ''} data-save-name oninput="fName=this.value"></div>
@@ -719,15 +727,9 @@ function renderHome() {
             onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">🎣 Join with your phone</button>
     </div>
     <div class="card">
-        <div class="slbl">Start a Table</div>
-        <button class="btn btn-p btn-full" onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">🎣 Host on this phone</button>
-        <div class="hint">2–6 players</div>
-        <button class="btn btn-g btn-full" style="margin-top:12px" onclick="hostOnTV()">📺 Host the party on this screen</button>
-        <div class="hint">Shows a big QR — the first phone to join becomes 👑 Captain</div>
-        <div class="fg" style="margin-top:12px"><label>…or open the table for an existing room</label>
-            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
-                oninput="fVCode=this.value=this.value.toUpperCase()"></div>
-        <button class="btn btn-g btn-full btn-sm" onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code for the table.';render()}">📺 Open Table</button>
+        <div class="slbl">Host a Table</div>
+        <button class="btn btn-g btn-full" onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">🎣 Host & play on this phone</button>
+        <div class="hint">2–6 players — no TV handy? This phone hosts the table and joins in as a player.</div>
     </div>`;
 }
 
@@ -745,8 +747,7 @@ function renderLobbyH() {
     return `${hdrHTML('you are the host')}${errHTML()}
     <div class="card highlight" style="text-align:center">
         <div class="slbl">Scan to join</div>
-        <div class="qr-box">${qrSVG(joinURL())}</div>
-        <div class="room-code">${roomCode}</div>
+        ${typeof hostInviteHTML === 'function' ? hostInviteHTML(roomCode, joinURL()) : `<div class="qr-box">${qrSVG(joinURL())}</div>`}
     </div>
     <div class="card">
         <div class="slbl">Anglers (${players.length}/${MAX_PLAYERS})</div>
@@ -754,8 +755,7 @@ function renderLobbyH() {
     </div>
     <div class="card">${helpModeToggleHTML(H.helpMode, false)}</div>
     <button class="btn btn-p btn-full" ${enough ? '' : 'disabled'} onclick="guestCtl('start')">🎣 Deal the hands</button>
-    ${enough ? '' : `<div class="hint">Waiting for at least ${MIN_PLAYERS} players…</div>`}
-    ${typeof shareRoomHTML === 'function' ? shareRoomHTML(roomCode, joinURL()) : ''}`;
+    ${enough ? '' : `<div class="hint">Waiting for at least ${MIN_PLAYERS} players…</div>`}`;
 }
 function renderLobbyG() {
     const players = (D && D.players) || [];
@@ -899,10 +899,6 @@ function toggleVoice() {
     if (!voiceOn() && typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
 }
 function voiceOn() { return voicePref === null ? !!(isViewer || isTvHost) : voicePref !== '0'; }
-function primeSpeech() {
-    if (typeof speechSynthesis === 'undefined') return;
-    try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {}
-}
 document.addEventListener('pointerdown', () => { ac(); if (AC && AC.state === 'suspended') AC.resume(); if (musicOn) startPad(); primeSpeech(); }, { once: true });
 
 // ── Theme (day/night) ──

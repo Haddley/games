@@ -76,7 +76,7 @@ test('a full trek: build, turns, all three card flavours, finale, podium', async
     tv.on('pageerror', e => pageErrors.push('tv: ' + e.message));
     await tv.goto('/plumptrek.html');
     await shot(tv, 'pt-01-home');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);
@@ -197,7 +197,7 @@ test('the fork: picking a path actually works', async ({ browser }) => {
     const errs = [];
     tv.on('pageerror', e => errs.push(e.message));
     await tv.goto('/plumptrek.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 
@@ -292,7 +292,7 @@ test('HANDICAP halves the leader\'s roll; FAMILY helps last place', async ({ bro
 test('the Rock finale: second place is dragged up for rock-paper-scissors', async ({ browser }) => {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/plumptrek.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 
@@ -374,7 +374,7 @@ test('a STOP gate holds you up until you roll big enough', async ({ browser }) =
 test('Sabotage! makes the drawer pick a victim, who then misses a turn', async ({ browser }) => {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/plumptrek.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 
@@ -870,7 +870,7 @@ test('in the lobby the taken pieces are crossed out and cannot be tapped', async
     const neil = await browser.newPage({ viewport: PHONE });
     await neil.goto('/plumptrek.html');
     await neil.locator('input[data-save-name]').first().fill('Neil');
-    await neil.getByRole('button', { name: /Host on this phone/ }).click();
+    await neil.getByRole('button', { name: /Host & play on this phone/ }).click();
     await expect(neil.locator('.room-code')).toBeVisible({ timeout: 30_000 });
 
     // three more players turn up, all wanting the piece Neil already has
@@ -1231,7 +1231,7 @@ test('a new game wipes every mood', async ({ browser }) => {
 test('a refresh on your own turn gives you your turn back, and the room keeps moving', async ({ browser }) => {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/plumptrek.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 
@@ -1300,7 +1300,7 @@ test('a refresh on your own turn gives you your turn back, and the room keeps mo
 test('a phone that vanishes on its own turn: quick back, slow back, and never', async ({ browser }) => {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/plumptrek.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 
@@ -1407,7 +1407,7 @@ test('a phone that vanishes on its own turn: quick back, slow back, and never', 
 async function trekRoom(browser, names) {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/plumptrek.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     const pages = {};

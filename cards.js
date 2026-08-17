@@ -58,16 +58,14 @@ function addMilestone(text, speech) {
     if (H.milestones.length > 8) H.milestones = H.milestones.slice(-8);
 }
 // `voiceOn()` stays per-game (its default fallback differs slightly by game — see
-// each game's own definition) — `speak`/`canSpeak`/`syncVoiceBtn` just call whatever
-// `voiceOn` is in scope, so they're safe to share as-is.
-function canSpeak() { return voiceOn() && typeof speechSynthesis !== 'undefined'; }
-function speak(text) {
-    if (!canSpeak() || !text) return;
-    try {
-        speechSynthesis.cancel();   // a fresh line replaces whatever was still being read
-        const u = new SpeechSynthesisUtterance(text);
-        u.rate = 1.02;
-        speechSynthesis.speak(u);
-    } catch (e) {}
+// each game's own definition) — `speak`/`canSpeak`/`syncVoiceBtn`/`primeSpeech` moved to
+// common.js once Liar's Dice became a second, non-card consumer of the identical cluster.
+// Joins several distinct milestone lines into ONE utterance (speak() cancels the previous
+// utterance, so N separate calls in the same tick would clip to just the last line — see
+// each game's own toastMilestones). A plain `.join(' ')` ran lines together with no pause —
+// "Dealer busts with 23 — the table collects" then "Neil wins!" read as one sentence,
+// "the table collects Neil wins", which sounds like a contradiction. This punctuates each
+// part first so the joined line actually pauses between clauses.
+function joinSpeech(parts) {
+    return parts.filter(Boolean).map(p => /[.!?]$/.test(p) ? p : p + '.').join(' ');
 }
-function syncVoiceBtn() { const b = document.getElementById('tog-voice'); if (b) b.classList.toggle('off', !voiceOn()); }

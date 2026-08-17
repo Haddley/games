@@ -10,38 +10,40 @@ const PHONE = { width: 390, height: 844 };
 const TV = { width: 1920, height: 1080 };
 
 const GAMES = [
-    { g: 'letterstorm', hostPhone: /Host Party/, openTv: /Open Scoreboard/, join: /Join with your phone/ },
-    { g: 'familytrivia', hostPhone: /Host on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
-    { g: 'fibbers', hostPhone: /Host on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
-    { g: 'doodleparty', hostPhone: /Host on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
-    { g: 'oddsheep', hostPhone: /Host on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
-    { g: 'herdmind', hostPhone: /Host on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
-    { g: 'categoryclash', hostPhone: /Host on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
-    { g: 'bestguess', hostPhone: /Host on this phone/, openTv: /Open the board/, join: /Join with your phone/ },
-    { g: 'brokenpencil', hostPhone: /Host on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
-    { g: 'moonlightvillage', hostPhone: /Host on this phone/, openTv: /Open narrator screen/, join: /Join with your phone/ },
-    { g: 'goinggone', hostPhone: /Host on this phone/, openTv: /Open auction floor/, join: /Join with your phone/ },
-    { g: 'bingo', hostPhone: /Host on this phone/, openTv: /Open the flashboard/, join: /Join with your phone/ },
+    { g: 'letterstorm', hostPhone: /Host & play on this phone/, openTv: /Open Scoreboard/, join: /Join with your phone/ },
+    { g: 'familytrivia', hostPhone: /Host & play on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
+    { g: 'fibbers', hostPhone: /Host & play on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
+    { g: 'doodleparty', hostPhone: /Host & play on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
+    { g: 'oddsheep', hostPhone: /Host & play on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
+    { g: 'herdmind', hostPhone: /Host & play on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
+    { g: 'categoryclash', hostPhone: /Host & play on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
+    { g: 'bestguess', hostPhone: /Host & play on this phone/, openTv: /Open the board/, join: /Join with your phone/ },
+    { g: 'brokenpencil', hostPhone: /Host & play on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
+    // its TV button is themed ("Narrate on this TV"), so it needs an explicit hostBtn — the
+    // generic openRoom() regex only matches "Host the party on this screen/TV"
+    { g: 'moonlightvillage', hostPhone: /Host & play on this phone/, hostBtn: 'text=Narrate on this TV', openTv: /Open narrator screen/, join: /Join with your phone/ },
+    { g: 'goinggone', hostPhone: /Host & bid on this phone/, openTv: /Open auction floor/, join: /Join with your phone/ },
+    { g: 'bingo', hostPhone: /Host & play on this phone/, openTv: /Open the flashboard/, join: /Join with your phone/ },
     // liarsdice takes ?join= rather than ?room=, and has its own code field to fill
     { g: 'liarsdice', hostPhone: /Roll out the barrel/, openTv: /Open Scoreboard/, tvCodeSel: '#vc', join: /Take a seat/, param: 'join', codeSel: '#jc',
-      name: 'input[placeholder="e.g. Will Turner"]' },
-    { g: 'cornerthemarket', hostPhone: /Host on this phone/, openTv: /Open trading floor/, join: /Join with your phone/ },
-    { g: 'rockpaperscissors', hostPhone: /Host on this phone/, openTv: /Open Arena/, join: /Join with your phone/ },
-    { g: 'lastlaugh', hostPhone: /Host on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
-    { g: 'buzzin', hostPhone: /Host on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
-    { g: 'plumptrek', hostPhone: /Host on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
+      name: 'input[placeholder="e.g. Bootstrap Bill"]' },
+    { g: 'cornerthemarket', hostPhone: /Host & trade on this phone/, openTv: /Open trading floor/, join: /Join with your phone/ },
+    { g: 'rockpaperscissors', hostPhone: /Host & play on this phone/, openTv: /Open Arena/, join: /Join with your phone/ },
+    { g: 'lastlaugh', hostPhone: /Host & play on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
+    { g: 'buzzin', hostPhone: /Host & play on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
+    { g: 'plumptrek', hostPhone: /Host & play on this phone/, openTv: /Open TV screen/, join: /Join with your phone/ },
     // ticktacktoe hosts head-to-head on a phone and has no 'watch an existing room'
     // screen of this shape, so it sits out the phone-host battery (noTvJoin).
     { g: 'ticktacktoe', noTvJoin: true, hostBtn: '#tv-host-btn', code: () => App.roomCode,
       nameSel: '#player-name-input', joinSel: '#join-game-btn',
       seats: () => (App.tour ? App.tour.seats.map(s => s.name) : []) },
-    // The four host-can-also-play card games share the exact "Host on this phone" /
-    // "Host the party on this screen" / "Join with your phone" / "Open Table" wording every
+    // The four host-can-also-play card games share the exact "Host & play on this phone" /
+    // "Host the party on this TV" / "Join with your phone" / "Open Table" wording every
     // other game above uses — no per-game hooks needed.
-    { g: 'kingscorner', hostPhone: /Host on this phone/, openTv: /Host the party on this screen/, join: /Join with your phone/ },
-    { g: 'gofish', hostPhone: /Host on this phone/, openTv: /Host the party on this screen/, join: /Join with your phone/ },
-    { g: 'idoubtit', hostPhone: /Host on this phone/, openTv: /Host the party on this screen/, join: /Join with your phone/ },
-    { g: 'lastcard', hostPhone: /Host on this phone/, openTv: /Host the party on this screen/, join: /Join with your phone/ },
+    { g: 'kingscorner', hostPhone: /Host & play on this phone/, openTv: /Host the party on this TV/, join: /Join with your phone/ },
+    { g: 'gofish', hostPhone: /Host & play on this phone/, openTv: /Host the party on this TV/, join: /Join with your phone/ },
+    { g: 'idoubtit', hostPhone: /Host & play on this phone/, openTv: /Host the party on this TV/, join: /Join with your phone/ },
+    { g: 'lastcard', hostPhone: /Host & play on this phone/, openTv: /Host the party on this TV/, join: /Join with your phone/ },
     // blackjack is the one card game with a real dealer-only host role: its plain
     // "Deal on this phone" does NOT seat the host as a player, which would break the
     // "the host IS a player" assumption in phone-host-room.e2e.spec.js — so this points at
@@ -57,7 +59,7 @@ async function openRoom(browser, spec) {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto(`/${spec.g}.html`);
     if (spec.hostBtn) await tv.locator(spec.hostBtn).click();
-    else await tv.getByRole('button', { name: /Host the party on this screen|Host on this screen/i }).first().click();
+    else await tv.getByRole('button', { name: /Host the party on this (screen|TV)|Host on this screen/i }).first().click();
     // wait for the CODE, not for a particular element — the games lay their lobbies out
     // differently and more than one of them has a hidden phone-lobby code node in the DOM
     await expect.poll(() => tv.evaluate(fn => {

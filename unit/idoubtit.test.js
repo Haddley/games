@@ -18,7 +18,7 @@ const SRC = (() => {
     return HTML.slice(a, b);
 })();
 
-// The card model (makeCard/makeDeck/shuffled/…) and addMilestone/speak/canSpeak now live in
+// The card model (makeCard/makeDeck/shuffled/…) and addMilestone now live in
 // the shared cards.js, not the game's own inline script — pull them in too, but WITHOUT
 // cards.js's own capPlayer/capSync: this test stubs `capPlayer` itself (below), and cards.js's
 // real one would shadow that stub (a `function capPlayer(){}` in the same function body wins

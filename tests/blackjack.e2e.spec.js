@@ -1,7 +1,8 @@
 // E2E for Blackjack — lobby → bet → deal → hit/stand/double → dealer reveal →
-// resolve → next hand → end session → podium, over real PeerJS rooms, for both a
-// TV-hosted and a phone-hosted table. The host is ALWAYS the dealer here (never a
-// seated player), so a phone-hosted table still needs a SECOND phone to actually play.
+// resolve → next hand → end session → podium, over real PeerJS rooms. The host is
+// ALWAYS the dealer here (never a seated player) — dealer-only hosting works the same
+// whether the hosting page happens to be a TV-sized or phone-sized browser, so it
+// still needs a SECOND device to actually play.
 //
 // Run:  npx playwright test tests/blackjack.e2e.spec.js
 
@@ -119,12 +120,12 @@ test('TV-hosted table: bet, deal, stand/hit/bust, dealer reveal, next hand, end 
     for (const p of [tv, ann, bo]) await p.close();
 });
 
-test('phone-hosted table (dealer never plays): double down doubles the bet and forces a stand', async ({ browser }) => {
+test('dealer-only host (never plays): double down doubles the bet and forces a stand', async ({ browser }) => {
     const errors = [];
     const neil = await browser.newPage({ viewport: PHONE });
     neil.on('pageerror', e => errors.push('host: ' + e.message));
     await neil.goto('/blackjack.html');
-    await neil.getByRole('button', { name: /Deal on this phone/ }).click();
+    await neil.getByRole('button', { name: /Deal on the big screen/ }).click();
     await expect(neil.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     // The host never gets a name field or a seat — no player rows exist yet.
     expect(await neil.evaluate(() => H.players.length)).toBe(0);

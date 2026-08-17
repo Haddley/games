@@ -974,10 +974,12 @@ function cluesMsgFor(p) {
         ...capField(),
     };
 }
-function discussMsg() {
+function discussMsg(p) {
     return {
         type: 'discuss', num: H.round, total: H.settings.rounds,
         theme: H.category.theme, words: H.category.words,
+        amSheep: p ? p.id === H.sheepId : false,
+        mySecret: p && p.id !== H.sheepId ? H.secretIdx : -1,
         clues: H.clues.map(c => ({ name: c.name, avatar: c.avatar, word: c.word })),
         seconds: H.settings.discussSecs,
         players: railPlayers(),
@@ -987,6 +989,7 @@ function discussMsg() {
 function voteMsgFor(p) {
     return {
         type: 'vote_state', num: H.round, total: H.settings.rounds,
+        amSheep: p ? p.id === H.sheepId : false,
         players: H.players.map(q => ({ name: q.name, avatar: q.avatar, voted: !!H.votes[q.id] })),
         clues: H.clues.map(c => ({ name: c.name, avatar: c.avatar, word: c.word })),
         myVote: p ? (H.votes[p.id] || null) : null,
@@ -1023,7 +1026,7 @@ function phaseSnapshotFor(p) {
         case 'lobby': return lobbyMsg();
         case 'deal': return dealMsgFor(p);
         case 'clues': return cluesMsgFor(p);
-        case 'discuss': return discussMsg();
+        case 'discuss': return discussMsg(p);
         case 'vote': return voteMsgFor(p);
         case 'guess': return guessMsgFor(p);
         case 'reveal': return revealMsg();
@@ -1319,9 +1322,9 @@ function hostClue(player, raw, conn, force) {
 function startDiscuss() {
     clearHostTimers();
     H.phase = 'discuss';
-    broadcastPlayers(discussMsg());
+    broadcastPlayers(p => discussMsg(p));
     broadcastViewers(viewerSnapshot());
-    hostSyncSelf(isTvHost ? null : discussMsg());
+    hostSyncSelf(isTvHost ? null : discussMsg(H.players.find(p => p.id === myId)));
     _discussTimer = setTimeout(startVote, H.settings.discussSecs * 1000 + 600);
 }
 
@@ -1717,6 +1720,45 @@ function roleReminderHTML(msg) {
         : `<div class="card" style="padding:12px;text-align:center;font-weight:900">The word is <span style="color:#14803c">${esc(msg.words[msg.mySecret])}</span> 🤫</div>`;
 }
 
+// ── 🎓 Coach: tactical tips, not computed moves ─────────────────────────────
+// Unlike Blackjack/Liar's Dice, there's no arithmetic to run here — judging whether a
+// specific clue is "too close" to the secret word needs real language understanding, which
+// this repo has no way to compute. What IS real: the underlying tactical tension every round
+// shares, taught as a rotating reminder rather than a reactive analysis of your own word.
+// Picked deterministically off the round number (not random) so it doesn't change tick to
+// tick as the timer re-renders the screen, but does vary round to round.
+const TIPS = {
+    clues_innocent: [
+        "A clue too close to the word gives it away to the Odd Sheep. Too vague, and you'll look suspicious yourself.",
+        "Building on an earlier clue — same theme, different angle — reads as confident. Repeating it reads as stalling.",
+        "The Odd Sheep is listening to YOUR clue to narrow down the word. The less they can do with it, the safer you are.",
+    ],
+    clues_sheep: [
+        "You don't know the word — echo the theme loosely, and watch for clues that all point the same direction.",
+        "A clue close to what's already been said is safe but forgettable. A wildly different one stands out as a guess.",
+        "Listen more than you clue — the other players' words are your only real information right now.",
+    ],
+    social_innocent: [
+        "The Odd Sheep often over-explains to sound confident — a clue that's vague AND long can be the tell.",
+        "A clue that's suspiciously perfect for the theme but doesn't quite fit the exact word is the classic giveaway.",
+        "Don't just vote for the vaguest clue — sometimes the Odd Sheep gets lucky and lands close by accident.",
+    ],
+    social_sheep: [
+        "Defend a clue that wasn't yours as if it were — confusion protects you better than staying quiet.",
+        "If suspicion turns to you, ask a specific question back — the genuinely innocent usually just get defensive.",
+        "Agreeing loudly with whoever's leading the discussion is safer than trying to lead it yourself.",
+    ],
+};
+function tacticalTipHTML(msg, social) {
+    const key = (social ? 'social_' : 'clues_') + (msg.amSheep ? 'sheep' : 'innocent');
+    const pool = TIPS[key];
+    const tip = pool[(msg.num || 1) % pool.length];
+    return `<div class="card" style="padding:10px 14px;text-align:center">
+        <div style="font-size:.66rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:4px">🎓 Coach</div>
+        <div style="font-size:.82rem">${esc(tip)}</div>
+    </div>`;
+}
+
 function standingsHTML(st) {
     const medals = ['🥇', '🥈', '🥉'];
     const ranks = rankByScore(st, 'score');
@@ -1813,18 +1855,18 @@ function renderHome() {
     const hostCard = `
     <div class="card">
         <div class="slbl">Start a Game</div>
-        <button class="btn btn-p btn-full"
+        <button class="btn btn-g btn-full"
             onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
-            🐑 Host on this phone
+            🐑 Host & play on this phone
         </button>
         <div style="font-size:.68rem;color:var(--ink-soft);text-align:center;margin-top:8px">
-            3–12 players (best with 4+) — put a TV up with the room code
+            Best with 4+ — no TV? This phone hosts the flock and joins in as a player.
         </div>
     </div>`;
     const tvCard = `
     <div class="card dark">
         <div class="slbl">TV / Big Screen</div>
-        <button class="btn btn-p btn-full" onclick="hostOnTV()">📺 Host the party on this screen</button>
+        <button class="btn btn-p btn-full" style="padding:16px" onclick="hostOnTV()">📺 Host the party on this TV</button>
         <div style="font-size:.68rem;color:var(--muted);text-align:center;margin:6px 0 10px">
             Shows a big QR code — the first phone to join becomes 👑 Shepherd
         </div>
@@ -1843,7 +1885,7 @@ function renderHome() {
     return `
     ${hdrHTML('3–12 players · clue · discuss · vote')}
     ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
-    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+    ${tvCard}${youCard}${joinCard}${hostCard}`;
 }
 
 function renderLobbyH() {
@@ -1955,6 +1997,7 @@ function renderClues() {
     <div class="turn-banner" id="turn-banner">${turnBannerHTML(D)}</div>
     ${myTurnBlock}
     ${roleReminderHTML(D)}
+    ${tacticalTipHTML(D, false)}
     <div class="card">
         <div class="slbl">Clue wall</div>
         <div id="clue-wall">${clueWallHTML(D.clues)}</div>
@@ -1973,6 +2016,7 @@ function renderDiscuss() {
         <div style="color:var(--muted);font-weight:800;font-size:.78rem;margin-top:8px">Argue out loud — who sounded woolly? 🐑</div>
     </div>
     ${roleReminderHTML(D)}
+    ${tacticalTipHTML(D, true)}
     <div class="card">
         <div class="slbl">The clues</div>
         ${clueWallHTML(D.clues)}
@@ -1998,7 +2042,8 @@ function renderVote() {
         <div id="vote-zone">${voteButtonsHTML(D)}</div>
         <div id="vote-count" style="text-align:center;color:var(--ink-soft);font-weight:800;font-size:.78rem">${D.votedCount} of ${D.playerCount} voted</div>
     </div>
-    ${D.myVote ? `<div class="card dark" style="text-align:center;font-weight:900">🗳️ Vote locked — watch the TV…</div>` : ''}`;
+    ${D.myVote ? `<div class="card dark" style="text-align:center;font-weight:900">🗳️ Vote locked — watch the TV…</div>` : ''}
+    ${tacticalTipHTML(D, true)}`;
 }
 
 function renderGuess() {

@@ -27,7 +27,7 @@ async function hostAndJoin(browser, { relay = false, query = '' } = {}) {
     if (relay) await forceRelay(host);
     await host.goto('/bingo.html' + query);
     await host.locator('input[placeholder="Enter name"]').fill('Neil');
-    await host.getByRole('button', { name: /Host on this phone/ }).click();
+    await host.getByRole('button', { name: /Host & play on this phone/ }).click();
     await expect(host.locator('.room-code')).toBeVisible({ timeout: 30_000 });
     const code = await host.evaluate(() => roomCode);
 
@@ -86,7 +86,7 @@ test('a host with a mix of relayed and direct guests shows the WORST path, not j
     const host = await browser.newPage({ viewport: PHONE });
     await host.goto('/bingo.html');
     await host.locator('input[placeholder="Enter name"]').fill('Neil');
-    await host.getByRole('button', { name: /Host on this phone/ }).click();
+    await host.getByRole('button', { name: /Host & play on this phone/ }).click();
     await expect(host.locator('.room-code')).toBeVisible({ timeout: 30_000 });
     const code = await host.evaluate(() => roomCode);
 
@@ -127,7 +127,7 @@ test('joining a room whose host is genuinely gone fails cleanly, not silently', 
     const host = await browser.newPage({ viewport: PHONE });
     await host.goto('/bingo.html');
     await host.locator('input[placeholder="Enter name"]').fill('Neil');
-    await host.getByRole('button', { name: /Host on this phone/ }).click();
+    await host.getByRole('button', { name: /Host & play on this phone/ }).click();
     await expect(host.locator('.room-code')).toBeVisible({ timeout: 30_000 });
     const code = await host.evaluate(() => roomCode);
     await host.close();   // the host device is not silent — it is gone

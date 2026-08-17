@@ -27,7 +27,7 @@ async function joinPhone(browser, code, name) {
     const p = await browser.newPage({ viewport: PHONE });
     await p.goto('/liarsdice.html?join=' + code);
     await p.locator('#jc').fill(code);
-    await p.locator('input[placeholder="e.g. Will Turner"]').fill(name);
+    await p.locator('input[placeholder="e.g. Bootstrap Bill"]').fill(name);
     await p.getByRole('button', { name: /Take a seat/ }).click();
     return p;
 }
@@ -98,7 +98,7 @@ test('TV room: the big screen shows the table, phones keep their own dice', asyn
     const errs = [];
     tv.on('pageerror', e => errs.push('tv: ' + e.message));
     await tv.goto('/liarsdice.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 

@@ -791,6 +791,15 @@ function renderHome() {
     const fromQR = !!fCode;
     return `${hdrHTML()}${errHTML()}
     <div class="card">
+        <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-p btn-full" style="padding:16px" onclick="hostOnTV()">📺 Host the party on this TV</button>
+        <div class="hint">Shows a big QR — the first phone to join becomes 👑 Captain</div>
+        <div class="fg" style="margin-top:12px"><label>…or open the arena for an existing room</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"></div>
+        <button class="btn btn-g btn-full btn-sm" onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code for the arena.';render()}">📺 Open Arena</button>
+    </div>
+    <div class="card">
         <div class="slbl">Who are you?</div>
         <div class="fg"><label>Your Name</label>
             <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}" ${fromQR ? 'autofocus' : ''} data-save-name oninput="fName=this.value"></div>
@@ -806,15 +815,8 @@ function renderHome() {
     </div>
     <div class="card">
         <div class="slbl">Start a Game</div>
-        <button class="btn btn-p btn-full" onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">✊ Host on this phone</button>
-        <div class="hint">2–12 players — put the arena on a TV with the room code</div>
-        <div class="divider"></div>
-        <button class="btn btn-g btn-full" style="margin-top:12px" onclick="hostOnTV()">📺 Host the party on this screen</button>
-        <div class="hint">Shows a big QR — the first phone to join becomes 👑 Captain</div>
-        <div class="fg" style="margin-top:12px"><label>…or open the arena for an existing room</label>
-            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
-                oninput="fVCode=this.value=this.value.toUpperCase()"></div>
-        <button class="btn btn-g btn-full btn-sm" onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code for the arena.';render()}">📺 Open Arena</button>
+        <button class="btn btn-g btn-full" onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">✊ Host & play on this phone</button>
+        <div class="hint">2–12 players — no TV handy? This phone hosts the arena and joins in as a player.</div>
     </div>`;
 }
 

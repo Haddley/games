@@ -33,7 +33,7 @@ test('TV-hosted table: sequence toggle, deal, unchallenged play, a caught bluff,
     tv.on('pageerror', e => errors.push('tv: ' + e.message));
     await tv.goto('/idoubtit.html');
     await shot(tv, 'id-01-home');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);
@@ -175,7 +175,7 @@ test('phone-hosted table: the host can play too', async ({ browser }) => {
     neil.on('pageerror', e => errors.push('host: ' + e.message));
     await neil.goto('/idoubtit.html');
     await neil.locator('input[placeholder="Enter name"]').fill('Neil');
-    await neil.getByRole('button', { name: /Host on this phone/ }).click();
+    await neil.getByRole('button', { name: /Host & play on this phone/ }).click();
     // renderLobby() shows the room code inline in `.slbl`, not a dedicated `.room-code`
     // element — `.qr-box` is what's actually there to wait on (same as Blackjack's
     // "Deal me in" solo-host test).

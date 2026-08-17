@@ -561,16 +561,23 @@
 
         <div id="lobby-screen" class="screen active">
             <div class="card">
+                <div class="slbl">TV / Big Screen</div>
+                <button class="btn btn-p btn-full" style="padding:16px" id="tv-host-btn">📺 Host the party on this TV</button>
+                <div class="tv-hint" style="margin:6px 0 10px">Shows a big QR — the first two phones to join play as ❌ and ⭕.</div>
+                <hr>
+                <div class="fg">
+                    <label>…or open the scoreboard for an existing room</label>
+                    <input type="text" id="scoreboard-code-input" placeholder="XXXX" maxlength="4" oninput="this.value=this.value.toUpperCase()">
+                </div>
+                <button class="btn btn-g btn-full" id="scoreboard-btn">📺 Open Scoreboard</button>
+                <div id="scoreboard-error" class="error-message">Couldn't open a spectator view for that room</div>
+            </div>
+            <div class="card">
                 <div class="slbl">Who are you?</div>
                 <div class="fg">
                     <label>Your Name</label>
                     <input type="text" id="player-name-input" placeholder="Enter your name" maxlength="16" data-save-name>
                 </div>
-            </div>
-            <div class="card">
-                <div class="slbl">Start a Game</div>
-                <button class="btn btn-p btn-full" id="create-game-btn">❌ Host on this phone</button>
-                <div class="tv-hint" style="margin-top:8px">2 players — share the room code; the first to join is your opponent.</div>
             </div>
             <div class="card">
                 <div class="slbl">Join a Game</div>
@@ -582,16 +589,9 @@
                 <div id="join-error" class="error-message">Room not found or connection failed</div>
             </div>
             <div class="card">
-                <div class="slbl">TV / Big Screen</div>
-                <button class="btn btn-p btn-full" id="tv-host-btn">📺 Host the party on this screen</button>
-                <div class="tv-hint" style="margin:6px 0 10px">Shows a big QR — the first two phones to join play as ❌ and ⭕.</div>
-                <hr>
-                <div class="fg">
-                    <label>…or open the scoreboard for an existing room</label>
-                    <input type="text" id="scoreboard-code-input" placeholder="XXXX" maxlength="4" oninput="this.value=this.value.toUpperCase()">
-                </div>
-                <button class="btn btn-g btn-full" id="scoreboard-btn">📺 Open Scoreboard</button>
-                <div id="scoreboard-error" class="error-message">Couldn't open a spectator view for that room</div>
+                <div class="slbl">Start a Game</div>
+                <button class="btn btn-g btn-full" id="create-game-btn">❌ Host & play on this phone</button>
+                <div class="tv-hint" style="margin-top:8px">No TV handy? This phone hosts the match and plays too — the first to join is your opponent.</div>
             </div>
         </div>
 

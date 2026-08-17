@@ -52,7 +52,7 @@ test('TV-first: deal, night kill, seer vision, vote out the wolf → village win
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/moonlightvillage.html');
     await shot(tv, 'moon-01-home');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Narrate on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);
@@ -153,7 +153,7 @@ test('phone-first + TV viewer: healer save → everyone survives the night', asy
     const neil = await browser.newPage({ viewport: PHONE });
     await neil.goto('/moonlightvillage.html');
     await neil.locator('input[placeholder="Enter name"]').fill('Neil');
-    await neil.getByRole('button', { name: /Host on this phone/ }).click();
+    await neil.getByRole('button', { name: /Host & play on this phone/ }).click();
     await expect(neil.locator('.room-code')).toBeVisible({ timeout: 30_000 });
     const code = await neil.evaluate(() => roomCode);
     await shot(neil, 'moon-20-host-lobby');
@@ -161,7 +161,7 @@ test('phone-first + TV viewer: healer save → everyone survives the night', asy
     // ── TV joins as narrator ──
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/moonlightvillage.html');
-    await tv.locator('input[placeholder="4-letter code"]').last().fill(code);
+    await tv.locator('.card', { hasText: 'TV / Big Screen' }).locator('input[placeholder="4-letter code"]').fill(code);
     await tv.getByRole('button', { name: /Open narrator screen/ }).click();
     await expect(tv.locator('.cxl-code')).toHaveText(code, { timeout: 30_000 });
 

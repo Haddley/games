@@ -28,9 +28,9 @@ test('full game flow: lobby, gameplay, round results, game over', async ({ brows
     await host.goto('/letterstorm.html');
     await shot(host, '01-home');
 
-    await host.locator('.card', { hasText: 'Host a Party' }).locator('input').fill('Neil');
-    await host.getByRole('button', { name: /Host Party/ }).click();
-    await expect(host.locator('.room-code')).toBeVisible({ timeout: 30_000 });
+    await host.locator('.card', { hasText: 'Who are you?' }).locator('input').fill('Neil');
+    await host.getByRole('button', { name: /Host & play on this phone/ }).click();
+    await expect(host.locator('.qr-box')).toBeVisible({ timeout: 30_000 });
     const code = await host.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);
 
@@ -40,7 +40,7 @@ test('full game flow: lobby, gameplay, round results, game over', async ({ brows
     // ── TV scoreboard joins ──
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/letterstorm.html');
-    await tv.locator('input[placeholder="4-letter code"]').last().fill(code);
+    await tv.locator('.card', { hasText: 'TV / Big Screen' }).locator('input[placeholder="4-letter code"]').fill(code);
     await tv.getByRole('button', { name: /Open Scoreboard/ }).click();
     await expect(tv.locator('.v-lobby-code')).toHaveText(code, { timeout: 30_000 });
 
@@ -48,7 +48,7 @@ test('full game flow: lobby, gameplay, round results, game over', async ({ brows
     async function join(name) {
         const p = await browser.newPage({ viewport: PHONE });
         await p.goto('/letterstorm.html?room=' + code);
-        await p.locator('.card', { hasText: 'Join a Party' }).locator('input').nth(1).fill(name);
+        await p.locator('.card', { hasText: 'Who are you?' }).locator('input').fill(name);
         await p.getByRole('button', { name: /Join with your phone/ }).click();
         await expect(p.locator('.room-code')).toBeVisible({ timeout: 30_000 });
         return p;

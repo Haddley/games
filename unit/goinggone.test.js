@@ -679,7 +679,7 @@ test('AUDIT: the phone speaks the same lines the TV does', () => {
 test('the voice is not gagged by the sound-effects toggle', () => {
     // They are two buttons. Having 🔊 also silence the auctioneer made "I turned the voice on and
     // nothing happened" a puzzle rather than a setting.
-    const src = HTML.slice(HTML.indexOf('const canSpeak ='), HTML.indexOf('function pickVoice'));
+    const src = HTML.slice(HTML.indexOf('function canSpeak'), HTML.indexOf('function pickVoice'));
     assert.ok(/voiceOn\(\)/.test(src), 'canSpeak should consult the voice toggle');
     assert.ok(!/sfxOn/.test(src), 'canSpeak must not depend on sfxOn');
 });

@@ -86,7 +86,7 @@ test('three players, three rounds: the auctioneer keeps to his own schedule', as
     const crashes = [];
     tv.on('pageerror', e => crashes.push(String(e)));
     await tv.goto('/goinggone.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 

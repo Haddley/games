@@ -64,7 +64,7 @@ test('TV-first: the ask, a bidding war, gavel, valuation, podium', async ({ brow
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/goinggone.html');
     await shot(tv, 'gavel-01-home');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);
@@ -170,7 +170,7 @@ test('nobody can read another bidder\'s purse while the bidding is live', async 
     // same reason mystery lots are withheld host-side.
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/goinggone.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 
@@ -229,7 +229,7 @@ test('he splits the increment rather than dropping the hammer', async ({ browser
     // test did exactly that and failed, correctly.
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/goinggone.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 
@@ -295,7 +295,7 @@ test('paddles: unique two-digit numbers, drawn on screen, and the auctioneer sel
 
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/goinggone.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 
@@ -360,7 +360,7 @@ test('rounds: net worth banks back into cash, and the podium waits for the last 
 
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/goinggone.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 
@@ -435,7 +435,7 @@ test('passed in: the auctioneer fishes all the way down and nobody bites', async
 
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/goinggone.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 
@@ -704,14 +704,14 @@ test('any screen may speak, and a TV that JOINS an auction speaks too', async ({
     // on a phone, because five phones and a telly calling the same lot a beat apart is bedlam.
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/goinggone.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 
     // a SECOND television, arriving by the viewer route rather than by hosting
     const tv2 = await browser.newPage({ viewport: TV });
     await tv2.goto('/goinggone.html');
-    await tv2.locator('input[placeholder="4-letter code"]').last().fill(code);
+    await tv2.locator('.card', { hasText: 'TV / Big Screen' }).locator('input[placeholder="4-letter code"]').fill(code);
     await tv2.getByRole('button', { name: /Open auction floor/ }).click();
     await expect(tv2.locator('.cxl-code')).toHaveText(code, { timeout: 30_000 });
     expect(await tv2.evaluate(() => ({ isViewer, voiceOn: voiceOn(), canSpeak: canSpeak() })))
@@ -899,7 +899,7 @@ test('phone-first: host phone + TV viewer, one bid takes the lot', async ({ brow
     const neil = await browser.newPage({ viewport: PHONE });
     await neil.goto('/goinggone.html');
     await neil.locator('input[placeholder="Enter name"]').fill('Neil');
-    await neil.getByRole('button', { name: /Host on this phone/ }).click();
+    await neil.getByRole('button', { name: /Host & bid on this phone/ }).click();
     await expect(neil.locator('.room-code')).toBeVisible({ timeout: 30_000 });
     const code = await neil.evaluate(() => roomCode);
     await shot(neil, 'gavel-40-host-lobby');
@@ -907,7 +907,7 @@ test('phone-first: host phone + TV viewer, one bid takes the lot', async ({ brow
     // ── TV joins as the auction floor ──
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/goinggone.html');
-    await tv.locator('input[placeholder="4-letter code"]').last().fill(code);
+    await tv.locator('.card', { hasText: 'TV / Big Screen' }).locator('input[placeholder="4-letter code"]').fill(code);
     await tv.getByRole('button', { name: /Open auction floor/ }).click();
     await expect(tv.locator('.cxl-code')).toHaveText(code, { timeout: 30_000 });
 

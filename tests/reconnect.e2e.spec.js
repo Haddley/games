@@ -42,7 +42,7 @@ const dropLink = page => page.evaluate(() => hostConn.close());
 test('a dropped phone rejoins itself, keeping its seat', async ({ browser }) => {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/herdmind.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 
@@ -74,7 +74,7 @@ test('a dropped phone rejoins itself, keeping its seat', async ({ browser }) => 
 test('a browser refresh walks back into the room', async ({ browser }) => {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/herdmind.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 
@@ -94,7 +94,7 @@ test('a browser refresh walks back into the room', async ({ browser }) => {
 test('the 👑 crown passes when the captain drops, and returns when they rejoin', async ({ browser }) => {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/herdmind.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
 

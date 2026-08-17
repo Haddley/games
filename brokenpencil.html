@@ -1933,18 +1933,18 @@ function renderHome() {
     const hostCard = `
     <div class="card">
         <div class="slbl">Start a Game</div>
-        <button class="btn btn-p btn-full"
+        <button class="btn btn-g btn-full"
             onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
-            ✏️ Host on this phone
+            ✏️ Host & play on this phone
         </button>
         <div style="font-size:.66rem;color:var(--muted);text-align:center;margin-top:8px">
-            3–10 players — the TV replays every mangled chain at the end
+            3–10 players — no TV? This phone hosts the chain and joins in as a player.
         </div>
     </div>`;
     const tvCard = `
     <div class="card">
         <div class="slbl">TV / Big Screen</div>
-        <button class="btn btn-b btn-full" onclick="hostOnTV()">📺 Host the party on this screen</button>
+        <button class="btn btn-b btn-full" style="padding:16px" onclick="hostOnTV()">📺 Host the party on this TV</button>
         <div style="font-size:.66rem;color:var(--muted);text-align:center;margin:6px 0 10px">
             Shows a big QR code — the first phone to join becomes 👑 Captain
         </div>
@@ -1963,7 +1963,7 @@ function renderHome() {
     return `
     ${hdrHTML('the telephone game, in drawings')}
     ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
-    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+    ${tvCard}${youCard}${joinCard}${hostCard}`;
 }
 
 function renderLobbyH() {

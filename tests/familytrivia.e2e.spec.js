@@ -35,7 +35,7 @@ test('TV-first: captain runs the game — story, question, lone wolf reveal, pod
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/familytrivia.html');
     await shot(tv, 'ft-01-home');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);
@@ -112,7 +112,7 @@ test('phone-first: host phone + TV viewer, everyone right → With the Flock', a
     const neil = await browser.newPage({ viewport: PHONE });
     await neil.goto('/familytrivia.html');
     await neil.locator('input[placeholder="Enter name"]').fill('Neil');
-    await neil.getByRole('button', { name: /Host on this phone/ }).click();
+    await neil.getByRole('button', { name: /Host & play on this phone/ }).click();
     await expect(neil.locator('.room-code')).toBeVisible({ timeout: 30_000 });
     const code = await neil.evaluate(() => roomCode);
     await shot(neil, 'ft-20-host-lobby');
@@ -120,7 +120,7 @@ test('phone-first: host phone + TV viewer, everyone right → With the Flock', a
     // ── TV joins as a viewer ──
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/familytrivia.html');
-    await tv.locator('input[placeholder="4-letter code"]').last().fill(code);
+    await tv.locator('.card', { hasText: 'TV / Big Screen' }).locator('input[placeholder="4-letter code"]').fill(code);
     await tv.getByRole('button', { name: /Open TV screen/ }).click();
     await expect(tv.locator('.cxl-code')).toHaveText(code, { timeout: 30_000 });
 
@@ -154,7 +154,7 @@ test('solo host, no TV connected: the story shows on the phone', async ({ browse
     const solo = await browser.newPage({ viewport: PHONE });
     await solo.goto('/familytrivia.html');
     await solo.locator('input[placeholder="Enter name"]').fill('Archie');
-    await solo.getByRole('button', { name: /Host on this phone/ }).click();
+    await solo.getByRole('button', { name: /Host & play on this phone/ }).click();
     await expect(solo.locator('.room-code')).toBeVisible({ timeout: 30_000 });
 
     await solo.getByRole('button', { name: /Start the game/ }).click();

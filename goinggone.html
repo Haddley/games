@@ -2239,7 +2239,7 @@ let _voice = null, _voiceTried = false;
 // NB: deliberately NOT gated on sfxOn. The auctioneer has his own 🗣️ button, and having the
 // 🔊 one silence him too made "I turned the voice on and nothing happened" a puzzle rather than
 // a setting.
-const canSpeak = () => voiceOn() && typeof speechSynthesis !== 'undefined';
+function canSpeak() { return voiceOn() && typeof speechSynthesis !== 'undefined'; }
 
 function pickVoice() {
     if (_voiceTried || typeof speechSynthesis === 'undefined') return _voice;
@@ -4192,18 +4192,18 @@ function renderHome() {
     const hostCard = `
     <div class="card">
         <div class="slbl">Open an Auction</div>
-        <button class="btn btn-p btn-full"
+        <button class="btn btn-g btn-full"
             onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
-            ${GAVEL} Host on this phone
+            ${GAVEL} Host & bid on this phone
         </button>
         <div style="font-size:.66rem;color:var(--muted);text-align:center;margin-top:8px">
-            2–10 bidders · ${START_COINS.toLocaleString()} coins each · real items, real prices
+            2–10 bidders · ${START_COINS.toLocaleString()} coins each · real items, real prices. No TV? This phone runs the auction and bids too.
         </div>
     </div>`;
     const tvCard = `
     <div class="card">
         <div class="slbl">TV / Big Screen</div>
-        <button class="btn btn-p btn-full" onclick="hostOnTV()">📺 Host the party on this screen</button>
+        <button class="btn btn-p btn-full" style="padding:16px" onclick="hostOnTV()">📺 Host the party on this TV</button>
         <div style="font-size:.66rem;color:var(--muted);text-align:center;margin:6px 0 10px">
             Shows a big QR code — the first phone to join becomes 👑 Captain
         </div>
@@ -4222,7 +4222,7 @@ function renderHome() {
     return `
     ${hdrHTML('the family auction house')}
     ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
-    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+    ${tvCard}${youCard}${joinCard}${hostCard}`;
 }
 
 function renderLobbyH() {

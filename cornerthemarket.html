@@ -1888,18 +1888,18 @@ function renderHome() {
     const hostCard = `
     <div class="card">
         <div class="slbl">Open a Market</div>
-        <button class="btn btn-p btn-full"
+        <button class="btn btn-g btn-full"
             onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
-            🔔 Host on this phone
+            🔔 Host & trade on this phone
         </button>
         <div style="font-size:.66rem;color:var(--muted);text-align:center;margin-top:8px">
-            3–8 traders — put the TV up with the room code for the trading floor
+            3–8 traders — no TV? This phone runs the floor and trades too.
         </div>
     </div>`;
     const tvCard = `
     <div class="card">
         <div class="slbl">TV / Big Screen</div>
-        <button class="btn btn-p btn-full" onclick="hostOnTV()">📺 Host the party on this screen</button>
+        <button class="btn btn-p btn-full" style="padding:16px" onclick="hostOnTV()">📺 Host the party on this TV</button>
         <div style="font-size:.66rem;color:var(--muted);text-align:center;margin:6px 0 10px">
             Shows a big QR code — the first phone to join becomes 👑 Captain
         </div>
@@ -1918,7 +1918,7 @@ function renderHome() {
     return `
     ${hdrHTML('open outcry · brightly coloured jackets · ring the bell')}
     ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
-    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}`;
+    ${tvCard}${youCard}${joinCard}${hostCard}`;
 }
 
 function marketCardHTML(playerCount, settings) {

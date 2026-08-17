@@ -53,7 +53,7 @@ test('TV-first: guesses, betting board, payout maths, podium', async ({ browser 
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/bestguess.html');
     await shot(tv, 'guess-01-home');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);
@@ -142,7 +142,7 @@ test('phone-first: host phone + TV viewer, one full round', async ({ browser }) 
     const neil = await browser.newPage({ viewport: PHONE });
     await neil.goto('/bestguess.html');
     await neil.locator('input[placeholder="Enter name"]').fill('Neil');
-    await neil.getByRole('button', { name: /Host on this phone/ }).click();
+    await neil.getByRole('button', { name: /Host & play on this phone/ }).click();
     await expect(neil.locator('.room-code')).toBeVisible({ timeout: 30_000 });
     const code = await neil.evaluate(() => roomCode);
     await shot(neil, 'guess-20-host-lobby');
@@ -150,7 +150,7 @@ test('phone-first: host phone + TV viewer, one full round', async ({ browser }) 
     // ── TV joins as the board ──
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/bestguess.html');
-    await tv.locator('input[placeholder="4-letter code"]').last().fill(code);
+    await tv.locator('.card', { hasText: 'TV / Big Screen' }).locator('input[placeholder="4-letter code"]').fill(code);
     await tv.getByRole('button', { name: /Open the board/ }).click();
     await expect(tv.locator('.cxl-code')).toHaveText(code, { timeout: 30_000 });
 

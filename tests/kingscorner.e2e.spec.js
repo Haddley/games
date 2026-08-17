@@ -33,7 +33,7 @@ test('TV-hosted table: deal, draw, play, open a corner, win a round, win the mat
     tv.on('pageerror', e => errors.push('tv: ' + e.message));
     await tv.goto('/kingscorner.html');
     await shot(tv, 'kc-01-home');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);
@@ -143,8 +143,8 @@ test('phone-hosted table: legal-move highlighting, hint, and a rejection toast',
     neil.on('pageerror', e => errors.push('host: ' + e.message));
     await neil.goto('/kingscorner.html');
     await neil.locator('input[placeholder="Enter name"]').fill('Neil');
-    await neil.getByRole('button', { name: /Host on this phone/ }).click();
-    await expect(neil.locator('.room-code')).toBeVisible({ timeout: 30_000 });
+    await neil.getByRole('button', { name: /Host & play on this phone/ }).click();
+    await expect(neil.locator('.qr-box')).toBeVisible({ timeout: 30_000 });
     const code = await neil.evaluate(() => roomCode);
 
     const jess = await joinPhone(browser, code, 'Jess');
@@ -229,8 +229,8 @@ test('phone-hosted table: legal-move highlighting, hint, and a rejection toast',
 test('a dry stock and a full round of empty turns ends in a stalemate', async ({ page }) => {
     await page.goto('/kingscorner.html');
     await page.locator('input[placeholder="Enter name"]').fill('Solo');
-    await page.getByRole('button', { name: /Host on this phone/ }).click();
-    await expect(page.locator('.room-code')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: /Host & play on this phone/ }).click();
+    await expect(page.locator('.qr-box')).toBeVisible({ timeout: 30_000 });
 
     // Force a two-player game state directly (no second phone needed for this path):
     // an empty stock, unequal hands, and no legal move for anybody, so a full

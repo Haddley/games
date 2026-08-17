@@ -74,7 +74,7 @@ test('plumptrek: leave and rejoin over and over mid-game, keeping your place eve
     async ({ browser }) => {
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/plumptrek.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect.poll(() => tv.evaluate(() => roomCode || ''), { timeout: 30_000 }).toMatch(/^[A-Z]{4}$/);
     const code = await tv.evaluate(() => roomCode);
 
@@ -205,7 +205,7 @@ test('lastlaugh: restarting the browser QUICKLY still gets your lobby seat, not 
     const spec = GAMES.find(x => x.g === 'lastlaugh');
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/lastlaugh.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect.poll(() => tv.evaluate(() => roomCode || ''), { timeout: 30_000 }).toMatch(/^[A-Z]{4}$/);
     const code = await tv.evaluate(() => roomCode);
 
@@ -244,7 +244,7 @@ test('herdmind: the round still closes when the player everyone was waiting for 
     const spec = GAMES.find(x => x.g === 'herdmind');
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/herdmind.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect.poll(() => tv.evaluate(() => roomCode || ''), { timeout: 30_000 }).toMatch(/^[A-Z]{4}$/);
     const code = await tv.evaluate(() => roomCode);
 

@@ -185,11 +185,6 @@
         }
         .btn-p:not(:disabled):hover::after { background-position: -30% 0; }
         .btn-p:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 8px 26px rgba(255,45,120,0.55); }
-        .btn-c {
-            background: linear-gradient(120deg, var(--cyan), #3b82f6);
-            color: #041018; box-shadow: 0 6px 20px rgba(34,211,238,0.35);
-        }
-        .btn-c:not(:disabled):hover { transform: translateY(-1px); filter: brightness(1.1); }
         .btn-d { background: var(--danger); color: #fff; box-shadow: 0 4px 14px var(--dg); }
         .btn-g { background: rgba(255,255,255,0.03); color: var(--text); border: 1px solid var(--border); }
         .btn-g:not(:disabled):hover { border-color: var(--pink); color: var(--pink); }
@@ -222,9 +217,8 @@
             padding: 14px 10px 10px; margin: 4px 0;
             filter: drop-shadow(0 0 14px rgba(255,45,120,0.4));
         }
-        .qr-wrap { display: flex; justify-content: center; margin: 10px 0 14px; }
-        .qr-wrap svg { width: 158px; height: 158px; border-radius: 12px; box-shadow: 0 0 0 5px #fff, 0 0 26px rgba(139,92,246,0.5); }
-        .share-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px; }
+        .qr-box { display: flex; justify-content: center; margin: 10px 0 14px; }
+        .qr-box svg { width: 158px; height: 158px; border-radius: 12px; box-shadow: 0 0 0 5px #fff, 0 0 26px rgba(139,92,246,0.5); }
 
         /* ── Player list ── */
         .player-list { display: flex; flex-direction: column; gap: 7px; margin: 10px 0; }
@@ -2294,6 +2288,15 @@ function renderSpinner(msg) {
 
 function renderHome() {
     const fromQR = !!fCode;
+    const youCard = `
+    <div class="card">
+        <div class="slbl">Who are you?</div>
+        <div class="fg">
+            <label>Your Name</label>
+            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
+                ${fromQR ? 'autofocus' : ''} data-save-name oninput="fName=this.value">
+        </div>
+    </div>`;
     const joinCard = `
     <div class="card${fromQR ? ' highlight' : ''}">
         <div class="slbl">Join a Party</div>
@@ -2303,13 +2306,7 @@ function renderHome() {
                 oninput="fCode=this.value=this.value.toUpperCase()"
                 onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
         </div>
-        <div class="fg">
-            <label>Your Name</label>
-            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
-                ${fromQR ? 'autofocus' : ''} data-save-name oninput="fName=this.value"
-                onkeydown="if(event.key==='Enter')document.getElementById('btn-join').click()">
-        </div>
-        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-c'} btn-full"
+        <button id="btn-join" class="btn ${fromQR ? 'btn-p' : 'btn-g'} btn-full"
             onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter name and room code.';render()}">
             🕹️ Join with your phone
         </button>
@@ -2317,24 +2314,19 @@ function renderHome() {
     const hostCard = `
     <div class="card">
         <div class="slbl">Host a Party</div>
-        <div class="fg">
-            <label>Your Name</label>
-            <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}"
-                data-save-name oninput="fName=this.value"
-                onkeydown="if(event.key==='Enter')document.getElementById('btn-host').click()">
-        </div>
-        <button id="btn-host" class="btn btn-p btn-full"
+        <button id="btn-host" class="btn btn-g btn-full"
             onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name.';render()}">
-            🎉 Host Party
+            🎉 Host &amp; play on this phone
         </button>
+        <div style="font-size:.68rem;color:var(--muted);text-align:center;margin-top:8px">
+            No TV handy? This phone hosts the game and joins in as a player.
+        </div>
     </div>`;
-    return `
-    ${hdrHTML('1–8 players · phones are controllers')}
-    ${fromQR ? joinCard + hostCard : hostCard + joinCard}
+    const tvCard = `
     <div class="card">
         <div class="slbl">TV / Big Screen</div>
-        <button class="btn btn-p btn-full" onclick="hostOnTV()">
-            📺 Host the party on this screen
+        <button class="btn btn-p btn-full" style="padding:16px" onclick="hostOnTV()">
+            📺 Host the party on this TV
         </button>
         <div style="font-size:.68rem;color:var(--muted);text-align:center;margin:6px 0 10px">
             Shows a big QR code to join — the first player's phone gets the start button
@@ -2350,7 +2342,13 @@ function renderHome() {
             onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code.';render()}">
             📺 Open Scoreboard
         </button>
-    </div>
+    </div>`;
+    return `
+    ${hdrHTML('1–8 players · phones are controllers')}
+    ${tvCard}
+    ${youCard}
+    ${joinCard}
+    ${hostCard}
     ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}`;
 }
 
@@ -2376,15 +2374,8 @@ function renderLobbyH() {
     ${hdrHTML('Host Lobby')}
     <div class="card highlight">
         <div class="slbl">Scan to join — or share the code</div>
-        <div class="qr-wrap">${qrSVG(joinURL())}</div>
-        <div class="room-code">${esc(roomCode)}</div>
-        <div class="share-row">
-            <button class="btn btn-g btn-sm"
-                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
-            <button class="btn btn-g btn-sm"
-                onclick="navigator.share&&navigator.share({title:'Join Letter Storm',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
-        </div>
-        <div style="font-size:.68rem;color:var(--muted);text-align:center">Open the TV scoreboard on a big screen with code <b style="color:var(--gold)">${esc(roomCode)}</b></div>
+        ${typeof hostInviteHTML === 'function' ? hostInviteHTML(roomCode, joinURL()) : `<div class="qr-box">${qrSVG(joinURL())}</div>`}
+        <div style="font-size:.68rem;color:var(--muted);text-align:center;margin-top:8px">Open the TV scoreboard on a big screen with code <b style="color:var(--gold)">${esc(roomCode)}</b></div>
     </div>
     <div class="card">
         <div class="slbl">Players (${H.players.length} / 8)</div>

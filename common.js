@@ -650,6 +650,22 @@ function shareRoomHTML(code, joinUrl) {
         <div class="share-room-hint">Send this to anyone who can't see the TV</div>
     </div>`;
 }
+
+// ── the ROOM CREATOR's own invite card: QR + shareRoomHTML, ONE card, not two ──
+// The device that actually made the room may have people sitting close enough to scan it, so
+// unlike shareRoomHTML above (deliberately no QR — see its own comment) this adds one. Every
+// game supplies its own `.qr-box` sizing/theme — the same class name five games already used
+// identically before this existed — this just stops each one hand-rolling the QR-plus-code-
+// plus-copy/share card around it and drifting apart. Blackjack's own hand-rolled version
+// showed the room code twice (once next to the QR, again inside shareRoomHTML) before this.
+function hostInviteHTML(code, joinUrl) {
+    const c = String(code || '').toUpperCase();
+    if (!/^[A-Z]{4}$/.test(c)) return '';
+    const own = location.origin + location.pathname + '?room=' + c;
+    const url = (joinUrl && String(joinUrl).indexOf(c) >= 0) ? joinUrl : own;
+    const qr = typeof qrSVG === 'function' ? qrSVG(url) : '';
+    return `<div class="qr-box">${qr}</div>${shareRoomHTML(c, url)}`;
+}
 function copyRoomLink(url, btn) {
     const done = () => { if (!btn) return; const was = btn.textContent; btn.textContent = '✅ Copied!';
         setTimeout(() => { btn.textContent = was; }, 1600); };
@@ -672,6 +688,30 @@ border-radius:12px;text-align:center}
 .share-room-code b{letter-spacing:3px;font-size:1rem}
 .share-room-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .share-room-hint{font-size:.62rem;opacity:.55;margin-top:7px;line-height:1.4}`;
+
+// ── spoken commentary (Web Speech) ──────────────────────────────────────────
+// Moved here from cards.js once Liar's Dice became a second consumer with no deck of its
+// own — none of this touches cards, only speechSynthesis. `voiceOn()` stays PER-GAME (its
+// default fallback differs slightly by game — see each game's own definition); these just
+// call whatever `voiceOn` is in scope, so they're safe to share as-is.
+function canSpeak() { return voiceOn() && typeof speechSynthesis !== 'undefined'; }
+function speak(text) {
+    if (!canSpeak() || !text) return;
+    try {
+        speechSynthesis.cancel();   // a fresh line replaces whatever was still being read
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.02;
+        speechSynthesis.speak(u);
+    } catch (e) {}
+}
+function syncVoiceBtn() { const b = document.getElementById('tog-voice'); if (b) b.classList.toggle('off', !voiceOn()); }
+// iOS only grants speech permission from inside a user gesture, and the first real line a
+// game speaks always arrives later from a network message — so this spends one silent
+// utterance on the first tap anywhere, priming the engine before it's ever needed for real.
+function primeSpeech() {
+    if (typeof speechSynthesis === 'undefined') return;
+    try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {}
+}
 
 // ── final standings for an ELIMINATION game ─────────────────────────────────
 // `rankByScore` ranks a game where everyone finishes with a number. This is the other kind:

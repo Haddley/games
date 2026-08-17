@@ -40,7 +40,7 @@ test('type-and-submit round: typeahead, wrong locks out, correct scores, podium'
     tv.on('pageerror', e => pageErrors.push('tv: ' + e.message));
     await tv.goto('/buzzin.html');
     await shot(tv, 'buzzin-01-home');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
     const code = await tv.evaluate(() => roomCode);
     expect(code).toMatch(/^[A-Z]{4}$/);
@@ -121,7 +121,7 @@ test('rebus gallery: capture 6 different puzzles on the TV', async ({ browser })
     fs.mkdirSync(SHOTS, { recursive: true });
     const tv = await browser.newPage({ viewport: TV });
     await tv.goto('/buzzin.html');
-    await tv.getByRole('button', { name: /Host the party on this screen/ }).click();
+    await tv.getByRole('button', { name: /Host the party on this TV/ }).click();
     await expect(tv.locator('.cxl-code')).toBeVisible({ timeout: 30_000 });
 
     // Force a known, well-reading set of puzzles onto the host and render each on the TV.

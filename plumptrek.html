@@ -3017,18 +3017,18 @@ function renderHome() {
     const hostCard = `
     <div class="card">
         <div class="slbl">Start a Game</div>
-        <button class="btn btn-p btn-full"
+        <button class="btn btn-g btn-full"
             onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">
-            🐇 Host on this phone
+            🐇 Host & play on this phone
         </button>
         <div style="font-size:.68rem;color:var(--muted);text-align:center;margin-top:8px">
-            3–12 players — put a TV up with the room code
+            3–12 players — no TV? This phone hosts the trek and joins in as a player.
         </div>
     </div>`;
     const tvCard = `
     <div class="card">
         <div class="slbl">TV / Big Screen</div>
-        <button class="btn btn-p btn-full" onclick="hostOnTV()">📺 Host the party on this screen</button>
+        <button class="btn btn-p btn-full" style="padding:16px" onclick="hostOnTV()">📺 Host the party on this TV</button>
         <div style="font-size:.68rem;color:var(--muted);text-align:center;margin:6px 0 10px">
             Shows a big QR code — the first phone to join becomes 👑 Captain
         </div>
@@ -3047,7 +3047,7 @@ function renderHome() {
     return `
     ${hdrHTML('roll · chaos · trophy')}
     ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
-    ${youCard}${fromQR ? joinCard + hostCard : hostCard + joinCard}${tvCard}
+    ${tvCard}${youCard}${joinCard}${hostCard}
     <div class="credit">💡 Inspired by <b>Chungus Odyssey 2</b> — an original game, not affiliated with it.<br>
         Trekker sprites by <a href="https://kenney.nl" target="_blank" rel="noopener">Kenney</a> (CC0 1.0, public domain).</div>`;
 }

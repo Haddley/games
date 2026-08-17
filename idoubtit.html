@@ -645,7 +645,7 @@ function toastMilestones(list) {
         else if (/but it was true/.test(m.text)) sReject();
         else if (/wins!/.test(m.text)) sWin();
     });
-    if (fresh.length) speak(fresh.map(m => m.speech).join(' '));
+    if (fresh.length) speak(joinSpeech(fresh.map(m => m.speech)));
     if (list.length) lastMilestoneSeq = Math.max(lastMilestoneSeq, ...list.map(m => m.seq));
 }
 
@@ -721,6 +721,15 @@ function renderHome() {
     const fromQR = !!fCode;
     return `${hdrHTML()}${errHTML()}
     <div class="card">
+        <div class="slbl">TV / Big Screen</div>
+        <button class="btn btn-p btn-full" style="padding:16px" onclick="hostOnTV()">📺 Host the party on this TV</button>
+        <div class="hint">Shows a big QR — the first phone to join becomes 👑 Captain</div>
+        <div class="fg" style="margin-top:12px"><label>…or open the table for an existing room</label>
+            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
+                oninput="fVCode=this.value=this.value.toUpperCase()"></div>
+        <button class="btn btn-g btn-full btn-sm" onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code for the table.';render()}">📺 Open Table</button>
+    </div>
+    <div class="card">
         <div class="slbl">Who are you?</div>
         <div class="fg"><label>Your Name</label>
             <input type="text" maxlength="16" placeholder="Enter name" value="${esc(fName)}" ${fromQR ? 'autofocus' : ''} data-save-name oninput="fName=this.value"></div>
@@ -735,15 +744,9 @@ function renderHome() {
             onclick="if(fName.trim()&&fCode.trim()){joinGame(fCode,fName)}else{uiErr='Enter your name and the room code.';render()}">🃏 Join with your phone</button>
     </div>
     <div class="card">
-        <div class="slbl">Start a Table</div>
-        <button class="btn btn-p btn-full" onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">🃏 Host on this phone</button>
-        <div class="hint">2–8 players</div>
-        <button class="btn btn-g btn-full" style="margin-top:12px" onclick="hostOnTV()">📺 Host the party on this screen</button>
-        <div class="hint">Shows a big QR — the first phone to join becomes 👑 Captain</div>
-        <div class="fg" style="margin-top:12px"><label>…or open the table for an existing room</label>
-            <input type="text" maxlength="4" placeholder="4-letter code" value="${esc(fVCode)}"
-                oninput="fVCode=this.value=this.value.toUpperCase()"></div>
-        <button class="btn btn-g btn-full btn-sm" onclick="if(fVCode.trim()){joinAsViewer(fVCode)}else{uiErr='Enter a room code for the table.';render()}">📺 Open Table</button>
+        <div class="slbl">Host a Table</div>
+        <button class="btn btn-g btn-full" onclick="if(fName.trim()){hostGame(fName)}else{uiErr='Enter your name first.';render()}">🃏 Host & play on this phone</button>
+        <div class="hint">2–8 players — no TV handy? This phone hosts the table and joins in as a player.</div>
     </div>`;
 }
 
@@ -759,21 +762,29 @@ function renderLobby() {
     const chips = players.map(p => `<div class="chip${p.name === myName ? ' you' : ''}">${esc(p.name)}</div>`).join('');
     const iAmCaptain = !!(D && D.captain && D.captain === myName);
     const enough = players.length >= MIN_PLAYERS;
-    const qr = isHost ? `<div class="qr-box">${qrSVG(joinURL())}</div>` : '';
+    const code = (D && D.roomCode) || roomCode;
+    const url = joinURL();
     const foot = iAmCaptain
         ? `${sequenceToggleHTML(!!(D && D.sequenceMode), false)}
            <button class="btn btn-p btn-full" style="margin-top:10px" ${enough ? '' : 'disabled'} onclick="guestCtl('start')">🃏 Deal the hands</button>
            <div class="hint">👑 You're the captain${enough ? '' : ' — waiting for at least ' + MIN_PLAYERS + ' players…'}</div>`
         : `${sequenceToggleHTML(!!(D && D.sequenceMode), true)}
            <div class="hint">${D && D.captain ? `👑 ${esc(D.captain)} deals when ready` : 'Waiting for the host…'}</div>`;
-    return `${hdrHTML("you're seated")}
+    // Only the room's creator sees the invite card (QR + copy/share, one card, not two — see
+    // common.js's hostInviteHTML); a plain joining guest already knows the code they typed in.
+    const inviteCard = isHost ? `
     <div class="card" style="text-align:center">
-        <div class="slbl">Room ${esc((D && D.roomCode) || roomCode)}</div>
-        ${qr}
+        ${typeof hostInviteHTML === 'function' ? hostInviteHTML(code, url) : `<div class="qr-box">${qrSVG(url)}</div>`}
+    </div>
+    <div class="card" style="text-align:center"><div class="slbl">At the table</div><div class="chips">${chips}</div></div>` : `
+    <div class="card" style="text-align:center">
+        <div class="slbl">Room ${esc(code)}</div>
         <div class="chips">${chips}</div>
     </div>
-    <div class="card">${foot}</div>
-    ${typeof shareRoomHTML === 'function' ? shareRoomHTML((D && D.roomCode) || roomCode, joinURL()) : ''}`;
+    ${typeof shareRoomHTML === 'function' ? shareRoomHTML(code, url) : ''}`;
+    return `${hdrHTML("you're seated")}
+    ${inviteCard}
+    <div class="card">${foot}</div>`;
 }
 
 // ── card rendering (shared by phone and TV) ──
@@ -910,10 +921,6 @@ function toggleVoice() {
     if (!voiceOn() && typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
 }
 function voiceOn() { return voicePref === null ? !!(isViewer || isTvHost) : voicePref !== '0'; }
-function primeSpeech() {
-    if (typeof speechSynthesis === 'undefined') return;
-    try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {}
-}
 document.addEventListener('pointerdown', () => { ac(); if (AC && AC.state === 'suspended') AC.resume(); if (musicOn) startPad(); primeSpeech(); }, { once: true });
 
 // ── Theme (day/night) ──
