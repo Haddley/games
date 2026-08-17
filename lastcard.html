@@ -126,6 +126,9 @@
         .lc-seat.spec { opacity: .45; }
         .lc-seat .nm-row { display: flex; align-items: center; justify-content: space-between; font-size: .82rem; font-weight: 800; }
 
+        .lc-hint { display: flex; align-items: flex-start; gap: 8px; background: var(--sg); border: 1px solid var(--success); border-radius: 10px; padding: 10px 13px; font-size: .78rem; font-weight: 700; line-height: 1.35; margin-bottom: 12px; }
+        .lc-hint .ico { flex-shrink: 0; }
+
         #lc-toasts { position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%); z-index: 9500; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; width: min(90vw, 380px); }
         .lc-toast { background: rgba(18,20,28,.92); color: #fff; padding: 9px 15px; border-radius: 20px; font-size: .76rem; font-weight: 700; box-shadow: 0 4px 14px rgba(0,0,0,.4); opacity: 1; transition: opacity .35s, transform .35s; max-width: 100%; text-align: center; }
         .lc-toast.out { opacity: 0; transform: translateY(6px); }
@@ -176,6 +179,7 @@
         <button id="tog-music" title="Music on/off" onclick="toggleMusic()">🎵</button>
         <button id="tog-sfx" title="Sound effects on/off" onclick="toggleSfx()">🔊</button>
         <button id="tog-voice" title="Speak milestones aloud" onclick="toggleVoice()">🗣️</button>
+        <button id="tog-help" title="Beginner help: on-screen &amp; spoken tips" onclick="toggleHelp()">🎓</button>
     </div>
 <script>
 'use strict';
@@ -861,6 +865,81 @@ function applyViewerMsg(msg) {
 // ═══════════════════════════════════════════
 // RENDER
 // ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+// BEGINNER HELP — on-screen + spoken tips for players who don't know the rules yet.
+// Deliberately its own on/off (🎓), independent of the 🗣️ milestone-voice toggle (which
+// defaults OFF on a phone — gating hints on it would leave the help feature silent for
+// exactly the players it's meant for). Player-only: TV/viewer has no "your turn" to explain.
+// ═══════════════════════════════════════════
+let helpPref = null;
+try { helpPref = localStorage.getItem('lc-help'); } catch (_) {}
+function helpOn() { return helpPref === null ? true : helpPref !== '0'; }
+function syncHelpBtn() { const b = document.getElementById('tog-help'); if (b) b.classList.toggle('off', !helpOn()); }
+function toggleHelp() {
+    helpPref = helpOn() ? '0' : '1';
+    try { localStorage.setItem('lc-help', helpPref); } catch (_) {}
+    syncHelpBtn();
+    lastHintSpoken = ''; clearTimeout(hintSpeakTimer);
+    render();
+}
+function legalHandSummary(hand, topCard, activeColor) {
+    const legal = (hand || []).filter(c => isLegal(c, topCard, activeColor));
+    if (!legal.length) return null;
+    let s = legal.slice(0, 3).map(cardLabel).join(', ');
+    if (legal.length > 3) s += `, +${legal.length - 3} more`;
+    return s;
+}
+function beginnerHint() {
+    if (!D || isViewer || isTvHost) return '';
+    if (ui === 'lobby') {
+        return D.captain === myName
+            ? `You're the captain 👑 — tap "Deal the hands" once at least ${MIN_PLAYERS} players have joined.`
+            : `Waiting for ${D.captain || 'the captain'} to deal. Share the room code or QR so more players can join.`;
+    }
+    if (ui === 'match_over') {
+        return D.isCaptain
+            ? `${D.winnerName} won by emptying their hand first. As captain, tap "Play again" when everyone's ready.`
+            : `${D.winnerName} won by emptying their hand first — fewest cards left ranks best.`;
+    }
+    if (ui !== 'playing') return '';
+    if (pendingWildCardId) return `Pick the colour you want everyone to match next.`;
+    if (D.pendingWild4Challenge) {
+        return `${D.pendingWild4Challenge.playerName} played a Wild Draw Four. If you think they secretly had a card of their own colour, tap Challenge — but guess wrong and you draw extra. It's fine to just let it stand.`;
+    }
+    if (D.pendingCallout) {
+        if (D.pendingCallout.isMe) return `You're down to one card — tap "Last Card!" now, before someone else catches you not calling it.`;
+        if (D.pendingCallout.canCatch) return `${D.pendingCallout.playerName} has one card left and hasn't called "Last Card!" — tap Caught! and they draw 2.`;
+    }
+    if (D.isMyTurn) {
+        if (D.drawnCardId) return `You drew a card. Play it now if it matches, or tap Pass if it doesn't.`;
+        const summary = legalHandSummary(D.myHand, D.topCard, D.activeColor);
+        return summary
+            ? `Your turn — match the top card by colour or number (or play a Wild). You can play: ${summary}.`
+            : `Your turn — nothing in your hand matches. Tap "Draw a card".`;
+    }
+    return `Waiting for ${D.turnPlayerName || 'the next player'} to go.`;
+}
+function hintHTML() {
+    if (!helpOn()) return '';
+    const text = beginnerHint();
+    return text ? `<div class="lc-hint"><span class="ico">🎓</span><span>${esc(text)}</span></div>` : '';
+}
+let lastHintSpoken = '', hintSpeakTimer = null;
+function speakHint(text) {
+    if (!helpOn() || !text || typeof speechSynthesis === 'undefined') return;
+    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 1.0; speechSynthesis.speak(u); } catch (e) {}
+}
+// Debounced so a milestone announcement (which fires synchronously just before render())
+// gets a beat to actually be heard instead of being cancelled mid-word by the hint.
+function scheduleHintSpeech() {
+    if (!helpOn() || isViewer || isTvHost) return;
+    if (ui !== 'playing' && ui !== 'lobby' && ui !== 'match_over') return;
+    const hint = beginnerHint();
+    if (!hint || hint === lastHintSpoken) return;
+    clearTimeout(hintSpeakTimer);
+    hintSpeakTimer = setTimeout(() => { lastHintSpoken = hint; speakHint(hint); }, 1100);
+}
+
 function render() {
     const app = document.getElementById('app');
     if (isTvHost || isViewer) ui = 'viewer';
@@ -880,6 +959,7 @@ function render() {
     const key = ui + ':' + (ui === 'viewer' ? (vD?.type || '') : '');
     app.classList.toggle('fresh', key !== _lastKey);
     _lastKey = key;
+    scheduleHintSpeech();
 }
 
 function hdrHTML(sub) {
@@ -939,6 +1019,7 @@ function renderLobby() {
            <div class="hint">👑 You're the captain${enough ? '' : ' — waiting for at least ' + MIN_PLAYERS + ' players…'}</div>`
         : `<div class="hint">${D && D.captain ? `👑 ${esc(D.captain)} deals when ready` : 'Waiting for the host…'}</div>`;
     return `${hdrHTML("you're seated")}
+    ${hintHTML()}
     <div class="card" style="text-align:center">
         <div class="slbl">Room ${esc((D && D.roomCode) || roomCode)}</div>
         ${qr}
@@ -1012,6 +1093,7 @@ function renderPlaying() {
     }
 
     return `
+    ${hintHTML()}
     <div class="card" style="text-align:center">
         <div class="slbl">${D.isMyTurn ? 'Your turn' : esc(D.turnPlayerName) + "'s turn"}</div>
         ${topCardHTML(D.topCard, D.activeColor)}
@@ -1031,6 +1113,7 @@ function renderMatchOver() {
     const ranks = typeof rankByScore === 'function' ? rankByScore(sorted, 'score') : sorted.map((_, i) => i);
     const rows = sorted.map((p, i) => `<div class="rank-item"><span class="rank-num">${ranks[i] + 1}</span><span>${esc(p.name)}</span><span style="margin-left:auto">${p.handCount} left</span></div>`).join('');
     return `${hdrHTML()}
+    ${hintHTML()}
     <div class="trophy"><div class="icon">🏆</div><div class="w-name">${esc(D.winnerName)}</div><div class="w-sub">out first, and it stuck</div></div>
     <div class="rankings">${rows}</div>
     ${D.isCaptain ? `<button class="btn btn-p btn-full" onclick="guestCtl('again')">🔄 Play again</button>` : `<div class="hint">Waiting for the captain…</div>`}`;
@@ -1194,6 +1277,7 @@ function simBotTurn() {
     if (!musicOn) { const b = document.getElementById('tog-music'); if (b) b.classList.add('off'); }
     if (!sfxOn) { const b = document.getElementById('tog-sfx'); if (b) b.classList.add('off'); }
     syncVoiceBtn();
+    syncHelpBtn();
     const mode = (params.get('mode') || '').toLowerCase();
     const simPlayers = parseInt(params.get('players'), 10) || 4;
     if (mode === 'tvsimulation' || mode === 'simulation') { startSimulation(simPlayers, 'tv'); return; }
