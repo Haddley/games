@@ -301,8 +301,7 @@ function ensureStock(minNeeded) {
     while (H.stock.length < minNeeded && H.discard.length > 1) {
         const top = H.discard.pop();
         const rest = H.discard;
-        H.stock = H.stock.concat(rest);
-        shuffle(H.stock);
+        H.stock = shuffle(H.stock.concat(rest));   // shuffle() is non-mutating — must reassign
         H.discard = [top];
     }
 }
@@ -344,13 +343,13 @@ function hostStartGame(fromId) {
     if (H.phase !== 'lobby') return;
     if (H.players.length < MIN_PLAYERS) return;
     H.players.forEach(p => { p.spectating = false; p.hand = []; });
-    const deck = makeDeck(); shuffle(deck);
+    let deck = shuffle(makeDeck());   // shuffle() is non-mutating — must reassign
     for (let i = 0; i < 7; i++) H.players.forEach(p => p.hand.push(deck.pop()));
     // keep dealing until the starter is a plain number card — sidesteps under-specified
     // starter-effect edge cases most rule variants disagree on (Mattel's own rules only
     // clearly cover redrawing a Wild Draw Four starter).
     let top = deck.pop();
-    while (top.kind !== 'number') { deck.unshift(top); shuffle(deck); top = deck.pop(); }
+    while (top.kind !== 'number') { deck.unshift(top); deck = shuffle(deck); top = deck.pop(); }
     H.discard = [top]; H.stock = deck; H.activeColor = top.color; H.direction = 1;
     H.turnIdx = H.matchStartIdx % H.players.length;
     H.matchStartIdx = (H.matchStartIdx + 1) % H.players.length;
