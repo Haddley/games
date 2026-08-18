@@ -697,14 +697,14 @@
 
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-    <script src="common.js?v=20260817-0cff424"></script>
+    <script src="common.js?v=20260817-15113b3"></script>
     <!-- p2p.js: this game keeps its own connection code (TTT_PEER_OPTS), but borrows
          the shared reconnect curtain + 📡 relay watcher from it. Every use is guarded,
          so a stale/missing p2p.js can't break the page. -->
-    <script src="p2p.js?v=20260817-0cff424"></script>
+    <script src="p2p.js?v=20260817-15113b3"></script>
     <!-- fx.js: only for startConfetti() on a win — burst()/popText() stay this game's own
          inline versions (later script wins), matched to its own .pt/.pop CSS. -->
-    <script src="fx.js?v=20260817-0cff424"></script>
+    <script src="fx.js?v=20260817-15113b3"></script>
     <script>
         'use strict';
         typeof mountScene === 'function' && mountScene('tictactoe', 'body.tv-mode #app');   // ambient X/O scene along the bottom of the big screen
