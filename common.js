@@ -408,16 +408,21 @@ function mountMeadow(contentSelector) { return mountScene('meadow', contentSelec
 //                    players:(vD.players||[]).map(p=>({name:p.name, avatar:p.avatar})) });
 function _cxlEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
-function _cxlQr(url) {
+// The QR-module renderer itself, shared — every game used to carry its own byte-identical
+// copy of this, differing only in its two theme colors (confirmed across 24 games). A game
+// keeps its own `qrSVG(url)` as a one-line wrapper supplying its own bg/fg, so every existing
+// call site (`qrSVG(joinURL())`) keeps working unchanged.
+function qrModulesSVG(url, bg, fg) {
     try {
         const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
         const n = qr.getModuleCount(), m = 2, size = n + m * 2;
         let rects = '';
         for (let r = 0; r < n; r++) for (let c = 0; c < n; c++)
             if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg"><rect width="${size}" height="${size}" fill="#ffffff"/><g fill="#0d0d1a">${rects}</g></svg>`;
+        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg"><rect width="${size}" height="${size}" fill="${bg || '#ffffff'}"/><g fill="${fg || '#0d0d1a'}">${rects}</g></svg>`;
     } catch (e) { return ''; }
 }
+function _cxlQr(url) { return qrModulesSVG(url, '#ffffff', '#0d0d1a'); }
 
 const TVLOBBY_CSS = `
 .cxl { position: fixed; inset: var(--tv-safe, 0); z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(12px, 2.6vh, 30px); padding: clamp(20px, 4vh, 48px); text-align: center; pointer-events: none; }
@@ -711,6 +716,14 @@ function syncVoiceBtn() { const b = document.getElementById('tog-voice'); if (b)
 function primeSpeech() {
     if (typeof speechSynthesis === 'undefined') return;
     try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {}
+}
+// Joins several distinct milestone lines into ONE utterance (speak() cancels the previous
+// utterance, so N separate calls in the same tick would clip to just the last line). A plain
+// `.join(' ')` runs lines together with no pause — "Dealer busts" then "Neil wins!" reads as
+// one sentence, "busts Neil wins", which sounds like a contradiction. This punctuates each
+// part first so the joined line actually pauses between clauses.
+function joinSpeech(parts) {
+    return parts.filter(Boolean).map(p => /[.!?]$/.test(p) ? p : p + '.').join(' ');
 }
 
 // ── final standings for an ELIMINATION game ─────────────────────────────────

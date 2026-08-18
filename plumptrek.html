@@ -332,11 +332,6 @@
         .lie-note, .judge-note { animation: notePop .32s cubic-bezier(.2,.8,.3,1); }
         .win-banner { animation: notePop .45s cubic-bezier(.2,.8,.3,1); }
 
-        /* timer urgency */
-        .timebar.low, .tv-timebar.low { background: linear-gradient(90deg, #ff8a5c, #f43f5e); }
-        @keyframes pulseNum { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.3); color: var(--bad); } }
-        #q-timenum.low { animation: pulseNum .9s ease-in-out infinite; display: inline-block; }
-
         /* podium rise + delayed awards */
         @keyframes podRise { from { transform: translateY(35%); opacity: 0; } to { transform: none; opacity: 1; } }
         .award { animation: cardIn .5s 1.1s both; }
@@ -658,29 +653,10 @@ function $id(id) { return document.getElementById(id); }
 
 // Substitute played noun-phrase card(s) into a blank template, in order; fix the
 // opening capital and ensure a trailing full stop.
-function qrSVG(url) {
-    try {
-        const qr = qrcode(0, 'M');
-        qr.addData(url); qr.make();
-        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
-        let rects = '';
-        for (let r = 0; r < n; r++)
-            for (let c = 0; c < n; c++)
-                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
-            `<rect width="${size}" height="${size}" fill="#fdf8ec"/>` +
-            `<g fill="#2a1a3a">${rects}</g></svg>`;
-    } catch (e) { return ''; }
-}
+function qrSVG(url) { return qrModulesSVG(url, '#fdf8ec', '#2a1a3a'); }
 
 // ── Confetti palette (read by fx.js startConfetti) ──
 const CONFETTI_COLS = ['#ffd23f', '#ff5d9e', '#4ade80', '#a78bfa', '#fbf3e6'];
-function burstAt(sel, colors) {
-    const el = document.querySelector(sel);
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    burst(r.left + r.width / 2, r.top + r.height / 2, colors);
-}
 
 // ═══════════════════════════════════════════
 // AUDIO — procedural comedy-club swing + SFX (gesture-started).
@@ -749,28 +725,11 @@ function sPlay() {
     noiseHit(0.1, { vol: 0.09, hp: 2800, when: 0.02 });
     tone(mf(69), 0.09, { type: 'triangle', vol: 0.16, when: 0.08 });
 }
-// Judge locks a pick — ballot stamp
-function sPick() {
-    if (!sfxOn || !AC) return;
-    tone(150, 0.12, { type: 'sine', vol: 0.4, slide: 60 });
-    noiseHit(0.05, { vol: 0.14, hp: 3500, when: 0.01 });
-    tone(mf(69), 0.08, { type: 'triangle', vol: 0.14, when: 0.09 });
-}
 function sFlip() {
     if (!sfxOn || !AC) return;
     noiseHit(0.12, { vol: 0.12, hp: 2600 });
     tone(mf(74), 0.1, { type: 'triangle', vol: 0.15, slide: mf(67) });
 }
-// Round win — a bright rimshot fanfare (ba-dum-tss + shimmer)
-function sLaugh() {
-    if (!sfxOn || !AC) return;
-    duckMusic(0.8);
-    tone(mf(60), 0.1, { type: 'triangle', vol: 0.22 });
-    tone(mf(60), 0.12, { type: 'triangle', vol: 0.22, when: 0.14 });
-    noiseHit(0.4, { vol: 0.16, hp: 6500, when: 0.3 });
-    [72, 76, 79, 84].forEach((m, i) => tone(mf(m), 0.14, { type: 'triangle', vol: 0.16, when: 0.32 + i * 0.05 }));
-}
-function sTick() { if (!sfxOn || !AC) return; tone(1244, 0.045, { type: 'square', vol: 0.09 }); }
 // ── the die ──
 // A throw is a rattle, not a beep: a scatter of short wooden clicks tumbling over each
 // other for the length of the animation, then a clack and a low thud as it lands.
@@ -1004,8 +963,6 @@ fSeat = fSeat === null ? null : Number(fSeat);   // which trekker you picked, 0�
 let fCode = '', fVCode = '';
 let D = null, vD = null;
 
-// phone-local
-let qEndsAt = 0, _clientTick = null;
 
 // ═══════════════════════════════════════════
 // CONTENT — board, Gimmicks, Finales, Builds
@@ -1653,7 +1610,8 @@ function beginTurn() {
             if (H.phase !== 'turn' || H.turn !== p.id) return;
             // We gave them IDLE_ROLL_MS and heard nothing. Roll for them so the game moves —
             // and mark them away, so the room doesn't sit through that same wait EVERY lap.
-            // A phone that comes back clears the flag with its next message (see markHere).
+            // A phone that comes back clears the flag with its next message (see the
+            // `player.away = false` reset right after notePresence() in the message handler).
             p.away = true;
             hostRoll(p);
         }, IDLE_ROLL_MS);
@@ -2070,30 +2028,6 @@ function hostNewGame() {
 }
 
 // ═══════════════════════════════════════════
-// CLIENT (phone) MESSAGE HANDLING
-// ═══════════════════════════════════════════
-function stopClientTimers() { clearInterval(_clientTick); _clientTick = null; musicUrgent = false; }
-
-let _lastTickSec = -1;
-function startCountdown(seconds) {
-    qEndsAt = Date.now() + seconds * 1000;
-    stopClientTimers();
-    _lastTickSec = -1;
-    _clientTick = setInterval(() => {
-        const left = Math.max(0, qEndsAt - Date.now());
-        const bar = $id('q-timebar'), num = $id('q-timenum');
-        if (bar) bar.style.width = (left / (seconds * 1000) * 100) + '%';
-        if (num) num.textContent = Math.ceil(left / 1000);
-        const low = left <= 8000 && left > 0;
-        if (bar) bar.classList.toggle('low', low);
-        if (num) num.classList.toggle('low', low);
-        musicUrgent = low;
-        if (low) { const sec = Math.ceil(left / 1000); if (sec !== _lastTickSec) { _lastTickSec = sec; sTick(); } }
-        if (left <= 0) stopClientTimers();
-    }, 200);
-}
-
-// ═══════════════════════════════════════════
 // PHONE — message handling
 // ═══════════════════════════════════════════
 function applyMsg(msg) {
@@ -2118,6 +2052,7 @@ function applyMsg(msg) {
             D = msg;
             ui = msg.phase === 'podium' ? 'podium' : 'play';
             setMusic(msg.phase === 'podium' ? 'over' : msg.phase === 'finale' ? 'finale' : 'game');
+            bumpIntensity(Math.max(0, ...(msg.players || []).map(p => p.pos)), (msg.board || []).length);
             render();
             flipPawns(wherePawnsWere);
             playReactions(events);
@@ -2445,6 +2380,7 @@ function applyViewerMsg(msg) {
     isViewer = isViewer || !isTvHost;
     ui = 'viewer';
     setMusic(msg.type === 'viewer_lobby' ? 'lobby' : msg.phase === 'podium' ? 'over' : msg.phase === 'finale' ? 'finale' : 'game');
+    bumpIntensity(Math.max(0, ...(msg.players || []).map(p => p.pos)), (msg.board || []).length);
     render();
     flipPawns(wherePawnsWere);
     playReactions(events);

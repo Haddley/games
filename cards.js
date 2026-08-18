@@ -46,9 +46,29 @@ function cardHTML(c) { return `<span class="rk">${rankShort(c.rank)}</span><span
 // correctly for everyone at the table. This deliberately overrides common.js's
 // version (later script wins) rather than being a stale duplicate of it.
 function capPlayer() { return connectedPlayers()[0] || H.players[0] || null; }
+// Re-syncs only the two phones the crown actually moved between, plus the TV/viewers —
+// never a full broadcast(), which would interrupt every other player mid-interaction
+// (e.g. mid card-select) just because someone else joined or dropped. `ui` is left
+// untouched: a captain change never changes the phase, only who the crown-dependent
+// fields (`isCaptain`, `captain` name) point at, so only the underlying D/vD data needs
+// refreshing before the existing `ui` is repainted.
 function capSync(prevId) {
-    if ((capPlayer()?.id || null) === prevId) return;
-    if (H.phase === 'lobby') broadcastLobby(); else broadcast();
+    const newId = capPlayer()?.id || null;
+    if (newId === prevId) return;
+    const lobby = H.phase === 'lobby';
+    [prevId, newId].forEach(id => {
+        if (!id || id === myId) return;
+        const c = guestConns[id];
+        if (c) send(c, lobby ? lobbyMsg() : buildDisplay(id));
+    });
+    Object.values(viewerConns).forEach(c => send(c, lobby ? { ...lobbyMsg(), type: 'viewer_lobby' } : buildViewerDisplay()));
+    if (typeof isTvHost !== 'undefined' && isTvHost) {
+        vD = lobby ? { ...lobbyMsg(), type: 'viewer_lobby' } : buildViewerDisplay();
+        render();
+    } else if (isHost) {
+        D = lobby ? lobbyMsg() : buildDisplay(myId);
+        render();
+    }
 }
 
 // ── Milestone commentary (spoken + shown) ───────────────────────────────────
@@ -58,14 +78,5 @@ function addMilestone(text, speech) {
     if (H.milestones.length > 8) H.milestones = H.milestones.slice(-8);
 }
 // `voiceOn()` stays per-game (its default fallback differs slightly by game — see
-// each game's own definition) — `speak`/`canSpeak`/`syncVoiceBtn`/`primeSpeech` moved to
-// common.js once Liar's Dice became a second, non-card consumer of the identical cluster.
-// Joins several distinct milestone lines into ONE utterance (speak() cancels the previous
-// utterance, so N separate calls in the same tick would clip to just the last line — see
-// each game's own toastMilestones). A plain `.join(' ')` ran lines together with no pause —
-// "Dealer busts with 23 — the table collects" then "Neil wins!" read as one sentence,
-// "the table collects Neil wins", which sounds like a contradiction. This punctuates each
-// part first so the joined line actually pauses between clauses.
-function joinSpeech(parts) {
-    return parts.filter(Boolean).map(p => /[.!?]$/.test(p) ? p : p + '.').join(' ');
-}
+// each game's own definition) — `speak`/`canSpeak`/`syncVoiceBtn`/`primeSpeech`/`joinSpeech`
+// moved to common.js once Liar's Dice and Last Card became consumers with no deck of their own.

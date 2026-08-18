@@ -443,21 +443,7 @@ function getCustomPack() {
 }
 
 // ── QR code (paper-themed SVG) ──
-function qrSVG(url) {
-    try {
-        const qr = qrcode(0, 'M');
-        qr.addData(url);
-        qr.make();
-        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
-        let rects = '';
-        for (let r = 0; r < n; r++)
-            for (let c = 0; c < n; c++)
-                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
-            `<rect width="${size}" height="${size}" fill="#fffaf0"/>` +
-            `<g fill="#2e1c0e">${rects}</g></svg>`;
-    } catch (e) { return ''; }
-}
+function qrSVG(url) { return qrModulesSVG(url, '#fffaf0', '#2e1c0e'); }
 
 // ── Confetti ──
 const CONFETTI_COLS = ['#ffc16b', '#ff7847', '#3fae72', '#3b82f6', '#8b5cf6', '#f8efdc'];
@@ -1405,10 +1391,18 @@ function applyMsg(msg) {
             render();
             break;
         case 'question': {
+            // A rejoin (page refresh, or a brief drop caught by joinPeer's auto-rejoin) gets
+            // sent the SAME phase again via phaseSnapshotFor — qid tells a genuinely new
+            // question apart from a resync of the one already in progress. Without this check,
+            // every resync wiped whatever the player had already locked in and restarted their
+            // countdown from full, even mid-question.
+            const fresh = !D || D.type !== 'question' || D.qid !== msg.qid;
             D = msg;
-            myChoice = null; lockedIn = false;
-            qShownAt = Date.now();
-            qEndsAt = qShownAt + msg.seconds * 1000;
+            if (fresh) {
+                myChoice = null; lockedIn = false;
+                qShownAt = Date.now();
+                qEndsAt = qShownAt + msg.seconds * 1000;
+            }
             ui = 'question';
             setMusic('question');
             musicKeyShift = msg.num === msg.total ? 2 : 0;   // final question: key up

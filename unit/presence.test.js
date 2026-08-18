@@ -330,7 +330,7 @@ test('every page cache-busts the shared scripts', () => {
     //   V=$(date +%Y%m%d)-$(git rev-parse --short HEAD)
     //   … rewrite src="common.js?v=$V" in every page (see the commit that added this)
     const root = path.join(__dirname, '..');
-    const shared = ['common.js', 'p2p.js', 'fx.js', 'audio.js', 'ambient.js', 'dice.js', 'cards.js'];
+    const shared = ['common.js', 'p2p.js', 'fx.js', 'audio.js', 'ambient.js', 'dice.js', 'cards.js', 'character.js'];
     const bad = [];
     fs.readdirSync(root).filter(f => f.endsWith('.html')).forEach(file => {
         const src = fs.readFileSync(path.join(root, file), 'utf8');

@@ -240,14 +240,7 @@ document.addEventListener('pointerdown', () => { ac(); if (AC && AC.state === 's
 // ═══════════════════════════════════════════
 // QR
 // ═══════════════════════════════════════════
-function qrSVG(url) {
-    try {
-        const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
-        const n = qr.getModuleCount(), m = 2, size = n + m * 2; let rects = '';
-        for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg"><rect width="${size}" height="${size}" fill="#fffdf2"/><g fill="#26124d">${rects}</g></svg>`;
-    } catch (e) { return ''; }
-}
+function qrSVG(url) { return qrModulesSVG(url, '#fffdf2', '#26124d'); }
 function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
 
 // ═══════════════════════════════════════════
@@ -295,7 +288,6 @@ function connectedPlayers() {
 // whose phone drops mid-game must not stall the room. Their slot survives the drop
 // (zombie takeover by name), so when they rejoin they're first again and the crown
 // comes straight back.
-function capName() { return isTvHost ? (capPlayer()?.name || null) : null; }
 // The crown moved — push the change out.
 function capSync(prevId) {
     if (!isTvHost || H.phase === 'lobby') return;      // lobby re-broadcasts anyway
@@ -323,8 +315,9 @@ function hostRekeyPlayer(player, newId) {
         (H.result.throws || []).forEach(t => { if (t.id === old) t.id = newId; });
     }
 }
-function captainId() { return isTvHost ? (connectedPlayers()[0]?.id || H.players[0]?.id || null) : null; }
-function captainName() { const c = H.players.find(p => p.id === captainId()); return c ? c.name : null; }
+// Thin wrappers around common.js's shared capPlayer() — the TV-gate is already baked in there.
+function captainId() { return capPlayer()?.id || null; }
+function captainName() { return capPlayer()?.name || null; }
 
 function hostAddPlayer(id, name, avatar) {
     if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
@@ -825,8 +818,8 @@ function renderLobbyH() {
     return `${hdrHTML('you are the host')}${errHTML()}
     <div class="card highlight" style="text-align:center">
         <div class="slbl">Scan to join</div>
-        <div class="qr-wrap">${qrSVG(joinURL())}</div>
-        <div class="room-code">${roomCode}</div>
+        ${typeof hostInviteHTML === 'function' ? hostInviteHTML(roomCode, joinURL()) : ''}
+        <div class="room-code">${esc(roomCode)}</div>
     </div>
     <div class="card">
         <div class="slbl">Players (${H.players.length}/${MAX_PLAYERS})</div>

@@ -608,8 +608,8 @@ test('the auctioneer stands on the TV only, and his mouth follows the speech', a
     expect(clash, 'the auctioneer is standing on the layout').toEqual([]);
 
     // the mouth is driven by the utterance's own start/end, not a timer
-    expect(await tv.evaluate(() => { auctTalk(true); return document.querySelector('#auctioneer').classList.contains('talking'); })).toBe(true);
-    expect(await tv.evaluate(() => { auctTalk(false); return document.querySelector('#auctioneer').classList.contains('talking'); })).toBe(false);
+    expect(await tv.evaluate(() => { charTalk(true); return document.querySelector('#auctioneer').classList.contains('talking'); })).toBe(true);
+    expect(await tv.evaluate(() => { charTalk(false); return document.querySelector('#auctioneer').classList.contains('talking'); })).toBe(false);
 
     // …and the SHAPE of it comes from the words. The first version flapped at a fixed rate, so
     // "SOLD!" and a hundred-and-fifty-three-thousand looked identical — which is what a fixed
@@ -740,7 +740,7 @@ test('any screen may speak, and a TV that JOINS an auction speaks too', async ({
 test('he says it in writing too, especially where he cannot say it aloud', async ({ browser }) => {
     // The speech bubble is not decoration: on a Fire TV, where Web Speech does not exist at all,
     // it IS the auctioneer's performance. So it must fill on every line regardless of whether the
-    // device can speak — which is why bubble() runs before the canSpeak() gate, not after it.
+    // device can speak — which is why charBubble() runs before the canSpeak() gate, not after it.
     const tv = await browser.newPage({ viewport: TV });
     await tv.addInitScript(() => {
         // a browser with no speech synthesis whatsoever, which is the case that matters
@@ -751,19 +751,19 @@ test('he says it in writing too, especially where he cannot say it aloud', async
     expect(await tv.evaluate(() => canSpeak()), 'this test is pointless if it can speak').toBe(false);
 
     await tv.evaluate(() => say("Who'll start me at eight thousand five hundred?"));
-    await expect(tv.locator('#auct-bubble')).toBeVisible();
-    await expect(tv.locator('#auct-bubble')).toHaveClass(/on/);        // actually showing, not just present
-    await expect(tv.locator('#auct-bubble')).toContainText('eight thousand five hundred');
-    await expect.poll(() => tv.evaluate(() => getComputedStyle(document.querySelector('#auct-bubble')).opacity),
+    await expect(tv.locator('#auctioneer-bubble')).toBeVisible();
+    await expect(tv.locator('#auctioneer-bubble')).toHaveClass(/on/);        // actually showing, not just present
+    await expect(tv.locator('#auctioneer-bubble')).toContainText('eight thousand five hundred');
+    await expect.poll(() => tv.evaluate(() => getComputedStyle(document.querySelector('#auctioneer-bubble')).opacity),
         { timeout: 3000, message: 'the bubble never faded in' }).toBe('1');
     // …and he mouths it, rather than standing frozen under a speech bubble
     await expect(tv.locator('#auctioneer.talking')).toBeVisible();
 
     const box = await tv.evaluate(() => {
-        const b = document.querySelector('#auct-bubble').getBoundingClientRect();
+        const b = document.querySelector('#auctioneer-bubble').getBoundingClientRect();
         const a = document.querySelector('#auctioneer').getBoundingClientRect();
         return { bw: b.width, bh: b.height, ah: a.height, gap: b.left - a.right, right: innerWidth - b.right,
-                 overflows: document.querySelector('#auct-bubble').scrollHeight > document.querySelector('#auct-bubble').clientHeight + 2 };
+                 overflows: document.querySelector('#auctioneer-bubble').scrollHeight > document.querySelector('#auctioneer-bubble').clientHeight + 2 };
     });
     expect(box.bw, 'it should take the width it can get').toBeGreaterThan(1200);
     expect(box.right, 'and leave a margin on the right').toBeGreaterThan(20);
@@ -774,13 +774,13 @@ test('he says it in writing too, especially where he cannot say it aloud', async
     // a long line sets itself smaller rather than spilling
     await tv.evaluate(() => say('Number forty-two paid nine thousand for something worth forty-five thousand nine hundred. Daylight robbery. And number seventy-seven gave nine hundred for a thing worth twenty-one.'));
     await tv.waitForTimeout(200);
-    expect(await tv.evaluate(() => document.querySelector('#auct-bubble').scrollHeight
-        > document.querySelector('#auct-bubble').clientHeight + 2), 'a long line overflowed').toBe(false);
+    expect(await tv.evaluate(() => document.querySelector('#auctioneer-bubble').scrollHeight
+        > document.querySelector('#auctioneer-bubble').clientHeight + 2), 'a long line overflowed').toBe(false);
     await shot(tv, 'gavel-18-tv-speech-bubble');
 
     // it stands clear of everything the layout drew, like the auctioneer himself
     const clash = await tv.evaluate(() => {
-        const b = document.querySelector('#auct-bubble').getBoundingClientRect();
+        const b = document.querySelector('#auctioneer-bubble').getBoundingClientRect();
         return [...document.querySelectorAll('.tv-lot, .rail-row, .bank-row, .pod, .val-card')]
             .filter(e => { const r = e.getBoundingClientRect(); return r.bottom > b.top && r.left < b.right && r.right > b.left; })
             .map(e => e.className);
@@ -790,8 +790,8 @@ test('he says it in writing too, especially where he cannot say it aloud', async
     // …and a phone never shows one
     const phone = await browser.newPage({ viewport: PHONE });
     await phone.goto('/goinggone.html');
-    await phone.evaluate(() => { mountAuctioneer(); bubble('anything at all'); });
-    await expect(phone.locator('#auct-bubble')).toBeHidden();
+    await phone.evaluate(() => { mountAuctioneer(); charBubble('anything at all'); });
+    await expect(phone.locator('#auctioneer-bubble')).toBeHidden();
     await Promise.all([tv.close(), phone.close()]);
 });
 

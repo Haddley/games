@@ -11,7 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="common.js?v=20260817-0cff424"></script><script src="cards.js?v=20260817-0cff424"></script><script src="ambient.js?v=20260817-0cff424"></script>
-    <script src="p2p.js?v=20260817-0cff424"></script>
+    <script src="p2p.js?v=20260817-0cff424"></script><script src="character.js?v=20260817-0cff424"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         /* ── Casino red/black felt, gold trim (kingscorner's shell, blackjack's own palette) ── */
@@ -250,7 +250,7 @@
         /* the mouth is the whole point: it moves only while he is ACTUALLY speaking. No CSS
            keyframe loop on purpose — a fixed flap looks the same whether he's saying "sold" or
            reading out a four-figure payout. Height/width are set from JS, one step per
-           syllable of the words actually being spoken — see startDealerMouth(). */
+           syllable of the words actually being spoken — see character.js's startMouth(). */
         #dealer .mouth { position: absolute; left: 50%; top: 68%; width: 24%; height: 6%; transform: translateX(-50%); border-radius: 12% 12% 46% 46%; background: #6b2b2b; transition: height .05s linear, width .05s linear; }
         /* Both hands resting at the table edge — a full arm silhouette (tried first) read as a
            stray floating shape with no visible shoulder to connect it to, and one arm alone
@@ -629,7 +629,13 @@ function buildDisplay(playerId) {
         milestones: H.milestones.slice(-8),
     };
 }
-function buildViewerDisplay() { return { ...buildDisplay(null), type: 'viewer_state' }; }
+// buildDisplay(null) leaves isMyTurn/myChips/myBet/canDouble/isCaptain harmlessly zeroed —
+// nobody reads them on the viewer side — but the TV has no "me", so strip them rather than
+// ship dead weight over the wire.
+function buildViewerDisplay() {
+    const { isMyTurn, myChips, myBet, canDouble, isCaptain, ...rest } = buildDisplay(null);
+    return { ...rest, type: 'viewer_state' };
+}
 function phaseUi(phase) {
     if (phase === 'betting') return 'betting';
     if (phase === 'playing' || phase === 'dealer') return 'playing';
@@ -870,133 +876,49 @@ function showToast(text) {
     setTimeout(() => el.remove(), 3000);
 }
 // ── the dealer himself (TV only) ──
-// Mounted once, outside #app, because #app's innerHTML is replaced on every render and a head
-// rebuilt mid-sentence loses its mouth. Same technique as Going, Going, GONE!'s auctioneer
-// (see its own comments for the full reasoning) — costume and wiring are Blackjack's own,
-// since there's no shared "TV character" file yet and this is only the second use of the idea.
-let _dealer = null;
+// mountCharacter/charBubble/charBubbleOff/charTalk/planMouth/setMouth/stopMouth/startMouth/
+// charBeat now live in character.js — this mechanism used to be a from-scratch "faithful
+// copy" of Going, Going, GONE!'s auctioneer, kept local because it was the only consumer;
+// it's now the second, which is exactly when that stopped being true. What stays here: the
+// dealer's own costume/CSS/positioning, and the TV-aware speak-wrapper below (sayDealer).
 function mountDealer() {
-    if (_dealer || !document.body) return;
-    _dealer = document.createElement('div');
-    _dealer.id = 'dealer';
-    _dealer.innerHTML = `<div class="de">
+    mountCharacter('dealer', `<div class="de">
         <div class="head"><div class="visor"></div><div class="eye l"></div><div class="eye r"></div><div class="mouth"></div></div>
         <div class="torso"><div class="collar"></div><div class="wbtn"></div><div class="tag"></div><div class="bow-knot"></div><div class="bow"></div></div>
         <div class="hand l"></div><div class="hand r"></div>
         <div class="desk"></div>
-    </div>`;
-    document.body.appendChild(_dealer);
-    const b = document.createElement('div');
-    b.id = 'dealer-bubble';
-    b.setAttribute('aria-live', 'polite');
-    document.body.appendChild(b);
+    </div>`);
 }
 
-// What he's saying, in writing — shown for every line whether or not this device can actually
-// speak it (no Web Speech at all on some smart-TV browsers), same reasoning as the auctioneer.
-let _dealerBubbleTimer = null;
-function dealerBubble(text, ms) {
-    const el = document.getElementById('dealer-bubble');
-    if (!el || !text) return;
-    clearTimeout(_dealerBubbleTimer);
-    el.textContent = text;
-    el.classList.toggle('long', text.length > 60);
-    el.classList.toggle('vlong', text.length > 120);
-    el.classList.add('on');
-    const hold = ms || Math.min(9000, Math.max(2200, text.length * 72));
-    _dealerBubbleTimer = setTimeout(() => el.classList.remove('on'), hold);
-}
-function dealerBubbleOff() { clearTimeout(_dealerBubbleTimer); const el = document.getElementById('dealer-bubble'); if (el) el.classList.remove('on'); }
-
-function dealerTalk(on) { if (_dealer) _dealer.classList.toggle('talking', !!on); if (!on) stopDealerMouth(); }
-
-// ── the mouth ── driven by the WORDS, not a fixed-rate timer. One step per syllable, opened
-// by the vowel in that syllable and CLOSED at punctuation. onboundary re-anchors it against
-// the real audio so a long line can't drift. Ported from Going, Going, GONE!'s planMouth/
-// startMouth (see its comments for the full "why") — the algorithm is generic, so this is a
-// faithful copy rather than a reinvention, kept local rather than shared since nothing else
-// in the repo needs it yet.
-let _dealerMouthTimer = null, _dealerMouthPlan = null, _dealerMouthStep = 0;
-const DEALER_SYL_MS = 210;
-function planDealerMouth(text, rate) {
-    const steps = [];
-    const re = /\S+/g;
-    let m;
-    while ((m = re.exec(text || ''))) {
-        const at = m.index, word = m[0];
-        const letters = word.replace(/[^a-z']/gi, '').toLowerCase();
-        const vowels = letters.match(/[aeiouy]+/g) || [];
-        const syl = Math.max(1, vowels.length);
-        for (let k = 0; k < syl; k++) {
-            const v = vowels[Math.min(k, vowels.length - 1)] || 'a';
-            const open = /^[ao]/.test(v) ? 1 : /^[eu]/.test(v) ? 0.66 : 0.42;
-            steps.push({ at, open, dur: Math.round(DEALER_SYL_MS / (rate || 1)) });
-        }
-        const tail = word.slice(-1);
-        if (/[,;:—-]/.test(tail)) steps.push({ at, open: 0, dur: Math.round(150 / (rate || 1)) });
-        else if (/[.!?]/.test(tail)) steps.push({ at, open: 0, dur: Math.round(300 / (rate || 1)) });
-    }
-    return steps;
-}
-function setDealerMouth(open) {
-    if (!_dealer) return;
-    const m = _dealer.querySelector('.mouth');
-    if (!m) return;
-    m.style.height = (6 + open * 26).toFixed(1) + '%';
-    m.style.width = (24 - open * 6).toFixed(1) + '%';
-}
-function stopDealerMouth() {
-    clearTimeout(_dealerMouthTimer); _dealerMouthTimer = null; _dealerMouthPlan = null; _dealerMouthStep = 0;
-    setDealerMouth(0);
-}
-function startDealerMouth(text, rate) {
-    stopDealerMouth();
-    if (typeof REDUCED !== 'undefined' && REDUCED) return;
-    _dealerMouthPlan = planDealerMouth(text, rate);
-    _dealerMouthStep = 0;
-    const tick = () => {
-        if (!_dealerMouthPlan) { stopDealerMouth(); return; }
-        if (_dealerMouthStep >= _dealerMouthPlan.length) {
-            if (!_dealer || !_dealer.classList.contains('talking')) { stopDealerMouth(); return; }
-            _dealerMouthStep = 0;
-        }
-        const s = _dealerMouthPlan[_dealerMouthStep++];
-        setDealerMouth(s.open);
-        _dealerMouthTimer = setTimeout(tick, s.dur);
-    };
-    tick();
-}
-function dealerBeat(e) {
-    if (!_dealerMouthPlan || !e || typeof e.charIndex !== 'number') return;
-    const i = _dealerMouthPlan.findIndex(s => s.at >= e.charIndex);
-    if (i >= 0) _dealerMouthStep = i;
-}
+// The mouth's width narrows a little faster than the auctioneer's as it opens — a purely
+// cosmetic per-character tweak, passed through to character.js's setMouth/startMouth.
+const DEALER_MOUTH_OPTS = { widthBase: 24, widthSlope: 6 };
 
 // The TV-aware speaking path: everywhere else in the game calls the shared speak() (common.js)
 // with no mouth to drive. This one is used ONLY when isTvHost, wrapping the same utterance
 // with onstart/onend/onboundary hooks so the dealer's mouth and bubble track the real audio
 // rather than a guessed timer. Falls back to plain speak() if this device can't actually talk,
-// mirroring the same words in his bubble either way (see dealerBubble above).
+// mirroring the same words in his bubble either way (see charBubble above).
 function sayDealer(text) {
-    if (!isTvHost || !_dealer) { speak(text); return; }
-    dealerBubble(text);
+    if (!isTvHost || !_charEl) { speak(text); return; }
+    charBubble(text);
     // No voice on this device (or the toggle is off): mime the line for as long as it would
     // have taken, rather than standing stock still under a speech bubble — which reads as
     // broken, not silent.
     if (!canSpeak()) {
-        dealerTalk(true);
-        startDealerMouth(text, 1);
-        setTimeout(() => dealerTalk(false), Math.min(9000, Math.max(1500, text.length * 72)));
+        charTalk(true);
+        startMouth(text, 1, DEALER_MOUTH_OPTS);
+        setTimeout(() => charTalk(false), Math.min(9000, Math.max(1500, text.length * 72)));
         return;
     }
     try {
         speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
         u.rate = 1.02;
-        u.onstart = () => { dealerTalk(true); startDealerMouth(text, u.rate); };
-        u.onend = () => { dealerTalk(false); dealerBubbleOff(); };
-        u.onboundary = dealerBeat;
-        u.onerror = () => dealerTalk(false);
+        u.onstart = () => { charTalk(true); startMouth(text, u.rate, DEALER_MOUTH_OPTS); };
+        u.onend = () => { charTalk(false); charBubbleOff(); };
+        u.onboundary = charBeat;
+        u.onerror = () => charTalk(false);
         speechSynthesis.speak(u);
     } catch (e) {}
 }
@@ -1103,14 +1025,7 @@ function hdrHTML(sub) {
 function renderSpinner(msg) { return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`; }
 function errHTML() { return uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''; }
 
-function qrSVG(url) {
-    try {
-        const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
-        const n = qr.getModuleCount(), m = 2, size = n + m * 2; let rects = '';
-        for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg"><rect width="${size}" height="${size}" fill="#f5ecd9"/><g fill="#3d0f17">${rects}</g></svg>`;
-    } catch (e) { return ''; }
-}
+function qrSVG(url) { return qrModulesSVG(url, '#f5ecd9', '#3d0f17'); }
 function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
 
 function renderHome() {

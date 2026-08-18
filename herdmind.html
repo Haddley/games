@@ -483,21 +483,7 @@ function normAnswer(s) {
 }
 
 // ── QR code (themed SVG) ──
-function qrSVG(url) {
-    try {
-        const qr = qrcode(0, 'M');
-        qr.addData(url);
-        qr.make();
-        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
-        let rects = '';
-        for (let r = 0; r < n; r++)
-            for (let c = 0; c < n; c++)
-                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
-            `<rect width="${size}" height="${size}" fill="#fffdf2"/>` +
-            `<g fill="#22321c">${rects}</g></svg>`;
-    } catch (e) { return ''; }
-}
+function qrSVG(url) { return qrModulesSVG(url, '#fffdf2', '#22321c'); }
 
 // ── Confetti ──
 const CONFETTI_COLS = ['#4ade80', '#f472b6', '#fde047', '#86efac', '#f9a8d4', '#f8f4e3'];
@@ -927,19 +913,20 @@ function connectedPlayers() {
     return H.players.filter(p => (p.id === myId ? (isHost && !isTvHost) : !!guestConns[p.id]));
 }
 
-// ── 👑 captain (TV-host rooms) ──────────────────────────────────────────────
+// ── 👑 captain (TV-host rooms), "the judge" in this game's own theming ──────
 // The captain is the first *CONNECTED* player, not simply H.players[0]: a captain
 // whose phone drops mid-game must not stall the room. Their slot survives the drop
 // (zombie takeover by name), so when they rejoin they're first again and the crown
 // comes straight back.
-function capName() { return isTvHost ? (capPlayer()?.name || null) : null; }
 // The crown moved — push the change out.
 function capSync(prevId) {
     if (!isTvHost || H.phase === 'lobby') return;      // lobby re-broadcasts anyway
     if ((capPlayer()?.id || null) !== prevId) broadcastAll();
 }
-function judgePlayer() { return isTvHost ? (connectedPlayers()[0] || H.players[0] || null) : null; }
-function judgeName() { return isTvHost ? (judgePlayer()?.name || null) : null; }
+// Thin wrappers around common.js's shared capPlayer() — the TV-gate is already baked in
+// there, so no need to repeat it; this game just calls its captain "the judge".
+function judgePlayer() { return capPlayer(); }
+function judgeName() { return judgePlayer()?.name || null; }
 
 function hostAddPlayer(id, name, avatar) {
     if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
@@ -1639,14 +1626,8 @@ function renderLobbyH() {
     ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
     <div class="card highlight">
         <div class="slbl">Scan to join — or share the code</div>
-        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        ${typeof hostInviteHTML === 'function' ? hostInviteHTML(roomCode, joinURL()) : ''}
         <div class="room-code">${esc(roomCode)}</div>
-        <div class="share-row">
-            <button class="btn btn-g btn-sm"
-                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
-            <button class="btn btn-g btn-sm"
-                onclick="navigator.share&&navigator.share({title:'Join Herd Mind',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
-        </div>
     </div>
     <div class="card">
         <div class="slbl">The herd (${H.players.length}/${MAX_PLAYERS})</div>

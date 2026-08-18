@@ -480,20 +480,7 @@ function boardHTML(d) {
 }
 
 // ── QR code ──
-function qrSVG(url) {
-    try {
-        const qr = qrcode(0, 'M');
-        qr.addData(url); qr.make();
-        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
-        let rects = '';
-        for (let r = 0; r < n; r++)
-            for (let c = 0; c < n; c++)
-                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
-            `<rect width="${size}" height="${size}" fill="#fff7e2"/>` +
-            `<g fill="#2a2008">${rects}</g></svg>`;
-    } catch (e) { return ''; }
-}
+function qrSVG(url) { return qrModulesSVG(url, '#fff7e2', '#2a2008'); }
 
 // ═══════════════════════════════════════════
 // AUDIO — procedural honey-swing + buzzer SFX
@@ -1608,14 +1595,8 @@ function renderLobbyH() {
     ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
     <div class="card highlight">
         <div class="slbl">Scan to join — or share the code</div>
-        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        ${typeof hostInviteHTML === 'function' ? hostInviteHTML(roomCode, joinURL()) : ''}
         <div class="room-code">${esc(roomCode)}</div>
-        <div class="share-row">
-            <button class="btn btn-g btn-sm"
-                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
-            <button class="btn btn-g btn-sm"
-                onclick="navigator.share&&navigator.share({title:'Join Buzzin!',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
-        </div>
         <div style="font-size:.68rem;color:var(--muted);text-align:center">Put the TV screen up with code <b style="color:var(--gold)">${esc(roomCode)}</b></div>
     </div>
     <div class="card">

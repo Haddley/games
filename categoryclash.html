@@ -404,21 +404,7 @@ function normAns(s) {
 }
 
 // ── QR code (themed SVG) ──
-function qrSVG(url) {
-    try {
-        const qr = qrcode(0, 'M');
-        qr.addData(url);
-        qr.make();
-        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
-        let rects = '';
-        for (let r = 0; r < n; r++)
-            for (let c = 0; c < n; c++)
-                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
-            `<rect width="${size}" height="${size}" fill="#fffbe6"/>` +
-            `<g fill="#1a1040">${rects}</g></svg>`;
-    } catch (e) { return ''; }
-}
+function qrSVG(url) { return qrModulesSVG(url, '#fffbe6', '#1a1040'); }
 
 // ── Confetti ──
 const CONFETTI_COLS = ['#ffe14d', '#22d3ee', '#f472b6', '#4ade80', '#a78bfa', '#f1edff'];
@@ -1574,14 +1560,8 @@ function renderLobbyH() {
     ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
     <div class="card highlight">
         <div class="slbl">Scan to join — or share the code</div>
-        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        ${typeof hostInviteHTML === 'function' ? hostInviteHTML(roomCode, joinURL()) : ''}
         <div class="room-code">${esc(roomCode)}</div>
-        <div class="share-row">
-            <button class="btn btn-g btn-sm"
-                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
-            <button class="btn btn-g btn-sm"
-                onclick="navigator.share&&navigator.share({title:'Join Category Clash',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
-        </div>
         <div style="font-size:.66rem;color:var(--muted);text-align:center">Open the TV screen on a big display with code <b style="color:var(--letter)">${esc(roomCode)}</b></div>
     </div>
     <div class="card">

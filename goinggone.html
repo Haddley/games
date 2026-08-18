@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="common.js?v=20260817-0cff424"></script><script src="fx.js?v=20260817-0cff424"></script><script src="audio.js?v=20260817-0cff424"></script>
-    <script src="p2p.js?v=20260817-0cff424"></script>
+    <script src="p2p.js?v=20260817-0cff424"></script><script src="character.js?v=20260817-0cff424"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
@@ -503,7 +503,7 @@
         /* HIS SPEECH BUBBLE. Wide as the screen allows, about as tall as he is, and filled on
            EVERY line whether or not the device can actually speak — which is the point: on a
            Fire TV, where Web Speech does not exist at all, this is how he still says it. */
-        #auct-bubble {
+        #auctioneer-bubble {
             position: fixed; z-index: 11; pointer-events: none;
             left: calc(3vmin + var(--ah, 18vmin) * .86 + 3vmin);
             right: 4vmin; bottom: 2.5vmin; min-height: calc(var(--ah, 18vmin) * .74);
@@ -515,20 +515,20 @@
             opacity: 0; transition: opacity .18s ease;
             display: none;      /* …and NOT on a phone: this is the television's auctioneer */
         }
-        body.viewer-mode #auct-bubble { display: flex; }
-        body.viewer-mode #auct-bubble.on { opacity: 1; }
+        body.viewer-mode #auctioneer-bubble { display: flex; }
+        body.viewer-mode #auctioneer-bubble.on { opacity: 1; }
         /* the tail, pointing back at the man */
-        #auct-bubble::after {
+        #auctioneer-bubble::after {
             content: ''; position: absolute; left: -2.2vmin; bottom: 3.5vmin;
             border: 1.2vmin solid transparent; border-right-color: var(--gold);
         }
-        #auct-bubble::before {
+        #auctioneer-bubble::before {
             content: ''; position: absolute; left: -1.5vmin; bottom: 3.5vmin; z-index: 1;
             border: 1.2vmin solid transparent; border-right-color: #fdf7ff;
         }
         /* a long line simply sets itself smaller rather than overflowing */
-        #auct-bubble.long { font-size: 2.4vmin; }
-        #auct-bubble.vlong { font-size: 2vmin; }
+        #auctioneer-bubble.long { font-size: 2.4vmin; }
+        #auctioneer-bubble.vlong { font-size: 2vmin; }
 
         #voice-hint {
             position: fixed; left: 50%; bottom: 2.4vmin; transform: translateX(-50%); z-index: 12;
@@ -1838,21 +1838,7 @@ function lotArtHTML(l, imgStyle, emojiStyle) {
         onerror="this.style.display='none';this.nextElementSibling.style.display='';">` + emoji(';display:none');
 }
 
-function qrSVG(url) {
-    try {
-        const qr = qrcode(0, 'M');
-        qr.addData(url);
-        qr.make();
-        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
-        let rects = '';
-        for (let r = 0; r < n; r++)
-            for (let c = 0; c < n; c++)
-                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
-            `<rect width="${size}" height="${size}" fill="#fdf6ec"/>` +
-            `<g fill="#241333">${rects}</g></svg>`;
-    } catch (e) { return ''; }
-}
+function qrSVG(url) { return qrModulesSVG(url, '#fdf6ec', '#241333'); }
 
 // ── Confetti ──
 const CONFETTI_COLS = ['#e8b75a', '#b478e0', '#4ade80', '#22d3ee', '#f472b6', '#f6eefb'];
@@ -2275,7 +2261,7 @@ function voiceScore(v) {
     if (/^en[-_]GB/i.test(lang)) s += 1;          // a saleroom accent, all else equal
     return s;
 }
-function shutUp() { try { speechSynthesis.cancel(); } catch (e) {} auctTalk(false); }
+function shutUp() { try { speechSynthesis.cancel(); } catch (e) {} charTalk(false); }
 const voicesAvailable = () => {
     try { return speechSynthesis.getVoices().length > 0; } catch (e) { return false; }
 };
@@ -2286,41 +2272,19 @@ const voicesAvailable = () => {
 // events rather than a timer, so it is synchronised to the audio actually playing rather than to
 // a guess about how long a sentence takes — which would drift the moment a voice reads at a
 // different rate, and they all do.
-let _auct = null;
+// mountCharacter/charBubble/charBubbleOff/charTalk/planMouth/setMouth/stopMouth/startMouth/
+// charBeat now live in character.js — extracted once Blackjack's dealer became a second,
+// near-identical consumer of this exact mechanism (see character.js's own comment). What
+// stays here: this character's own art/CSS/positioning, and the voice-picking/watchdog
+// machinery below (speakNow), which is genuinely goinggone-specific.
 function mountAuctioneer() {
-    if (_auct || !document.body) return;
-    _auct = document.createElement('div');
-    _auct.id = 'auctioneer';
-    _auct.innerHTML = `<div class="au">
+    mountCharacter('auctioneer', `<div class="au">
         <div class="head"><div class="hair"></div><div class="eye l"></div><div class="eye r"></div><div class="mouth"></div></div>
         <div class="torso"><div class="tie"></div></div>
         <div class="arm"><div class="gav"></div></div>
         <div class="desk"></div>
-    </div>`;
-    document.body.appendChild(_auct);
-    const b = document.createElement('div');
-    b.id = 'auct-bubble';
-    b.setAttribute('aria-live', 'polite');
-    document.body.appendChild(b);
+    </div>`);
 }
-
-// What he is saying, in writing. Shown for every line the auctioneer utters, and shown even when
-// the device cannot utter it — a Fire TV has no speech voices at all, so without this he simply
-// stands there. Reading time is generous: a line nobody can hear has to be readable from a sofa.
-let _bubbleTimer = null;
-function bubble(text, ms) {
-    const el = $id('auct-bubble');
-    if (!el || !text) return;
-    clearTimeout(_bubbleTimer);
-    el.textContent = text;
-    el.classList.toggle('long', text.length > 60);
-    el.classList.toggle('vlong', text.length > 120);
-    el.classList.add('on');
-    // ~14 characters a second, with a floor and a ceiling
-    const hold = ms || Math.min(9000, Math.max(2200, text.length * 72));
-    _bubbleTimer = setTimeout(() => el.classList.remove('on'), hold);
-}
-function bubbleOff() { clearTimeout(_bubbleTimer); const el = $id('auct-bubble'); if (el) el.classList.remove('on'); }
 // A browser will not speak on a page nobody has touched, and a television is exactly that page:
 // the attract mode runs for hours and nobody ever clicks it. There is no way around the policy,
 // so the least it can do is stop being a mystery — one tap and he starts calling.
@@ -2335,7 +2299,7 @@ const VOICE_REASONS = {
 };
 let _hintTimer = null;
 function voiceHint(reason) {
-    if (!_auct) return;
+    if (!_charEl) return;
     clearTimeout(_hintTimer);
     let el = $id('voice-hint');
     if (!reason) { if (el) el.remove(); return; }
@@ -2367,94 +2331,19 @@ function voiceDiag() {
 // have taken. Otherwise he stands stock still with a speech bubble over his head, which reads as
 // broken rather than as silent.
 function mimeLine(text) {
-    if (!_auct || REDUCED) return;
-    auctTalk(true);
+    if (!_charEl || REDUCED) return;
+    charTalk(true);
     startMouth(text, 1);
     clearTimeout(_mimeTimer);
-    _mimeTimer = setTimeout(() => auctTalk(false), Math.min(9000, Math.max(1500, text.length * 72)));
+    _mimeTimer = setTimeout(() => charTalk(false), Math.min(9000, Math.max(1500, text.length * 72)));
 }
 let _mimeTimer = null;
 
-function auctTalk(on) { if (_auct) _auct.classList.toggle('talking', !!on); if (!on) stopMouth(); }
-
-// ── the mouth ──
-// Driven by the WORDS, not by a timer at a fixed rate. Speech engines give you onstart and (in
-// most browsers) onboundary per word, but nothing about shape — so the plan is built from the
-// text itself: one step per syllable, opened by the vowel in that syllable, and CLOSED at
-// punctuation, which is what makes a full stop read as a full stop. onboundary, where it fires,
-// re-anchors the plan against the real audio so it cannot drift over a long line.
-let _mouthTimer = null, _mouthPlan = null, _mouthStep = 0;
-// An average English syllable at rate 1. Erring LONG is the safe direction: onend always stops
-// the mouth, so a plan that outlives the audio costs nothing, while one that finishes early
-// leaves him mouthing silence — and if it does run out mid-sentence the plan simply loops.
-const SYL_MS = 210;
-
-// Exported shape so the test can assert the plan rather than watch a face.
-function planMouth(text, rate) {
-    const steps = [];
-    const re = /\S+/g;
-    let m;
-    while ((m = re.exec(text || ''))) {
-        const at = m.index, word = m[0];
-        const letters = word.replace(/[^a-z']/gi, '').toLowerCase();
-        const vowels = letters.match(/[aeiouy]+/g) || [];
-        const syl = Math.max(1, vowels.length);
-        for (let k = 0; k < syl; k++) {
-            const v = vowels[Math.min(k, vowels.length - 1)] || 'a';
-            // how far the jaw drops for this syllable — "aw" is not "ee"
-            const open = /^[ao]/.test(v) ? 1 : /^[eu]/.test(v) ? 0.66 : 0.42;
-            steps.push({ at, open, dur: Math.round(SYL_MS / (rate || 1)) });
-        }
-        const tail = word.slice(-1);
-        if (/[,;:—-]/.test(tail)) steps.push({ at, open: 0, dur: Math.round(150 / (rate || 1)) });
-        else if (/[.!?]/.test(tail)) steps.push({ at, open: 0, dur: Math.round(300 / (rate || 1)) });
-    }
-    return steps;
-}
-
-function setMouth(open) {
-    if (!_auct) return;
-    const m = _auct.querySelector('.mouth');
-    if (!m) return;
-    m.style.height = (6 + open * 26).toFixed(1) + '%';
-    // a wide-open mouth is also a narrower one — otherwise it reads as a letterbox
-    m.style.width = (26 - open * 7).toFixed(1) + '%';
-}
-
-function stopMouth() {
-    clearTimeout(_mouthTimer); _mouthTimer = null; _mouthPlan = null; _mouthStep = 0;
-    setMouth(0);
-}
-
-function startMouth(text, rate) {
-    stopMouth();
-    if (REDUCED) return;
-    _mouthPlan = planMouth(text, rate);
-    _mouthStep = 0;
-    const tick = () => {
-        if (!_mouthPlan) { stopMouth(); return; }
-        if (_mouthStep >= _mouthPlan.length) {
-            // still talking? a slower voice than we estimated — go round again rather than
-            // closing his mouth while sound is still coming out of it
-            if (!_auct || !_auct.classList.contains('talking')) { stopMouth(); return; }
-            _mouthStep = 0;
-        }
-        const s = _mouthPlan[_mouthStep++];
-        setMouth(s.open);
-        _mouthTimer = setTimeout(tick, s.dur);
-    };
-    tick();
-}
-
-// the engine tells us which character it has reached — jump the plan to that word
-function auctBeat(e) {
-    if (!_mouthPlan || !e || typeof e.charIndex !== 'number') return;
-    const i = _mouthPlan.findIndex(s => s.at >= e.charIndex);
-    if (i >= 0) _mouthStep = i;
-}
+// mountCharacter/charBubble/charBubbleOff/charTalk/planMouth/setMouth/stopMouth/startMouth/
+// charBeat now live in character.js (see mountAuctioneer's comment above).
 function auctBang() {
-    if (!_auct || REDUCED) return;
-    _auct.classList.remove('bang'); void _auct.offsetWidth; _auct.classList.add('bang');
+    if (!_charEl || REDUCED) return;
+    _charEl.classList.remove('bang'); void _charEl.offsetWidth; _charEl.classList.add('bang');
 }
 
 // The auction has always moved on, so a new line CANCELS the old one rather than queueing behind
@@ -2504,11 +2393,11 @@ function speakNow(text, opts, withVoice) {
         u.volume = opts.vol === undefined ? 1 : opts.vol;
         let started = false;
         // his mouth is tied to THIS utterance, not to a timer
-        u.onstart = () => { started = true; clearTimeout(_speechWatch); voiceHint(false); auctTalk(true); startMouth(text, u.rate); };
-        u.onend = () => { auctTalk(false); bubbleOff(); };
-        u.onboundary = auctBeat;                      // per-word, where the browser offers it
+        u.onstart = () => { started = true; clearTimeout(_speechWatch); voiceHint(false); charTalk(true); startMouth(text, u.rate); };
+        u.onend = () => { charTalk(false); charBubbleOff(); };
+        u.onboundary = charBeat;                      // per-word, where the browser offers it
         u.onerror = e => {
-            auctTalk(false);
+            charTalk(false);
             const why = e && e.error;
             if (why === 'canceled' || why === 'interrupted') return;   // we did that on purpose
             _lastSpeechError = why;
@@ -2537,7 +2426,7 @@ function say(text, opts = {}) {
     if (!text) return;
     // The writing comes first and unconditionally. Whether the device can speak is a separate
     // question, and on the one that cannot this is the whole performance.
-    bubble(text);
+    charBubble(text);
     if (!canSpeak()) { mimeLine(text); return; }
     try {
         duckMusic(opts.duck || 1.4);

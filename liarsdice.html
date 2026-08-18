@@ -994,17 +994,7 @@ function pirateAvatar(name) {
 }
 
 // Themed QR (bone parchment) for the join / TV lobby
-function qrSVG(url) {
-    try {
-        const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
-        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
-        let rects = '';
-        for (let r = 0; r < n; r++) for (let c = 0; c < n; c++)
-            if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
-            `<rect width="${size}" height="${size}" fill="#e9dcbe"/><g fill="#2a1d12">${rects}</g></svg>`;
-    } catch (e) { return ''; }
-}
+function qrSVG(url) { return qrModulesSVG(url, '#e9dcbe', '#2a1d12'); }
 
 // ═══════════════════════════════════════════════
 //  GAME LOGIC (dice / bid rules)
@@ -2336,13 +2326,9 @@ function screenLobbyHost() {
     <div class="hdr"><h1>Liar's Dice</h1><div class="sub">Gather yer crew</div></div>
     <div class="card">
       <div class="slbl">Scan to come aboard — or share the code</div>
-      <div class="qr-box">${qrSVG(url)}</div>
+      ${typeof hostInviteHTML === 'function' ? hostInviteHTML(code, url) : ''}
       <div class="room-code">${code}</div>
-      <div class="share-row" style="grid-template-columns:1fr 1fr 1fr">
-        <button class="btn btn-g btn-sm" onclick="navigator.clipboard.writeText('${esc(code)}').then(()=>alert('Copied!'))">📋 Code</button>
-        <button class="btn btn-g btn-sm" onclick="navigator.clipboard.writeText('${esc(url)}').then(()=>alert('Link copied!'))">🔗 Link</button>
-        <button class="btn btn-g btn-sm" onclick="navigator.clipboard.writeText('${esc(viewUrl)}').then(()=>alert('Scoreboard link copied!'))">📺 Scoreboard</button>
-      </div>
+      <button class="btn btn-g btn-sm btn-full" style="margin-top:8px" onclick="navigator.clipboard.writeText('${esc(viewUrl)}').then(()=>alert('Scoreboard link copied!'))">📺 Copy scoreboard link</button>
       <div class="slbl">Crew (${count})</div>
       <div class="player-list">${names}</div>
       <div class="tog-row" style="margin:10px 0 14px">

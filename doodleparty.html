@@ -384,21 +384,7 @@ function lev1(a, b) {
 }
 
 // ── QR code (themed SVG) ──
-function qrSVG(url) {
-    try {
-        const qr = qrcode(0, 'M');
-        qr.addData(url);
-        qr.make();
-        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
-        let rects = '';
-        for (let r = 0; r < n; r++)
-            for (let c = 0; c < n; c++)
-                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
-            `<rect width="${size}" height="${size}" fill="#fffdf6"/>` +
-            `<g fill="#201a3a">${rects}</g></svg>`;
-    } catch (e) { return ''; }
-}
+function qrSVG(url) { return qrModulesSVG(url, '#fffdf6', '#201a3a'); }
 
 // ── Confetti ──
 const CONFETTI_COLS = ['#f472b6', '#facc15', '#22d3ee', '#4ade80', '#a78bfa', '#f1efff'];
@@ -830,6 +816,20 @@ function capSync(prevId) {
     tvHostSync();
 }
 
+// A player IS their peer id, and a refresh mints a new one — see common.js's rekeyPlayerId
+// for why every reference has to move at once, not just H.players. H.cur.drawerId is a
+// NESTED scalar (rekeyPlayerId's `scalars` only reaches top-level H[k]) and H.guessed is an
+// array of {id, ms} objects rather than an id-keyed map, so both need a line of their own;
+// H.turnList is a plain array of ids, which the shared helper covers directly.
+function hostRekeyPlayer(player, newId) {
+    const old = player.id;
+    if (!old || old === newId) return;
+    player.id = newId;
+    if (H.cur && H.cur.drawerId === old) H.cur.drawerId = newId;
+    H.guessed.forEach(g => { if (g.id === old) g.id = newId; });
+    if (typeof rekeyPlayerId === 'function') rekeyPlayerId(H, old, newId, { arrays: ['turnList'] });
+}
+
 function hostAddPlayer(id, name) {
     if (H.players.find(p => p.id === id) || H.players.length >= MAX_PLAYERS) return;
     H.players.push({
@@ -939,13 +939,12 @@ function setupGuestConn(conn) {
                 const zombie = typeof claimSeat === 'function'
                     ? claimSeat(H.players, msg, conn.peer, guestConns, H.phase === 'lobby')
                     : H.players.find(p => msg.cid && p.cid === msg.cid && p.id !== conn.peer);
-                if (zombie) {
-                    // keep turn ownership if the drawer reconnects
-                    if (H.cur && H.cur.drawerId === zombie.id) H.cur.drawerId = conn.peer;
-                    H.turnList = H.turnList.map(id => id === zombie.id ? conn.peer : id);
-                    H.guessed.forEach(g => { if (g.id === zombie.id) g.id = conn.peer; });
-                    zombie.id = conn.peer;
-                } else hostAddPlayer(conn.peer, name);
+                // A brand-new join mid-round would inflate guessTotal() (it counts
+                // connectedPlayers() live) for a turn that's already under way — the round
+                // would then wait on a guess from someone who never saw the word revealed.
+                // Only a RETURNING device (a zombie takeover) may join outside the lobby.
+                if (zombie) hostRekeyPlayer(zombie, conn.peer);
+                else if (H.phase === 'lobby') hostAddPlayer(conn.peer, name);
                 const p2 = H.players.find(p => p.id === conn.peer);
                 if (p2 && msg.cid) p2.cid = msg.cid;          // this device now owns the slot
                 if (!p2) { send(conn, lobbyMsg()); break; }
@@ -1816,14 +1815,8 @@ function renderLobbyH() {
     ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
     <div class="card highlight">
         <div class="slbl">Scan to join — or share the code</div>
-        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        ${typeof hostInviteHTML === 'function' ? hostInviteHTML(roomCode, joinURL()) : ''}
         <div class="room-code">${esc(roomCode)}</div>
-        <div class="share-row">
-            <button class="btn btn-g btn-sm"
-                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
-            <button class="btn btn-g btn-sm"
-                onclick="navigator.share&&navigator.share({title:'Join Doodle Party',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
-        </div>
         <div style="font-size:.66rem;color:var(--muted);text-align:center">Open the TV screen on a big display with code <b style="color:var(--yellow)">${esc(roomCode)}</b></div>
     </div>
     <div class="card">

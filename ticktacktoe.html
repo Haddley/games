@@ -702,6 +702,9 @@
          the shared reconnect curtain + 📡 relay watcher from it. Every use is guarded,
          so a stale/missing p2p.js can't break the page. -->
     <script src="p2p.js?v=20260817-0cff424"></script>
+    <!-- fx.js: only for startConfetti() on a win — burst()/popText() stay this game's own
+         inline versions (later script wins), matched to its own .pt/.pop CSS. -->
+    <script src="fx.js?v=20260817-0cff424"></script>
     <script>
         'use strict';
         typeof mountScene === 'function' && mountScene('tictactoe', 'body.tv-mode #app');   // ambient X/O scene along the bottom of the big screen
@@ -1076,24 +1079,10 @@
         function tttCid() { return typeof clientId === 'function' ? clientId() : null; }
         function tttWatchRelay(conn) { if (typeof p2pWatchRelay === 'function') p2pWatchRelay(conn); }
         function tttCurtain(on) { if (typeof p2pCurtain === 'function') p2pCurtain(on); }
-        function tttEsc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        // esc() comes from common.js — this used to be a byte-identical local copy (tttEsc).
 
         // ── QR code (themed SVG) — copied from cornerthemarket.html ──
-        function qrSVG(url) {
-            try {
-                const qr = qrcode(0, 'M');
-                qr.addData(url);
-                qr.make();
-                const n = qr.getModuleCount(), m = 2, size = n + m * 2;
-                let rects = '';
-                for (let r = 0; r < n; r++)
-                    for (let c = 0; c < n; c++)
-                        if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-                return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
-                    `<rect width="${size}" height="${size}" fill="#fffbeb"/>` +
-                    `<g fill="#0d172a">${rects}</g></svg>`;
-            } catch (e) { return ''; }
-        }
+        function qrSVG(url) { return qrModulesSVG(url, '#fffbeb', '#0d172a'); }
 
         const App = {
             peer: null,
@@ -1227,6 +1216,19 @@
                 setMusic(screenName === 'game' ? 'game' : 'lobby');
             },
 
+            // This game's peers are hand-rolled (its own class-based connection code, not
+            // p2p.js's hostPeer/joinPeer — see CLAUDE.md), so it must fire the two GA4 events
+            // those helpers fire for every other game itself, or ticktacktoe silently never
+            // reports room_created/room_joined at all.
+            trackRoomCreated() {
+                if (this._roomTracked) return;   // 'open' can refire after a broker reconnect
+                this._roomTracked = true;
+                if (typeof trackEvent === 'function') trackEvent('room_created', { game: typeof gameSlug === 'function' ? gameSlug() : '' });
+            },
+            trackRoomJoined() {
+                if (typeof trackEvent === 'function') trackEvent('room_joined', { game: typeof gameSlug === 'function' ? gameSlug() : '' });
+            },
+
             generateRoomCode() {
                 const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
                 let code = '';
@@ -1255,7 +1257,7 @@
                 this.peer = new Peer(this.roomCode, TTT_PEER_OPTS);
 
                 this.peer.on('open', () => {
-                    console.log('Host peer created with ID:', this.roomCode);
+                    this.trackRoomCreated();
                 });
 
                 // A second connection from the SAME device is the same opponent walking
@@ -1341,6 +1343,7 @@
                         tttCurtain(false);
                         tttWatchRelay(this.connection);
                         if (typeof rememberRoom === 'function') rememberRoom(this.roomCode, 'player');
+                        if (!isRejoin) this.trackRoomJoined();   // not a mid-game auto-rejoin
                         this.setupConnection(false);
                     });
 
@@ -1368,7 +1371,9 @@
 
             setupConnection(resuming) {
                 sJoin();
+                this._oppSeen = Date.now();
                 this.connection.on('data', (data) => {
+                    this._oppSeen = Date.now();      // ANY message is proof of life, not just 'hb'
                     this.handleMessage(data);
                 });
 
@@ -1390,6 +1395,11 @@
                         this.startGame();
                         this.connection.send({ type: 'start', hostName: this.playerName });
                     }
+                    // Send our own heartbeat too — see below — so a guest whose HOST vanishes
+                    // silently has the same proof-of-life signal the guest already gives us.
+                    if (typeof startHeartbeat === 'function') startHeartbeat(() => {
+                        try { this.connection.send({ type: 'hb' }); } catch (e) {}
+                    });
                 } else {
                     // Announce ourselves. A phone-host ignores this (it drives via 'start');
                     // a TV host uses it to assign us a role (X or O) — or to give us back
@@ -1402,6 +1412,30 @@
                         try { this.connection.send({ type: 'hb' }); } catch (e) {}
                     });
                 }
+                this.startOppWatchdog();
+            },
+
+            // conn.on('close') does NOT fire for a force-quit, a dead battery or a killed tab
+            // (measured elsewhere in this repo: zero close events across 75s) — so without
+            // this, an opponent who silently vanishes mid-match leaves the other phone staring
+            // at a board waiting for a move that will never come, with no signal anything is
+            // wrong and no way out. Only for a genuine two-phone 1v1 room (`_tvRoom` covers
+            // both the TV knockout tournament and a TV-assigned role, which already have their
+            // own seat-presence handling — see tvSetupConn/isPresent).
+            startOppWatchdog() {
+                clearInterval(this._oppWatchdog);
+                this._oppWatchdog = setInterval(() => {
+                    if (this._tvRoom || this._leaving) return;
+                    const stale = this._oppSeen && (Date.now() - this._oppSeen) > (typeof PRESENCE_MS === 'number' ? PRESENCE_MS : 13000);
+                    if (!stale) return;
+                    clearInterval(this._oppWatchdog);
+                    if (this.isHost && this._gameLive) {
+                        this.showModal('Opponent Disconnected', 'Your opponent seems to have lost their connection.', 'Back to Lobby');
+                        this.elements.modalBtn.textContent = 'Back to Lobby';
+                    } else if (!this.isHost && !this.isViewer && this._linked) {
+                        this.handleDisconnect();      // same recovery path as a clean close
+                    }
+                }, 3000);
             },
 
             handleMessage(data) {
@@ -1982,6 +2016,7 @@
             cleanup() {
                 clearTimeout(this._endModalT);
                 clearTimeout(this._viewerT);
+                clearInterval(this._oppWatchdog);
                 this._leaving = true;
                 this._linked = false;
                 this._gameLive = false;
@@ -2078,7 +2113,7 @@
 
                 if (typeof forgetRoom === 'function') forgetRoom();   // hosting: this tab is nobody's guest
                 this.peer = new Peer(this.roomCode, TTT_PEER_OPTS);
-                this.peer.on('open', () => { console.log('TV host room:', this.roomCode); });
+                this.peer.on('open', () => { this.trackRoomCreated(); });
                 this.peer.on('connection', (conn) => {
                     conn.on('open', () => this.tvSetupConn(conn));
                 });
@@ -2280,11 +2315,7 @@
                 const T = this.tour;
                 if (!T || T.live || T.seats.length < 2) return;
                 T.seats.forEach(s => { s.eliminated = false; });
-                const order = T.seats.filter(s => s.conn).map(s => s.i);
-                for (let i = order.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    const t = order[i]; order[i] = order[j]; order[j] = t;
-                }
+                const order = shuffle(T.seats.filter(s => s.conn).map(s => s.i));
                 let size = 1; while (size < order.length) size *= 2;
                 const slots = order.slice();
                 while (slots.length < size) slots.push(null);        // byes
@@ -2518,17 +2549,17 @@
                     const playing = live && (T.x === seatIx || T.o === seatIx);
                     const mark = playing ? (T.x === seatIx ? '❌' : '⭕') : (won ? '✔' : '');
                     return `<div class="nm${won ? ' won' : ''}${lost ? ' lost' : ''}">
-                        <span>${tttEsc(s ? s.name : '')}</span><span class="mk">${mark}</span></div>`;
+                        <span>${esc(s ? s.name : '')}</span><span class="mk">${mark}</span></div>`;
                 };
                 host.innerHTML = T.rounds.map((round, ri) => `
                     <div class="rd">
-                        <div class="rdt">${tttEsc(this.tvRoundName(ri))}</div>
+                        <div class="rdt">${esc(this.tvRoundName(ri))}</div>
                         ${round.map((mt, mi) => {
                             const live = T.live && ri === T.r && mi === T.m;
                             return `<div class="mt${live ? ' live' : ''}">${plate(mt.a, mt, live, ri)}${plate(mt.b, mt, live, ri)}</div>`;
                         }).join('')}
                     </div>`).join('')
-                    + (T.champion != null ? `<div class="champ">🏆<br>${tttEsc(this.tvName(T.champion))}</div>` : '');
+                    + (T.champion != null ? `<div class="champ">🏆<br>${esc(this.tvName(T.champion))}</div>` : '');
                 host.classList.add('on');
             },
 
@@ -2576,6 +2607,7 @@
                     this.connection.on('open', () => {
                         tttWatchRelay(this.connection);
                         if (typeof rememberRoom === 'function') rememberRoom(code, 'viewer');
+                        this.trackRoomJoined();
                         tttSend(this.connection, { type: 'spectate' });
                     });
                     this.connection.on('data', (msg) => this.viewerOnData(msg));

@@ -427,21 +427,7 @@ function norm(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, '
 function blankify(q) { return esc(q).replace('___', '<span class="blank">______</span>'); }
 
 // ── QR code ──
-function qrSVG(url) {
-    try {
-        const qr = qrcode(0, 'M');
-        qr.addData(url);
-        qr.make();
-        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
-        let rects = '';
-        for (let r = 0; r < n; r++)
-            for (let c = 0; c < n; c++)
-                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
-            `<rect width="${size}" height="${size}" fill="#fdf8ec"/>` +
-            `<g fill="#2b2140">${rects}</g></svg>`;
-    } catch (e) { return ''; }
-}
+function qrSVG(url) { return qrModulesSVG(url, '#fdf8ec', '#2b2140'); }
 
 // ── Confetti ──
 const CONFETTI_COLS = ['#ffc857', '#ff5d8f', '#4ade80', '#a78bfa', '#f6efdf'];
@@ -1337,16 +1323,25 @@ function applyMsg(msg) {
             render();
             break;
         }
-        case 'lie_phase':
+        case 'lie_phase': {
+            // A rejoin (page refresh, or a brief drop caught by joinPeer's auto-rejoin) gets
+            // sent the SAME phase again via phaseSnapshotFor — qid tells a genuinely new round
+            // apart from a resync of the one already in progress. Without this check, every
+            // resync wiped whatever the player had already typed/locked in and restarted their
+            // countdown from LIE_SECS, even mid-round.
+            const fresh = !D || D.type !== 'lie_phase' || D.qid !== msg.qid;
             D = msg;
-            myLieText = ''; lieLocked = false; foundTruth = false;
-            myVote = null; voteLocked = false;
             ui = 'lie';
             setMusic('scheme');
-            if (msg.num === 1) sStart(); else sPhase();
-            render();
-            startCountdown(msg.seconds);
+            if (fresh) {
+                myLieText = ''; lieLocked = false; foundTruth = false;
+                myVote = null; voteLocked = false;
+                if (msg.num === 1) sStart(); else sPhase();
+                render();
+                startCountdown(msg.seconds);
+            } else render();
             break;
+        }
         case 'lie_ack':
             if (msg.status === 'truth') {
                 foundTruth = true; myLieText = '';
@@ -1360,15 +1355,19 @@ function applyMsg(msg) {
                 if (ui === 'lie') render();
             }
             break;
-        case 'vote_phase':
+        case 'vote_phase': {
+            const fresh = !D || D.type !== 'vote_phase' || D.qid !== msg.qid;
             D = msg;
-            myVote = null; voteLocked = false;
             ui = 'vote';
             setMusic('vote');
-            sFlip();
-            render();
-            startCountdown(msg.seconds);
+            if (fresh) {
+                myVote = null; voteLocked = false;
+                sFlip();
+                render();
+                startCountdown(msg.seconds);
+            } else render();
             break;
+        }
         case 'vote_ack':
             voteLocked = true; myVote = msg.key;
             musicIntensity = 2;   // vote cast — open up the mix while you wait

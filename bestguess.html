@@ -425,21 +425,7 @@ function winningSlot(slots, answer) {
 }
 
 // ── QR code (themed SVG) ──
-function qrSVG(url) {
-    try {
-        const qr = qrcode(0, 'M');
-        qr.addData(url);
-        qr.make();
-        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
-        let rects = '';
-        for (let r = 0; r < n; r++)
-            for (let c = 0; c < n; c++)
-                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
-            `<rect width="${size}" height="${size}" fill="#f0fdfa"/>` +
-            `<g fill="#101830">${rects}</g></svg>`;
-    } catch (e) { return ''; }
-}
+function qrSVG(url) { return qrModulesSVG(url, '#f0fdfa', '#101830'); }
 
 // ── Confetti ──
 const CONFETTI_COLS = ['#fbbf24', '#2dd4bf', '#f472b6', '#34d399', '#a78bfa', '#eef2ff'];

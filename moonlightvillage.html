@@ -375,21 +375,7 @@ const ROLES = {
 function $id(id) { return document.getElementById(id); }
 
 // ── QR code (themed SVG) ──
-function qrSVG(url) {
-    try {
-        const qr = qrcode(0, 'M');
-        qr.addData(url);
-        qr.make();
-        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
-        let rects = '';
-        for (let r = 0; r < n; r++)
-            for (let c = 0; c < n; c++)
-                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
-            `<rect width="${size}" height="${size}" fill="#fdf8ea"/>` +
-            `<g fill="#171a36">${rects}</g></svg>`;
-    } catch (e) { return ''; }
-}
+function qrSVG(url) { return qrModulesSVG(url, '#fdf8ea', '#171a36'); }
 
 // ── Confetti ──
 const CONFETTI_COLS = ['#f5e6b8', '#a78bfa', '#4ade80', '#fbbf24', '#22d3ee', '#e9eaf6'];
@@ -1510,11 +1496,6 @@ function hdrHTML(sub) {
 function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
 function isCaptain() { return !!(D && D.tvHost && D.captain && D.captain === myName); }
 function canDrive() { return (isHost && !isTvHost) || isCaptain(); }
-function roleChip(role) {
-    const r = ROLES[role];
-    return r ? `<span class="chip" style="color:${r.color};border-color:${r.color}55;background:${r.color}18">${r.emoji} ${r.name}</span>` : '';
-}
-
 function settingsSegsHTML(settings, expr) {
     const seg = (opts, curV, key) => `<div class="seg-row">${opts.map(o =>
         `<button class="btn btn-sm ${curV === o.v ? 'btn-p' : 'btn-g'}" onclick="${expr(`{${key}:${o.j}}`)}">${o.l}</button>`).join('')}</div>`;

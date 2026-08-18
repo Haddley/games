@@ -467,21 +467,7 @@ const AVATARS = ['🐮', '🐷', '🐔', '🐴', '🐰', '🦆', '🐶', '🐱',
 function $id(id) { return document.getElementById(id); }
 
 // ── QR code (themed SVG) ──
-function qrSVG(url) {
-    try {
-        const qr = qrcode(0, 'M');
-        qr.addData(url);
-        qr.make();
-        const n = qr.getModuleCount(), m = 2, size = n + m * 2;
-        let rects = '';
-        for (let r = 0; r < n; r++)
-            for (let c = 0; c < n; c++)
-                if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
-            `<rect width="${size}" height="${size}" fill="#fffdf5"/>` +
-            `<g fill="#182c20">${rects}</g></svg>`;
-    } catch (e) { return ''; }
-}
+function qrSVG(url) { return qrModulesSVG(url, '#fffdf5', '#182c20'); }
 
 // ── Confetti ──
 const CONFETTI_COLS = ['#fbbf24', '#4ade80', '#f472b6', '#60a5fa', '#f8f4e8'];
@@ -939,7 +925,7 @@ function broadcastLobby() {
 
 function railPlayers(extra) {
     return H.players.map(p => ({
-        name: p.name, avatar: p.avatar, score: p.score, delta: p.lastDelta,
+        id: p.id, name: p.name, avatar: p.avatar, score: p.score, delta: p.lastDelta,
         clue: (H.clues.find(c => c.id === p.id) || {}).word || null,
         voted: !!H.votes[p.id],
         turn: H.phase === 'clues' && H.turnOrder[H.turnIdx] === p.id,
@@ -990,7 +976,7 @@ function voteMsgFor(p) {
     return {
         type: 'vote_state', num: H.round, total: H.settings.rounds,
         amSheep: p ? p.id === H.sheepId : false,
-        players: H.players.map(q => ({ name: q.name, avatar: q.avatar, voted: !!H.votes[q.id] })),
+        players: H.players.map(q => ({ id: q.id, name: q.name, avatar: q.avatar, voted: !!H.votes[q.id] })),
         clues: H.clues.map(c => ({ name: c.name, avatar: c.avatar, word: c.word })),
         myVote: p ? (H.votes[p.id] || null) : null,
         votedCount: Object.keys(H.votes).length,
@@ -1008,8 +994,8 @@ function guessMsgFor(p) {
         ...capField(),
     };
 }
-function revealMsg() {
-    return { type: 'reveal', ...H.lastReveal, standings: standings(), ...capField() };
+function revealMsg(p) {
+    return { type: 'reveal', ...H.lastReveal, amSheep: p ? p.id === H.sheepId : false, standings: standings(), ...capField() };
 }
 function podiumMsg() {
     const most = k => H.players.filter(p => p[k] > 0).sort((a, b) => b[k] - a[k])[0];
@@ -1029,7 +1015,7 @@ function phaseSnapshotFor(p) {
         case 'discuss': return discussMsg(p);
         case 'vote': return voteMsgFor(p);
         case 'guess': return guessMsgFor(p);
-        case 'reveal': return revealMsg();
+        case 'reveal': return revealMsg(p);
         case 'podium': return podiumMsg();
         default: return lobbyMsg();
     }
@@ -1338,11 +1324,11 @@ function startVote() {
     hostSyncSelf(isTvHost ? null : voteMsgFor(H.players.find(p => p.id === myId)));
 }
 
-function hostVote(player, targetName) {
+function hostVote(player, targetId) {
     if (H.phase !== 'vote' || H.votes[player.id]) return;
-    const target = H.players.find(p => p.name === targetName);
+    const target = H.players.find(p => p.id === targetId);
     if (!target || target.id === player.id) return;
-    H.votes[player.id] = targetName;
+    H.votes[player.id] = targetId;
     broadcastPlayers(p => voteMsgFor(p));
     broadcastViewers(viewerSnapshot());
     hostSyncSelf(isTvHost ? null : voteMsgFor(H.players.find(p => p.id === myId)));
@@ -1361,10 +1347,10 @@ function tally() {
     const counts = {};
     Object.values(H.votes).forEach(t => { counts[t] = (counts[t] || 0) + 1; });
     // sheepdog counter: every correct finger pointed
-    H.players.forEach(p => { if (H.votes[p.id] === sheep.name) p.dog++; });
+    H.players.forEach(p => { if (H.votes[p.id] === H.sheepId) p.dog++; });
     const max = Math.max(0, ...Object.values(counts));
-    const tops = Object.keys(counts).filter(n => counts[n] === max);
-    const caught = tops.length === 1 && tops[0] === sheep.name;
+    const tops = Object.keys(counts).filter(id => counts[id] === max);
+    const caught = tops.length === 1 && tops[0] === H.sheepId;
     if (caught) {
         H.phase = 'guess';
         broadcastPlayers(p => guessMsgFor(p));
@@ -1392,16 +1378,16 @@ function finishReveal(caught, outcome, guessIdx) {
     H.lastReveal = {
         num: H.round, total: H.settings.rounds,
         theme: H.category.theme, words: H.category.words, secretIdx: H.secretIdx,
-        sheep: { name: sheep.name, avatar: sheep.avatar },
+        sheep: { id: sheep.id, name: sheep.name, avatar: sheep.avatar },
         caught, outcome, guessIdx,
-        votes: H.players.filter(p => H.votes[p.id]).map(p => ({ name: p.name, avatar: p.avatar, target: H.votes[p.id] })),
+        votes: H.players.filter(p => H.votes[p.id]).map(p => ({ id: p.id, name: p.name, avatar: p.avatar, target: H.votes[p.id] })),
         counts: Object.values(H.votes).reduce((m, t) => { m[t] = (m[t] || 0) + 1; return m; }, {}),
         isLast: H.round >= H.settings.rounds,
     };
     H.phase = 'reveal';
-    broadcastPlayers(revealMsg());
+    broadcastPlayers(p => revealMsg(p));
     broadcastViewers(viewerSnapshot());
-    hostSyncSelf(isTvHost ? null : revealMsg());
+    hostSyncSelf(isTvHost ? null : revealMsg(H.players.find(p => p.id === myId)));
 }
 
 function nextRound() {
@@ -1565,12 +1551,12 @@ function sendClue() {
         if (reason) { clueErr = reason; clueRejectFx(reason); }
     } else send(hostConn, { type: 'clue', word });
 }
-function sendVote(name) {
+function sendVote(targetId) {
     sVoteCast();
     if (isHost && !isTvHost) {
         const me = H.players.find(p => p.id === myId);
-        hostVote(me, name);
-    } else send(hostConn, { type: 'vote', target: name });
+        hostVote(me, targetId);
+    } else send(hostConn, { type: 'vote', target: targetId });
 }
 function sendGuess(idx) {
     if (isHost && !isTvHost) {
@@ -1900,14 +1886,8 @@ function renderLobbyH() {
     ${uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''}
     <div class="card highlight">
         <div class="slbl">Scan to join — or share the code</div>
-        <div class="qr-wrap">${qrSVG(joinURL())}</div>
+        ${typeof hostInviteHTML === 'function' ? hostInviteHTML(roomCode, joinURL()) : ''}
         <div class="room-code">${esc(roomCode)}</div>
-        <div class="share-row">
-            <button class="btn btn-g btn-sm"
-                onclick="navigator.clipboard&&navigator.clipboard.writeText(joinURL()).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy link',1500)})">📋 Copy link</button>
-            <button class="btn btn-g btn-sm"
-                onclick="navigator.share&&navigator.share({title:'Join The Odd Sheep',text:'Room code: ${esc(roomCode)}',url:joinURL()})">📤 Share</button>
-        </div>
         <div style="font-size:.68rem;color:var(--ink-soft);text-align:center">Open the TV screen on a big display with code <b>${esc(roomCode)}</b></div>
     </div>
     <div class="card">
@@ -2026,9 +2006,9 @@ function renderDiscuss() {
 
 function voteButtonsHTML(msg) {
     return msg.players.map((p, i) => {
-        if (p.name === myName) return '';
-        const picked = msg.myVote === p.name;
-        return `<button class="vote-btn${picked ? ' picked' : ''}" style="--i:${i}" ${msg.myVote ? 'disabled' : ''} onclick="sendVote('${esc(p.name).replace(/'/g, "\\'")}')">
+        if (p.id === myId) return '';
+        const picked = msg.myVote === p.id;
+        return `<button class="vote-btn${picked ? ' picked' : ''}" style="--i:${i}" ${msg.myVote ? 'disabled' : ''} onclick="sendVote('${p.id}')">
             <div class="pav">${esc(p.avatar)}</div><span>${esc(p.name)}</span>${picked ? '<span style="margin-left:auto">🫵</span>' : ''}
         </button>`;
     }).join('');
@@ -2067,7 +2047,7 @@ function renderGuess() {
 
 function renderReveal() {
     const meDelta = (D.standings.find(p => p.name === myName) || {}).delta || 0;
-    const amSheep = D.sheep && D.sheep.name === myName;
+    const amSheep = D.amSheep;
     let ico, vt, sub;
     if (!D.caught) {
         ico = '🐑💨'; vt = amSheep ? 'You escaped!' : `${D.sheep.name} escaped!`;
@@ -2246,11 +2226,11 @@ function renderViewerGuess() {
 function renderViewerReveal() {
     const counts = vD.counts || {};
     const total = Math.max(1, Object.values(counts).reduce((a, b) => a + b, 0));
-    const rows = (vD.players || []).filter(p => counts[p.name]).sort((a, b) => counts[b.name] - counts[a.name]).map(p => `
+    const rows = (vD.players || []).filter(p => counts[p.id]).sort((a, b) => counts[b.id] - counts[a.id]).map(p => `
         <div class="tally-row">
-            <div class="tally-name">${esc(p.avatar)} ${esc(p.name)}${vD.sheep.name === p.name ? ' 🐑' : ''}</div>
-            <div class="tally-bar-wrap"><div class="tally-bar" data-w="${Math.round(counts[p.name] / total * 100)}"></div></div>
-            <div class="tally-count">${counts[p.name]}</div>
+            <div class="tally-name">${esc(p.avatar)} ${esc(p.name)}${vD.sheep.id === p.id ? ' 🐑' : ''}</div>
+            <div class="tally-bar-wrap"><div class="tally-bar" data-w="${Math.round(counts[p.id] / total * 100)}"></div></div>
+            <div class="tally-count">${counts[p.id]}</div>
         </div>`).join('');
     let banner;
     if (!vD.caught) banner = `🐑💨 ${esc(vD.sheep.name)} ESCAPED${vD.outcome === 'tie' ? ' — tied vote!' : '!'} +150`;
@@ -2410,10 +2390,10 @@ function simVoteStep() {
     if (!targets.length) return;
     const t = targets[Math.floor(Math.random() * targets.length)];
     if (simMode === 'player' && p.id === myId) {
-        sendVote(t.name);                            // through the real phone path
-        if (!H.votes[p.id]) hostVote(p, t.name);     // fallback
+        sendVote(t.id);                              // through the real phone path
+        if (!H.votes[p.id]) hostVote(p, t.id);       // fallback
     } else {
-        hostVote(p, t.name);
+        hostVote(p, t.id);
     }
 }
 

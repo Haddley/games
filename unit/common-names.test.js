@@ -16,7 +16,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-const SHARED = ['common.js', 'p2p.js', 'fx.js', 'dice.js', 'audio.js', 'ambient.js', 'bracket.js', 'cards.js'];
+const SHARED = ['common.js', 'p2p.js', 'fx.js', 'dice.js', 'audio.js', 'ambient.js', 'bracket.js', 'cards.js', 'character.js'];
 const GAMES = fs.readdirSync(ROOT).filter(f => f.endsWith('.html'));
 
 // Top-level declarations only: a name indented by even one space is inside a function or block,

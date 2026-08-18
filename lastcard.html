@@ -829,7 +829,7 @@ function toastMilestones(list) {
         else if (/wins!/.test(m.text)) sWin();
         else if (/plays/.test(m.text)) sPlay();
     });
-    if (fresh.length) speak(fresh.map(m => m.speech).join(' '));
+    if (fresh.length) speak(joinSpeech(fresh.map(m => m.speech)));
     if (list.length) lastMilestoneSeq = Math.max(lastMilestoneSeq, ...list.map(m => m.seq));
 }
 
@@ -967,14 +967,7 @@ function hdrHTML(sub) {
 function renderSpinner(msg) { return `${hdrHTML()}<div class="connecting"><div class="spin"></div><div>${esc(msg)}</div></div>`; }
 function errHTML() { return uiErr ? `<div class="err">${esc(uiErr)}</div>` : ''; }
 
-function qrSVG(url) {
-    try {
-        const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
-        const n = qr.getModuleCount(), m = 2, size = n + m * 2; let rects = '';
-        for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) rects += `<rect x="${c + m}" y="${r + m}" width="1.05" height="1.05"/>`;
-        return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg"><rect width="${size}" height="${size}" fill="#fff"/><g fill="#12141c">${rects}</g></svg>`;
-    } catch (e) { return ''; }
-}
+function qrSVG(url) { return qrModulesSVG(url, '#fff', '#12141c'); }
 function joinURL() { return location.origin + location.pathname + '?room=' + roomCode; }
 
 function renderHome() {
@@ -1200,16 +1193,7 @@ function toggleVoice() {
     if (!voiceOn() && typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
 }
 function voiceOn() { return voicePref === null ? !!(isViewer || isTvHost) : voicePref !== '0'; }
-function canSpeak() { return voiceOn() && typeof speechSynthesis !== 'undefined'; }
-function speak(text) {
-    if (!canSpeak() || !text) return;
-    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 1.02; speechSynthesis.speak(u); } catch (e) {}
-}
-function syncVoiceBtn() { const b = document.getElementById('tog-voice'); if (b) b.classList.toggle('off', !voiceOn()); }
-function primeSpeech() {
-    if (typeof speechSynthesis === 'undefined') return;
-    try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {}
-}
+// canSpeak/speak/syncVoiceBtn/primeSpeech come from common.js — see its "spoken commentary" section.
 document.addEventListener('pointerdown', () => { ac(); if (AC && AC.state === 'suspended') AC.resume(); if (musicOn) startPad(); primeSpeech(); }, { once: true });
 
 // ── Theme (day/night) ──
